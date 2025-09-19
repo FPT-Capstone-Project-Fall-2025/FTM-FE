@@ -1,34 +1,26 @@
-import { useState } from 'react';
-import reactLogo from './assets/react.svg';
-import './App.css';
+import React from 'react'
+import { Provider } from 'react-redux'
+import { PersistGate } from 'redux-persist/integration/react'
+import { store, persistor } from './stores'
+import { AppRouter } from './routes/AppRouter';
+import { useAuthInitialization } from './hooks/useAuth'
+import LoadingScreen from './components/ui/LoadingScreen'
 
-function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount(count => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  );
+// App content component that uses auth hooks
+const AppContent: React.FC = () => {
+  useAuthInitialization()
+  return <AppRouter />
 }
 
-export default App;
+// Main App component
+const App: React.FC = () => {
+  return (
+    <Provider store={store}>
+      <PersistGate loading={<LoadingScreen />} persistor={persistor}>
+        <AppContent />
+      </PersistGate>
+    </Provider>
+  )
+}
+
+export default App
