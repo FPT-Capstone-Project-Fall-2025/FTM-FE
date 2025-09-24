@@ -1,54 +1,50 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useAppDispatch, useAppSelector } from '../hooks/redux'
-import { googleLogin, clearError, registerUser } from '@/stores/slices/authSlice'
-import GoogleSignInButton from '@/components/ui/GoogleSignInButton'
+import { EyeOff, Eye } from 'lucide-react'
 
 const RegisterPage: React.FC = () => {
-    const dispatch = useAppDispatch()
-    const navigate = useNavigate()
-    const { isLoading, error, isAuthenticated } = useAppSelector(state => state.auth)
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState('')
 
     const [formData, setFormData] = useState({
         name: '',
         email: '',
+        phone: '',
         password: '',
         confirmPassword: '',
         agreeToTerms: false
     })
 
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-    useEffect(() => {
-        if (isAuthenticated) {
-            navigate('/dashboard', { replace: true })
-        }
-        return () => {
-            dispatch(clearError())
-        }
-    }, [isAuthenticated, navigate, dispatch])
+
 
     const validateForm = () => {
         const errors: Record<string, string> = {}
 
         if (formData.name.trim().length < 2) {
-            errors.name = 'Name must be at least 2 characters'
+            errors.name = 'Họ và tên phải có ít nhất 2 ký tự'
         }
 
         if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            errors.email = 'Please enter a valid email address'
+            errors.email = 'Vui lòng nhập địa chỉ email hợp lệ'
+        }
+
+        if (!/^[0-9]{10,11}$/.test(formData.phone)) {
+            errors.phone = 'Số điện thoại phải có 10-11 chữ số'
         }
 
         if (formData.password.length < 6) {
-            errors.password = 'Password must be at least 6 characters'
+            errors.password = 'Mật khẩu phải có ít nhất 6 ký tự'
         }
 
         if (formData.password !== formData.confirmPassword) {
-            errors.confirmPassword = 'Passwords do not match'
+            errors.confirmPassword = 'Mật khẩu không khớp'
         }
 
         if (!formData.agreeToTerms) {
-            errors.agreeToTerms = 'You must agree to the terms and conditions'
+            errors.agreeToTerms = 'Bạn phải đồng ý với các điều khoản và điều kiện'
         }
 
         setValidationErrors(errors)
@@ -71,203 +67,177 @@ const RegisterPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (validateForm()) {
-            dispatch(registerUser({
-                name: formData.name,
-                email: formData.email,
-                password: formData.password
-            }))
+            setIsLoading(true)
+            try {
+                // Simulate API call
+                await new Promise(resolve => setTimeout(resolve, 2000))
+                console.log('Registration data:', {
+                    name: formData.name,
+                    email: formData.email,
+                    phone: formData.phone,
+                    password: formData.password
+                })
+                setError('')
+                // Here you would typically redirect or show success message
+            } catch (err) {
+                setError('Đăng ký không thành công. Vui lòng thử lại.')
+            } finally {
+                setIsLoading(false)
+            }
         }
     }
 
-    const handleGoogleSuccess = (token: string) => {
-        dispatch(googleLogin(token))
-    }
-
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#f5f5f5'
-        }}>
-            <div style={{
-                backgroundColor: 'white',
-                padding: '32px',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                width: '100%',
-                maxWidth: '400px'
-            }}>
-                <h2 style={{ textAlign: 'center', marginBottom: '24px' }}>Create Account</h2>
+        <>
+            <h2 className="text-white text-2xl font-bold text-center mb-8">TẠO TÀI KHOẢN</h2>
 
-                <GoogleSignInButton onSuccess={handleGoogleSuccess} />
+            {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+                    {error}
+                </div>
+            )}
 
-                <div style={{
-                    textAlign: 'center',
-                    margin: '16px 0',
-                    position: 'relative'
-                }}>
-                    <span style={{
-                        backgroundColor: 'white',
-                        padding: '0 16px',
-                        color: '#666'
-                    }}>or</span>
-                    <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: 0,
-                        right: 0,
-                        height: '1px',
-                        backgroundColor: '#ddd',
-                        zIndex: -1
-                    }} />
+            <div onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                        Họ và tên
+                    </label>
+                    <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
+                    />
+                    {validationErrors.name && (
+                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.name}</span>
+                    )}
                 </div>
 
-                {error && (
-                    <div style={{
-                        backgroundColor: '#fee',
-                        color: '#c33',
-                        padding: '12px',
-                        borderRadius: '4px',
-                        marginBottom: '16px',
-                        border: '1px solid #fcc'
-                    }}>
-                        {error}
-                    </div>
-                )}
+                <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                        Email
+                    </label>
+                    <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
+                    />
+                    {validationErrors.email && (
+                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.email}</span>
+                    )}
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', marginBottom: '4px' }}>Full Name</label>
-                        <input
-                            type="text"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleInputChange}
-                            required
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                border: `1px solid ${validationErrors.name ? '#c33' : '#ddd'}`,
-                                borderRadius: '4px',
-                                boxSizing: 'border-box'
-                            }}
-                        />
-                        {validationErrors.name && (
-                            <span style={{ color: '#c33', fontSize: '14px' }}>{validationErrors.name}</span>
-                        )}
-                    </div>
+                <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                        Số điện thoại
+                    </label>
+                    <input
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
+                    />
+                    {validationErrors.phone && (
+                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.phone}</span>
+                    )}
+                </div>
 
-                    <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', marginBottom: '4px' }}>Email</label>
+                <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                        Mật khẩu
+                    </label>
+                    <div className="relative">
                         <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleInputChange}
-                            required
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                border: `1px solid ${validationErrors.email ? '#c33' : '#ddd'}`,
-                                borderRadius: '4px',
-                                boxSizing: 'border-box'
-                            }}
-                        />
-                        {validationErrors.email && (
-                            <span style={{ color: '#c33', fontSize: '14px' }}>{validationErrors.email}</span>
-                        )}
-                    </div>
-
-                    <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', marginBottom: '4px' }}>Password</label>
-                        <input
-                            type="password"
+                            type={showPassword ? "text" : "password"}
                             name="password"
                             value={formData.password}
                             onChange={handleInputChange}
+                            placeholder="Nhập mật khẩu"
                             required
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                border: `1px solid ${validationErrors.password ? '#c33' : '#ddd'}`,
-                                borderRadius: '4px',
-                                boxSizing: 'border-box'
-                            }}
+                            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                         />
-                        {validationErrors.password && (
-                            <span style={{ color: '#c33', fontSize: '14px' }}>{validationErrors.password}</span>
-                        )}
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
                     </div>
+                    {validationErrors.password && (
+                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.password}</span>
+                    )}
+                </div>
 
-                    <div style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', marginBottom: '4px' }}>Confirm Password</label>
+                <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                        Xác nhận lại mật khẩu
+                    </label>
+                    <div className="relative">
                         <input
-                            type="password"
+                            type={showConfirmPassword ? "text" : "password"}
                             name="confirmPassword"
                             value={formData.confirmPassword}
                             onChange={handleInputChange}
+                            placeholder="Nhập mật khẩu"
                             required
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                border: `1px solid ${validationErrors.confirmPassword ? '#c33' : '#ddd'}`,
-                                borderRadius: '4px',
-                                boxSizing: 'border-box'
-                            }}
+                            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                         />
-                        {validationErrors.confirmPassword && (
-                            <span style={{ color: '#c33', fontSize: '14px' }}>{validationErrors.confirmPassword}</span>
-                        )}
+                        <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                            {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
                     </div>
+                    {validationErrors.confirmPassword && (
+                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.confirmPassword}</span>
+                    )}
+                </div>
 
-                    <div style={{ marginBottom: '24px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center' }}>
-                            <input
-                                type="checkbox"
-                                name="agreeToTerms"
-                                checked={formData.agreeToTerms}
-                                onChange={handleInputChange}
-                                style={{ marginRight: '8px' }}
-                            />
-                            I agree to the{' '}
-                            <Link to="/terms" style={{ color: '#007bff', textDecoration: 'none', marginLeft: '4px' }}>
-                                Terms and Conditions
-                            </Link>
-                        </label>
-                        {validationErrors.agreeToTerms && (
-                            <span style={{ color: '#c33', fontSize: '14px' }}>{validationErrors.agreeToTerms}</span>
-                        )}
-                    </div>
+                <div className="flex items-start">
+                    <input
+                        type="checkbox"
+                        name="agreeToTerms"
+                        checked={formData.agreeToTerms}
+                        onChange={handleInputChange}
+                        className="mt-1 mr-2 rounded"
+                    />
+                    <label className="text-white text-sm">
+                        Tôi đồng ý với các điều khoản và điều kiện
+                    </label>
+                </div>
+                {validationErrors.agreeToTerms && (
+                    <span className="text-red-200 text-sm block">{validationErrors.agreeToTerms}</span>
+                )}
 
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            backgroundColor: '#28a745',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: isLoading ? 'not-allowed' : 'pointer',
-                            opacity: isLoading ? 0.7 : 1
-                        }}
-                    >
-                        {isLoading ? 'Creating Account...' : 'Create Account'}
-                    </button>
-                </form>
+                <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isLoading}
+                    className="w-full bg-blue-800 hover:bg-blue-900 disabled:bg-blue-400 text-white font-bold py-4 px-6 rounded-lg transition-colors duration-200"
+                >
+                    {isLoading ? 'ĐANG TẠO TÀI KHOẢN...' : 'ĐĂNG KÝ'}
+                </button>
 
-                <p style={{ textAlign: 'center', marginTop: '24px' }}>
-                    Already have an account?{' '}
-                    <Link to="/login" style={{ color: '#007bff', textDecoration: 'none' }}>
-                        Sign In
-                    </Link>
-                </p>
             </div>
-        </div>
+
+            <div className="text-center mt-6">
+                <span className="text-white text-sm">Bạn đã có tài khoản? </span>
+                <button className="bg-white text-blue-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors duration-200">
+                    ĐĂNG NHẬP
+                </button>
+            </div>
+        </>
     )
 }
 
-export default RegisterPage;
+export default RegisterPage
