@@ -5,6 +5,10 @@ import { store, persistor } from './stores'
 import { AppRouter } from './routes/AppRouter';
 import { useAuthInitialization } from './hooks/useAuth'
 import LoadingScreen from './components/ui/LoadingScreen'
+import "@fontsource/montserrat";
+import "@fontsource/montserrat/500.css";
+import "@fontsource/montserrat/700.css";
+
 
 // App content component that uses auth hooks
 const AppContent: React.FC = () => {

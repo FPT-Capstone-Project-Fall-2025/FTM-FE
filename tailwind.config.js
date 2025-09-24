@@ -7,33 +7,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Add your custom colors here
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          500: '#3b82f6',
-          600: '#2563eb',
-          900: '#1e3a8a',
+          DEFAULT: "#2c6ddb",
         },
+        secondary: {
+          DEFAULT: "#044ac1",
+        },
+
+        darkBlue: "#000C30",    // Dark Blue
+        lightBlue: "#caedfa",   // Light-blue
+        error: "#d6040b",       // Error
+        green: "#30b01b",       // Green
+
+        white: "#FFFFFF",
+        black: "#000000",
+        gray: {
+          light: "#d6d6d6",     // Light_gray
+          DEFAULT: "#9ca3af",   // Gray
+          dark: "#707070",      // Dark_gray
+          extraLight: "#ebebeb", // Extra Light Gray
+        },
+
+        cyanLight: "#d6f2f5",        // Cyan Light
+        lightSecondary: "#f8f5f5",   // Light-Secondary
       },
       fontFamily: {
-        // Add custom fonts here
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
-      animation: {
-        // Add custom animations
-        'fade-in': 'fadeIn 0.5s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-      },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        slideUp: {
-          '0%': { transform: 'translateY(10px)', opacity: '0' },
-          '100%': { transform: 'translateY(0)', opacity: '1' },
-        },
+        sans: ["Montserrat", "sans-serif"], // default body
+        heading: ["Montserrat", "sans-serif"], // headings
       },
     },
   },
