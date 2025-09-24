@@ -1,6 +1,5 @@
 const authAPI = {
     login: async (email: string, password: string) => {
-        // Mock API call
         const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
