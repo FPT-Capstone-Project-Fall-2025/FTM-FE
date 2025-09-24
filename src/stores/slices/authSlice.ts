@@ -7,7 +7,7 @@ const initialState: AuthState = {
     user: null,
     token: null,
     refreshToken: null,
-    isAuthenticated: false,
+    isAuthenticated: true,
     isLoading: false,
     error: null,
 }

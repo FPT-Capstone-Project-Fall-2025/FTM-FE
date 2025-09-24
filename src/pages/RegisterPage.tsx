@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { EyeOff, Eye } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 const RegisterPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false)
@@ -89,7 +90,7 @@ const RegisterPage: React.FC = () => {
 
     return (
         <>
-            <h2 className="text-white text-2xl font-bold text-center mb-8">TẠO TÀI KHOẢN</h2>
+            <h2 className="text-white text-2xl font-bold text-center mb-6">TẠO TÀI KHOẢN</h2>
 
             {error && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
@@ -107,6 +108,7 @@ const RegisterPage: React.FC = () => {
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
+                        placeholder='Nhập họ và tên'
                         required
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                     />
@@ -124,6 +126,7 @@ const RegisterPage: React.FC = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
+                        placeholder='Nhập email'
                         required
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                     />
@@ -141,6 +144,7 @@ const RegisterPage: React.FC = () => {
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
+                        placeholder='Nhập số điện thoại'
                         required
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                     />
@@ -229,12 +233,14 @@ const RegisterPage: React.FC = () => {
                 </button>
 
             </div>
-
-            <div className="text-center mt-6">
-                <span className="text-white text-sm">Bạn đã có tài khoản? </span>
-                <button className="bg-white text-blue-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors duration-200">
+            <div className="mt-6 text-center">
+                <span className="text-blue-100">Bạn đã có tài khoản? </span>
+                <Link
+                    to="/login"
+                    className="inline-block px-6 py-2 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors duration-200"
+                >
                     ĐĂNG NHẬP
-                </button>
+                </Link>
             </div>
         </>
     )

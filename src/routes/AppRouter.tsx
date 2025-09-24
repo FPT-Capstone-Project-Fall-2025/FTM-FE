@@ -8,6 +8,7 @@ import NotFoundPage from '@/components/shared/NotFoundPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AdminPage from '@/pages/AdminPage'
 import AuthLayout from '@/components/layout/AuthLayout'
+import MainLayout from '@/components/layout/MainLayout'
 
 const router = createBrowserRouter([
   // Public routes
@@ -30,14 +31,14 @@ const router = createBrowserRouter([
     ],
   },
   /* Protected Routes */
-  {
-    path: '/dashboard',
-    element: (
-      <ProtectedRoute>
-        <DashboardPage />
-      </ProtectedRoute>
-    )
-  },
+  // {
+  //   path: '/dashboard',
+  //   element: (
+  //     <ProtectedRoute>
+  //       <DashboardPage />
+  //     </ProtectedRoute>
+  //   )
+  // },
   {
     path: '/admin',
     element: (
@@ -58,6 +59,14 @@ const router = createBrowserRouter([
   {
     path: '/unauthorized',
     element: <UnauthorizedPage />,
+  },
+  {
+    path: '/dashboard',
+    element: (
+      <MainLayout>
+        <DashboardPage />
+      </MainLayout>
+    ),
   },
   {
     path: '*',
