@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppSelector } from '../hooks/redux';
-import uploadImg from "@/assets/dashboard/import-image.png";
-import defaultPicture from "@/assets/dashboard/default-avatar.png";
-import provinceData from "@/assets/json/province.json";
-import wardData from "@/assets/json/ward.json";
+import uploadImg from '@/assets/dashboard/import-image.png';
+import defaultPicture from '@/assets/dashboard/default-avatar.png';
+import provinceData from '@/assets/json/province.json';
+import wardData from '@/assets/json/ward.json';
+import { EyeOff, Eye } from 'lucide-react';
 
 interface UserProfile {
   fullName: string;
@@ -37,89 +38,47 @@ interface Ward {
 }
 
 const DashboardPage: React.FC = () => {
-  // const dispatch = useAppDispatch();
-  const { user } = useAppSelector(state => state.auth);
-
-  // Eye icon components for password visibility
-  const EyeIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-    </svg>
-  );
-
-  const EyeOffIcon = () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-    </svg>
-  );
-
-  // Toggle password visibility functions
-  // Password visibility is handled by refs and the showPassword function above.
-
-  // Refs for direct DOM access to password inputs
-  const currentPasswordRef = useRef<HTMLInputElement | null>(null);
-  const newPasswordRef = useRef<HTMLInputElement | null>(null);
-  const confirmPasswordRef = useRef<HTMLInputElement | null>(null);
-
-  // Generic show/hide password that toggles input.type directly
-  const showPassword = (inputRef: React.RefObject<HTMLInputElement | null>) => {
-    if (!inputRef || !inputRef.current) return;
-    const el = inputRef.current;
-    if (el.type === 'password') {
-      el.type = 'text';
-    } else {
-      el.type = 'password';
-    }
-  };
-
-  // Date format helper functions
-        const formatDateForInput = (dateStr: string) => {
-    // Convert "dd/MM/yyyy" to "yyyy-MM-dd"
-    if (!dateStr || !dateStr.includes('/')) return dateStr;
-    const parts = dateStr.split('/');
-    if (parts.length !== 3) return dateStr;
-    const [day, month, year] = parts;
-    return `${year!}-${month!.padStart(2, '0')}-${day!.padStart(2, '0')}`;
-  };  const formatDateForDisplay = (dateStr: string) => {
-    // Convert "yyyy-MM-dd" to "dd/MM/yyyy"
-    if (!dateStr || !dateStr.includes('-')) return dateStr;
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
-  const [activeTab, setActiveTab] = useState('personal');
+  const { user, isLoading: isUserLoading } = useAppSelector(state => state.auth);
   const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<UserProfile>({
+    fullName: '',
+    nickname: '',
+    email: '',
+    phone: '',
+    occupation: '',
+    gender: '',
+    birthDate: '',
+    address: '',
+    province: '',
+    ward: '',
+    picture: '',
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
-  const [popupType, setPopupType] = useState<string>('');
+  const [popupType, setPopupType] = useState<'change-avatar' | 'change-password' | null>(null);
   const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
-  const [, setPasswordToggle] = useState(false);
-  // Password visibility will be controlled via input refs and `showPassword`.
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('personal');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // DOM DATA 
-  const [profileData, setProfileData] = useState<UserProfile>({
-    fullName: 'Nguyễn Ngọc A',
-    nickname: 'A',
-    email: 'an@example.com',
-    phone: '0777456770',
-    occupation: 'Designer',
-    gender: 'Nữ',
-    birthDate: '09/02/1992',
-    address: '516 Cách Mạng Tháng 8',
-    province: 'Đà Nẵng',
-    ward: 'Cẩm Lệ',
-    picture: '',
-  });
-  // DOM DATA 
+  const formatDateForInput = (dateStr: string) => {
+    if (!dateStr || !/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return '';
+    const [day, month, year] = dateStr.split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
 
-  const [editData, setEditData] = useState<UserProfile>(profileData);
-  const [isLoading, setIsLoading] = useState(false);
+  const formatDateForDisplay = (dateStr: string) => {
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
 
   // Province and Ward management
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -129,9 +88,21 @@ const DashboardPage: React.FC = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
   useEffect(() => {
-    // Load user profile data from Redux store or API
     if (user) {
-      // Update profileData with actual user data
+      const initialFormData = {
+        fullName: user.fullName || '',
+        nickname: user.nickname || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        occupation: user.occupation || '',
+        gender: user.gender || 'Nam',
+        birthDate: user.birthDate ? formatDateForDisplay(user.birthDate) : '',
+        address: user.address || '',
+        province: user.province || '',
+        ward: user.ward || '',
+        picture: user.picture || '',
+      };
+      setFormData(initialFormData);
     }
   }, [user]);
 
@@ -142,27 +113,36 @@ const DashboardPage: React.FC = () => {
         setIsLoadingLocation(true);
 
         // Process provinces data
-        const processedProvinces = Object.entries(provinceData as Record<string, any>).map(([code, data]) => ({
-          code,
-          ...data
-        })).sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true }));
+        const processedProvinces = Object.entries(
+          provinceData as Record<string, any>
+        )
+          .map(([code, data]) => ({
+            code,
+            ...data,
+          }))
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, 'vi', { numeric: true })
+          );
 
         // Process wards data
-        const processedWards = Object.entries(wardData as Record<string, any>).map(([code, data]) => ({
+        const processedWards = Object.entries(
+          wardData as Record<string, any>
+        ).map(([code, data]) => ({
           code,
-          ...data
+          ...data,
         }));
 
         setProvinces(processedProvinces);
         setWards(processedWards);
 
         // Set default province if user has one
-        const currentProvince = profileData.province;
-        const foundProvince = processedProvinces.find(p => p.name === currentProvince);
+        const currentProvince = formData.province;
+        const foundProvince = processedProvinces.find(
+          p => p.name === currentProvince
+        );
         if (foundProvince) {
           setSelectedProvinceCode(foundProvince.code);
         }
-
       } catch (error) {
         console.error('Error loading location data:', error);
       } finally {
@@ -171,12 +151,14 @@ const DashboardPage: React.FC = () => {
     };
 
     loadLocationData();
-  }, []);
+  }, [formData.province]);
 
   // Update available wards when province changes
   useEffect(() => {
     if (selectedProvinceCode && wards.length > 0) {
-      const filteredWards = wards.filter(ward => ward.parent_code === selectedProvinceCode);
+      const filteredWards = wards.filter(
+        ward => ward.parent_code === selectedProvinceCode
+      );
       setAvailableWards(filteredWards);
     } else {
       setAvailableWards([]);
@@ -188,16 +170,16 @@ const DashboardPage: React.FC = () => {
     setIsEditing(false); // Reset editing mode when switching tabs
   };
 
-  const openPopup = (popupType: string) => {
-    setPopupType(popupType);
+  const openPopup = (type: 'change-avatar' | 'change-password') => {
+    setPopupType(type);
     setShowPopup(true);
   };
 
   const closePopup = () => {
     setShowPopup(false);
-    setPopupType('');
+    setPopupType(null);
     setSelectedAvatar(null);
-    setAvatarPreview('');
+    setAvatarPreview(null);
     setPasswordData({
       currentPassword: '',
       newPassword: '',
@@ -209,67 +191,56 @@ const DashboardPage: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    
-    // Skip province updates here since it's handled by province selection
-    if (name === 'province') {
-      return;
-    }
-    
-    // Handle date conversion for birthDate
-    let finalValue = value;
-    if (name === 'birthDate' && value.includes('-')) {
-      // Convert from "yyyy-MM-dd" to "dd/MM/yyyy" for internal storage
-      finalValue = formatDateForDisplay(value);
-    }
-    
-    setEditData(prev => ({
+    setFormData(prev => ({
       ...prev,
-      [name]: finalValue,
+      [name]: value,
     }));
   };
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const provinceCode = e.target.value;
     const selectedProvince = provinces.find(p => p.code === provinceCode);
-    
+
     setSelectedProvinceCode(provinceCode);
-    setEditData(prev => ({
+    setFormData(prev => ({
       ...prev,
-      province: selectedProvince ? selectedProvince.name : '',
+      province: selectedProvince ? selectedProvince.name_with_type : '',
       ward: '', // Reset ward when province changes
     }));
   };
 
   const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const wardNameWithType = e.target.value;
-    const selectedWard = availableWards.find(w => w.name_with_type === wardNameWithType);
-    
-    setEditData(prev => ({
+    setFormData(prev => ({
       ...prev,
-      ward: selectedWard ? selectedWard.name_with_type : wardNameWithType,
+      ward: wardNameWithType,
     }));
   };
 
   const handleSave = () => {
     setIsLoading(true);
-    // Find the selected province name from the code
-    const selectedProvince = provinces.find(p => p.code === selectedProvinceCode);
-    const provinceName = selectedProvince ? selectedProvince.name_with_type : editData.province;
-    
-    setProfileData({
-      ...editData,
-      province: provinceName
-    });
+    // TODO: Dispatch action to save formData to the backend
+    console.log('Saving data:', formData);
     setIsEditing(false);
-    // TODO: Save to backend
-    // Simulate async save
     setTimeout(() => setIsLoading(false), 500);
   };
 
   const handleCancel = () => {
-    setEditData(profileData);
-    setSelectedProvinceCode('');
-    setAvailableWards([]);
+    if (user) {
+      setFormData({
+        fullName: user.fullName || '',
+        nickname: user.nickname || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        occupation: user.occupation || '',
+        gender: user.gender || 'Nam',
+        birthDate: user.birthDate ? formatDateForDisplay(user.birthDate) : '',
+        address: user.address || '',
+        province: user.province || '',
+        ward: user.ward || '',
+        picture: user.picture || '',
+      });
+    }
     setIsEditing(false);
   };
 
@@ -317,17 +288,22 @@ const DashboardPage: React.FC = () => {
       }
 
       // Check file type
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      const allowedTypes = [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+      ];
       if (!allowedTypes.includes(file.type)) {
         alert('Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF');
         return;
       }
 
       setSelectedAvatar(file);
-      
+
       // Create preview
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = e => {
         setAvatarPreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
@@ -339,14 +315,9 @@ const DashboardPage: React.FC = () => {
       // TODO: Implement avatar upload API call
       console.log('Uploading avatar...', selectedAvatar);
       setIsLoading(true);
-      // Update the picture in profileData with the preview URL
-      const updatedProfileData = {
-        ...profileData,
-        picture: avatarPreview
-      };
-      setProfileData(updatedProfileData);
-      setEditData(updatedProfileData);
-      
+      if (avatarPreview) {
+        setFormData(prev => ({ ...prev, picture: avatarPreview }));
+      }
       alert('Cập nhật ảnh đại diện thành công!');
       setTimeout(() => {
         setIsLoading(false);
@@ -358,9 +329,14 @@ const DashboardPage: React.FC = () => {
   const handleAvatarRemove = () => {
     // TODO: Implement avatar removal API call
     console.log('Removing avatar...');
+    setFormData(prev => ({ ...prev, picture: '' }));
     alert('Xóa ảnh đại diện thành công!');
     closePopup();
   };
+
+  if (isUserLoading) {
+    return <div>Loading user data...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -427,15 +403,15 @@ const DashboardPage: React.FC = () => {
 
                   {/* Profile Picture */}
                   <div className="mb-6">
-                    <div 
+                    <div
                       className="w-32 h-32 mx-auto rounded-full bg-gray-200 overflow-hidden mb-4 cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => openPopup('change-avatar')}
                     >
                       <img
-                        src={profileData.picture || defaultPicture}
+                        src={formData.picture || defaultPicture}
                         alt="Profile"
                         className="w-full h-full object-cover"
-                        onError={(e) => {
+                        onError={e => {
                           (e.target as HTMLImageElement).src = defaultPicture;
                         }}
                       />
@@ -465,9 +441,7 @@ const DashboardPage: React.FC = () => {
                       <input
                         type="text"
                         name="fullName"
-                        value={
-                          isEditing ? editData.fullName : profileData.fullName
-                        }
+                        value={formData.fullName}
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -482,7 +456,7 @@ const DashboardPage: React.FC = () => {
                       <input
                         type="email"
                         name="email"
-                        value={isEditing ? editData.email : profileData.email}
+                        value={formData.email}
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -497,9 +471,7 @@ const DashboardPage: React.FC = () => {
                       <input
                         type="text"
                         name="nickname"
-                        value={
-                          isEditing ? editData.nickname : profileData.nickname
-                        }
+                        value={formData.nickname}
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -514,7 +486,7 @@ const DashboardPage: React.FC = () => {
                       <input
                         type="tel"
                         name="phone"
-                        value={isEditing ? editData.phone : profileData.phone}
+                        value={formData.phone}
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -529,11 +501,7 @@ const DashboardPage: React.FC = () => {
                       <input
                         type="text"
                         name="occupation"
-                        value={
-                          isEditing
-                            ? editData.occupation
-                            : profileData.occupation
-                        }
+                        value={formData.occupation}
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -548,7 +516,7 @@ const DashboardPage: React.FC = () => {
                       {isEditing ? (
                         <select
                           name="gender"
-                          value={editData.gender}
+                          value={formData.gender}
                           onChange={handleInputChange}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
@@ -559,7 +527,7 @@ const DashboardPage: React.FC = () => {
                       ) : (
                         <input
                           type="text"
-                          value={profileData.gender}
+                          value={formData.gender}
                           disabled
                           className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                         />
@@ -575,9 +543,9 @@ const DashboardPage: React.FC = () => {
                         type={isEditing ? 'date' : 'text'}
                         name="birthDate"
                         value={
-                          isEditing 
-                            ? formatDateForInput(editData.birthDate) 
-                            : profileData.birthDate
+                          isEditing
+                            ? formatDateForInput(formData.birthDate)
+                            : formData.birthDate
                         }
                         onChange={handleInputChange}
                         disabled={!isEditing}
@@ -599,7 +567,7 @@ const DashboardPage: React.FC = () => {
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
                         >
                           <option value="">Chọn tỉnh/thành phố</option>
-                          {provinces.map((province) => (
+                          {provinces.map(province => (
                             <option key={province.code} value={province.code}>
                               {province.name_with_type}
                             </option>
@@ -608,7 +576,7 @@ const DashboardPage: React.FC = () => {
                       ) : (
                         <input
                           type="text"
-                          value={profileData.province}
+                          value={formData.province}
                           disabled
                           className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                         />
@@ -623,15 +591,17 @@ const DashboardPage: React.FC = () => {
                       {isEditing ? (
                         <select
                           name="ward"
-                          value={editData.ward}
+                          value={formData.ward}
                           onChange={handleWardChange}
                           disabled={isLoadingLocation || !selectedProvinceCode}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
                         >
                           <option value="">
-                            {!selectedProvinceCode ? "Chọn tỉnh/thành phố trước" : "Chọn quận/huyện"}
+                            {!selectedProvinceCode
+                              ? 'Chọn tỉnh/thành phố trước'
+                              : 'Chọn quận/huyện'}
                           </option>
-                          {availableWards.map((ward) => (
+                          {availableWards.map(ward => (
                             <option key={ward.code} value={ward.name_with_type}>
                               {ward.name_with_type}
                             </option>
@@ -640,7 +610,7 @@ const DashboardPage: React.FC = () => {
                       ) : (
                         <input
                           type="text"
-                          value={profileData.ward}
+                          value={formData.ward}
                           disabled
                           className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                         />
@@ -655,9 +625,7 @@ const DashboardPage: React.FC = () => {
                       <input
                         type="text"
                         name="address"
-                        value={
-                          isEditing ? editData.address : profileData.address
-                        }
+                        value={formData.address}
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -698,34 +666,13 @@ const DashboardPage: React.FC = () => {
                         type="button"
                         onClick={() => {
                           setIsEditing(true);
-                          // Find and set the current province code when starting to edit
-                          const currentProvince = provinces.find(p => 
-                            p.name_with_type === profileData.province ||
-                            p.name === profileData.province ||
-                            p.name_with_type.includes(profileData.province) ||
-                            profileData.province.includes(p.name)
+                          const currentProvince = provinces.find(
+                            p =>
+                              p.name_with_type === formData.province ||
+                              p.name === formData.province
                           );
                           if (currentProvince) {
                             setSelectedProvinceCode(currentProvince.code);
-                            // Load wards for the current province
-                            const provinceWards = wards.filter(ward => 
-                              ward.parent_code === currentProvince.code
-                            );
-                            setAvailableWards(provinceWards);
-                            
-                            // Find and set the current ward in the correct format
-                            const currentWard = provinceWards.find(ward => 
-                              ward.name === profileData.ward || 
-                              ward.name_with_type === profileData.ward ||
-                              ward.name_with_type.includes(profileData.ward) ||
-                              profileData.ward.includes(ward.name)
-                            );
-                            if (currentWard) {
-                              setEditData(prev => ({
-                                ...prev,
-                                ward: currentWard.name_with_type
-                              }));
-                            }
                           }
                         }}
                         className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -744,13 +691,14 @@ const DashboardPage: React.FC = () => {
         {showPopup && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-              
               {/* Avatar Change Popup */}
               {popupType === 'change-avatar' && (
                 <>
                   {/* Header */}
                   <div className="bg-blue-600 text-white p-6 rounded-t-lg">
-                    <h2 className="text-xl font-bold text-center">THAY ĐỔI ẢNH ĐẠI DIỆN</h2>
+                    <h2 className="text-xl font-bold text-center">
+                      THAY ĐỔI ẢNH ĐẠI DIỆN
+                    </h2>
                   </div>
 
                   {/* Content */}
@@ -777,21 +725,31 @@ const DashboardPage: React.FC = () => {
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 cursor-pointer transition-colors min-h-[200px] flex flex-col items-center justify-center">
                           {avatarPreview ? (
                             <div className="space-y-3">
-                              <img 
-                                src={avatarPreview} 
-                                alt="Preview" 
+                              <img
+                                src={avatarPreview}
+                                alt="Preview"
                                 className="w-24 h-24 mx-auto rounded-full object-cover"
                               />
-                              <p className="text-sm text-gray-600">Nhấn để chọn ảnh khác</p>
+                              <p className="text-sm text-gray-600">
+                                Nhấn để chọn ảnh khác
+                              </p>
                             </div>
                           ) : (
                             <div className="space-y-3">
                               <div className="w-8 h-8 mx-auto rounded-lg flex items-center justify-center">
-                                 <img src={uploadImg} alt="Upload" className="w-full h-full object-contain" />
+                                <img
+                                  src={uploadImg}
+                                  alt="Upload"
+                                  className="w-full h-full object-contain"
+                                />
                               </div>
                               <div>
-                                <p className="text-gray-600 font-medium mb-1">Kéo thả ảnh vào đây</p>
-                                <p className="text-gray-500 text-sm">hoặc nhấn để chọn ảnh</p>
+                                <p className="text-gray-600 font-medium mb-1">
+                                  Kéo thả ảnh vào đây
+                                </p>
+                                <p className="text-gray-500 text-sm">
+                                  hoặc nhấn để chọn ảnh
+                                </p>
                               </div>
                             </div>
                           )}
@@ -804,11 +762,27 @@ const DashboardPage: React.FC = () => {
                       <div className="flex items-center space-x-3">
                         <button
                           type="button"
-                          onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
+                          onClick={() =>
+                            (
+                              document.querySelector(
+                                'input[type="file"]'
+                              ) as HTMLInputElement
+                            )?.click()
+                          }
                           className="flex-1 flex items-center justify-center space-x-1 px-4 py-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
                         >
-                          <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          <svg
+                            className="w-5 h-5 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                            />
                           </svg>
                           <span className="font-medium">Chọn ảnh đại diện</span>
                         </button>
@@ -817,8 +791,18 @@ const DashboardPage: React.FC = () => {
                           onClick={handleAvatarRemove}
                           className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
                           </svg>
                           <span className="font-medium">Xóa ảnh đại diện</span>
                         </button>
@@ -855,8 +839,8 @@ const DashboardPage: React.FC = () => {
                       Thay đổi mật khẩu
                     </h2>
                     <p className="text-blue-100 text-sm text-center mt-2">
-                      Việc thay đổi mật khẩu yêu cầu bạn phải đăng xuất và đăng nhập
-                      lại.
+                      Việc thay đổi mật khẩu yêu cầu bạn phải đăng xuất và đăng
+                      nhập lại.
                     </p>
                   </div>
 
@@ -865,114 +849,99 @@ const DashboardPage: React.FC = () => {
                     <div className="space-y-4">
                       {/* Current Password */}
                       <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Mật khẩu hiện tại
-                    </label>
-                    <div className="relative">
-                      <input
-                        ref={currentPasswordRef}
-                        type="password"
-                        name="currentPassword"
-                        value={passwordData.currentPassword}
-                        onChange={handlePasswordChange}
-                        placeholder="Nhập mật khẩu hiện tại"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
-                      />
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Mật khẩu hiện tại
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showCurrentPassword ? 'text' : 'password'}
+                            name="currentPassword"
+                            value={passwordData.currentPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Nhập mật khẩu hiện tại"
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword(prev => !prev)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                          >
+                            {showCurrentPassword ? <Eye /> : <EyeOff />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* New Password */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Mật khẩu mới
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? 'text' : 'password'}
+                            name="newPassword"
+                            value={passwordData.newPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Nhập mật khẩu mới"
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(prev => !prev)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                          >
+                            {showNewPassword ? <Eye /> : <EyeOff />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Confirm Password */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Xác nhận Mật khẩu mới
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            name="confirmPassword"
+                            value={passwordData.confirmPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Nhập mật khẩu mới"
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(prev => !prev)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                          >
+                            {showConfirmPassword ? <Eye /> : <EyeOff />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end space-x-3 mt-8">
                       <button
                         type="button"
-                        onClick={() => {
-                          showPassword(currentPasswordRef);
-                          setPasswordToggle(prev => !prev);
-                        }}
-                        aria-label={currentPasswordRef.current?.type === 'password' ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                        onClick={closePopup}
+                        className="px-6 py-2 text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
                       >
-                        {currentPasswordRef.current?.type === 'password' ? <EyeIcon /> : <EyeOffIcon />}
+                        HỦY
                       </button>
-                    </div>
-                  </div>
-
-                  {/* New Password */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Mật khẩu mới
-                    </label>
-                    <div className="relative">
-                      <input
-                        ref={newPasswordRef}
-                        type="password"
-                        name="newPassword"
-                        value={passwordData.newPassword}
-                        onChange={handlePasswordChange}
-                        placeholder="Nhập mật khẩu mới"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
-                      />
                       <button
                         type="button"
-                        onClick={() => {
-                          showPassword(newPasswordRef);
-                          setPasswordToggle(prev => !prev);
-                        }}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                        aria-label={newPasswordRef.current?.type === 'password' ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
+                        onClick={handlePasswordSave}
+                        disabled={
+                          !passwordData.currentPassword ||
+                          !passwordData.newPassword ||
+                          !passwordData.confirmPassword ||
+                          isLoading
+                        }
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
                       >
-                        {newPasswordRef.current?.type === 'password' ? <EyeIcon /> : <EyeOffIcon />}
+                        LƯU
                       </button>
-                    </div>
-                  </div>
-
-                  {/* Confirm Password */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Xác nhận Mật khẩu mới
-                    </label>
-                    <div className="relative">
-                      <input
-                        ref={confirmPasswordRef}
-                        type="password"
-                        name="confirmPassword"
-                        value={passwordData.confirmPassword}
-                        onChange={handlePasswordChange}
-                        placeholder="Nhập mật khẩu mới"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          showPassword(confirmPasswordRef);
-                          setPasswordToggle(prev => !prev);
-                        }}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                        aria-label={confirmPasswordRef.current?.type === 'password' ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
-                      >
-                        {confirmPasswordRef.current?.type === 'password' ? <EyeIcon /> : <EyeOffIcon />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end space-x-3 mt-8">
-                  <button
-                    type="button"
-                    onClick={closePopup}
-                    className="px-6 py-2 text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  >
-                    HỦY
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePasswordSave}
-                    disabled={
-                      !passwordData.currentPassword ||
-                      !passwordData.newPassword ||
-                      !passwordData.confirmPassword ||
-                      isLoading
-                    }
-                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  >
-                    LƯU
-                  </button>
                     </div>
                   </div>
                 </>
