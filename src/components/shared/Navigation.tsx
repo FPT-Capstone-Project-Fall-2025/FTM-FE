@@ -63,7 +63,7 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
                 className="flex items-center space-x-2 p-2 rounded-md hover:bg-blue-700"
               >
                 <User size={20} />
-                <span>{user?.fullName || 'Username'}</span>
+                <span>{user?.name || 'Username'}</span>
               </button>
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-60 bg-white rounded-md shadow-lg py-2 z-50 text-gray-800">
@@ -124,9 +124,6 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
                 </div>
               )}
             </div>
-            <button className="p-2 rounded-md hover:bg-blue-700">
-              <HelpCircle size={24} />
-            </button>
           </div>
         </div>
       </div>

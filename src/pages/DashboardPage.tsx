@@ -1,41 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import uploadImg from '@/assets/dashboard/import-image.png';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import provinceData from '@/assets/json/province.json';
 import wardData from '@/assets/json/ward.json';
 import { EyeOff, Eye } from 'lucide-react';
-
-interface UserProfile {
-  fullName: string;
-  nickname: string;
-  email: string;
-  phone: string;
-  occupation: string;
-  gender: string;
-  birthDate: string;
-  address: string;
-  province: string;
-  ward: string;
-  picture: string;
-}
-
-interface Province {
-  code: string;
-  name: string;
-  slug: string;
-  type: string;
-  name_with_type: string;
-}
-
-interface Ward {
-  code: string;
-  name: string;
-  slug: string;
-  type: string;
-  name_with_type: string;
-  parent_code: string;
-}
+import type { Province, UserProfile, Ward } from '@/types/user';
 
 const DashboardPage: React.FC = () => {
   const { user, isLoading: isUserLoading } = useAppSelector(state => state.auth);
@@ -71,7 +41,7 @@ const DashboardPage: React.FC = () => {
   const formatDateForInput = (dateStr: string) => {
     if (!dateStr || !/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return '';
     const [day, month, year] = dateStr.split('/');
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    return `${year}-${month?.padStart(2, '0')}-${day?.padStart(2, '0')}`;
   };
 
   const formatDateForDisplay = (dateStr: string) => {
@@ -90,21 +60,21 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     if (user) {
       const initialFormData = {
-        fullName: user.fullName || '',
-        nickname: user.nickname || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        occupation: user.occupation || '',
-        gender: user.gender || 'Nam',
-        birthDate: user.birthDate ? formatDateForDisplay(user.birthDate) : '',
-        address: user.address || '',
-        province: user.province || '',
-        ward: user.ward || '',
-        picture: user.picture || '',
+        fullName: formData.fullName || '',
+        nickname: formData.nickname || '',
+        email: formData.email || '',
+        phone: formData.phone || '',
+        occupation: formData.occupation || '',
+        gender: formData.gender || 'Nam',
+        birthDate: formData.birthDate ? formatDateForDisplay(formData.birthDate) : '',
+        address: formData.address || '',
+        province: formData.province || '',
+        ward: formData.ward || '',
+        picture: formData.picture || '',
       };
       setFormData(initialFormData);
     }
-  }, [user]);
+  }, [formData]);
 
   // Load provinces and wards data
   useEffect(() => {
@@ -228,17 +198,17 @@ const DashboardPage: React.FC = () => {
   const handleCancel = () => {
     if (user) {
       setFormData({
-        fullName: user.fullName || '',
-        nickname: user.nickname || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        occupation: user.occupation || '',
-        gender: user.gender || 'Nam',
-        birthDate: user.birthDate ? formatDateForDisplay(user.birthDate) : '',
-        address: user.address || '',
-        province: user.province || '',
-        ward: user.ward || '',
-        picture: user.picture || '',
+        fullName: formData.fullName || '',
+        nickname: formData.nickname || '',
+        email: formData.email || '',
+        phone: formData.phone || '',
+        occupation: formData.occupation || '',
+        gender: formData.gender || 'Nam',
+        birthDate: formData.birthDate ? formatDateForDisplay(formData.birthDate) : '',
+        address: formData.address || '',
+        province: formData.province || '',
+        ward: formData.ward || '',
+        picture: formData.picture || '',
       });
     }
     setIsEditing(false);
@@ -339,8 +309,8 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="h-full bg-gray-50">
+      <div className="h-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
