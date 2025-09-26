@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
-import Navigation from './Navigation';
-import Sidebar from './Sidebar';
+import Navigation from '../shared/Navigation';
+import Sidebar from '../shared/Sidebar';
+import type { LayoutProps } from '@/types/common';
 
-const MainLayout = () => {
+const MainLayout: React.FC<LayoutProps> = ({children}) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const savedState = localStorage.getItem('sidebarCollapsed');
     return savedState ? JSON.parse(savedState) : false;
@@ -22,8 +22,8 @@ const MainLayout = () => {
       <Navigation onMenuClick={toggleSidebar} />
       <div className="flex flex-grow">
         <Sidebar isCollapsed={isSidebarCollapsed} />
-        <main className="flex-grow p-8">
-          <Outlet />
+        <main className="flex-grow">
+          {children}
         </main>
       </div>
     </div>
