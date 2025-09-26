@@ -1,15 +1,33 @@
-import type { LayoutProps } from "@/types/common";
+import { useState, useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
+import Navigation from './Navigation';
+import Sidebar from './Sidebar';
 
-const MainLayout: React.FC<LayoutProps> = ({ children }) => {
-    return (
-        <div className="m-w-screen h-screen">
-            <div className="h-[70px] border-b">Navbar</div>
-            <div className="flex h-full">
-                <div className="w-[20%] border-r">Sidebar</div>
-                {children}
-            </div>
-        </div>
-    );
-}
+const MainLayout = () => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    return savedState ? JSON.parse(savedState) : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navigation onMenuClick={toggleSidebar} />
+      <div className="flex flex-grow">
+        <Sidebar isCollapsed={isSidebarCollapsed} />
+        <main className="flex-grow p-8">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+};
 
 export default MainLayout;
