@@ -38,7 +38,7 @@ interface Ward {
 
 const DashboardPage: React.FC = () => {
   // const dispatch = useAppDispatch();
-  const { user, isLoggedIn } = useAppSelector(state => state.auth);
+  const { user } = useAppSelector(state => state.auth);
 
   // Eye icon components for password visibility
   const EyeIcon = () => (
@@ -63,7 +63,7 @@ const DashboardPage: React.FC = () => {
   const confirmPasswordRef = useRef<HTMLInputElement | null>(null);
 
   // Generic show/hide password that toggles input.type directly
-  const showPassword = (inputRef: React.RefObject<HTMLInputElement> | null) => {
+  const showPassword = (inputRef: React.RefObject<HTMLInputElement | null>) => {
     if (!inputRef || !inputRef.current) return;
     const el = inputRef.current;
     if (el.type === 'password') {
@@ -74,14 +74,14 @@ const DashboardPage: React.FC = () => {
   };
 
   // Date format helper functions
-  const formatDateForInput = (dateStr: string) => {
+        const formatDateForInput = (dateStr: string) => {
     // Convert "dd/MM/yyyy" to "yyyy-MM-dd"
     if (!dateStr || !dateStr.includes('/')) return dateStr;
-    const [day, month, year] = dateStr.split('/');
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  };
-
-  const formatDateForDisplay = (dateStr: string) => {
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return dateStr;
+    const [day, month, year] = parts;
+    return `${year!}-${month!.padStart(2, '0')}-${day!.padStart(2, '0')}`;
+  };  const formatDateForDisplay = (dateStr: string) => {
     // Convert "yyyy-MM-dd" to "dd/MM/yyyy"
     if (!dateStr || !dateStr.includes('-')) return dateStr;
     const [year, month, day] = dateStr.split('-');
@@ -94,6 +94,7 @@ const DashboardPage: React.FC = () => {
   const [popupType, setPopupType] = useState<string>('');
   const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [, setPasswordToggle] = useState(false);
   // Password visibility will be controlled via input refs and `showPassword`.
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -427,7 +428,7 @@ const DashboardPage: React.FC = () => {
                   {/* Profile Picture */}
                   <div className="mb-6">
                     <div 
-                      className="w-32 h-32 mx-auto rounded-full bg-red-500 overflow-hidden mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="w-32 h-32 mx-auto rounded-full bg-gray-200 overflow-hidden mb-4 cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => openPopup('change-avatar')}
                     >
                       <img
@@ -879,15 +880,14 @@ const DashboardPage: React.FC = () => {
                       />
                       <button
                         type="button"
-                        onClick={() => showPassword(currentPasswordRef)}
+                        onClick={() => {
+                          showPassword(currentPasswordRef);
+                          setPasswordToggle(prev => !prev);
+                        }}
+                        aria-label={currentPasswordRef.current?.type === 'password' ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                        aria-label={showCurrentPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                       >
-                        {currentPasswordRef.current
-                          ? currentPasswordRef.current.type === 'password'
-                            ? <EyeIcon />
-                            : <EyeOffIcon />
-                          : (showCurrentPassword ? <EyeOffIcon /> : <EyeIcon />)}
+                        {currentPasswordRef.current?.type === 'password' ? <EyeIcon /> : <EyeOffIcon />}
                       </button>
                     </div>
                   </div>
@@ -909,15 +909,14 @@ const DashboardPage: React.FC = () => {
                       />
                       <button
                         type="button"
-                        onClick={() => showPassword(newPasswordRef)}
+                        onClick={() => {
+                          showPassword(newPasswordRef);
+                          setPasswordToggle(prev => !prev);
+                        }}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                        aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        aria-label={newPasswordRef.current?.type === 'password' ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
                       >
-                        {newPasswordRef.current
-                          ? newPasswordRef.current.type === 'password'
-                            ? <EyeIcon />
-                            : <EyeOffIcon />
-                          : (showNewPassword ? <EyeOffIcon /> : <EyeIcon />)}
+                        {newPasswordRef.current?.type === 'password' ? <EyeIcon /> : <EyeOffIcon />}
                       </button>
                     </div>
                   </div>
@@ -939,15 +938,14 @@ const DashboardPage: React.FC = () => {
                       />
                       <button
                         type="button"
-                        onClick={() => showPassword(confirmPasswordRef)}
+                        onClick={() => {
+                          showPassword(confirmPasswordRef);
+                          setPasswordToggle(prev => !prev);
+                        }}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                        aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        aria-label={confirmPasswordRef.current?.type === 'password' ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
                       >
-                        {confirmPasswordRef.current
-                          ? confirmPasswordRef.current.type === 'password'
-                            ? <EyeIcon />
-                            : <EyeOffIcon />
-                          : (showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />)}
+                        {confirmPasswordRef.current?.type === 'password' ? <EyeIcon /> : <EyeOffIcon />}
                       </button>
                     </div>
                   </div>
