@@ -3,8 +3,8 @@ const GoogleSignInButton: React.FC<{ onSuccess: (token: string) => void }> = ({ 
     const handleGoogleLogin = () => {
         // This would be replaced with actual Google Sign-In implementation
         // using @google-cloud/local-auth or similar
-        // const mockGoogleToken = 'mock_google_token_' + Date.now()
-        // onSuccess(mockGoogleToken)
+        const mockGoogleToken = 'mock_google_token_' + Date.now()
+        onSuccess(mockGoogleToken)
     }
 
     return (
