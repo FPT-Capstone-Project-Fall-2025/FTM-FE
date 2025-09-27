@@ -5,7 +5,9 @@ import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import UnauthorizedPage from '@/components/shared/UnauthorizedPage'
 import NotFoundPage from '@/components/shared/NotFoundPage'
+import HomePage from '@/pages/HomePage'
 import DashboardPage from '@/pages/DashboardPage'
+import FamilyTreePage from '@/pages/FamilyTreePage'
 import AdminPage from '@/pages/AdminPage'
 import AuthLayout from '@/components/layout/AuthLayout'
 import MainLayout from '@/components/layout/MainLayout'
@@ -65,6 +67,22 @@ const router = createBrowserRouter([
     element: (
       <MainLayout>
         <DashboardPage />
+      </MainLayout>
+    ),
+  },
+  {
+    path: '/home',
+    element: (
+      <MainLayout>
+        <HomePage />
+      </MainLayout>
+    ),
+  },
+  {
+    path: '/family-trees',
+    element: (
+      <MainLayout>
+        <FamilyTreePage />
       </MainLayout>
     ),
   },
