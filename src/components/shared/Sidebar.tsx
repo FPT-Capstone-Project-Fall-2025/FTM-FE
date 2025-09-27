@@ -10,7 +10,7 @@ import {
 import { NavLink } from 'react-router-dom';
 
 const sidebarItems = [
-  { to: '/', icon: Home, text: 'Home' },
+  { to: '/home', icon: Home, text: 'Home' },
   { to: '/dashboard', icon: User, text: 'Tài khoản của tôi' },
   { to: '/family-trees', icon: LayoutGrid, text: 'Danh sách Gia Phả' },
   { to: '/events', icon: BarChart2, text: 'Sự Kiện' },
