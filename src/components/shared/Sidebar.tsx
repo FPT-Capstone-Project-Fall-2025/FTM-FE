@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
                 <item.icon size={24} className="flex-shrink-0" />
                 <span
                   className={`overflow-hidden whitespace-nowrap transition-all duration-200 ease-in-out ${
-                    isCollapsed ? 'w-0 ml-0' : 'w-full ml-4'
+                    isCollapsed ? 'hidden w-0 ml-0' : 'w-full ml-4'
                   }`}
                 >
                   {item.text}
