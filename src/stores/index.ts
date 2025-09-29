@@ -2,10 +2,12 @@ import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import storage from 'redux-persist/lib/storage';
 import { FLUSH, PAUSE, PERSIST, persistReducer, persistStore, PURGE, REGISTER, REHYDRATE } from "redux-persist";
 import authReducer from "./slices/authSlice";
+import familyTreeReducer from "./slices/familyTreeSlice";
 
 const rootReducer = combineReducers({
     // more reducers go here
-    auth: authReducer
+    auth: authReducer,
+    familyTree: familyTreeReducer
 });
 
 const persistConfig = {
