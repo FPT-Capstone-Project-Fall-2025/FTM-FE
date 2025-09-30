@@ -5,7 +5,7 @@ const MemberDetailPanel = ({
   member,
   onClose
 }: {
-  member: FamilyMember | null;
+  member: FamilyMember | null | undefined;
   onClose: () => void;
 }) => {
   const bgColor = member?.gender === 'female' ? 'bg-pink-200' : 'bg-blue-200';

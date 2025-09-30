@@ -1,64 +1,130 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import ReactFlow, {
   Controls,
   Background,
   useNodesState,
   useEdgesState,
-  MarkerType,
-  type Edge,
-  type Node,
+  type OnNodesChange,
+  type OnEdgesChange,
+  type OnConnect,
+  addEdge as addReactFlowEdge,
+  ReactFlowProvider,
+  // MiniMap,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import type { FamilyMember } from '@/types/familytree';
 import MemberDetailPanel from './MemberDetailPanel';
 import FamilyMemberNode from './FamilyMemberNode';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { setEdges, setHighlightedNode, setSelectedMember, updateNodePosition } from '@/stores/slices/familyTreeSlice';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import FamilyTreeToolbar from './FamilyTreeToolbar';
+import { addHistory } from '@/stores/slices/historySlice';
+import { useReactFlowZoom } from '@/hooks/useReactFlowZoom';
+import SearchBar from './SearchBar';
 
-const FamilyTreeApp = () => {
-  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+const nodeTypes = {
+  familyMember: FamilyMemberNode
+};
 
-  // Sample family tree data
-  const sampleMembers: FamilyMember[] = [
-    { id: '1', name: 'Trần Văn A', birthDate: '12/01/1970', gender: 'male' },
-    { id: '2', name: 'Nguyễn Ngọc B', birthDate: '15/03/1970', gender: 'female' },
-    { id: '3', name: 'Trần Văn B', birthDate: '10/04/1965', gender: 'male' },
-    { id: '4', name: 'Trần Văn C', birthDate: '10/04/1968', gender: 'male' },
-    { id: '5', name: 'Nguyễn Nga', birthDate: '12/01/1969', gender: 'female' },
-    { id: '6', name: 'Trần Khởi', birthDate: '12/01/1980', gender: 'male' },
-    { id: '7', name: 'Trần Ngọc Uyên', birthDate: '12/01/1985', gender: 'female' },
-    { id: '8', name: 'Trần Ngọc Mỹ', birthDate: '12/01/1990', gender: 'female' },
-    { id: '9', name: 'Trần Thắm', birthDate: '12/01/1991', gender: 'female' },
-  ];
+const FamilyTreeContent = () => {
+
+  const dispatch = useAppDispatch();
+  const { focusNode } = useReactFlowZoom();
+  useKeyboardShortcuts();
+
+  const reduxNodes = useAppSelector(state => state.familyTree.nodes);
+  const reduxEdges = useAppSelector(state => state.familyTree.edges);
+  const members = useAppSelector(state => state.familyTree.members);
+  const selectedMemberId = useAppSelector(state => state.familyTree.selectedMemberId);
+
+  // Get selected member from members object
+  const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
+
+  const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
+  const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
+
+  // CRITICAL: Sync when Redux state changes (for persistence rehydration)
+  useEffect(() => {
+    setLocalNodes(reduxNodes);
+  }, [reduxNodes, setLocalNodes]);
+
+  useEffect(() => {
+    setLocalEdges(reduxEdges);
+  }, [reduxEdges, setLocalEdges]);
+
+  // Handle search selection - Focus and highlight node
+  const handleSearchSelect = useCallback((memberId: string) => {
+    // Highlight the node
+    dispatch(setHighlightedNode(memberId));
+
+    // Focus on the node with zoom
+    focusNode(memberId, 1.5);
+
+    // Open detail panel
+    dispatch(setSelectedMember(memberId));
+
+    // Remove highlight after 3 seconds
+    setTimeout(() => {
+      dispatch(setHighlightedNode(null));
+    }, 3000);
+  }, [dispatch, focusNode]);
+
+  // Sync to Redux when nodes change
+  const handleNodesChange: OnNodesChange = useCallback((changes) => {
+    // Save to history before making changes (for drag operations)
+    const isDragEnd = changes.some(c => c.type === 'position' && !(c as any).dragging);
+    if (isDragEnd) {
+      dispatch(addHistory({ nodes, edges }));
+    }
+
+    onNodesChange(changes);
+
+    // Update Redux for position changes
+    changes.forEach(change => {
+      if (change.type === 'position' && change.position) {
+        dispatch(updateNodePosition({
+          id: change.id,
+          position: change.position
+        }));
+      }
+    });
+  }, [onNodesChange, dispatch]);
+
+  // Sync to Redux when edges change
+  const handleEdgesChange: OnEdgesChange = useCallback((changes) => {
+    onEdgesChange(changes);
+    // Optionally sync to Redux
+  }, [onEdgesChange]);
+
+  // Handle new connections
+  const onConnect: OnConnect = useCallback((connection) => {
+    dispatch(addHistory({ nodes, edges }));
+    setLocalEdges((eds) => addReactFlowEdge(connection, eds));
+    dispatch(setEdges(addReactFlowEdge(connection, edges)));
+  }, [edges, dispatch, setLocalEdges]);
+
+  // Handle member click
+  const handleMemberClick = useCallback((member: FamilyMember) => {
+    dispatch(setSelectedMember(member.id));
+  }, [dispatch]);
+
+  // Handle close panel
+  const handleClosePanel = useCallback(() => {
+    dispatch(setSelectedMember(null));
+  }, [dispatch]);
 
   // Create nodes with click handler
-  const initialNodes: Node[] = useMemo(() =>
-    sampleMembers.map((member, idx) => ({
-      id: member.id,
-      type: 'familyMember',
-      position: {
-        x: (idx % 4) * 200 + 100,
-        y: Math.floor(idx / 4) * 150 + 50
-      },
+  const enhancedNodes = useMemo(() =>
+    nodes.map(node => ({
+      ...node,
       data: {
-        ...member,
-        onMemberClick: (m: FamilyMember) => setSelectedMember(m)
+        ...node.data,
+        onMemberClick: handleMemberClick,
       },
-    })), [sampleMembers]
+    })),
+    [nodes, handleMemberClick]
   );
-
-  // Create edges (parent-child relationships)
-  const initialEdges: Edge[] = [
-    { id: 'e1-3', source: '1', target: '3', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
-    { id: 'e1-4', source: '1', target: '4', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
-    { id: 'e2-3', source: '2', target: '3', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
-    { id: 'e4-7', source: '4', target: '7', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
-    { id: 'e4-8', source: '4', target: '8', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
-    { id: 'e5-7', source: '5', target: '7', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } },
-  ];
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  const nodeTypes = useMemo(() => ({ familyMember: FamilyMemberNode }), []);
 
   return (
     <div className="relative w-full h-full bg-gray-50">
@@ -67,26 +133,48 @@ const FamilyTreeApp = () => {
         {/* ReactFlow Canvas */}
         <div className="flex-1">
           <ReactFlow
-            nodes={nodes}
+            nodes={enhancedNodes}
             edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onConnect={onConnect}
             nodeTypes={nodeTypes}
-            proOptions={{ hideAttribution: true }}
             fitView
+            proOptions={{ hideAttribution: true }}
           >
             <Background />
             <Controls />
+            {/* <MiniMap 
+              nodeColor={(node) => {
+                return node.data.gender === 'female' ? '#fbcfe8' : '#bfdbfe';
+              }}
+              maskColor="rgba(0, 0, 0, 0.1)"
+              position='top-right'
+            /> */}
           </ReactFlow>
+          {/* Toolbar */}
+          {/* <FamilyTreeToolbar /> */}
+          {/* Search Bar */}
+          {/* <div className="absolute top-4 right-4 z-10">
+            <SearchBar onSelectMember={handleSearchSelect} />
+          </div> */}
         </div>
 
         {/* Side Panel */}
         <MemberDetailPanel
           member={selectedMember}
-          onClose={() => setSelectedMember(null)}
+          onClose={handleClosePanel}
         />
       </div>
     </div>
+  );
+};
+
+const FamilyTreeApp = () => {
+  return (
+    <ReactFlowProvider>
+      <FamilyTreeContent />
+    </ReactFlowProvider>
   );
 };
 

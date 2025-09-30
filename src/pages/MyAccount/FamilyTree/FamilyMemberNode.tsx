@@ -1,3 +1,4 @@
+import { useAppSelector } from "@/hooks/redux";
 import type { FamilyMember } from "@/types/familytree";
 import { User } from "lucide-react";
 import { Handle, Position, type NodeProps } from "reactflow";
@@ -6,13 +7,21 @@ interface FamilyMemberNodeData extends FamilyMember {
   onMemberClick?: (member: FamilyMember) => void;
 }
 
-const FamilyMemberNode = ({ data }: NodeProps<FamilyMemberNodeData>) => {
+const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
+
+  const highlightedNodeId = useAppSelector(state => state.familyTree.highlightedNodeId);
+  const isHighlighted = highlightedNodeId === id;
+
   const bgColor = data.gender === 'female' ? 'bg-pink-100' : 'bg-blue-100';
   const borderColor = data.gender === 'female' ? 'border-pink-300' : 'border-blue-300';
 
+  const highlightStyles = isHighlighted 
+    ? 'ring-4 ring-yellow-400 ring-opacity-75 shadow-2xl scale-110 animate-pulse' 
+    : '';
+
   return (
     <div
-      className={`${bgColor} ${borderColor} border-2 rounded-lg p-3 min-w-[140px] cursor-pointer hover:shadow-lg transition-shadow`}
+      className={`${bgColor} ${borderColor} ${highlightStyles} border-2 rounded-lg p-3 min-w-[140px] cursor-pointer hover:shadow-lg transition-shadow`}
       onClick={() => data.onMemberClick?.(data)}
     >
       <Handle type="target" position={Position.Top} className="w-2 h-2" />
