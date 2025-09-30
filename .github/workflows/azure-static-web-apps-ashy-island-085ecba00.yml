@@ -40,7 +40,10 @@ jobs:
            
       - run: npm ci
       - run: npm run build
-      
+      - run: |
+          echo "github.ref: ${{ github.ref }}"
+          echo "github.head_ref: ${{ github.head_ref }}"
+          echo "github.base_ref: ${{ github.base_ref }}"
       - name: Build And Deploy
         #id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -67,6 +70,7 @@ jobs:
         uses: Azure/static-web-apps-deploy@v1
         with:
           action: "close"
+
 
 
 
