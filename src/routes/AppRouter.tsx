@@ -5,10 +5,12 @@ import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import UnauthorizedPage from '@/components/shared/UnauthorizedPage'
 import NotFoundPage from '@/components/shared/NotFoundPage'
+import LandingPage from '@/pages/LandingPage'
 import HomePage from '@/pages/HomePage'
 import DashboardPage from '@/pages/DashboardPage'
 import FamilyTreePage from '@/pages/FamilyTreePage'
 import AdminPage from '@/pages/AdminPage'
+import LandingPageLayout from '@/components/layout/LandingPageLayout'
 import AuthLayout from '@/components/layout/AuthLayout'
 import MainLayout from '@/components/layout/MainLayout'
 
@@ -61,6 +63,14 @@ const router = createBrowserRouter([
   {
     path: '/unauthorized',
     element: <UnauthorizedPage />,
+  },
+   {
+    path: '/landing',
+    element: (
+      <LandingPageLayout>
+        <LandingPage />
+      </LandingPageLayout>
+    ),
   },
   {
     path: '/dashboard',
