@@ -1,5 +1,18 @@
 import type { User } from "./user"
 
+export interface RegisterProps {
+    email: string;
+    phoneNumber: string;
+    name: string;
+    password: string;
+    confirmPassword: string;
+}
+
+export interface LoginProps {
+    userName: string;
+    password: string;
+}
+
 export interface AuthState {
     user: User | null
     token: string | null
@@ -7,4 +20,18 @@ export interface AuthState {
     isAuthenticated: boolean
     isLoading: boolean
     error: string | null
+}
+
+export interface AuthResponse {
+    userId: string;
+    username: string;
+    phone: string;
+    email: string;
+    address: string;
+    roles: string[];
+    accessToken: string;
+    refreshToken: string;
+    accountStatus: number;
+    picture: string;
+    fullname: string;
 }

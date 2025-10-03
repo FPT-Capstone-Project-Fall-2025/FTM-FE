@@ -62,30 +62,30 @@ const router = createBrowserRouter([
     path: '/unauthorized',
     element: <UnauthorizedPage />,
   },
-  {
-    path: '/dashboard',
-    element: (
-      <MainLayout>
-        <MyAccountPage />
-      </MainLayout>
-    ),
-  },
-  {
-    path: '/home',
-    element: (
-      <MainLayout>
-        <HomePage />
-      </MainLayout>
-    ),
-  },
-  {
-    path: '/family-trees',
-    element: (
-      <MainLayout>
-        <FamilyTreePage />
-      </MainLayout>
-    ),
-  },
+  // {
+  //   path: '/dashboard',
+  //   element: (
+  //     <MainLayout>
+  //       <MyAccountPage />
+  //     </MainLayout>
+  //   ),
+  // },
+  // {
+  //   path: '/home',
+  //   element: (
+  //     <MainLayout>
+  //       <HomePage />
+  //     </MainLayout>
+  //   ),
+  // },
+  // {
+  //   path: '/family-trees',
+  //   element: (
+  //     <MainLayout>
+  //       <FamilyTreePage />
+  //     </MainLayout>
+  //   ),
+  // },
   {
     path: '*',
     element: <NotFoundPage />,

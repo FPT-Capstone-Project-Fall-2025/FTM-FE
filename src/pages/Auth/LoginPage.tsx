@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { loginUser, googleLogin, clearError } from '@/stores/slices/authSlice'
+import { loginUser, clearError } from '@/stores/slices/authSlice'
 import GoogleSignInButton from '@/components/ui/GoogleSignInButton'
 import { Users, Eye, EyeOff } from 'lucide-react'
+import type { LoginProps } from '@/types/auth'
 
 const LoginPage: React.FC = () => {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const location = useLocation()
     const { isLoading, error, isAuthenticated } = useAppSelector(state => state.auth)
-
-    const [formData, setFormData] = useState({
-        email: '',
+    const [rememberMe, setRememberMe] = useState(false);
+    const [formData, setFormData] = useState<LoginProps>({
+        userName: '',
         password: '',
-        rememberMe: false
     })
 
     const [showPassword, setShowPassword] = useState(false)
@@ -39,11 +39,13 @@ const LoginPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        dispatch(loginUser({ email: formData.email, password: formData.password }))
+        console.log(formData);
+        
+        dispatch(loginUser(formData))
     }
 
     const handleGoogleSuccess = (token: string) => {
-        dispatch(googleLogin(token))
+        // dispatch(googleLogin(token))
     }
 
     return (
@@ -70,8 +72,8 @@ const LoginPage: React.FC = () => {
                 <div>
                     <input
                         type="email"
-                        name="email"
-                        value={formData.email}
+                        name="userName"
+                        value={formData.userName}
                         onChange={handleInputChange}
                         placeholder="Nhập email"
                         required
@@ -111,8 +113,8 @@ const LoginPage: React.FC = () => {
                         <input
                             type="checkbox"
                             name="rememberMe"
-                            checked={formData.rememberMe}
-                            onChange={handleInputChange}
+                            checked={rememberMe}
+                            onChange={() => setRememberMe(!rememberMe)}
                             className="w-4 h-4 mr-2 rounded border-white/20 bg-white/10 text-blue-600 focus:ring-white/30"
                         />
                         Lưu mật khẩu

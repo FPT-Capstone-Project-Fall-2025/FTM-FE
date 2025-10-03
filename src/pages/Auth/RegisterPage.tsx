@@ -1,25 +1,30 @@
 import React, { useState } from 'react'
 import { EyeOff, Eye } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useApi } from '@/hooks/useApi'
+import authService from '@/services/auth'
+import type { RegisterProps } from '@/types/auth'
 
 const RegisterPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState('')
-
-    const [formData, setFormData] = useState({
+    const [errorMessage, setErrorMessage] = useState('')
+    const [agreeToTerm, setAgreeToTerm] = useState(false)
+    const [formData, setFormData] = useState<RegisterProps>({
         name: '',
         email: '',
-        phone: '',
+        phoneNumber: '',
         password: '',
         confirmPassword: '',
-        agreeToTerms: false
     })
 
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-
+    const { data, loading, error, refetch } = useApi(
+        () => authService.register(formData),
+        { immediate: false }
+    );
 
     const validateForm = () => {
         const errors: Record<string, string> = {}
@@ -32,7 +37,7 @@ const RegisterPage: React.FC = () => {
             errors.email = 'Vui lòng nhập địa chỉ email hợp lệ'
         }
 
-        if (!/^[0-9]{10,11}$/.test(formData.phone)) {
+        if (!/^[0-9]{10,11}$/.test(formData.phoneNumber)) {
             errors.phone = 'Số điện thoại phải có 10-11 chữ số'
         }
 
@@ -44,7 +49,7 @@ const RegisterPage: React.FC = () => {
             errors.confirmPassword = 'Mật khẩu không khớp'
         }
 
-        if (!formData.agreeToTerms) {
+        if (!agreeToTerm) {
             errors.agreeToTerms = 'Bạn phải đồng ý với các điều khoản và điều kiện'
         }
 
@@ -67,21 +72,17 @@ const RegisterPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+                const response = await refetch();
+                console.log(response);
+
         if (validateForm()) {
             setIsLoading(true)
             try {
-                // Simulate API call
-                await new Promise(resolve => setTimeout(resolve, 2000))
-                console.log('Registration data:', {
-                    name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
-                    password: formData.password
-                })
-                setError('')
-                // Here you would typically redirect or show success message
+                const response = await refetch();
+                console.log(response);
+                setErrorMessage('')
             } catch (err) {
-                setError('Đăng ký không thành công. Vui lòng thử lại.')
+                setErrorMessage('Đăng ký không thành công. Vui lòng thử lại.')
             } finally {
                 setIsLoading(false)
             }
@@ -92,9 +93,9 @@ const RegisterPage: React.FC = () => {
         <>
             <h2 className="text-white text-2xl font-bold text-center mb-6">TẠO TÀI KHOẢN</h2>
 
-            {error && (
+            {errorMessage && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-                    {error}
+                    {errorMessage}
                 </div>
             )}
 
@@ -141,8 +142,8 @@ const RegisterPage: React.FC = () => {
                     </label>
                     <input
                         type="tel"
-                        name="phone"
-                        value={formData.phone}
+                        name="phoneNumber"
+                        value={formData.phoneNumber}
                         onChange={handleInputChange}
                         placeholder='Nhập số điện thoại'
                         required
@@ -211,8 +212,8 @@ const RegisterPage: React.FC = () => {
                     <input
                         type="checkbox"
                         name="agreeToTerms"
-                        checked={formData.agreeToTerms}
-                        onChange={handleInputChange}
+                        checked={agreeToTerm}
+                        onChange={() => setAgreeToTerm(!agreeToTerm)}
                         className="mt-1 mr-2 rounded"
                     />
                     <label className="text-white text-sm">

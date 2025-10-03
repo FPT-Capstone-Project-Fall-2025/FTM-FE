@@ -1,5 +1,5 @@
-import authAPI from '@/api/service/authService'
-import type { AuthState } from '@/types/auth'
+import authService from '@/services/auth'
+import type { AuthState, LoginProps, RegisterProps } from '@/types/auth'
 import type { User } from '@/types/user'
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
@@ -7,74 +7,66 @@ const initialState: AuthState = {
     user: null,
     token: null,
     refreshToken: null,
-    isAuthenticated: true,
+    isAuthenticated: false,
     isLoading: false,
     error: null,
 }
 
 export const loginUser = createAsyncThunk(
     'auth/loginUser',
-    async ({ email, password }: { email: string; password: string }, { rejectWithValue }) => {
+    async (data: LoginProps, { rejectWithValue }) => {
         try {
-            const response = await authAPI.login(email, password)
-            if (response.error) {
-                return rejectWithValue(response.error)
-            }
-            return response
+            return await authService.login(data)
         } catch (error: any) {
             return rejectWithValue(error.message || 'Login failed')
         }
     }
 )
 
-export const googleLogin = createAsyncThunk(
-    'auth/googleLogin',
-    async (googleToken: string, { rejectWithValue }) => {
-        try {
-            const response = await authAPI.googleLogin(googleToken)
-            if (response.error) {
-                return rejectWithValue(response.error)
-            }
-            return response
-        } catch (error: any) {
-            return rejectWithValue(error.message || 'Google login failed')
-        }
-    }
-)
+// export const googleLogin = createAsyncThunk(
+//     'auth/googleLogin',
+//     async (googleToken: string, { rejectWithValue }) => {
+//         try {
+//             const response = await authService.googleLogin(googleToken)
+//             if (response.error) {
+//                 return rejectWithValue(response.error)
+//             }
+//             return response
+//         } catch (error: any) {
+//             return rejectWithValue(error.message || 'Google login failed')
+//         }
+//     }
+// )
 
 export const registerUser = createAsyncThunk(
     'auth/registerUser',
-    async (userData: { email: string; password: string; name: string }, { rejectWithValue }) => {
+    async (data: RegisterProps, { rejectWithValue }) => {
         try {
-            const response = await authAPI.register(userData)
-            if (response.error) {
-                return rejectWithValue(response.error)
-            }
-            return response
+            return await authService.register(data)
         } catch (error: any) {
             return rejectWithValue(error.message || 'Registration failed')
         }
     }
 )
 
-export const refreshUserToken = createAsyncThunk(
-    'auth/refreshToken',
-    async (_, { getState, rejectWithValue }) => {
-        try {
-            const { auth } = getState() as { auth: AuthState }
-            if (!auth.refreshToken) {
-                return rejectWithValue('No refresh token available')
-            }
-            const response = await authAPI.refreshToken(auth.refreshToken)
-            if (response.error) {
-                return rejectWithValue(response.error)
-            }
-            return response
-        } catch (error: any) {
-            return rejectWithValue(error.message || 'Token refresh failed')
-        }
-    }
-)
+// export const refreshUserToken = createAsyncThunk(
+//     'auth/refreshToken',
+//     async (_, { getState, rejectWithValue }) => {
+//         try {
+//             const { auth } = getState() as { auth: AuthState }
+//             if (!auth.refreshToken) {
+//                 return rejectWithValue('No refresh token available')
+//             }
+//             const response = await authAPI.refreshToken(auth.refreshToken)
+//             if (response.error) {
+//                 return rejectWithValue(response.error)
+//             }
+//             return response
+//         } catch (error: any) {
+//             return rejectWithValue(error.message || 'Token refresh failed')
+//         }
+//     }
+// )
 
 const authSlice = createSlice({
     name: 'auth',
@@ -108,9 +100,9 @@ const authSlice = createSlice({
             })
             .addCase(loginUser.fulfilled, (state, action) => {
                 state.isLoading = false
-                state.user = action.payload.user
-                state.token = action.payload.token
-                state.refreshToken = action.payload.refreshToken
+                // state.user = action.payload.data?.
+                state.token = action.payload.data?.accessToken
+                state.refreshToken = action.payload.data?.refreshToken
                 state.isAuthenticated = true
                 state.error = null
             })
@@ -121,24 +113,24 @@ const authSlice = createSlice({
             })
 
         // Google Login
-        builder
-            .addCase(googleLogin.pending, (state) => {
-                state.isLoading = true
-                state.error = null
-            })
-            .addCase(googleLogin.fulfilled, (state, action) => {
-                state.isLoading = false
-                state.user = action.payload.user
-                state.token = action.payload.token
-                state.refreshToken = action.payload.refreshToken
-                state.isAuthenticated = true
-                state.error = null
-            })
-            .addCase(googleLogin.rejected, (state, action) => {
-                state.isLoading = false
-                state.error = action.payload as string
-                state.isAuthenticated = false
-            })
+        // builder
+        //     .addCase(googleLogin.pending, (state) => {
+        //         state.isLoading = true
+        //         state.error = null
+        //     })
+        //     .addCase(googleLogin.fulfilled, (state, action) => {
+        //         state.isLoading = false
+        //         state.user = action.payload.user
+        //         state.token = action.payload.token
+        //         state.refreshToken = action.payload.refreshToken
+        //         state.isAuthenticated = true
+        //         state.error = null
+        //     })
+        //     .addCase(googleLogin.rejected, (state, action) => {
+        //         state.isLoading = false
+        //         state.error = action.payload as string
+        //         state.isAuthenticated = false
+        //     })
 
         // Register
         builder
@@ -148,9 +140,9 @@ const authSlice = createSlice({
             })
             .addCase(registerUser.fulfilled, (state, action) => {
                 state.isLoading = false
-                state.user = action.payload.user
-                state.token = action.payload.token
-                state.refreshToken = action.payload.refreshToken
+                // state.user = action.payload.user
+                state.token = action.payload.data?.accessToken
+                state.refreshToken = action.payload.data?.refreshToken
                 state.isAuthenticated = true
                 state.error = null
             })
@@ -161,18 +153,18 @@ const authSlice = createSlice({
             })
 
         // Refresh Token
-        builder
-            .addCase(refreshUserToken.fulfilled, (state, action) => {
-                state.token = action.payload.token
-                state.refreshToken = action.payload.refreshToken
-            })
-            .addCase(refreshUserToken.rejected, (state) => {
-                // Token refresh failed, logout user
-                state.user = null
-                state.token = null
-                state.refreshToken = null
-                state.isAuthenticated = false
-            })
+        // builder
+        //     .addCase(refreshUserToken.fulfilled, (state, action) => {
+        //         state.token = action.payload.token
+        //         state.refreshToken = action.payload.refreshToken
+        //     })
+        //     .addCase(refreshUserToken.rejected, (state) => {
+        //         // Token refresh failed, logout user
+        //         state.user = null
+        //         state.token = null
+        //         state.refreshToken = null
+        //         state.isAuthenticated = false
+        //     })
     },
 })
 

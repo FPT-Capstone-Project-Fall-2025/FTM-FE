@@ -38,14 +38,14 @@ apiClient.interceptors.request.use(
     // Log request in development
     if (import.meta.env.DEV) {
       console.log(
-        `🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`
+        `API Request: ${config.method?.toUpperCase()} ${config.url}`
       );
     }
 
     return config;
   },
   (error: AxiosError) => {
-    console.error('❌ Request Error:', error);
+    console.error('Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -57,7 +57,7 @@ apiClient.interceptors.response.use(
     if (import.meta.env.DEV && response.config.metadata) {
       const duration =
         new Date().getTime() - response.config.metadata.startTime;
-      console.log(`✅ API Response: ${response.status} (${duration}ms)`);
+      console.log(`API Response: ${response.status} (${duration}ms)`);
     }
 
     return response;
@@ -74,24 +74,24 @@ apiClient.interceptors.response.use(
           window.location.href = '/login';
           break;
         case 403:
-          console.error('❌ Forbidden: Insufficient permissions');
+          console.error('Forbidden: Insufficient permissions');
           break;
         case 404:
-          console.error('❌ Not Found: Resource not found');
+          console.error('Not Found: Resource not found');
           break;
         case 422:
-          console.error('❌ Validation Error:', data);
+          console.error('Validation Error:', data);
           break;
         case 500:
-          console.error('❌ Server Error: Internal server error');
+          console.error('Server Error: Internal server error');
           break;
         default:
-          console.error(`❌ API Error: ${status}`, data);
+          console.error(`API Error: ${status}`, data);
       }
     } else if (error.request) {
-      console.error('❌ Network Error: No response received');
+      console.error('Network Error: No response received');
     } else {
-      console.error('❌ Request Setup Error:', error.message);
+      console.error('Request Setup Error:', error.message);
     }
 
     return Promise.reject(error);
