@@ -2,27 +2,42 @@ import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../../hooks/redux';
 import uploadImg from '@/assets/dashboard/import-image.png';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import provinceData from '@/assets/json/province.json';
-import wardData from '@/assets/json/ward.json';
 import { EyeOff, Eye } from 'lucide-react';
 import type { Province, UserProfile, Ward } from '@/types/user';
+import dataService from '@/services/dataService';
+import userService from '@/services/userService';
 
 const DetailInformation: React.FC = () => {
+
   const { user, isLoading: isUserLoading } = useAppSelector(state => state.auth);
+
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<UserProfile>({
-    fullName: '',
-    nickname: '',
+    name: '',
     email: '',
-    phone: '',
-    occupation: '',
-    gender: '',
-    birthDate: '',
+    nickname: '',
+    phoneNumber: '',
+    job: '',
+    gender: null,
+    birthday: '',
+    province: null,
+    ward: null,
     address: '',
-    province: '',
-    ward: '',
     picture: '',
   });
+  const [editData, setEditData] = useState({
+    name: '',
+    address: '',
+    nickname: '',
+    phoneNumber: '',
+    birthday: '',
+    job: '',
+    gender: null,
+    provinceId: null,
+    wardId: null,
+  });
+  console.log(editData);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupType, setPopupType] = useState<'change-avatar' | 'change-password' | null>(null);
@@ -59,16 +74,16 @@ const DetailInformation: React.FC = () => {
   useEffect(() => {
     if (user) {
       const initialFormData = {
-        fullName: formData.fullName || '',
+        name: formData.name || '',
         nickname: formData.nickname || '',
         email: formData.email || '',
-        phone: formData.phone || '',
-        occupation: formData.occupation || '',
-        gender: formData.gender || 'Nam',
-        birthDate: formData.birthDate ? formatDateForDisplay(formData.birthDate) : '',
+        phoneNumber: formData.phoneNumber || '',
+        job: formData.job || '',
+        gender: formData.gender,
+        birthday: formData.birthday ? formatDateForDisplay(formData.birthday) : '',
         address: formData.address || '',
-        province: formData.province || '',
-        ward: formData.ward || '',
+        province: formData.province,
+        ward: formData.ward,
         picture: formData.picture || '',
       };
       setFormData(initialFormData);
@@ -77,37 +92,56 @@ const DetailInformation: React.FC = () => {
 
   // Load provinces and wards data
   useEffect(() => {
-    const loadLocationData = async () => {
+    const loadDefaultData = async () => {
       try {
         setIsLoadingLocation(true);
 
-        const processedProvinces = Object.entries(
-          provinceData as Record<string, any>
-        )
-          .map(([code, data]) => ({
-            code,
-            ...data,
+        // Fetch both APIs in parallel
+        const [provincesResponse, wardsResponse] = await Promise.all([
+          dataService.getProvinces(),
+          dataService.getWards()
+        ]);
+        console.log(userService.getProfileData());
+        
+
+        // console.log(profileResponse.data);
+        const fetchedProvinces = provincesResponse.data;
+        const fetchedWards = wardsResponse.data;
+
+        // Process provinces - using correct property names
+        const processedProvinces = fetchedProvinces
+          .map((province: any) => ({
+            provinceId: province.provinceId,
+            code: province.code,
+            name: province.name,
+            nameWithType: province.nameWithType,
           }))
-          .sort((a, b) =>
+          .sort((a: any, b: any) =>
             a.name.localeCompare(b.name, 'vi', { numeric: true })
           );
 
-        const processedWards = Object.entries(
-          wardData as Record<string, any>
-        ).map(([code, data]) => ({
-          code,
-          ...data,
+        // Process wards - using correct property names
+        const processedWards = fetchedWards.map((ward: any) => ({
+          wardId: ward.wardId,
+          code: ward.code,
+          name: ward.name,
+          nameWithType: ward.nameWithType,
+          path: ward.path,
+          pathWithType: ward.pathWithType,
         }));
 
         setProvinces(processedProvinces);
         setWards(processedWards);
 
+        // Set selected province if it exists in formData
         const currentProvince = formData.province;
-        const foundProvince = processedProvinces.find(
-          p => p.name === currentProvince
-        );
-        if (foundProvince) {
-          setSelectedProvinceCode(foundProvince.code);
+        if (currentProvince) {
+          const foundProvince = processedProvinces.find(
+            (p: any) => p.nameWithType === currentProvince || p.name === currentProvince
+          );
+          if (foundProvince) {
+            setSelectedProvinceCode(foundProvince.code);
+          }
         }
       } catch (error) {
         console.error('Error loading location data:', error);
@@ -115,21 +149,12 @@ const DetailInformation: React.FC = () => {
         setIsLoadingLocation(false);
       }
     };
+    loadDefaultData();
+  }, []);
 
-    loadLocationData();
-  }, [formData.province]);
-
-  // Update available wards when province changes
   useEffect(() => {
-    if (selectedProvinceCode && wards.length > 0) {
-      const filteredWards = wards.filter(
-        ward => ward.parent_code === selectedProvinceCode
-      );
-      setAvailableWards(filteredWards);
-    } else {
-      setAvailableWards([]);
-    }
-  }, [selectedProvinceCode, wards]);
+    setAvailableWards(wards);
+  }, [wards]);
 
   const openPopup = (type: 'change-avatar' | 'change-password') => {
     setPopupType(type);
@@ -152,7 +177,7 @@ const DetailInformation: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setEditData(prev => ({
       ...prev,
       [name]: value,
     }));
@@ -161,20 +186,22 @@ const DetailInformation: React.FC = () => {
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const provinceCode = e.target.value;
     const selectedProvince = provinces.find(p => p.code === provinceCode);
-
+  
     setSelectedProvinceCode(provinceCode);
     setFormData(prev => ({
       ...prev,
-      province: selectedProvince ? selectedProvince.name_with_type : '',
-      ward: '',
+      province: selectedProvince ? selectedProvince : null,
+      ward: null,
     }));
   };
 
   const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const wardNameWithType = e.target.value;
+    const wardId = e.target.value;
+    const selectedWard = wards.find(p => p.wardId === wardId);
+
     setFormData(prev => ({
       ...prev,
-      ward: wardNameWithType,
+      ward: selectedWard ? selectedWard : null,
     }));
   };
 
@@ -187,18 +214,16 @@ const DetailInformation: React.FC = () => {
 
   const handleCancel = () => {
     if (user) {
-      setFormData({
-        fullName: formData.fullName || '',
-        nickname: formData.nickname || '',
-        email: formData.email || '',
-        phone: formData.phone || '',
-        occupation: formData.occupation || '',
-        gender: formData.gender || 'Nam',
-        birthDate: formData.birthDate ? formatDateForDisplay(formData.birthDate) : '',
-        address: formData.address || '',
-        province: formData.province || '',
-        ward: formData.ward || '',
-        picture: formData.picture || '',
+      setEditData({
+        name: '',
+        address: '',
+        nickname: '',
+        phoneNumber: '',
+        birthday: '',
+        job: '',
+        gender: null,
+        provinceId: null,
+        wardId: null,
       });
     }
     setIsEditing(false);
@@ -347,8 +372,8 @@ const DetailInformation: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    name="fullName"
-                    value={formData.fullName}
+                    name="name"
+                    value={formData.name}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -392,8 +417,8 @@ const DetailInformation: React.FC = () => {
                   </label>
                   <input
                     type="tel"
-                    name="phone"
-                    value={formData.phone}
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -407,8 +432,8 @@ const DetailInformation: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    name="occupation"
-                    value={formData.occupation}
+                    name="job"
+                    value={formData.job}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -423,18 +448,17 @@ const DetailInformation: React.FC = () => {
                   {isEditing ? (
                     <select
                       name="gender"
-                      value={formData.gender}
+                      value={Number(formData.gender)}
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="Nam">Nam</option>
-                      <option value="Nữ">Nữ</option>
-                      <option value="Khác">Khác</option>
+                      <option value="0">Nam</option>
+                      <option value="1">Nữ</option>
                     </select>
                   ) : (
                     <input
                       type="text"
-                      value={formData.gender}
+                      value={Number(formData.gender)}
                       disabled
                       className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                     />
@@ -448,11 +472,11 @@ const DetailInformation: React.FC = () => {
                   </label>
                   <input
                     type={isEditing ? 'date' : 'text'}
-                    name="birthDate"
+                    name="birthday"
                     value={
                       isEditing
-                        ? formatDateForInput(formData.birthDate)
-                        : formData.birthDate
+                        ? formatDateForInput(formData.birthday)
+                        : formData.birthday
                     }
                     onChange={handleInputChange}
                     disabled={!isEditing}
@@ -476,14 +500,14 @@ const DetailInformation: React.FC = () => {
                       <option value="">Chọn tỉnh/thành phố</option>
                       {provinces.map(province => (
                         <option key={province.code} value={province.code}>
-                          {province.name_with_type}
+                          {province.nameWithType}
                         </option>
                       ))}
                     </select>
                   ) : (
                     <input
                       type="text"
-                      value={formData.province}
+                      value={formData.province?.name}
                       disabled
                       className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                     />
@@ -498,7 +522,7 @@ const DetailInformation: React.FC = () => {
                   {isEditing ? (
                     <select
                       name="ward"
-                      value={formData.ward}
+                      value={formData.ward?.name}
                       onChange={handleWardChange}
                       disabled={isLoadingLocation || !selectedProvinceCode}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
@@ -509,15 +533,15 @@ const DetailInformation: React.FC = () => {
                           : 'Chọn quận/huyện'}
                       </option>
                       {availableWards.map(ward => (
-                        <option key={ward.code} value={ward.name_with_type}>
-                          {ward.name_with_type}
+                        <option key={ward.code} value={ward.code}>
+                          {ward.name}
                         </option>
                       ))}
                     </select>
                   ) : (
                     <input
                       type="text"
-                      value={formData.ward}
+                      value={formData.ward?.name}
                       disabled
                       className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                     />
@@ -575,8 +599,8 @@ const DetailInformation: React.FC = () => {
                       setIsEditing(true);
                       const currentProvince = provinces.find(
                         p =>
-                          p.name_with_type === formData.province ||
-                          p.name === formData.province
+                          p.nameWithType === formData.province?.nameWithType ||
+                          p.name === formData.province?.name
                       );
                       if (currentProvince) {
                         setSelectedProvinceCode(currentProvince.code);

@@ -33,14 +33,36 @@ const router = createBrowserRouter([
     ],
   },
   /* Protected Routes */
-  // {
-  //   path: '/dashboard',
-  //   element: (
-  //     <ProtectedRoute>
-  //       <DashboardPage />
-  //     </ProtectedRoute>
-  //   )
-  // },
+  {
+    path: '/dashboard',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <MyAccountPage />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: '/home',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <HomePage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/family-trees',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <FamilyTreePage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
   {
     path: '/admin',
     element: (
@@ -62,30 +84,6 @@ const router = createBrowserRouter([
     path: '/unauthorized',
     element: <UnauthorizedPage />,
   },
-  // {
-  //   path: '/dashboard',
-  //   element: (
-  //     <MainLayout>
-  //       <MyAccountPage />
-  //     </MainLayout>
-  //   ),
-  // },
-  // {
-  //   path: '/home',
-  //   element: (
-  //     <MainLayout>
-  //       <HomePage />
-  //     </MainLayout>
-  //   ),
-  // },
-  // {
-  //   path: '/family-trees',
-  //   element: (
-  //     <MainLayout>
-  //       <FamilyTreePage />
-  //     </MainLayout>
-  //   ),
-  // },
   {
     path: '*',
     element: <NotFoundPage />,

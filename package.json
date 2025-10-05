@@ -34,13 +34,12 @@
     "react-dom": "^19.1.1",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.9.1",
+    "react-toastify": "^11.0.5",
     "reactflow": "^11.11.4",
     "redux-persist": "^6.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
-    "@types/axios": "^0.9.36",
-    "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@types/react-router-dom": "^5.3.3",
@@ -60,7 +59,6 @@
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.13",
-    "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2"
   }

@@ -31,7 +31,9 @@ const FamilyTreeToolbar = () => {
         // Save current state to history
         dispatch(addHistory({ nodes, edges }));
 
-        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+        const { nodes: layoutedNodes, 
+            // edges: layoutedEdges 
+        } = getLayoutedElements(
             nodes,
             edges,
             {

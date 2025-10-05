@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { loginUser, clearError } from '@/stores/slices/authSlice'
+import { loginUser, googleLogin, clearError } from '@/stores/slices/authSlice'
 import GoogleSignInButton from '@/components/ui/GoogleSignInButton'
 import { Users, Eye, EyeOff } from 'lucide-react'
 import type { LoginProps } from '@/types/auth'
@@ -13,7 +13,7 @@ const LoginPage: React.FC = () => {
     const { isLoading, error, isAuthenticated } = useAppSelector(state => state.auth)
     const [rememberMe, setRememberMe] = useState(false);
     const [formData, setFormData] = useState<LoginProps>({
-        userName: '',
+        username: '',
         password: '',
     })
 
@@ -39,13 +39,26 @@ const LoginPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        console.log(formData);
-        
         dispatch(loginUser(formData))
     }
 
-    const handleGoogleSuccess = (token: string) => {
-        // dispatch(googleLogin(token))
+    const handleGoogleSuccess = async (credentialResponse: any) => {
+        try {
+            // The credential is a JWT token from Google
+            const token = credentialResponse.credential
+
+            // Dispatch the googleLogin action with the token
+            await dispatch(googleLogin({ token })).unwrap()
+
+            // Navigation will be handled by the useEffect when isAuthenticated becomes true
+        } catch (error) {
+            console.error('Google login failed:', error)
+        }
+    }
+
+    const handleGoogleError = () => {
+        console.error('Google Sign-In failed')
+        // Optionally show an error message to the user
     }
 
     return (
@@ -72,8 +85,8 @@ const LoginPage: React.FC = () => {
                 <div>
                     <input
                         type="email"
-                        name="userName"
-                        value={formData.userName}
+                        name="username"
+                        value={formData.username}
                         onChange={handleInputChange}
                         placeholder="Nhập email"
                         required
@@ -130,9 +143,24 @@ const LoginPage: React.FC = () => {
                     {isLoading ? 'ĐANG NHẬP...' : 'ĐĂNG NHẬP'}
                 </button>
 
+                {/* Divider */}
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-white/20"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                        <span className="px-4 bg-gradient-to-br from-blue-600 to-blue-700 text-blue-100">
+                            Hoặc
+                        </span>
+                    </div>
+                </div>
+
                 {/* Google Sign In */}
                 <div className="mt-6">
-                    <GoogleSignInButton onSuccess={handleGoogleSuccess} />
+                    <GoogleSignInButton
+                        onSuccess={handleGoogleSuccess}
+                        onError={handleGoogleError}
+                    />
                 </div>
             </form>
 

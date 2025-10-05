@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import { EyeOff, Eye } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useApi } from '@/hooks/useApi'
-import authService from '@/services/auth'
+import authService from '@/services/authService'
 import type { RegisterProps } from '@/types/auth'
 
 const RegisterPage: React.FC = () => {
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
     const [agreeToTerm, setAgreeToTerm] = useState(false)
@@ -21,7 +22,7 @@ const RegisterPage: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-    const { data, loading, error, refetch } = useApi(
+    const { refetch } = useApi(
         () => authService.register(formData),
         { immediate: false }
     );
@@ -72,15 +73,12 @@ const RegisterPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-                const response = await refetch();
-                console.log(response);
-
         if (validateForm()) {
             setIsLoading(true)
             try {
-                const response = await refetch();
-                console.log(response);
-                setErrorMessage('')
+                await refetch();
+                setErrorMessage('');
+                navigate('/login');
             } catch (err) {
                 setErrorMessage('Đăng ký không thành công. Vui lòng thử lại.')
             } finally {
@@ -94,7 +92,7 @@ const RegisterPage: React.FC = () => {
             <h2 className="text-white text-2xl font-bold text-center mb-6">TẠO TÀI KHOẢN</h2>
 
             {errorMessage && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+                <div className="bg-red-100 border border-red-400 text-red-500-700 px-4 py-3 rounded mb-6">
                     {errorMessage}
                 </div>
             )}
@@ -114,7 +112,7 @@ const RegisterPage: React.FC = () => {
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                     />
                     {validationErrors.name && (
-                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.name}</span>
+                        <span className="text-red-500 text-sm mt-1 block">{validationErrors.name}</span>
                     )}
                 </div>
 
@@ -132,7 +130,7 @@ const RegisterPage: React.FC = () => {
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                     />
                     {validationErrors.email && (
-                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.email}</span>
+                        <span className="text-red-500 text-sm mt-1 block">{validationErrors.email}</span>
                     )}
                 </div>
 
@@ -150,7 +148,7 @@ const RegisterPage: React.FC = () => {
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                     />
                     {validationErrors.phone && (
-                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.phone}</span>
+                        <span className="text-red-500 text-sm mt-1 block">{validationErrors.phone}</span>
                     )}
                 </div>
 
@@ -177,7 +175,7 @@ const RegisterPage: React.FC = () => {
                         </button>
                     </div>
                     {validationErrors.password && (
-                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.password}</span>
+                        <span className="text-red-500 text-sm mt-1 block">{validationErrors.password}</span>
                     )}
                 </div>
 
@@ -204,7 +202,7 @@ const RegisterPage: React.FC = () => {
                         </button>
                     </div>
                     {validationErrors.confirmPassword && (
-                        <span className="text-red-200 text-sm mt-1 block">{validationErrors.confirmPassword}</span>
+                        <span className="text-red-500 text-sm mt-1 block">{validationErrors.confirmPassword}</span>
                     )}
                 </div>
 
@@ -221,7 +219,7 @@ const RegisterPage: React.FC = () => {
                     </label>
                 </div>
                 {validationErrors.agreeToTerms && (
-                    <span className="text-red-200 text-sm block">{validationErrors.agreeToTerms}</span>
+                    <span className="text-red-500 text-sm block">{validationErrors.agreeToTerms}</span>
                 )}
 
                 <button

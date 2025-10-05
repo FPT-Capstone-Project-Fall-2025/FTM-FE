@@ -9,7 +9,7 @@ export interface RegisterProps {
 }
 
 export interface LoginProps {
-    userName: string;
+    username: string;
     password: string;
 }
 

@@ -16,12 +16,14 @@ import type { FamilyMember } from '@/types/familytree';
 import MemberDetailPanel from './MemberDetailPanel';
 import FamilyMemberNode from './FamilyMemberNode';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { setEdges, setHighlightedNode, setSelectedMember, updateNodePosition } from '@/stores/slices/familyTreeSlice';
+import { setEdges, 
+  // setHighlightedNode, 
+  setSelectedMember, updateNodePosition } from '@/stores/slices/familyTreeSlice';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import FamilyTreeToolbar from './FamilyTreeToolbar';
+// import FamilyTreeToolbar from './FamilyTreeToolbar';
 import { addHistory } from '@/stores/slices/historySlice';
-import { useReactFlowZoom } from '@/hooks/useReactFlowZoom';
-import SearchBar from './SearchBar';
+// import { useReactFlowZoom } from '@/hooks/useReactFlowZoom';
+// import SearchBar from './SearchBar';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode
@@ -30,7 +32,7 @@ const nodeTypes = {
 const FamilyTreeContent = () => {
 
   const dispatch = useAppDispatch();
-  const { focusNode } = useReactFlowZoom();
+  // const { focusNode } = useReactFlowZoom();
   useKeyboardShortcuts();
 
   const reduxNodes = useAppSelector(state => state.familyTree.nodes);
@@ -54,21 +56,21 @@ const FamilyTreeContent = () => {
   }, [reduxEdges, setLocalEdges]);
 
   // Handle search selection - Focus and highlight node
-  const handleSearchSelect = useCallback((memberId: string) => {
-    // Highlight the node
-    dispatch(setHighlightedNode(memberId));
+  // const handleSearchSelect = useCallback((memberId: string) => {
+  //   // Highlight the node
+  //   dispatch(setHighlightedNode(memberId));
 
-    // Focus on the node with zoom
-    focusNode(memberId, 1.5);
+  //   // Focus on the node with zoom
+  //   focusNode(memberId, 1.5);
 
-    // Open detail panel
-    dispatch(setSelectedMember(memberId));
+  //   // Open detail panel
+  //   dispatch(setSelectedMember(memberId));
 
-    // Remove highlight after 3 seconds
-    setTimeout(() => {
-      dispatch(setHighlightedNode(null));
-    }, 3000);
-  }, [dispatch, focusNode]);
+  //   // Remove highlight after 3 seconds
+  //   setTimeout(() => {
+  //     dispatch(setHighlightedNode(null));
+  //   }, 3000);
+  // }, [dispatch, focusNode]);
 
   // Sync to Redux when nodes change
   const handleNodesChange: OnNodesChange = useCallback((changes) => {

@@ -1,4 +1,3 @@
-// src/components/ProtectedRoute.tsx
 import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAppSelector } from '@/hooks/redux'
@@ -46,16 +45,22 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     // Check route-based permissions first
     const routePermissions = ROUTE_PERMISSIONS[location.pathname]
     if (routePermissions && !canAccessRoute(user, routePermissions)) {
+        console.log("1");
+        
         return fallback || <Navigate to="/unauthorized" replace />
     }
 
     // Check required roles
     if (requiredRoles.length > 0 && !hasAnyRole(user, requiredRoles)) {
+        console.log("2");
+
         return fallback || <Navigate to="/unauthorized" replace />
     }
 
     // Check required permissions
     if (requiredPermissions.length > 0) {
+        console.log("3");
+
         const hasRequiredPermissions = requiredPermissions.some(permission =>
             hasPermission(user, permission)
         )

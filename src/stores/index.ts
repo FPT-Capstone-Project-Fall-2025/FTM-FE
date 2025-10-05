@@ -17,6 +17,7 @@ const persistConfig = {
     storage,
     whitelist: [
         // reducers to persist
+        'auth'
     ],
     blacklist: [
         'history'

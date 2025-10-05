@@ -10,7 +10,7 @@ import type {
 
 // Environment variables
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+  import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
 const API_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT) || 10000;
 
 // Create axios instance
@@ -23,24 +23,31 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
+let isRedirecting = false;
+
 // Request interceptor
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Add auth token if available
-    const token = localStorage.getItem('auth_token');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Get token from localStorage (redux-persist stores it here)
+    const persistedState = localStorage.getItem('persist:root')
+    
+    if (persistedState) {
+      try {
+        const parsed = JSON.parse(persistedState)
+        const authState = JSON.parse(parsed.auth) // 'auth' is your slice name
+        const token = authState.token
+        
+        if (token && config.headers) {
+          // config.withCredentials = true;
+          config.headers.Authorization = `Bearer ${token}`
+        }
+      } catch (error) {
+        console.error('Error parsing token from persist:', error)
+      }
     }
-
     // Add request timestamp
     config.metadata = { startTime: new Date().getTime() };
-
-    // Log request in development
-    if (import.meta.env.DEV) {
-      console.log(
-        `API Request: ${config.method?.toUpperCase()} ${config.url}`
-      );
-    }
 
     return config;
   },
@@ -69,9 +76,13 @@ apiClient.interceptors.response.use(
 
       switch (status) {
         case 401:
-          // Handle unauthorized - redirect to login
-          localStorage.removeItem('auth_token');
-          window.location.href = '/login';
+          if (!isRedirecting) {
+            isRedirecting = true;
+            // localStorage.removeItem('auth_token');
+            // Also clear persisted auth state
+            // localStorage.removeItem('persist:root');
+            // window.location.href = '/login';
+          }
           break;
         case 403:
           console.error('Forbidden: Insufficient permissions');
