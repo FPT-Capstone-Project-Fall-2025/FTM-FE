@@ -4,11 +4,11 @@ import api from './apiService';
 
 const dataService = {
   getProvinces(): Promise<ApiResponse<Province[]>> {
-    return api.get('/data/provinces');
+    return api.get('/account/provinces');
   },
 
-  getWards(): Promise<ApiResponse<Ward[]>> {
-    return api.get('/data/wards');
+  getWards(provinceId: string): Promise<ApiResponse<Ward[]>> {
+    return api.get(`/account/provinces/${provinceId}/wards`);
   },
 };
 

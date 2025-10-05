@@ -33,18 +33,25 @@ export interface UserProfile {
   // updatedDate: string | null;
 }
 
+export type EditUserProfile = Omit<UserProfile, 'email' | 'province' | 'ward'> & {
+  provinceId: string | null;
+  wardId: string | null;
+};
+
 export interface Province {
-  provinceId: string;
+  id: string;
   code: string;
   name: string;
   nameWithType: string;
+  slug: string;
 }
 
 export interface Ward {
-  wardId: string;
+  id: string;
   code: string;
   name: string;
   nameWithType: string;
   path: string;
+  slug: string;
   pathWithType: string;
 }
