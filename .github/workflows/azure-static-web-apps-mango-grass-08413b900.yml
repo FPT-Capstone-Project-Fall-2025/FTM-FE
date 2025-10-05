@@ -3,12 +3,10 @@ name: Azure Static Web Apps CI/CD
 on:
   push:
     branches:
-      - platform/cicd
       - dev
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, reopened]
     branches:
-      - platform/cicd
       - dev
 jobs:
   build_and_deploy_job:
@@ -48,5 +46,6 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_GRASS_08413B900 }}
           action: "close"
+
 
 
