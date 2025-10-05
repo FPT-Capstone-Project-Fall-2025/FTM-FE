@@ -36,7 +36,6 @@ const DetailInformation: React.FC = () => {
     provinceId: null,
     wardId: null,
   });
-  console.log(editData);
   
   const [isLoading, setIsLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
@@ -97,14 +96,13 @@ const DetailInformation: React.FC = () => {
         setIsLoadingLocation(true);
 
         // Fetch both APIs in parallel
-        const [provincesResponse, wardsResponse] = await Promise.all([
+        const [profileResponse, provincesResponse, wardsResponse] = await Promise.all([
+          userService.getProfileData(),
           dataService.getProvinces(),
           dataService.getWards()
         ]);
-        console.log(userService.getProfileData());
-        
 
-        // console.log(profileResponse.data);
+        const fetchedProfileData = profileResponse.data;
         const fetchedProvinces = provincesResponse.data;
         const fetchedWards = wardsResponse.data;
 
@@ -130,6 +128,7 @@ const DetailInformation: React.FC = () => {
           pathWithType: ward.pathWithType,
         }));
 
+        setFormData({...fetchedProfileData})
         setProvinces(processedProvinces);
         setWards(processedWards);
 
@@ -207,7 +206,7 @@ const DetailInformation: React.FC = () => {
 
   const handleSave = () => {
     setIsLoading(true);
-    console.log('Saving data:', formData);
+    console.log('Saving data:', editData);
     setIsEditing(false);
     setTimeout(() => setIsLoading(false), 500);
   };
@@ -448,7 +447,7 @@ const DetailInformation: React.FC = () => {
                   {isEditing ? (
                     <select
                       name="gender"
-                      value={Number(formData.gender)}
+                      value={formData.gender === 0 ? 'Nam' : 'Nữ'}
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
@@ -458,7 +457,7 @@ const DetailInformation: React.FC = () => {
                   ) : (
                     <input
                       type="text"
-                      value={Number(formData.gender)}
+                      value={formData.gender === 0 ? 'Nam' : 'Nữ'}
                       disabled
                       className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                     />
