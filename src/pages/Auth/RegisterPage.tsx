@@ -73,9 +73,6 @@ const RegisterPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-                const response = await refetch();
-                console.log(response);
-
         if (validateForm()) {
             setIsLoading(true)
             try {
