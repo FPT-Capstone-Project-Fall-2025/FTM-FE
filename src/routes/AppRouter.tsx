@@ -1,16 +1,16 @@
 import { Navigate, createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
 // import { PERMISSIONS } from '../utils/permissions'
-import LoginPage from '@/pages/LoginPage'
-import RegisterPage from '@/pages/RegisterPage'
+import LoginPage from '@/pages/Auth/LoginPage'
+import RegisterPage from '@/pages/Auth/RegisterPage'
 import UnauthorizedPage from '@/components/shared/UnauthorizedPage'
 import NotFoundPage from '@/components/shared/NotFoundPage'
 import HomePage from '@/pages/HomePage'
-import DashboardPage from '@/pages/DashboardPage'
-import FamilyTreePage from '@/pages/FamilyTreePage'
-import AdminPage from '@/pages/AdminPage'
+import FamilyTreePage from '@/pages/FamilytreeList/FamilyTreePage'
+import AdminPage from '@/pages/Admin/AdminPage'
 import AuthLayout from '@/components/layout/AuthLayout'
 import MainLayout from '@/components/layout/MainLayout'
+import MyAccountPage from '@/pages/MyAccount/MyAccountPage'
 
 const router = createBrowserRouter([
   // Public routes
@@ -33,14 +33,36 @@ const router = createBrowserRouter([
     ],
   },
   /* Protected Routes */
-  // {
-  //   path: '/dashboard',
-  //   element: (
-  //     <ProtectedRoute>
-  //       <DashboardPage />
-  //     </ProtectedRoute>
-  //   )
-  // },
+  {
+    path: '/dashboard',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <MyAccountPage />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: '/home',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <HomePage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/family-trees',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <FamilyTreePage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
   {
     path: '/admin',
     element: (
@@ -61,30 +83,6 @@ const router = createBrowserRouter([
   {
     path: '/unauthorized',
     element: <UnauthorizedPage />,
-  },
-  {
-    path: '/dashboard',
-    element: (
-      <MainLayout>
-        <DashboardPage />
-      </MainLayout>
-    ),
-  },
-  {
-    path: '/home',
-    element: (
-      <MainLayout>
-        <HomePage />
-      </MainLayout>
-    ),
-  },
-  {
-    path: '/family-trees',
-    element: (
-      <MainLayout>
-        <FamilyTreePage />
-      </MainLayout>
-    ),
   },
   {
     path: '*',

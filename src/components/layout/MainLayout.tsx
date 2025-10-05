@@ -3,7 +3,7 @@ import Navigation from '../shared/Navigation';
 import Sidebar from '../shared/Sidebar';
 import type { LayoutProps } from '@/types/common';
 
-const MainLayout: React.FC<LayoutProps> = ({children}) => {
+const MainLayout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const savedState = localStorage.getItem('sidebarCollapsed');
     return savedState ? JSON.parse(savedState) : false;
@@ -18,11 +18,11 @@ const MainLayout: React.FC<LayoutProps> = ({children}) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col">
       <Navigation onMenuClick={toggleSidebar} />
-      <div className="flex flex-grow">
+      <div className="h-full grow overflow-hidden flex">
         <Sidebar isCollapsed={isSidebarCollapsed} />
-        <main className="flex-grow">
+        <main className="h-full grow overflow-y-auto">
           {children}
         </main>
       </div>

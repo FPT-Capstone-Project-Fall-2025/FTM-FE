@@ -26,7 +26,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
   return (
     <aside
-      className={`shrink-0 bg-gray-900 text-white flex flex-col transition-all duration-300 ease-in-out ${
+      className={`shrink-0 h-full bg-gray-900 text-white flex flex-col transition-all duration-300 ease-in-out ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
                 <item.icon size={24} className="flex-shrink-0" />
                 <span
                   className={`overflow-hidden whitespace-nowrap transition-all duration-200 ease-in-out ${
-                    isCollapsed ? 'w-0 ml-0' : 'w-full ml-4'
+                    isCollapsed ? 'hidden w-0 ml-0' : 'w-full ml-4'
                   }`}
                 >
                   {item.text}

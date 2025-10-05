@@ -10,17 +10,20 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
-import { useAppSelector } from '@/hooks/redux';
-import { Link } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { Link, useNavigate } from 'react-router-dom';
 import logo from '@/assets/img/logo.svg';
+import { logout } from '@/stores/slices/authSlice';
 
 interface NavigationProps {
   onMenuClick: () => void;
 }
 
 const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
-  const { user } = useAppSelector(state => state.auth);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAppSelector(state => state.auth);
+  const dispatch = useAppDispatch();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -39,6 +42,11 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isDropdownOpen]);
+
+  const handleLogout = async () => {
+    dispatch(logout())
+    navigate('/login', { replace: true })
+  }
 
   return (
     <header className="bg-blue-600 text-white shadow-md">
@@ -115,7 +123,7 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
                     </div>
                   </div>
                   <button
-                    // onClick={handleLogout}
+                    onClick={handleLogout}
                     className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                   >
                     <LogOut size={20} className="mr-3" />
