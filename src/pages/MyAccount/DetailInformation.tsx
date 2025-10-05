@@ -3,7 +3,7 @@ import { useAppSelector } from '../../hooks/redux';
 import uploadImg from '@/assets/dashboard/import-image.png';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import { EyeOff, Eye } from 'lucide-react';
-import type { Province, UserProfile, Ward } from '@/types/user';
+import type { EditUserProfile, Province, UserProfile, Ward } from '@/types/user';
 import dataService from '@/services/dataService';
 import userService from '@/services/userService';
 
@@ -25,7 +25,7 @@ const DetailInformation: React.FC = () => {
     address: '',
     picture: '',
   });
-  const [editData, setEditData] = useState({
+  const [editData, setEditData] = useState<EditUserProfile>({
     name: '',
     address: '',
     nickname: '',
@@ -33,10 +33,11 @@ const DetailInformation: React.FC = () => {
     birthday: '',
     job: '',
     gender: null,
-    provinceId: null,
-    wardId: null,
+    provinceId: '',
+    wardId: '',
+    picture: '',
   });
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupType, setPopupType] = useState<'change-avatar' | 'change-password' | null>(null);
@@ -50,44 +51,56 @@ const DetailInformation: React.FC = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  const formatDateForInput = (dateStr: string) => {
-    if (!dateStr || !/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return '';
-    const [day, month, year] = dateStr.split('/');
-    return `${year}-${month?.padStart(2, '0')}-${day?.padStart(2, '0')}`;
-  };
-
-  const formatDateForDisplay = (dateStr: string) => {
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
-  // Province and Ward management
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
   const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>('');
-  const [availableWards, setAvailableWards] = useState<Ward[]>([]);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      const initialFormData = {
-        name: formData.name || '',
-        nickname: formData.nickname || '',
-        email: formData.email || '',
-        phoneNumber: formData.phoneNumber || '',
-        job: formData.job || '',
-        gender: formData.gender,
-        birthday: formData.birthday ? formatDateForDisplay(formData.birthday) : '',
-        address: formData.address || '',
-        province: formData.province,
-        ward: formData.ward,
-        picture: formData.picture || '',
-      };
-      setFormData(initialFormData);
+  const formatDateForInput = (dateStr: string) => {
+    if (!dateStr) return '';
+
+    // Handle ISO 8601 format from backend
+    if (dateStr.includes('T')) {
+      return dateStr.split('T')[0]; // Returns "2025-10-05"
     }
-  }, [user]);
+
+    // Handle DD/MM/YYYY format
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+      const [day, month, year] = dateStr.split('/');
+      return `${year}-${month?.padStart(2, '0')}-${day?.padStart(2, '0')}`;
+    }
+
+    // Handle YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+
+    return '';
+  };
+
+  const formatDateForDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+
+    let year, month, day;
+
+    // Handle ISO 8601 format
+    if (dateStr.includes('T')) {
+      [year, month, day] = dateStr.split('T')[0]?.split('-');
+    }
+    // Handle YYYY-MM-DD format
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      [year, month, day] = dateStr.split('-');
+    }
+    // Already in DD/MM/YYYY format
+    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+      return dateStr;
+    }
+    else {
+      return '';
+    }
+
+    return `${day}/${month}/${year}`;
+  };
 
   // Load provinces and wards data
   useEffect(() => {
@@ -96,46 +109,32 @@ const DetailInformation: React.FC = () => {
         setIsLoadingLocation(true);
 
         // Fetch both APIs in parallel
-        const [profileResponse, provincesResponse, wardsResponse] = await Promise.all([
+        const [profileResponse, provincesResponse] = await Promise.all([
           userService.getProfileData(),
           dataService.getProvinces(),
-          dataService.getWards()
         ]);
 
-        const fetchedProfileData = profileResponse.data;
-        const fetchedProvinces = provincesResponse.data;
-        const fetchedWards = wardsResponse.data;
+        const fetchedProfile = profileResponse.data;
 
-        // Process provinces - using correct property names
-        const processedProvinces = fetchedProvinces
-          .map((province: any) => ({
-            provinceId: province.provinceId,
-            code: province.code,
-            name: province.name,
-            nameWithType: province.nameWithType,
-          }))
-          .sort((a: any, b: any) =>
-            a.name.localeCompare(b.name, 'vi', { numeric: true })
-          );
-
-        // Process wards - using correct property names
-        const processedWards = fetchedWards.map((ward: any) => ({
-          wardId: ward.wardId,
-          code: ward.code,
-          name: ward.name,
-          nameWithType: ward.nameWithType,
-          path: ward.path,
-          pathWithType: ward.pathWithType,
-        }));
-
-        setFormData({...fetchedProfileData})
-        setProvinces(processedProvinces);
-        setWards(processedWards);
+        setFormData(fetchedProfile);
+        setEditData({
+          name: fetchedProfile.name || '',
+          address: fetchedProfile.address || '',
+          nickname: fetchedProfile.nickname || '',
+          phoneNumber: fetchedProfile.phoneNumber || '',
+          birthday: fetchedProfile.birthday || '',
+          job: fetchedProfile.job || '',
+          gender: fetchedProfile.gender || null,
+          provinceId: fetchedProfile.province?.id || '',
+          wardId: fetchedProfile.ward?.id || '',
+          picture: fetchedProfile.picture || '',
+        });
+        setProvinces(provincesResponse.data);
 
         // Set selected province if it exists in formData
         const currentProvince = formData.province;
         if (currentProvince) {
-          const foundProvince = processedProvinces.find(
+          const foundProvince = provincesResponse.data.find(
             (p: any) => p.nameWithType === currentProvince || p.name === currentProvince
           );
           if (foundProvince) {
@@ -151,9 +150,20 @@ const DetailInformation: React.FC = () => {
     loadDefaultData();
   }, []);
 
+
+
   useEffect(() => {
-    setAvailableWards(wards);
-  }, [wards]);
+    const loadWardData = async () => {
+      if (!selectedProvinceCode) return;
+      try {
+        const response = await dataService.getWards(selectedProvinceCode);
+        setWards(response.data);
+      } catch (error) {
+        console.error('Error loading wards data:', error);
+      }
+    }
+    loadWardData();
+  }, [selectedProvinceCode]);
 
   const openPopup = (type: 'change-avatar' | 'change-password') => {
     setPopupType(type);
@@ -184,31 +194,33 @@ const DetailInformation: React.FC = () => {
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const provinceCode = e.target.value;
-    const selectedProvince = provinces.find(p => p.code === provinceCode);
-  
     setSelectedProvinceCode(provinceCode);
-    setFormData(prev => ({
+    setEditData(prev => ({
       ...prev,
-      province: selectedProvince ? selectedProvince : null,
-      ward: null,
+      provinceId: provinceCode
     }));
   };
 
   const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const wardId = e.target.value;
-    const selectedWard = wards.find(p => p.wardId === wardId);
-
-    setFormData(prev => ({
+    setEditData(prev => ({
       ...prev,
-      ward: selectedWard ? selectedWard : null,
+      wardId: wardId
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    console.log(editData);
+
     setIsLoading(true);
-    console.log('Saving data:', editData);
+    try {
+      const response = await userService.updateProfileData(editData);
+      console.log(response);
+    } catch (error) {
+      console.log(error);
+    }
     setIsEditing(false);
-    setTimeout(() => setIsLoading(false), 500);
+    setIsLoading(false);
   };
 
   const handleCancel = () => {
@@ -223,6 +235,7 @@ const DetailInformation: React.FC = () => {
         gender: null,
         provinceId: null,
         wardId: null,
+        picture: '',
       });
     }
     setIsEditing(false);
@@ -315,6 +328,8 @@ const DetailInformation: React.FC = () => {
     return <div>Loading user data...</div>;
   }
 
+  const displayData = isEditing ? editData : formData;
+
   return (
     <>
       <div className="grid grid-cols-12 gap-8">
@@ -339,7 +354,7 @@ const DetailInformation: React.FC = () => {
                   onClick={() => openPopup('change-avatar')}
                 >
                   <img
-                    src={formData.picture || defaultPicture}
+                    src={displayData.picture || defaultPicture}
                     alt="Profile"
                     className="w-full h-full object-cover"
                     onError={e => {
@@ -372,7 +387,7 @@ const DetailInformation: React.FC = () => {
                   <input
                     type="text"
                     name="name"
-                    value={formData.name}
+                    value={displayData.name}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -388,8 +403,7 @@ const DetailInformation: React.FC = () => {
                     type="email"
                     name="email"
                     value={formData.email}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
+                    disabled={true}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
                   />
                 </div>
@@ -402,7 +416,7 @@ const DetailInformation: React.FC = () => {
                   <input
                     type="text"
                     name="nickname"
-                    value={formData.nickname}
+                    value={displayData.nickname}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -417,7 +431,7 @@ const DetailInformation: React.FC = () => {
                   <input
                     type="tel"
                     name="phoneNumber"
-                    value={formData.phoneNumber}
+                    value={displayData.phoneNumber}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -432,7 +446,7 @@ const DetailInformation: React.FC = () => {
                   <input
                     type="text"
                     name="job"
-                    value={formData.job}
+                    value={displayData.job}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
@@ -447,17 +461,17 @@ const DetailInformation: React.FC = () => {
                   {isEditing ? (
                     <select
                       name="gender"
-                      value={formData.gender === 0 ? 'Nam' : 'Nữ'}
+                      value={displayData.gender || 0}
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="0">Nam</option>
-                      <option value="1">Nữ</option>
+                      <option value={0}>Nam</option>
+                      <option value={1}>Nữ</option>
                     </select>
                   ) : (
                     <input
                       type="text"
-                      value={formData.gender === 0 ? 'Nam' : 'Nữ'}
+                      value={displayData.gender === 0 ? 'Nam' : 'Nữ'}
                       disabled
                       className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                     />
@@ -474,8 +488,8 @@ const DetailInformation: React.FC = () => {
                     name="birthday"
                     value={
                       isEditing
-                        ? formatDateForInput(formData.birthday)
-                        : formData.birthday
+                        ? formatDateForInput(displayData.birthday)
+                        : formatDateForDisplay(displayData.birthday)
                     }
                     onChange={handleInputChange}
                     disabled={!isEditing}
@@ -498,7 +512,7 @@ const DetailInformation: React.FC = () => {
                     >
                       <option value="">Chọn tỉnh/thành phố</option>
                       {provinces.map(province => (
-                        <option key={province.code} value={province.code}>
+                        <option key={province.id} value={province.id}>
                           {province.nameWithType}
                         </option>
                       ))}
@@ -531,8 +545,8 @@ const DetailInformation: React.FC = () => {
                           ? 'Chọn tỉnh/thành phố trước'
                           : 'Chọn quận/huyện'}
                       </option>
-                      {availableWards.map(ward => (
-                        <option key={ward.code} value={ward.code}>
+                      {wards.map(ward => (
+                        <option key={ward.code} value={ward.id}>
                           {ward.name}
                         </option>
                       ))}
@@ -555,7 +569,7 @@ const DetailInformation: React.FC = () => {
                   <input
                     type="text"
                     name="address"
-                    value={formData.address}
+                    value={displayData.address}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
