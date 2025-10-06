@@ -1,6 +1,6 @@
 {
   "navigationFallback": {
-    "rewrite": "/index.html",
+    "rewrite": "fe.dev.familytree.io.vn/index.html",
     "exclude": ["*.{css,scss,js,png,gif,ico,jpg,svg}"]
   }
 }
