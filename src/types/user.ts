@@ -33,6 +33,10 @@ export interface UserProfile {
   // updatedDate: string | null;
 }
 
+export interface AvatarUpdateResponse {
+  avatarUrl: string;
+}
+
 export type EditUserProfile = Omit<UserProfile, 'email' | 'province' | 'ward'> & {
   provinceId: string | null;
   wardId: string | null;

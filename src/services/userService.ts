@@ -1,5 +1,5 @@
 import type { ApiResponse } from '../types/api';
-import type { EditUserProfile, UserProfile } from '@/types/user';
+import type { AvatarUpdateResponse, EditUserProfile, UserProfile } from '@/types/user';
 import api from './apiService';
 
 const userService = {
@@ -9,6 +9,16 @@ const userService = {
 
   updateProfileData(props: EditUserProfile): Promise<ApiResponse<UserProfile>> {
     return api.put('/account/profile', { ...props });
+  },
+
+  updateAvatar(file: File): Promise<ApiResponse<AvatarUpdateResponse>> {
+    const formData = new FormData();
+    formData.append('Avatar', file);
+    return api.post('/account/upload-avatar', formData, {
+      headers: {
+        "Content-Type": "multipart/form-data"
+      }
+    });
   },
 };
 
