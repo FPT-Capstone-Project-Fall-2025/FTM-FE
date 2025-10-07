@@ -6,6 +6,8 @@ import { EyeOff, Eye } from 'lucide-react';
 import type { EditUserProfile, Province, UserProfile, Ward } from '@/types/user';
 import dataService from '@/services/dataService';
 import userService from '@/services/userService';
+import BirthdayPicker from '@/components/ui/DatePicker';
+import { toast } from 'react-toastify';
 
 const DetailInformation: React.FC = () => {
 
@@ -53,7 +55,7 @@ const DetailInformation: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>('');
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
   const formatDateForInput = (dateStr: string) => {
@@ -115,8 +117,8 @@ const DetailInformation: React.FC = () => {
         ]);
 
         const fetchedProfile = profileResponse.data;
-
         setFormData(fetchedProfile);
+
         setEditData({
           name: fetchedProfile.name || '',
           address: fetchedProfile.address || '',
@@ -131,14 +133,14 @@ const DetailInformation: React.FC = () => {
         });
         setProvinces(provincesResponse.data);
 
-        // Set selected province if it exists in formData
-        const currentProvince = formData.province;
+        // Set selected province if it exists
+        const currentProvince = fetchedProfile.province;
         if (currentProvince) {
           const foundProvince = provincesResponse.data.find(
-            (p: any) => p.nameWithType === currentProvince || p.name === currentProvince
+            (p: any) => p.id === currentProvince.id || p.name === currentProvince.name
           );
           if (foundProvince) {
-            setSelectedProvinceCode(foundProvince.code);
+            setSelectedProvinceId(foundProvince.id);
           }
         }
       } catch (error) {
@@ -150,20 +152,18 @@ const DetailInformation: React.FC = () => {
     loadDefaultData();
   }, []);
 
-
-
   useEffect(() => {
+    if (!selectedProvinceId) return;
     const loadWardData = async () => {
-      if (!selectedProvinceCode) return;
       try {
-        const response = await dataService.getWards(selectedProvinceCode);
+        const response = await dataService.getWards(selectedProvinceId);
         setWards(response.data);
       } catch (error) {
         console.error('Error loading wards data:', error);
       }
     }
     loadWardData();
-  }, [selectedProvinceCode]);
+  }, [selectedProvinceId]);
 
   const openPopup = (type: 'change-avatar' | 'change-password') => {
     setPopupType(type);
@@ -193,11 +193,11 @@ const DetailInformation: React.FC = () => {
   };
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const provinceCode = e.target.value;
-    setSelectedProvinceCode(provinceCode);
+    const provinceId = e.target.value;
+    setSelectedProvinceId(provinceId);
     setEditData(prev => ({
       ...prev,
-      provinceId: provinceCode
+      provinceId: provinceId
     }));
   };
 
@@ -210,34 +210,32 @@ const DetailInformation: React.FC = () => {
   };
 
   const handleSave = async () => {
-    console.log(editData);
-
     setIsLoading(true);
     try {
       const response = await userService.updateProfileData(editData);
-      console.log(response);
+      setFormData(response.data);
+      toast.success(response.message);
     } catch (error) {
       console.log(error);
+    } finally {
+      setIsEditing(false);
+      setIsLoading(false);
     }
-    setIsEditing(false);
-    setIsLoading(false);
   };
 
   const handleCancel = () => {
-    if (user) {
-      setEditData({
-        name: '',
-        address: '',
-        nickname: '',
-        phoneNumber: '',
-        birthday: '',
-        job: '',
-        gender: null,
-        provinceId: null,
-        wardId: null,
-        picture: '',
-      });
-    }
+    setEditData({
+      name: formData.name || '',
+      address: formData.address || '',
+      nickname: formData.nickname || '',
+      phoneNumber: formData.phoneNumber || '',
+      birthday: formData.birthday || '',
+      job: formData.job || '',
+      gender: formData.gender || null,
+      provinceId: formData.province?.id || '',
+      wardId: formData.ward?.id || '',
+      picture: formData.picture || '',
+    });
     setIsEditing(false);
   };
 
@@ -302,18 +300,21 @@ const DetailInformation: React.FC = () => {
     }
   };
 
-  const handleAvatarSave = () => {
+  const handleAvatarSave = async () => {
     if (selectedAvatar) {
-      console.log('Uploading avatar...', selectedAvatar);
       setIsLoading(true);
-      if (avatarPreview) {
-        setFormData(prev => ({ ...prev, picture: avatarPreview }));
-      }
-      alert('Cập nhật ảnh đại diện thành công!');
-      setTimeout(() => {
+      try {
+        const response = await userService.updateAvatar(selectedAvatar);
+        if(response.data) {
+          setFormData(prev => ({ ...prev, picture: response.data.avatarUrl }));
+          toast.success(response.message);
+        }
+      } catch (error) {
+        console.log(error);
+      } finally {
         setIsLoading(false);
         closePopup();
-      }, 400);
+      } 
     }
   };
 
@@ -479,23 +480,13 @@ const DetailInformation: React.FC = () => {
                 </div>
 
                 {/* Birth Date */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Ngày sinh
-                  </label>
-                  <input
-                    type={isEditing ? 'date' : 'text'}
-                    name="birthday"
-                    value={
-                      isEditing
-                        ? formatDateForInput(displayData.birthday)
-                        : formatDateForDisplay(displayData.birthday)
-                    }
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-700"
-                  />
-                </div>
+                <BirthdayPicker
+                  value={displayData.birthday}
+                  onChange={(value) =>
+                    setEditData((prev) => ({ ...prev, birthday: value }))
+                  }
+                  isEditing={isEditing}
+                />
 
                 {/* Province */}
                 <div>
@@ -505,7 +496,7 @@ const DetailInformation: React.FC = () => {
                   {isEditing ? (
                     <select
                       name="province"
-                      value={selectedProvinceCode}
+                      value={selectedProvinceId || ""}
                       onChange={handleProvinceChange}
                       disabled={isLoadingLocation}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
@@ -520,7 +511,7 @@ const DetailInformation: React.FC = () => {
                   ) : (
                     <input
                       type="text"
-                      value={formData.province?.name}
+                      value={formData.province?.nameWithType || ""}
                       disabled
                       className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                     />
@@ -535,13 +526,13 @@ const DetailInformation: React.FC = () => {
                   {isEditing ? (
                     <select
                       name="ward"
-                      value={formData.ward?.name}
+                      value={formData.ward?.id || ""}
                       onChange={handleWardChange}
-                      disabled={isLoadingLocation || !selectedProvinceCode}
+                      disabled={isLoadingLocation || !selectedProvinceId}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
                     >
                       <option value="">
-                        {!selectedProvinceCode
+                        {!selectedProvinceId
                           ? 'Chọn tỉnh/thành phố trước'
                           : 'Chọn quận/huyện'}
                       </option>
@@ -554,7 +545,7 @@ const DetailInformation: React.FC = () => {
                   ) : (
                     <input
                       type="text"
-                      value={formData.ward?.name}
+                      value={formData.ward?.name || ""}
                       disabled
                       className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 focus:outline-none"
                     />
@@ -608,17 +599,7 @@ const DetailInformation: React.FC = () => {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsEditing(true);
-                      const currentProvince = provinces.find(
-                        p =>
-                          p.nameWithType === formData.province?.nameWithType ||
-                          p.name === formData.province?.name
-                      );
-                      if (currentProvince) {
-                        setSelectedProvinceCode(currentProvince.code);
-                      }
-                    }}
+                    onClick={() => setIsEditing(true)}
                     className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   >
                     CHỈNH SỬA
