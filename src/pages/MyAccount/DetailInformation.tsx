@@ -11,7 +11,7 @@ import { toast } from 'react-toastify';
 
 const DetailInformation: React.FC = () => {
 
-  const { user, isLoading: isUserLoading } = useAppSelector(state => state.auth);
+  const { isLoading: isUserLoading } = useAppSelector(state => state.auth);
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<UserProfile>({
@@ -57,52 +57,6 @@ const DetailInformation: React.FC = () => {
   const [wards, setWards] = useState<Ward[]>([]);
   const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
-
-  const formatDateForInput = (dateStr: string) => {
-    if (!dateStr) return '';
-
-    // Handle ISO 8601 format from backend
-    if (dateStr.includes('T')) {
-      return dateStr.split('T')[0]; // Returns "2025-10-05"
-    }
-
-    // Handle DD/MM/YYYY format
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-      const [day, month, year] = dateStr.split('/');
-      return `${year}-${month?.padStart(2, '0')}-${day?.padStart(2, '0')}`;
-    }
-
-    // Handle YYYY-MM-DD format
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return dateStr;
-    }
-
-    return '';
-  };
-
-  const formatDateForDisplay = (dateStr: string) => {
-    if (!dateStr) return '';
-
-    let year, month, day;
-
-    // Handle ISO 8601 format
-    if (dateStr.includes('T')) {
-      [year, month, day] = dateStr.split('T')[0]?.split('-');
-    }
-    // Handle YYYY-MM-DD format
-    else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      [year, month, day] = dateStr.split('-');
-    }
-    // Already in DD/MM/YYYY format
-    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-      return dateStr;
-    }
-    else {
-      return '';
-    }
-
-    return `${day}/${month}/${year}`;
-  };
 
   // Load provinces and wards data
   useEffect(() => {
