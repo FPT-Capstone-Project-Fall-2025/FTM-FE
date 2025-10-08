@@ -480,7 +480,7 @@ const DetailInformation: React.FC = () => {
                   {isEditing ? (
                     <select
                       name="ward"
-                      value={formData.ward?.id || ""}
+                      value={editData.wardId || ""}
                       onChange={handleWardChange}
                       disabled={isLoadingLocation || !selectedProvinceId}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
