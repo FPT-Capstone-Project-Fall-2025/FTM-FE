@@ -42,6 +42,12 @@ export type EditUserProfile = Omit<UserProfile, 'email' | 'province' | 'ward'> &
   wardId: string | null;
 };
 
+export interface ChangePasswordProps {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}
+
 export interface Province {
   id: string;
   code: string;

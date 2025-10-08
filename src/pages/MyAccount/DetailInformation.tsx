@@ -3,7 +3,7 @@ import { useAppSelector } from '../../hooks/redux';
 import uploadImg from '@/assets/dashboard/import-image.png';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import { EyeOff, Eye } from 'lucide-react';
-import type { EditUserProfile, Province, UserProfile, Ward } from '@/types/user';
+import type { ChangePasswordProps, EditUserProfile, Province, UserProfile, Ward } from '@/types/user';
 import dataService from '@/services/dataService';
 import userService from '@/services/userService';
 import BirthdayPicker from '@/components/ui/DatePicker';
@@ -45,10 +45,10 @@ const DetailInformation: React.FC = () => {
   const [popupType, setPopupType] = useState<'change-avatar' | 'change-password' | null>(null);
   const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [passwordData, setPasswordData] = useState({
+  const [passwordData, setPasswordData] = useState<ChangePasswordProps>({
     currentPassword: '',
     newPassword: '',
-    confirmPassword: '',
+    confirmNewPassword: '',
   });
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -57,6 +57,12 @@ const DetailInformation: React.FC = () => {
   const [wards, setWards] = useState<Ward[]>([]);
   const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  // Validation errors state
+  const [errors, setErrors] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmNewPassword: ''
+  });
 
   // Load provinces and wards data
   useEffect(() => {
@@ -205,24 +211,72 @@ const DetailInformation: React.FC = () => {
       ...prev,
       [name]: value,
     }));
+    // Clear error for the field being typed in
+    setErrors(prev => ({
+      ...prev,
+      [name]: ''
+    }));
+
+    // Clear confirm password error when typing new password
+    if (name === 'newPassword' && errors.confirmNewPassword) {
+      setErrors(prev => ({
+        ...prev,
+        confirmNewPassword: ''
+      }));
+    }
   };
 
-  const handlePasswordSave = () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('Mật khẩu mới và xác nhận mật khẩu không khớp!');
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = {
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: ''
+    };
+
+    // Validate current password
+    if (!passwordData.currentPassword) {
+      newErrors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại';
+      isValid = false;
+    }
+
+    // Validate new password
+    if (!passwordData.newPassword) {
+      newErrors.newPassword = 'Vui lòng nhập mật khẩu mới';
+      isValid = false;
+    } else if (passwordData.newPassword.length < 6) {
+      newErrors.newPassword = 'Mật khẩu mới phải có ít nhất 6 ký tự';
+      isValid = false;
+    }
+
+    // Validate confirm password
+    if (!passwordData.confirmNewPassword) {
+      newErrors.confirmNewPassword = 'Vui lòng xác nhận mật khẩu mới';
+      isValid = false;
+    } else if (passwordData.newPassword !== passwordData.confirmNewPassword) {
+      newErrors.confirmNewPassword = 'Mật khẩu mới và xác nhận mật khẩu không khớp';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handlePasswordSave = async () => {
+    if (!validateForm()) {
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      alert('Mật khẩu mới phải có ít nhất 6 ký tự!');
-      return;
-    }
-    console.log('Changing password...', passwordData);
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      alert('Đổi mật khẩu thành công!');
+
+    try {
+      setIsLoading(true);
+      await userService.changePassword(passwordData);
+      toast.success('Thay đổi mật khẩu thành công!');
       closePopup();
-    }, 600);
+    } catch (error) {
+      toast.error('Có gì đó không đúng!...');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAvatarSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -259,7 +313,7 @@ const DetailInformation: React.FC = () => {
       setIsLoading(true);
       try {
         const response = await userService.updateAvatar(selectedAvatar);
-        if(response.data) {
+        if (response.data) {
           setFormData(prev => ({ ...prev, picture: response.data.avatarUrl }));
           toast.success(response.message);
         }
@@ -268,7 +322,7 @@ const DetailInformation: React.FC = () => {
       } finally {
         setIsLoading(false);
         closePopup();
-      } 
+      }
     }
   };
 
@@ -730,16 +784,21 @@ const DetailInformation: React.FC = () => {
                           value={passwordData.currentPassword}
                           onChange={handlePasswordChange}
                           placeholder="Nhập mật khẩu hiện tại"
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                          className={`w-full px-4 py-3 bg-gray-50 border ${errors.currentPassword ? 'border-red-500' : 'border-gray-300'
+                            } rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 ${errors.currentPassword ? 'focus:ring-red-500' : 'focus:ring-blue-500'
+                            } focus:border-transparent pr-12`}
                         />
                         <button
                           type="button"
                           onClick={() => setShowCurrentPassword(prev => !prev)}
                           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
                         >
-                          {showCurrentPassword ? <Eye /> : <EyeOff />}
+                          {showCurrentPassword ? <Eye size={20} /> : <EyeOff size={20} />}
                         </button>
                       </div>
+                      {errors.currentPassword && (
+                        <p className="mt-1 text-sm text-red-500">{errors.currentPassword}</p>
+                      )}
                     </div>
 
                     <div>
@@ -753,16 +812,21 @@ const DetailInformation: React.FC = () => {
                           value={passwordData.newPassword}
                           onChange={handlePasswordChange}
                           placeholder="Nhập mật khẩu mới"
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                          className={`w-full px-4 py-3 bg-gray-50 border ${errors.newPassword ? 'border-red-500' : 'border-gray-300'
+                            } rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 ${errors.newPassword ? 'focus:ring-red-500' : 'focus:ring-blue-500'
+                            } focus:border-transparent pr-12`}
                         />
                         <button
                           type="button"
                           onClick={() => setShowNewPassword(prev => !prev)}
                           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
                         >
-                          {showNewPassword ? <Eye /> : <EyeOff />}
+                          {showNewPassword ? <Eye size={20} /> : <EyeOff size={20} />}
                         </button>
                       </div>
+                      {errors.newPassword && (
+                        <p className="mt-1 text-sm text-red-500">{errors.newPassword}</p>
+                      )}
                     </div>
 
                     <div>
@@ -772,20 +836,25 @@ const DetailInformation: React.FC = () => {
                       <div className="relative">
                         <input
                           type={showConfirmPassword ? 'text' : 'password'}
-                          name="confirmPassword"
-                          value={passwordData.confirmPassword}
+                          name="confirmNewPassword"
+                          value={passwordData.confirmNewPassword}
                           onChange={handlePasswordChange}
                           placeholder="Nhập mật khẩu mới"
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                          className={`w-full px-4 py-3 bg-gray-50 border ${errors.confirmNewPassword ? 'border-red-500' : 'border-gray-300'
+                            } rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 ${errors.confirmNewPassword ? 'focus:ring-red-500' : 'focus:ring-blue-500'
+                            } focus:border-transparent pr-12`}
                         />
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(prev => !prev)}
                           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
                         >
-                          {showConfirmPassword ? <Eye /> : <EyeOff />}
+                          {showConfirmPassword ? <Eye size={20} /> : <EyeOff size={20} />}
                         </button>
                       </div>
+                      {errors.confirmNewPassword && (
+                        <p className="mt-1 text-sm text-red-500">{errors.confirmNewPassword}</p>
+                      )}
                     </div>
                   </div>
 
@@ -800,15 +869,10 @@ const DetailInformation: React.FC = () => {
                     <button
                       type="button"
                       onClick={handlePasswordSave}
-                      disabled={
-                        !passwordData.currentPassword ||
-                        !passwordData.newPassword ||
-                        !passwordData.confirmPassword ||
-                        isLoading
-                      }
+                      disabled={isLoading}
                       className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
-                      LƯU
+                      {isLoading ? 'ĐANG XỬ LÝ...' : 'LƯU'}
                     </button>
                   </div>
                 </div>
