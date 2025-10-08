@@ -138,7 +138,7 @@ const DetailInformation: React.FC = () => {
     setPasswordData({
       currentPassword: '',
       newPassword: '',
-      confirmPassword: '',
+      confirmNewPassword: '',
     });
   };
 
