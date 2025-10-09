@@ -7,6 +7,8 @@ import UnauthorizedPage from '@/components/shared/UnauthorizedPage'
 import NotFoundPage from '@/components/shared/NotFoundPage'
 import HomePage from '@/pages/HomePage'
 import DashboardPage from '@/pages/DashboardPage'
+import GroupPostPage from '@/pages/GroupPostPage'
+import PostPage from '@/pages/PostPage'
 import FamilyTreePage from '@/pages/FamilyTreePage'
 import AdminPage from '@/pages/AdminPage'
 import AuthLayout from '@/components/layout/AuthLayout'
@@ -67,6 +69,22 @@ const router = createBrowserRouter([
     element: (
       <MainLayout>
         <DashboardPage />
+      </MainLayout>
+    ),
+  },
+  {
+    path: '/group',
+    element: (
+      <MainLayout>
+        <GroupPostPage />
+      </MainLayout>
+    ),
+  },
+  {
+    path: '/group/:id',
+    element: (
+      <MainLayout>
+        <PostPage />
       </MainLayout>
     ),
   },
