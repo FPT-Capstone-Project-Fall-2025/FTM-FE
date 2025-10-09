@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useAppSelector } from '../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, Send, X, ThumbsUp } from 'lucide-react';
+import { MessageCircle, Send, X, ThumbsUp, Edit, Save, XCircle } from 'lucide-react';
 
 interface Post {
   id: string;
@@ -15,6 +16,8 @@ interface Post {
   likes: number;
   comments: Comment[];
   isLiked: boolean;
+  isEdited?: boolean;
+  editedAt?: string;
 }
 
 interface Comment {
@@ -37,8 +40,9 @@ interface PostDetailPageProps {
   onClose: () => void;
   commentInputs: { [key: string]: string };
   setCommentInputs: React.Dispatch<React.SetStateAction<{ [key: string]: string }>>;
-  onLikePost: (postId: string) => void;
+  onLikePost: (id: string, type: 'post' | 'comment', postId?: string) => void;
   onCommentSubmit: (postId: string) => void;
+  onEditPost?: (postId: string, newContent: string) => void;
   CommentItem: React.FC<{
     comment: Comment;
     postId: string;
@@ -55,15 +59,39 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
   setCommentInputs,
   onLikePost,
   onCommentSubmit,
+  onEditPost,
   CommentItem
 }) => {
   const { id: groupId } = useParams<{ id: string }>();
+  const { user } = useAppSelector(state => state.auth);
+  const [isEditingPost, setIsEditingPost] = useState(false);
+  const [editContent, setEditContent] = useState('');
 
   if (!isOpen || !post) return null;
 
+  // Check if current user can edit this post
+  const canEditPost = user?.name === post.author.name;
+
+  const handleStartEdit = () => {
+    setEditContent(post.content);
+    setIsEditingPost(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (onEditPost && editContent.trim()) {
+      onEditPost(post.id, editContent.trim());
+      setIsEditingPost(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditContent('');
+    setIsEditingPost(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-auto max-h-[90vh] overflow-hidden flex">
         {/* Left Side - Post Image (only if images exist) */}
         {post.images && post.images.length > 0 && (
           <div className="flex-1 bg-black flex items-center justify-center min-h-[60vh]">
@@ -75,26 +103,42 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
           </div>
         )}
 
-        {/* Right Side - Post Details */}
-        <div className={`${post.images && post.images.length > 0 ? 'w-96' : 'w-full max-w-lg mx-auto'} flex flex-col`}>
+        {/* Right Side - Post Details OR Full Width when no image */}
+        <div className={`${post.images && post.images.length > 0 ? 'w-96' : 'w-full max-w-2xl mx-auto'} flex flex-col`}>
           {/* Modal Header */}
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
             <div className="flex items-center space-x-3">
-              <img
-                src={post.author.avatar}
-                alt={post.author.name}
-                className="w-10 h-10 rounded-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = defaultPicture;
-                }}
-              />
-              <div>
-                <h3 className="font-semibold text-gray-900">{post.author.name}</h3>
-                <p className="text-sm text-gray-500">{post.author.timeAgo}</p>
-                {groupId && (
-                  <p className="text-xs text-blue-600">Nhóm: {groupId}</p>
-                )}
-              </div>
+              {/* Show different header based on whether post has images */}
+              {post.images && post.images.length > 0 ? (
+                <>
+                  <img
+                    src={post.author.avatar}
+                    alt={post.author.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = defaultPicture;
+                    }}
+                  />
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{post.author.name}</h3>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-sm text-gray-500">{post.author.timeAgo}</p>
+                      {post.isEdited && (
+                        <span className="text-xs text-gray-400">
+                          • đã chỉnh sửa {post.editedAt}
+                        </span>
+                      )}
+                    </div>
+                    {groupId && (
+                      <p className="text-xs text-blue-600">Nhóm: {groupId}</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 text-center">
+                  <h3 className="font-semibold text-gray-900 text-lg">Bài viết của {post.author.name}</h3>
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -104,9 +148,110 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
             </button>
           </div>
 
+          {/* Author info for posts without images */}
+          {(!post.images || post.images.length === 0) && (
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <img
+                  src={post.author.avatar}
+                  alt={post.author.name}
+                  className="w-10 h-10 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = defaultPicture;
+                  }}
+                />
+                <div>
+                  <h4 className="font-semibold text-gray-900">{post.author.name}</h4>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm text-gray-500">{post.author.timeAgo}</p>
+                    {post.isEdited && (
+                      <span className="text-xs text-gray-400">
+                        • đã chỉnh sửa {post.editedAt}
+                      </span>
+                    )}
+                  </div>
+                  {groupId && (
+                    <p className="text-xs text-blue-600">Nhóm: {groupId}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Post Content */}
           <div className="p-4 border-b border-gray-200">
-            <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex-1">
+                {isEditingPost ? (
+                  <div>
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      rows={4}
+                      placeholder="Chỉnh sửa nội dung bài viết..."
+                    />
+                    <div className="flex justify-end space-x-2 mt-3">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center space-x-1"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        <span>Hủy</span>
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        disabled={!editContent.trim()}
+                        className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-1"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Lưu</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
+                )}
+              </div>
+              {canEditPost && !isEditingPost && (
+                <button
+                  onClick={handleStartEdit}
+                  className="ml-3 text-gray-400 hover:text-gray-600 p-1"
+                  title="Chỉnh sửa bài viết"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Group Information Sections */}
+          <div className="border-b border-gray-200">
+            {/* About Section */}
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="font-semibold text-gray-900">Giới thiệu</h5>
+                <button className="text-gray-400 hover:text-gray-600 p-1">
+                  <Edit className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Thêm mô tả về nhóm gia phả này để mọi người hiểu rõ hơn về mục đích và hoạt động của nhóm.
+              </p>
+            </div>
+
+            {/* Community Rules Section */}
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="font-semibold text-gray-900">Quy tắc cộng đồng</h5>
+                <button className="text-gray-400 hover:text-gray-600 p-1">
+                  <Edit className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Thêm quy tắc để giúp duy trì môi trường thảo luận tích cực và tôn trọng trong nhóm gia phả.
+              </p>
+            </div>
           </div>
 
           {/* Post Stats */}
@@ -128,7 +273,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex items-center justify-around">
               <button
-                onClick={() => onLikePost(post.id)}
+                onClick={() => onLikePost(post.id, 'post')}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors ${
                   post.isLiked ? 'text-blue-600' : 'text-gray-600'
                 }`}

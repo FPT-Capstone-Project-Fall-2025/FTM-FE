@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, Eye } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, Eye, Globe, Settings, Share, Plus } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
 
 interface Post {
@@ -16,6 +16,8 @@ interface Post {
   likes: number;
   comments: Comment[];
   isLiked: boolean;
+  isEdited?: boolean;
+  editedAt?: string;
 }
 
 interface Comment {
@@ -42,6 +44,7 @@ const PostPage: React.FC = () => {
   const [commentImages, setCommentImages] = useState<{ [key: string]: File[] }>({});
   const [commentImagePreviews, setCommentImagePreviews] = useState<{ [key: string]: string[] }>({});
   const [showSearchPopup, setShowSearchPopup] = useState(false);
+  const [showSharePopup, setShowSharePopup] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -50,6 +53,9 @@ const PostPage: React.FC = () => {
   const [reportReason, setReportReason] = useState('');
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
+  const [showReportPostModal, setShowReportPostModal] = useState(false);
+  const [reportingPostId, setReportingPostId] = useState<string | null>(null);
+  const [postReportReason, setPostReportReason] = useState('');
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [replyingToComment, setReplyingToComment] = useState<string | null>(null);
   const [replyInputs, setReplyInputs] = useState<{ [key: string]: string }>({});
@@ -200,7 +206,7 @@ const PostPage: React.FC = () => {
       const newPost: Post = {
         id: Date.now().toString(),
         author: {
-          name: user?.name || 'Người dùng',
+          name: user?.name || 'Username',
           avatar: defaultPicture,
           timeAgo: 'Vừa xong'
         },
@@ -220,35 +226,82 @@ const PostPage: React.FC = () => {
     }, 1000);
   };
 
+  const handleLike = (id: string, type: 'post' | 'comment', postId?: string) => {
+    // Validation
+    if (!id || !type) {
+      console.error('handleLike: Missing required parameters', { id, type, postId });
+      return;
+    }
+
+    if (type === 'comment' && !postId) {
+      console.error('handleLike: postId is required for comment likes');
+      return;
+    }
+
+    if (type === 'post') {
+      // Handle post like
+      setPosts(prev => prev.map(post => 
+        post.id === id 
+          ? { 
+              ...post, 
+              isLiked: !post.isLiked,
+              likes: post.isLiked ? post.likes - 1 : post.likes + 1
+            }
+          : post
+      ));
+      
+      // Also update selectedPost if it's the same post
+      if (selectedPost?.id === id) {
+        setSelectedPost(prev => prev ? {
+          ...prev,
+          isLiked: !prev.isLiked,
+          likes: prev.isLiked ? prev.likes - 1 : prev.likes + 1
+        } : null);
+      }
+    } else if (type === 'comment' && postId) {
+      // Handle comment like
+      setPosts(prev => prev.map(post => 
+        post.id === postId 
+          ? {
+              ...post,
+              comments: post.comments.map(comment =>
+                comment.id === id
+                  ? {
+                      ...comment,
+                      isLiked: !comment.isLiked,
+                      likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1
+                    }
+                  : comment
+              )
+            }
+          : post
+      ));
+      
+      // Also update selectedPost if it's the same post
+      if (selectedPost?.id === postId) {
+        setSelectedPost(prev => prev ? {
+          ...prev,
+          comments: prev.comments.map(comment =>
+            comment.id === id
+              ? {
+                  ...comment,
+                  isLiked: !comment.isLiked,
+                  likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1
+                }
+              : comment
+          )
+        } : null);
+      }
+    }
+  };
+
+  // Legacy functions for backward compatibility
   const handleLikePost = (postId: string) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            isLiked: !post.isLiked,
-            likes: post.isLiked ? post.likes - 1 : post.likes + 1
-          }
-        : post
-    ));
+    handleLike(postId, 'post');
   };
 
   const handleLikeComment = (postId: string, commentId: string) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? {
-            ...post,
-            comments: post.comments.map(comment =>
-              comment.id === commentId
-                ? {
-                    ...comment,
-                    isLiked: !comment.isLiked,
-                    likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1
-                  }
-                : comment
-            )
-          }
-        : post
-    ));
+    handleLike(commentId, 'comment', postId);
   };
 
   const handleCommentSubmit = (postId: string) => {
@@ -291,10 +344,61 @@ const PostPage: React.FC = () => {
 
   const handleSaveEdit = (postId: string) => {
     setPosts(prev => prev.map(post =>
-      post.id === postId ? { ...post, content: editContent } : post
+      post.id === postId ? { 
+        ...post, 
+        content: editContent,
+        isEdited: true,
+        editedAt: 'Vừa xong'
+      } : post
     ));
+    
+    // Also update selectedPost if it's the same post being edited
+    if (selectedPost?.id === postId) {
+      setSelectedPost(prev => prev ? { 
+        ...prev, 
+        content: editContent,
+        isEdited: true,
+        editedAt: 'Vừa xong'
+      } : null);
+    }
+    
     setEditingPostId(null);
     setEditContent('');
+  };
+
+  // Copy link function
+  const handleCopyLink = async () => {
+    try {
+      const groupUrl = `${window.location.origin}/group/gia-pha-gia-dinh-nguyen`;
+      await navigator.clipboard.writeText(groupUrl);
+      alert('Đã sao chép link vào clipboard!');
+      setShowSharePopup(false);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      alert('Không thể sao chép link. Vui lòng thử lại!');
+    }
+  };
+
+  // Handler for modal post editing
+  const handleModalEditPost = (postId: string, newContent: string) => {
+    setPosts(prev => prev.map(post =>
+      post.id === postId ? { 
+        ...post, 
+        content: newContent,
+        isEdited: true,
+        editedAt: 'Vừa xong'
+      } : post
+    ));
+    
+    // Also update selectedPost if it's the same post being edited
+    if (selectedPost?.id === postId) {
+      setSelectedPost(prev => prev ? { 
+        ...prev, 
+        content: newContent,
+        isEdited: true,
+        editedAt: 'Vừa xong'
+      } : null);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -323,6 +427,23 @@ const PostPage: React.FC = () => {
       setShowReportModal(false);
       setReportReason('');
       setReportingCommentId(null);
+    }
+  };
+
+  const handleReportPost = (postId: string) => {
+    setReportingPostId(postId);
+    setShowReportPostModal(true);
+    setShowPostMenu(null);
+  };
+
+  const handleSubmitPostReport = () => {
+    if (postReportReason.trim()) {
+      // TODO: Submit report to backend
+      console.log('Reporting post:', reportingPostId, 'Reason:', postReportReason);
+      alert('Báo cáo bài viết đã được gửi thành công!');
+      setShowReportPostModal(false);
+      setPostReportReason('');
+      setReportingPostId(null);
     }
   };
 
@@ -475,7 +596,7 @@ const PostPage: React.FC = () => {
             <div className="flex items-center justify-between mt-1">
               <div className="flex items-center space-x-4 text-xs text-gray-500">
                 <button
-                  onClick={() => handleLikeComment(postId, comment.id)}
+                  onClick={() => handleLike(comment.id, 'comment', postId)}
                   className={`hover:underline ${comment.isLiked ? 'text-blue-600 font-semibold' : ''}`}
                 >
                   Thích
@@ -582,25 +703,88 @@ const PostPage: React.FC = () => {
 
   return (
     <div className="h-full bg-gray-50">
-      <div className="h-full px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              TIN TỨC GIA PHẢ
-            </h1>
-            <p className="text-gray-600">
-              Chia sẻ và thảo luận về gia phả, truyền thống gia đình
-            </p>
+      <div className="h-full">
+        {/* Group Banner */}
+        <div className="relative">
+          {/* Cover Photo */}
+          <div className="h-80 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 relative overflow-hidden">
+            <img
+              src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=1200&h=400&fit=crop"
+              alt="Group cover"
+              className="w-full h-full object-cover opacity-80"
+            />
+            <div className="absolute inset-0 bg-black/30"></div>
           </div>
-          <button
-            onClick={() => setShowSearchPopup(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            <Search className="w-5 h-5" />
-            <span>Tìm kiếm</span>
-          </button>
+
+          {/* Group Info */}
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-end justify-between pb-6 mt-4">
+                <div className="flex items-end space-x-6">
+                  {/* Group Details */}
+                  <div>
+                    <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                      Gia Phả Gia Đình Nguyễn
+                    </h1>
+                    <div className="flex items-center space-x-4 text-gray-600 mb-2">
+                      <span className="text-sm font-medium">28.3K thành viên</span>
+                    </div>
+
+                    {/* Member Avatars */}
+                    <div className="flex items-center space-x-1">
+                      <div className="flex -space-x-1">
+                        {[
+                          'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face',
+                          'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face',
+                          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face',
+                          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face',
+                          'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face'
+                        ].map((avatar, index) => (
+                          <img
+                            key={index}
+                            src={avatar}
+                            alt={`Member ${index + 1}`}
+                            className="w-6 h-6 rounded-full border-2 border-white object-cover"
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-gray-500 ml-2">
+                        <span className="font-medium">Trần Thị Bình</span> và {Math.floor(Math.random() * 10) + 5} người khác là bạn bè của bạn
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center space-x-3 pb-2">
+                  <button className="flex items-center space-x-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
+                    <Plus className="w-4 h-4" />
+                    <span>Mời</span>
+                  </button>
+                  <button 
+                    onClick={() => setShowSharePopup(true)}
+                    className="flex items-center space-x-2 px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
+                  >
+                    <Share className="w-4 h-4" />
+                    <span>Chia sẻ</span>
+                  </button>
+                  <button className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                    <Settings className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowSearchPopup(true)}
+                    className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Content Area */}
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
 
         <div className="flex justify-center">
           <div className="w-full max-w-7xl flex gap-6 lg:gap-8">
@@ -628,16 +812,6 @@ const PostPage: React.FC = () => {
                   
                   {/* Quick Action Buttons */}
                   <div className="flex items-center justify-around mt-3 pt-3 border-t border-gray-200">
-                    <button
-                      onClick={() => setShowCreatePostModal(true)}
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-red-600"
-                    >
-                      <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
-                        <span className="text-red-600 text-sm">📹</span>
-                      </div>
-                      <span className="text-sm font-medium">Video trực tiếp</span>
-                    </button>
-                    
                     <button
                       onClick={() => setShowCreatePostModal(true)}
                       className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-green-600"
@@ -678,12 +852,19 @@ const PostPage: React.FC = () => {
                     />
                     <div>
                       <h3 className="font-semibold text-gray-900">{post.author.name}</h3>
-                      <button 
-                        onClick={() => handleOpenPostDetail(post)}
-                        className="text-sm text-gray-500 hover:text-gray-700 hover:underline cursor-pointer"
-                      >
-                        {post.author.timeAgo}
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button 
+                          onClick={() => handleOpenPostDetail(post)}
+                          className="text-sm text-gray-500 hover:text-gray-700 hover:underline cursor-pointer"
+                        >
+                          {post.author.timeAgo}
+                        </button>
+                        {post.isEdited && (
+                          <span className="text-xs text-gray-400">
+                            • đã chỉnh sửa {post.editedAt}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="relative">
@@ -715,16 +896,22 @@ const PostPage: React.FC = () => {
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={() => {
-                              alert('Báo cáo bài viết đã được gửi!');
-                              setShowPostMenu(null);
-                            }}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600"
-                          >
-                            <Flag className="w-4 h-4" />
-                            <span>Báo cáo bài viết</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleEditPost(post.id, post.content)}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Chỉnh sửa bài viết</span>
+                            </button>
+                            <button
+                              onClick={() => handleReportPost(post.id)}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600"
+                            >
+                              <Flag className="w-4 h-4" />
+                              <span>Báo cáo bài viết</span>
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
@@ -798,7 +985,7 @@ const PostPage: React.FC = () => {
               <div className="px-6 py-3 border-t border-gray-200">
                 <div className="flex items-center justify-around">
                   <button
-                    onClick={() => handleLikePost(post.id)}
+                    onClick={() => handleLike(post.id, 'post')}
                     className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors ${
                       post.isLiked ? 'text-blue-600' : 'text-gray-600'
                     }`}
@@ -1133,6 +1320,51 @@ const PostPage: React.FC = () => {
           </div>
         )}
 
+        {/* Share Popup */}
+        {showSharePopup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">Chia sẻ gia phả</h2>
+                  <button
+                    onClick={() => setShowSharePopup(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <img
+                        src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=60&h=60&fit=crop"
+                        alt="Group"
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                      <div>
+                        <h3 className="font-semibold text-gray-900">Gia Phả Gia Đình Nguyễn</h3>
+                        <p className="text-sm text-gray-600">Nhóm công khai • 28.3K thành viên</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 bg-white rounded-lg p-3 border">
+                      <span className="flex-1 text-sm text-gray-600 truncate">
+                        {window.location.origin}/group/gia-pha-gia-dinh-nguyen
+                      </span>
+                      <button
+                        onClick={handleCopyLink}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Sao chép
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Report Comment Modal */}
         {showReportModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1196,6 +1428,71 @@ const PostPage: React.FC = () => {
           </div>
         )}
 
+        {/* Report Post Modal */}
+        {showReportPostModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">Báo cáo bài viết</h2>
+                  <button
+                    onClick={() => setShowReportPostModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Lý do báo cáo
+                    </label>
+                    <select
+                      value={postReportReason}
+                      onChange={(e) => setPostReportReason(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Chọn lý do</option>
+                      <option value="spam">Spam</option>
+                      <option value="harassment">Quấy rối</option>
+                      <option value="inappropriate">Nội dung không phù hợp</option>
+                      <option value="false-info">Thông tin sai lệch</option>
+                      <option value="violence">Bạo lực</option>
+                      <option value="hate-speech">Ngôn từ căm thù</option>
+                      <option value="other">Khác</option>
+                    </select>
+                  </div>
+                  {postReportReason === 'other' && (
+                    <textarea
+                      placeholder="Mô tả chi tiết..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={3}
+                    />
+                  )}
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => {
+                        setShowReportPostModal(false);
+                        setPostReportReason('');
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={handleSubmitPostReport}
+                      disabled={!postReportReason}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
+                    >
+                      Gửi báo cáo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Create Post Modal */}
         {showCreatePostModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1223,12 +1520,7 @@ const PostPage: React.FC = () => {
                     }}
                   />
                   <div>
-                    <p className="font-semibold text-gray-900">{user?.name || 'Nguyen Truong'}</p>
-                    <div className="flex items-center space-x-1 text-sm text-gray-600 bg-gray-100 rounded px-2 py-1">
-                      <span>🔒</span>
-                      <span>Chỉ mình tôi</span>
-                      <span>▼</span>
-                    </div>
+                    <p className="font-semibold text-gray-900">{user?.name || 'Username'}</p>
                   </div>
                 </div>
               </div>
@@ -1286,21 +1578,6 @@ const PostPage: React.FC = () => {
                       >
                         <Image className="w-4 h-4 text-green-600" />
                       </button>
-                      <button className="w-8 h-8 bg-blue-100 hover:bg-blue-200 rounded-full flex items-center justify-center transition-colors">
-                        <span className="text-blue-600 text-sm">👥</span>
-                      </button>
-                      <button className="w-8 h-8 bg-yellow-100 hover:bg-yellow-200 rounded-full flex items-center justify-center transition-colors">
-                        <Smile className="w-4 h-4 text-yellow-600" />
-                      </button>
-                      <button className="w-8 h-8 bg-red-100 hover:bg-red-200 rounded-full flex items-center justify-center transition-colors">
-                        <span className="text-red-600 text-sm">📍</span>
-                      </button>
-                      <button className="w-8 h-8 bg-purple-100 hover:bg-purple-200 rounded-full flex items-center justify-center transition-colors">
-                        <span className="text-purple-600 text-sm">🎯</span>
-                      </button>
-                      <button className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors">
-                        <span className="text-gray-600 text-sm">...</span>
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1327,10 +1604,12 @@ const PostPage: React.FC = () => {
           onClose={() => setShowPostDetail(false)}
           commentInputs={commentInputs}
           setCommentInputs={setCommentInputs}
-          onLikePost={handleLikePost}
+          onLikePost={handleLike}
           onCommentSubmit={handleCommentSubmit}
+          onEditPost={handleModalEditPost}
           CommentItem={CommentItem}
         />
+        </div>
       </div>
     </div>
   );
