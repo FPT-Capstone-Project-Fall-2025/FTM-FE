@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Settings, Users, Globe, Lock, Plus, MoreHorizontal } from 'lucide-react';
+import { Search, Globe, Lock, MoreHorizontal } from 'lucide-react';
 
 interface Group {
   id: string;
@@ -95,10 +95,7 @@ const GroupPostPage: React.FC = () => {
             {/* Header */}
             <div className="bg-white rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between mb-4">
-                <h1 className="text-2xl font-bold text-gray-900">Nhóm</h1>
-                <button className="p-2 hover:bg-gray-100 rounded-full">
-                  <Settings className="w-5 h-5 text-gray-600" />
-                </button>
+                <h1 className="text-2xl font-bold text-gray-900">Nhóm gia phả</h1>
               </div>
               
               {/* Search */}
@@ -108,7 +105,7 @@ const GroupPostPage: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm kiếm nhóm"
+                  placeholder="Tìm kiếm gia phả"
                   className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
