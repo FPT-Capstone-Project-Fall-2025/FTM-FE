@@ -11,6 +11,8 @@ import AdminPage from '@/pages/Admin/AdminPage'
 import AuthLayout from '@/components/layout/AuthLayout'
 import MainLayout from '@/components/layout/MainLayout'
 import MyAccountPage from '@/pages/MyAccount/MyAccountPage'
+import ForgotPassword from '@/pages/Auth/ForgotPassword'
+import ResetPassword from '@/pages/Auth/ResetPassword'
 
 const router = createBrowserRouter([
   // Public routes
@@ -29,6 +31,14 @@ const router = createBrowserRouter([
       {
         path: 'register',
         element: <RegisterPage />,
+      },
+      {
+        path: 'forgot-password',
+        element: <ForgotPassword />,
+      },
+      {
+        path: 'reset-password',
+        element: <ResetPassword />,
       },
     ],
   },

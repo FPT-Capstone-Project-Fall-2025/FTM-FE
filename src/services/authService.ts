@@ -1,5 +1,5 @@
 import type { ApiResponse } from '@/types/api';
-import type { AuthResponse, LoginProps, RegisterProps } from '@/types/auth';
+import type { AuthResponse, LoginProps, RegisterProps, ResetPassword } from '@/types/auth';
 import api from './apiService';
 
 const authService = {
@@ -13,6 +13,14 @@ const authService = {
 
   loginWithGoogle(idToken: string): Promise<ApiResponse<AuthResponse>> {
     return api.post('/account/login/google', { idToken });
+  },
+
+  forgotPassword(email: string): Promise<ApiResponse<void>> {
+    return api.post('/account/forgot-password', { email });
+  },
+
+  resetPassword(props: ResetPassword): Promise<ApiResponse<void>> {
+    return api.post('/account/reset-password', { ...props });
   },
 };
 

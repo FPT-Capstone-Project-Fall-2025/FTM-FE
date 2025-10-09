@@ -1,11 +1,13 @@
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-export default function BirthdayPicker({
+export default function CustomDatePicker({
+    label,
     value,
     onChange,
     isEditing,
 }: {
+    label: string;
     value?: string;
     onChange: (value: string) => void;
     isEditing: boolean;
@@ -15,7 +17,7 @@ export default function BirthdayPicker({
     return (
         <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Ngày sinh
+                {label}
             </label>
 
             {isEditing ? (

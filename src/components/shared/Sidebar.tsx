@@ -37,7 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
               <NavLink
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex items-center p-2 rounded-lg transition-colors ${
+                  `flex items-center justify-center p-2 rounded-lg transition-colors ${
                     isActive ? 'bg-blue-500 text-white' : 'hover:bg-gray-700'
                   } ${isCollapsed ? '' : ''}`
                 }
