@@ -200,7 +200,7 @@ const PostPage: React.FC = () => {
     }
 
     setIsPosting(true);
-    
+
     // Simulate API call
     setTimeout(() => {
       const newPost: Post = {
@@ -240,16 +240,16 @@ const PostPage: React.FC = () => {
 
     if (type === 'post') {
       // Handle post like
-      setPosts(prev => prev.map(post => 
-        post.id === id 
-          ? { 
-              ...post, 
-              isLiked: !post.isLiked,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1
-            }
+      setPosts(prev => prev.map(post =>
+        post.id === id
+          ? {
+            ...post,
+            isLiked: !post.isLiked,
+            likes: post.isLiked ? post.likes - 1 : post.likes + 1
+          }
           : post
       ));
-      
+
       // Also update selectedPost if it's the same post
       if (selectedPost?.id === id) {
         setSelectedPost(prev => prev ? {
@@ -260,23 +260,23 @@ const PostPage: React.FC = () => {
       }
     } else if (type === 'comment' && postId) {
       // Handle comment like
-      setPosts(prev => prev.map(post => 
-        post.id === postId 
+      setPosts(prev => prev.map(post =>
+        post.id === postId
           ? {
-              ...post,
-              comments: post.comments.map(comment =>
-                comment.id === id
-                  ? {
-                      ...comment,
-                      isLiked: !comment.isLiked,
-                      likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1
-                    }
-                  : comment
-              )
-            }
+            ...post,
+            comments: post.comments.map(comment =>
+              comment.id === id
+                ? {
+                  ...comment,
+                  isLiked: !comment.isLiked,
+                  likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1
+                }
+                : comment
+            )
+          }
           : post
       ));
-      
+
       // Also update selectedPost if it's the same post
       if (selectedPost?.id === postId) {
         setSelectedPost(prev => prev ? {
@@ -284,10 +284,10 @@ const PostPage: React.FC = () => {
           comments: prev.comments.map(comment =>
             comment.id === id
               ? {
-                  ...comment,
-                  isLiked: !comment.isLiked,
-                  likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1
-                }
+                ...comment,
+                isLiked: !comment.isLiked,
+                likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1
+              }
               : comment
           )
         } : null);
@@ -307,13 +307,13 @@ const PostPage: React.FC = () => {
   const handleCommentSubmit = (postId: string) => {
     const commentText = commentInputs[postId]?.trim();
     const images = commentImagePreviews[postId] || [];
-    
+
     if (!commentText && images.length === 0) return;
 
     const newComment: Comment = {
       id: `${postId}-${Date.now()}`,
       author: {
-        name: user?.name || 'Người dùng',
+        name: getCurrentUserName(),
         avatar: defaultPicture
       },
       content: commentText || '',
@@ -337,33 +337,96 @@ const PostPage: React.FC = () => {
 
   // New handler functions
   const handleEditPost = (postId: string, content: string) => {
+    console.log('Attempting to edit post:', postId, 'by user:', getCurrentUserName());
+
+    // Find the post to check ownership
+    const postToEdit = posts.find(post => post.id === postId);
+
+    if (!postToEdit) {
+      console.error('Post not found:', postId);
+      alert('Bài viết không tồn tại!');
+      setShowPostMenu(null);
+      return;
+    }
+
+    // Check if user is logged in
+    if (!user) {
+      console.error('User not logged in');
+      alert('Bạn cần đăng nhập để thực hiện hành động này!');
+      setShowPostMenu(null);
+      return;
+    }
+
+    // Check if the current user is the author of the post
+    if (!isCurrentUserPost(postToEdit.author.name)) {
+      console.warn('User attempting to edit another user\'s post');
+      alert('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
+      setShowPostMenu(null);
+      return;
+    }
+
+    console.log('Edit permission granted, opening edit mode');
     setEditingPostId(postId);
     setEditContent(content);
     setShowPostMenu(null);
   };
 
   const handleSaveEdit = (postId: string) => {
+    console.log('Attempting to save edit for post:', postId, 'by user:', getCurrentUserName());
+
+    // Find the post to check ownership before saving
+    const postToEdit = posts.find(post => post.id === postId);
+
+    if (!postToEdit) {
+      console.error('Post not found:', postId);
+      alert('Bài viết không tồn tại!');
+      setEditingPostId(null);
+      setEditContent('');
+      return;
+    }
+
+    // Check if user is logged in
+    if (!user) {
+      console.error('User not logged in');
+      alert('Bạn cần đăng nhập để thực hiện hành động này!');
+      setEditingPostId(null);
+      setEditContent('');
+      return;
+    }
+
+    // Check if the current user is the author of the post
+    if (!isCurrentUserPost(postToEdit.author.name)) {
+      console.warn('User attempting to save edit for another user\'s post');
+      alert('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
+      setEditingPostId(null);
+      setEditContent('');
+      return;
+    }
+
+    console.log('Save permission granted, updating post');
+
     setPosts(prev => prev.map(post =>
-      post.id === postId ? { 
-        ...post, 
+      post.id === postId ? {
+        ...post,
         content: editContent,
         isEdited: true,
         editedAt: 'Vừa xong'
       } : post
     ));
-    
+
     // Also update selectedPost if it's the same post being edited
     if (selectedPost?.id === postId) {
-      setSelectedPost(prev => prev ? { 
-        ...prev, 
+      setSelectedPost(prev => prev ? {
+        ...prev,
         content: editContent,
         isEdited: true,
         editedAt: 'Vừa xong'
       } : null);
     }
-    
+
     setEditingPostId(null);
     setEditContent('');
+    console.log('Post edit saved successfully');
   };
 
   // Copy link function
@@ -381,24 +444,53 @@ const PostPage: React.FC = () => {
 
   // Handler for modal post editing
   const handleModalEditPost = (postId: string, newContent: string) => {
+    console.log('Attempting to save modal edit for post:', postId, 'by user:', getCurrentUserName());
+
+    // Find the post to check ownership before saving
+    const postToEdit = posts.find(post => post.id === postId);
+
+    if (!postToEdit) {
+      console.error('Post not found:', postId);
+      alert('Bài viết không tồn tại!');
+      return;
+    }
+
+    // Check if user is logged in
+    if (!user) {
+      console.error('User not logged in');
+      alert('Bạn cần đăng nhập để thực hiện hành động này!');
+      return;
+    }
+
+    // Check if the current user is the author of the post
+    if (!isCurrentUserPost(postToEdit.author.name)) {
+      console.warn('User attempting to save modal edit for another user\'s post');
+      alert('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
+      return;
+    }
+
+    console.log('Modal edit permission granted, updating post');
+
     setPosts(prev => prev.map(post =>
-      post.id === postId ? { 
-        ...post, 
+      post.id === postId ? {
+        ...post,
         content: newContent,
         isEdited: true,
         editedAt: 'Vừa xong'
       } : post
     ));
-    
+
     // Also update selectedPost if it's the same post being edited
     if (selectedPost?.id === postId) {
-      setSelectedPost(prev => prev ? { 
-        ...prev, 
+      setSelectedPost(prev => prev ? {
+        ...prev,
         content: newContent,
         isEdited: true,
         editedAt: 'Vừa xong'
       } : null);
     }
+
+    console.log('Modal post edit saved successfully');
   };
 
   const handleCancelEdit = () => {
@@ -407,8 +499,55 @@ const PostPage: React.FC = () => {
   };
 
   const handleDeletePost = (postId: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa bài viết này?')) {
+    console.log('Attempting to delete post:', postId, 'by user:', getCurrentUserName());
+
+    // Find the post to check ownership
+    const postToDelete = posts.find(post => post.id === postId);
+
+    if (!postToDelete) {
+      console.error('Post not found:', postId);
+      alert('Bài viết không tồn tại!');
+      setShowPostMenu(null);
+      return;
+    }
+
+    console.log('Post found:', postToDelete.author.name, 'vs current user:', getCurrentUserName());
+
+    // Check if user is logged in
+    if (!user) {
+      console.error('User not logged in');
+      alert('Bạn cần đăng nhập để thực hiện hành động này!');
+      setShowPostMenu(null);
+      return;
+    }
+
+    // Check if the current user is the author of the post
+    if (!isCurrentUserPost(postToDelete.author.name)) {
+      console.warn('User attempting to delete another user\'s post');
+      alert('Bạn chỉ có thể xóa bài viết của chính mình!');
+      setShowPostMenu(null);
+      return;
+    }
+
+    // Confirm deletion
+    const confirmMessage = `Bạn có chắc chắn muốn xóa bài viết này?\n\nNội dung: "${postToDelete.content.substring(0, 50)}${postToDelete.content.length > 50 ? '...' : ''}"\n\nHành động này không thể hoàn tác.`;
+
+    if (window.confirm(confirmMessage)) {
+      console.log('User confirmed deletion, removing post:', postId);
+
+      // Remove the post from the posts array
       setPosts(prev => prev.filter(post => post.id !== postId));
+
+      // Also close the post detail modal if it's showing the deleted post
+      if (selectedPost?.id === postId) {
+        setShowPostDetail(false);
+        setSelectedPost(null);
+      }
+
+      console.log('Post deleted successfully');
+      alert('Bài viết đã được xóa thành công!');
+    } else {
+      console.log('User cancelled deletion');
     }
     setShowPostMenu(null);
   };
@@ -416,6 +555,71 @@ const PostPage: React.FC = () => {
   const handleReportComment = (commentId: string) => {
     setReportingCommentId(commentId);
     setShowReportModal(true);
+    setShowCommentMenu(null);
+  };
+
+  const handleDeleteComment = (postId: string, commentId: string) => {
+    console.log('Attempting to delete comment:', commentId, 'by user:', getCurrentUserName());
+
+    // Find the post and comment to check ownership
+    const post = posts.find(p => p.id === postId);
+    if (!post) {
+      console.error('Post not found:', postId);
+      alert('Bài viết không tồn tại!');
+      setShowCommentMenu(null);
+      return;
+    }
+
+    const comment = post.comments.find(c => c.id === commentId);
+    if (!comment) {
+      console.error('Comment not found:', commentId);
+      alert('Bình luận không tồn tại!');
+      setShowCommentMenu(null);
+      return;
+    }
+
+    // Check if user is logged in
+    if (!user) {
+      console.error('User not logged in');
+      alert('Bạn cần đăng nhập để thực hiện hành động này!');
+      setShowCommentMenu(null);
+      return;
+    }
+
+    // Check if the current user is the author of the comment
+    if (!isCurrentUserComment(comment.author.name)) {
+      console.warn('User attempting to delete another user\'s comment');
+      alert('Bạn chỉ có thể xóa bình luận của chính mình!');
+      setShowCommentMenu(null);
+      return;
+    }
+
+    // Confirm deletion
+    const confirmMessage = `Bạn có chắc chắn muốn xóa bình luận này?\n\nNội dung: "${comment.content.substring(0, 50)}${comment.content.length > 50 ? '...' : ''}"\n\nHành động này không thể hoàn tác.`;
+
+    if (window.confirm(confirmMessage)) {
+      console.log('User confirmed deletion, removing comment:', commentId);
+
+      // Remove the comment from the post
+      setPosts(prev => prev.map(p =>
+        p.id === postId
+          ? { ...p, comments: p.comments.filter(c => c.id !== commentId) }
+          : p
+      ));
+
+      // Also update selectedPost if it's the same post
+      if (selectedPost?.id === postId) {
+        setSelectedPost(prev => prev ? {
+          ...prev,
+          comments: prev.comments.filter(c => c.id !== commentId)
+        } : null);
+      }
+
+      console.log('Comment deleted successfully');
+      alert('Bình luận đã được xóa thành công!');
+    } else {
+      console.log('User cancelled comment deletion');
+    }
     setShowCommentMenu(null);
   };
 
@@ -461,7 +665,7 @@ const PostPage: React.FC = () => {
   const handleCommentImageSelect = (postId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     const currentImages = commentImages[postId] || [];
-    
+
     if (files.length + currentImages.length > 4) {
       alert('Chỉ có thể tải lên tối đa 4 ảnh cho bình luận');
       return;
@@ -478,9 +682,9 @@ const PostPage: React.FC = () => {
         newPreviews.push(reader.result as string);
         if (newPreviews.length === files.length) {
           const currentPreviews = commentImagePreviews[postId] || [];
-          setCommentImagePreviews(prev => ({ 
-            ...prev, 
-            [postId]: [...currentPreviews, ...newPreviews] 
+          setCommentImagePreviews(prev => ({
+            ...prev,
+            [postId]: [...currentPreviews, ...newPreviews]
           }));
         }
       };
@@ -491,10 +695,10 @@ const PostPage: React.FC = () => {
   const handleRemoveCommentImage = (postId: string, index: number) => {
     const currentImages = commentImages[postId] || [];
     const currentPreviews = commentImagePreviews[postId] || [];
-    
+
     const newImages = currentImages.filter((_, i) => i !== index);
     const newPreviews = currentPreviews.filter((_, i) => i !== index);
-    
+
     setCommentImages(prev => ({ ...prev, [postId]: newImages }));
     setCommentImagePreviews(prev => ({ ...prev, [postId]: newPreviews }));
   };
@@ -506,7 +710,7 @@ const PostPage: React.FC = () => {
     const newReply: Comment = {
       id: `${parentCommentId}-reply-${Date.now()}`,
       author: {
-        name: user?.name || 'Người dùng',
+        name: user?.name || 'Username',
         avatar: defaultPicture
       },
       content: replyText,
@@ -543,26 +747,35 @@ const PostPage: React.FC = () => {
     setShowPostDetail(true);
   };
 
+  // Helper function to get current user's name
+  const getCurrentUserName = (): string => {
+    return user?.name || 'Username';
+  };
+
   const isCurrentUserPost = (authorName: string) => {
     return user?.name === authorName;
   };
 
+  const isCurrentUserComment = (commentAuthorName: string) => {
+    return user?.name === commentAuthorName;
+  };
+
   // Recursive Comment Component
-  const CommentItem: React.FC<{ 
-    comment: Comment; 
-    postId: string; 
-    depth?: number; 
-    maxDepth?: number 
+  const CommentItem: React.FC<{
+    comment: Comment;
+    postId: string;
+    depth?: number;
+    maxDepth?: number
   }> = ({ comment, postId, depth = 0, maxDepth = 3 }) => {
     const canReply = depth < maxDepth;
-    
+
     return (
       <div className={`${depth > 0 ? 'ml-6 md:ml-10 relative' : ''}`}>
         {/* Thread line for nested comments */}
         {depth > 0 && (
           <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-200"></div>
         )}
-        
+
         <div className="flex items-start space-x-3">
           <img
             src={comment.author.avatar}
@@ -576,7 +789,7 @@ const PostPage: React.FC = () => {
             <div className="bg-gray-100 rounded-lg px-4 py-2">
               <p className="font-semibold text-sm text-gray-900">{comment.author.name}</p>
               <p className="text-gray-900">{comment.content}</p>
-              
+
               {/* Comment Images */}
               {comment.images && comment.images.length > 0 && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -592,7 +805,7 @@ const PostPage: React.FC = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="flex items-center justify-between mt-1">
               <div className="flex items-center space-x-4 text-xs text-gray-500">
                 <button
@@ -602,7 +815,7 @@ const PostPage: React.FC = () => {
                   Thích
                 </button>
                 {canReply && (
-                  <button 
+                  <button
                     onClick={() => setReplyingToComment(replyingToComment === comment.id ? null : comment.id)}
                     className="hover:underline"
                   >
@@ -634,13 +847,36 @@ const PostPage: React.FC = () => {
                 </button>
                 {showCommentMenu === comment.id && (
                   <div className="absolute right-0 top-6 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-                    <button
-                      onClick={() => handleReportComment(comment.id)}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600 text-xs"
-                    >
-                      <Flag className="w-3 h-3" />
-                      <span>Báo cáo bình luận</span>
-                    </button>
+                    {isCurrentUserComment(comment.author.name) ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            // TODO: Implement edit comment functionality
+                            alert('Tính năng chỉnh sửa bình luận sẽ được triển khai sau');
+                            setShowCommentMenu(null);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-xs"
+                        >
+                          <Edit className="w-3 h-3" />
+                          <span>Chỉnh sửa bình luận</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteComment(postId, comment.id)}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600 text-xs"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Xóa bình luận</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleReportComment(comment.id)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600 text-xs"
+                      >
+                        <Flag className="w-3 h-3" />
+                        <span>Báo cáo bình luận</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -761,7 +997,7 @@ const PostPage: React.FC = () => {
                     <Plus className="w-4 h-4" />
                     <span>Mời</span>
                   </button>
-                  <button 
+                  <button
                     onClick={() => setShowSharePopup(true)}
                     className="flex items-center space-x-2 px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
                   >
@@ -786,13 +1022,697 @@ const PostPage: React.FC = () => {
         {/* Content Area */}
         <div className="px-4 sm:px-6 lg:px-8 py-6">
 
-        <div className="flex justify-center">
-          <div className="w-full max-w-7xl flex gap-6 lg:gap-8">
-            {/* Main Content */}
-            <div className="flex-1 max-w-none lg:max-w-2xl space-y-6">
-              {/* Simple Post Input - Opens Modal */}
-              <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-                <div className="p-4">
+          <div className="flex justify-center">
+            <div className="w-full max-w-7xl flex gap-6 lg:gap-8">
+              {/* Main Content */}
+              <div className="flex-1 max-w-none lg:max-w-2xl space-y-6">
+                {/* Simple Post Input - Opens Modal */}
+                <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+                  <div className="p-4">
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src={defaultPicture}
+                        alt="Your avatar"
+                        className="w-10 h-10 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = defaultPicture;
+                        }}
+                      />
+                      <button
+                        onClick={() => setShowCreatePostModal(true)}
+                        className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-full text-left text-gray-500 transition-colors cursor-pointer"
+                      >
+                        Bạn đang nghĩ gì?
+                      </button>
+                    </div>
+
+                    {/* Quick Action Buttons */}
+                    <div className="flex items-center justify-around mt-3 pt-3 border-t border-gray-200">
+                      <button
+                        onClick={() => setShowCreatePostModal(true)}
+                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-green-600"
+                      >
+                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                          <Image className="w-4 h-4 text-green-600" />
+                        </div>
+                        <span className="text-sm font-medium">Ảnh/video</span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowCreatePostModal(true)}
+                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-blue-600"
+                      >
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 text-sm">📍</span>
+                        </div>
+                        <span className="text-sm font-medium">Sự kiện trong đời</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Posts Feed */}
+                {posts.map((post) => (
+                  <div key={post.id} className="bg-white shadow-sm rounded-lg border border-gray-200">
+                    {/* Post Header */}
+                    <div className="p-6 pb-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <img
+                            src={post.author.avatar}
+                            alt={post.author.name}
+                            className="w-12 h-12 rounded-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = defaultPicture;
+                            }}
+                          />
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{post.author.name}</h3>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleOpenPostDetail(post)}
+                                className="text-sm text-gray-500 hover:text-gray-700 hover:underline cursor-pointer"
+                              >
+                                {post.author.timeAgo}
+                              </button>
+                              {post.isEdited && (
+                                <span className="text-xs text-gray-400">
+                                  • đã chỉnh sửa {post.editedAt}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowPostMenu(showPostMenu === post.id ? null : post.id)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <MoreHorizontal className="w-5 h-5" />
+                          </button>
+
+                          {/* Dropdown Menu */}
+                          {showPostMenu === post.id && (
+                            <div className="absolute right-0 top-8 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
+                              {isCurrentUserPost(post.author.name) ? (
+                                <>
+                                  <button
+                                    onClick={() => handleEditPost(post.id, post.content)}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    <span>Chỉnh sửa bài viết</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePost(post.id)}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    <span>Xóa bài viết</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleReportPost(post.id)}
+                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600"
+                                  >
+                                    <Flag className="w-4 h-4" />
+                                    <span>Báo cáo bài viết</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Post Content */}
+                    <div className="px-6 pb-4">
+                      {editingPostId === post.id ? (
+                        <div className="space-y-3">
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={4}
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                            >
+                              Hủy
+                            </button>
+                            <button
+                              onClick={() => handleSaveEdit(post.id)}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                            >
+                              Lưu
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
+                      )}
+                    </div>
+
+                    {/* Post Images */}
+                    {post.images && post.images.length > 0 && (
+                      <div className="px-6 pb-4">
+                        <div className={`grid gap-2 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                          {post.images.map((image, index) => (
+                            <img
+                              key={index}
+                              src={image}
+                              alt={`Post image ${index + 1}`}
+                              className="w-full h-64 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => handleOpenPostDetail(post)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Post Stats */}
+                    <div className="px-6 py-3 border-t border-gray-200">
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <div className="flex items-center space-x-1">
+                          <ThumbsUp className="w-4 h-4 text-blue-600" />
+                          <span>{post.likes} lượt thích</span>
+                        </div>
+                        <div>
+                          {post.comments.length > 0 && (
+                            <span>{post.comments.length} bình luận</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Post Actions */}
+                    <div className="px-6 py-3 border-t border-gray-200">
+                      <div className="flex items-center justify-around">
+                        <button
+                          onClick={() => handleLike(post.id, 'post')}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors ${post.isLiked ? 'text-blue-600' : 'text-gray-600'
+                            }`}
+                        >
+                          <ThumbsUp className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
+                          <span className="font-medium">Thích</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            const input = document.querySelector(`input[placeholder="Viết bình luận..."]`) as HTMLInputElement;
+                            if (input) input.focus();
+                          }}
+                          className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
+                        >
+                          <MessageCircle className="w-5 h-5" />
+                          <span className="font-medium">Bình luận</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Comments Section */}
+                    {post.comments.length > 0 && (
+                      <div className="px-6 pb-4 border-t border-gray-200">
+                        <div className="space-y-4 mt-4">
+                          {post.comments.map((comment) => (
+                            <CommentItem
+                              key={comment.id}
+                              comment={comment}
+                              postId={post.id}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Comment Input - Always Visible */}
+                    <div className="px-6 pb-4 border-t border-gray-200">
+                      <div className="flex items-start space-x-3 mt-4">
+                        <img
+                          src={defaultPicture}
+                          alt="Your avatar"
+                          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = defaultPicture;
+                          }}
+                        />
+                        <div className="flex-1">
+                          {/* Comment Image Previews */}
+                          {(commentImagePreviews[post.id]?.length || 0) > 0 && (
+                            <div className="mb-3 grid grid-cols-2 gap-2">
+                              {commentImagePreviews[post.id]?.map((preview, index) => (
+                                <div key={index} className="relative">
+                                  <img
+                                    src={preview}
+                                    alt={`Preview ${index + 1}`}
+                                    className="w-full h-20 object-cover rounded-lg"
+                                  />
+                                  <button
+                                    onClick={() => handleRemoveCommentImage(post.id, index)}
+                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={commentInputs[post.id] || ''}
+                              onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                              placeholder="Viết bình luận..."
+                              className="flex-1 px-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleCommentSubmit(post.id);
+                                }
+                              }}
+                            />
+
+                            {/* Image Upload Button */}
+                            <div className="relative">
+                              <input
+                                type="file"
+                                id={`comment-image-${post.id}`}
+                                multiple
+                                accept="image/*"
+                                onChange={(e) => handleCommentImageSelect(post.id, e)}
+                                className="hidden"
+                              />
+                              <label
+                                htmlFor={`comment-image-${post.id}`}
+                                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full cursor-pointer transition-colors"
+                              >
+                                <Image className="w-5 h-5" />
+                              </label>
+                            </div>
+
+                            <button
+                              onClick={() => handleCommentSubmit(post.id)}
+                              disabled={!commentInputs[post.id]?.trim() && (commentImagePreviews[post.id]?.length || 0) === 0}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-full disabled:text-gray-400 disabled:hover:bg-transparent transition-colors"
+                            >
+                              <Send className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Comment Actions */}
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                            <button className="hover:underline flex items-center space-x-1">
+                              <Smile className="w-3 h-3" />
+                              <span>Emoji</span>
+                            </button>
+                            <button className="hover:underline flex items-center space-x-1">
+                              <Image className="w-3 h-3" />
+                              <span>Ảnh</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Right Sidebar */}
+              <div className="w-80 space-y-6 hidden lg:block">
+                {/* About Section */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-gray-900">Giới thiệu</h3>
+                    <button className="text-gray-400 hover:text-gray-600 p-1">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    Cộng đồng Xoá mù YT cho người mới, nơi để chia sẻ kinh nghiệm, tài liệu,
+                    hỏi đáp và học tập cho tất cả mọi người!
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Users className="w-4 h-4 mr-2" />
+                      <span className="font-medium">Công khai</span>
+                    </div>
+                    <p className="text-xs text-gray-500 ml-6">
+                      Bất kỳ ai cũng có thể nhìn thấy mọi người trong nhóm và những gì họ đăng.
+                    </p>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Eye className="w-4 h-4 mr-2" />
+                      <span className="font-medium">Hiển thị</span>
+                    </div>
+                    <p className="text-xs text-gray-500 ml-6">
+                      Ai cũng có thể tìm thấy nhóm này.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Group Information Sections */}
+                <div className="border-b border-gray-200 pb-6 space-y-6">
+
+                  {/* Community Rules Section */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="font-semibold text-gray-900">Quy tắc cộng đồng</h5>
+                      <button className="text-gray-400 hover:text-gray-600 p-1">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-gray-600 text-sm">
+                      Thêm quy tắc để giúp duy trì môi trường thảo luận tích cực và tôn trọng trong nhóm gia phả.
+                    </p>
+                  </div>
+
+                  {/* Recent Activity */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Hoạt động gần đây</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <img
+                          src="https://images.unsplash.com/photo-1494790108755-2616b612b048?w=40&h=40&fit=crop&crop=face"
+                          alt="User"
+                          className="w-8 h-8 rounded-full"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-800">
+                            <span className="font-medium">Mai Lan</span> đã bình luận về bài viết của bạn
+                          </p>
+                          <p className="text-xs text-gray-500">5 phút trước</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <img
+                          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"
+                          alt="User"
+                          className="w-8 h-8 rounded-full"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-800">
+                            <span className="font-medium">Trung Hiếu</span> đã thích bài viết về gia phả
+                          </p>
+                          <p className="text-xs text-gray-500">1 giờ trước</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <img
+                          src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face"
+                          alt="User"
+                          className="w-8 h-8 rounded-full"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-800">
+                            <span className="font-medium">Đức Thắng</span> đã chia sẻ ảnh gia đình
+                          </p>
+                          <p className="text-xs text-gray-500">3 giờ trước</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Popular Topics */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Chủ đề phổ biến</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-gray-800">#gia-pha-viet-nam</span>
+                        </div>
+                        <span className="text-xs text-gray-500">125 bài viết</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-gray-800">#truyen-thong-gia-dinh</span>
+                        </div>
+                        <span className="text-xs text-gray-500">89 bài viết</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-gray-800">#tim-hieu-to-tien</span>
+                        </div>
+                        <span className="text-xs text-gray-500">67 bài viết</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-gray-800">#luu-tru-tai-lieu</span>
+                        </div>
+                        <span className="text-xs text-gray-500">45 bài viết</span>
+                      </div>
+                    </div>
+                  </div>
+
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search Popup */}
+          {showSearchPopup && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">Tìm kiếm bài viết</h2>
+                    <button
+                      onClick={() => setShowSearchPopup(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Nhập từ khóa tìm kiếm..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSearchPosts();
+                        }
+                      }}
+                    />
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        onClick={() => setShowSearchPopup(false)}
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={handleSearchPosts}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                      >
+                        Tìm kiếm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Share Popup */}
+          {showSharePopup && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">Chia sẻ gia phả</h2>
+                    <button
+                      onClick={() => setShowSharePopup(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <img
+                          src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=60&h=60&fit=crop"
+                          alt="Group"
+                          className="w-12 h-12 rounded-lg object-cover"
+                        />
+                        <div>
+                          <h3 className="font-semibold text-gray-900">Gia Phả Gia Đình Nguyễn</h3>
+                          <p className="text-sm text-gray-600">Nhóm công khai • 28.3K thành viên</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 bg-white rounded-lg p-3 border">
+                        <span className="flex-1 text-sm text-gray-600 truncate">
+                          {window.location.origin}/group/gia-pha-gia-dinh-nguyen
+                        </span>
+                        <button
+                          onClick={handleCopyLink}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Sao chép
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Report Comment Modal */}
+          {showReportModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">Báo cáo bình luận</h2>
+                    <button
+                      onClick={() => setShowReportModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Lý do báo cáo
+                      </label>
+                      <select
+                        value={reportReason}
+                        onChange={(e) => setReportReason(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Chọn lý do</option>
+                        <option value="spam">Spam</option>
+                        <option value="harassment">Quấy rối</option>
+                        <option value="inappropriate">Nội dung không phù hợp</option>
+                        <option value="false-info">Thông tin sai lệch</option>
+                        <option value="other">Khác</option>
+                      </select>
+                    </div>
+                    {reportReason === 'other' && (
+                      <textarea
+                        placeholder="Mô tả chi tiết..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                      />
+                    )}
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        onClick={() => {
+                          setShowReportModal(false);
+                          setReportReason('');
+                        }}
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={handleSubmitReport}
+                        disabled={!reportReason}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
+                      >
+                        Gửi báo cáo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Report Post Modal */}
+          {showReportPostModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">Báo cáo bài viết</h2>
+                    <button
+                      onClick={() => setShowReportPostModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Lý do báo cáo
+                      </label>
+                      <select
+                        value={postReportReason}
+                        onChange={(e) => setPostReportReason(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Chọn lý do</option>
+                        <option value="spam">Spam</option>
+                        <option value="harassment">Quấy rối</option>
+                        <option value="inappropriate">Nội dung không phù hợp</option>
+                        <option value="false-info">Thông tin sai lệch</option>
+                        <option value="violence">Bạo lực</option>
+                        <option value="hate-speech">Ngôn từ căm thù</option>
+                        <option value="other">Khác</option>
+                      </select>
+                    </div>
+                    {postReportReason === 'other' && (
+                      <textarea
+                        placeholder="Mô tả chi tiết..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                      />
+                    )}
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        onClick={() => {
+                          setShowReportPostModal(false);
+                          setPostReportReason('');
+                        }}
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={handleSubmitPostReport}
+                        disabled={!postReportReason}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
+                      >
+                        Gửi báo cáo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Create Post Modal */}
+          {showCreatePostModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                {/* Modal Header */}
+                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900">Tạo bài viết</h2>
+                  <button
+                    onClick={() => setShowCreatePostModal(false)}
+                    className="text-gray-400 hover:text-gray-600 p-2"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* User Info */}
+                <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center space-x-3">
                     <img
                       src={defaultPicture}
@@ -802,813 +1722,96 @@ const PostPage: React.FC = () => {
                         (e.target as HTMLImageElement).src = defaultPicture;
                       }}
                     />
-                    <button
-                      onClick={() => setShowCreatePostModal(true)}
-                      className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-full text-left text-gray-500 transition-colors cursor-pointer"
-                    >
-                      Bạn đang nghĩ gì?
-                    </button>
-                  </div>
-                  
-                  {/* Quick Action Buttons */}
-                  <div className="flex items-center justify-around mt-3 pt-3 border-t border-gray-200">
-                    <button
-                      onClick={() => setShowCreatePostModal(true)}
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-green-600"
-                    >
-                      <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                        <Image className="w-4 h-4 text-green-600" />
-                      </div>
-                      <span className="text-sm font-medium">Ảnh/video</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => setShowCreatePostModal(true)}
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-blue-600"
-                    >
-                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 text-sm">📍</span>
-                      </div>
-                      <span className="text-sm font-medium">Sự kiện trong đời</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-          {/* Posts Feed */}
-          {posts.map((post) => (
-            <div key={post.id} className="bg-white shadow-sm rounded-lg border border-gray-200">
-              {/* Post Header */}
-              <div className="p-6 pb-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src={post.author.avatar}
-                      alt={post.author.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = defaultPicture;
-                      }}
-                    />
                     <div>
-                      <h3 className="font-semibold text-gray-900">{post.author.name}</h3>
-                      <div className="flex items-center space-x-2">
-                        <button 
-                          onClick={() => handleOpenPostDetail(post)}
-                          className="text-sm text-gray-500 hover:text-gray-700 hover:underline cursor-pointer"
-                        >
-                          {post.author.timeAgo}
-                        </button>
-                        {post.isEdited && (
-                          <span className="text-xs text-gray-400">
-                            • đã chỉnh sửa {post.editedAt}
-                          </span>
-                        )}
-                      </div>
+                      <p className="font-semibold text-gray-900">{user?.name || 'Username'}</p>
                     </div>
                   </div>
-                  <div className="relative">
-                    <button 
-                      onClick={() => setShowPostMenu(showPostMenu === post.id ? null : post.id)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <MoreHorizontal className="w-5 h-5" />
-                    </button>
-                    
-                    {/* Dropdown Menu */}
-                    {showPostMenu === post.id && (
-                      <div className="absolute right-0 top-8 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
-                        {isCurrentUserPost(post.author.name) ? (
-                          <>
-                            <button
-                              onClick={() => handleEditPost(post.id, post.content)}
-                              className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2"
-                            >
-                              <Edit className="w-4 h-4" />
-                              <span>Chỉnh sửa bài viết</span>
-                            </button>
-                            <button
-                              onClick={() => handleDeletePost(post.id)}
-                              className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              <span>Xóa bài viết</span>
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleEditPost(post.id, post.content)}
-                              className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2"
-                            >
-                              <Edit className="w-4 h-4" />
-                              <span>Chỉnh sửa bài viết</span>
-                            </button>
-                            <button
-                              onClick={() => handleReportPost(post.id)}
-                              className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600"
-                            >
-                              <Flag className="w-4 h-4" />
-                              <span>Báo cáo bài viết</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
                 </div>
-              </div>
 
-              {/* Post Content */}
-              <div className="px-6 pb-4">
-                {editingPostId === post.id ? (
-                  <div className="space-y-3">
-                    <textarea
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={4}
-                    />
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={handleCancelEdit}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        onClick={() => handleSaveEdit(post.id)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                      >
-                        Lưu
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
-                )}
-              </div>
-
-              {/* Post Images */}
-              {post.images && post.images.length > 0 && (
-                <div className="px-6 pb-4">
-                  <div className={`grid gap-2 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                    {post.images.map((image, index) => (
-                      <img
-                        key={index}
-                        src={image}
-                        alt={`Post image ${index + 1}`}
-                        className="w-full h-64 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => handleOpenPostDetail(post)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Post Stats */}
-              <div className="px-6 py-3 border-t border-gray-200">
-                <div className="flex items-center justify-between text-sm text-gray-500">
-                  <div className="flex items-center space-x-1">
-                    <ThumbsUp className="w-4 h-4 text-blue-600" />
-                    <span>{post.likes} lượt thích</span>
-                  </div>
-                  <div>
-                    {post.comments.length > 0 && (
-                      <span>{post.comments.length} bình luận</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Post Actions */}
-              <div className="px-6 py-3 border-t border-gray-200">
-                <div className="flex items-center justify-around">
-                  <button
-                    onClick={() => handleLike(post.id, 'post')}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors ${
-                      post.isLiked ? 'text-blue-600' : 'text-gray-600'
-                    }`}
-                  >
-                    <ThumbsUp className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
-                    <span className="font-medium">Thích</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const input = document.querySelector(`input[placeholder="Viết bình luận..."]`) as HTMLInputElement;
-                      if (input) input.focus();
-                    }}
-                    className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    <span className="font-medium">Bình luận</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Comments Section */}
-              {post.comments.length > 0 && (
-                <div className="px-6 pb-4 border-t border-gray-200">
-                  <div className="space-y-4 mt-4">
-                    {post.comments.map((comment) => (
-                      <CommentItem
-                        key={comment.id}
-                        comment={comment}
-                        postId={post.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Comment Input - Always Visible */}
-              <div className="px-6 pb-4 border-t border-gray-200">
-                <div className="flex items-start space-x-3 mt-4">
-                  <img
-                    src={defaultPicture}
-                    alt="Your avatar"
-                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = defaultPicture;
-                    }}
+                {/* Post Content */}
+                <div className="p-4">
+                  <textarea
+                    value={postContent}
+                    onChange={(e) => setPostContent(e.target.value)}
+                    placeholder="Bạn đang nghĩ gì?"
+                    className="w-full p-3 resize-none border-none focus:outline-none text-lg"
+                    rows={4}
+                    style={{ minHeight: '120px' }}
                   />
-                  <div className="flex-1">
-                    {/* Comment Image Previews */}
-                    {(commentImagePreviews[post.id]?.length || 0) > 0 && (
-                      <div className="mb-3 grid grid-cols-2 gap-2">
-                        {commentImagePreviews[post.id]?.map((preview, index) => (
+
+                  {/* Image Previews */}
+                  {imagePreviews.length > 0 && (
+                    <div className="mt-4 border border-gray-200 rounded-lg p-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        {imagePreviews.map((preview, index) => (
                           <div key={index} className="relative">
                             <img
                               src={preview}
                               alt={`Preview ${index + 1}`}
-                              className="w-full h-20 object-cover rounded-lg"
+                              className="w-full h-32 object-cover rounded-lg"
                             />
                             <button
-                              onClick={() => handleRemoveCommentImage(post.id, index)}
-                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                              onClick={() => removeImage(index)}
+                              className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
                             >
-                              ×
+                              <X className="w-4 h-4" />
                             </button>
                           </div>
                         ))}
                       </div>
-                    )}
-                    
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={commentInputs[post.id] || ''}
-                        onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
-                        placeholder="Viết bình luận..."
-                        className="flex-1 px-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            handleCommentSubmit(post.id);
-                          }
-                        }}
-                      />
-                      
-                      {/* Image Upload Button */}
-                      <div className="relative">
+                    </div>
+                  )}
+
+                  {/* Add to Post Options */}
+                  <div className="mt-4 p-3 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-900">Thêm vào bài viết của bạn</span>
+                      <div className="flex items-center space-x-2">
                         <input
+                          ref={fileInputRef}
                           type="file"
-                          id={`comment-image-${post.id}`}
                           multiple
                           accept="image/*"
-                          onChange={(e) => handleCommentImageSelect(post.id, e)}
+                          onChange={handleImageSelect}
                           className="hidden"
                         />
-                        <label
-                          htmlFor={`comment-image-${post.id}`}
-                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full cursor-pointer transition-colors"
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-8 h-8 bg-green-100 hover:bg-green-200 rounded-full flex items-center justify-center transition-colors"
                         >
-                          <Image className="w-5 h-5" />
-                        </label>
-                      </div>
-                      
-                      <button
-                        onClick={() => handleCommentSubmit(post.id)}
-                        disabled={!commentInputs[post.id]?.trim() && (commentImagePreviews[post.id]?.length || 0) === 0}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-full disabled:text-gray-400 disabled:hover:bg-transparent transition-colors"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </div>
-                    
-                    {/* Comment Actions */}
-                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                      <button className="hover:underline flex items-center space-x-1">
-                        <Smile className="w-3 h-3" />
-                        <span>Emoji</span>
-                      </button>
-                      <button className="hover:underline flex items-center space-x-1">
-                        <Image className="w-3 h-3" />
-                        <span>Ảnh</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-            {/* Right Sidebar */}
-            <div className="w-80 space-y-6 hidden lg:block">
-              {/* About Section */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                  Giới thiệu
-                </h3>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Cộng đồng Xoá mù YT cho người mới, nơi để chia sẻ kinh nghiệm, tài liệu, 
-                  hỏi đáp và học tập cho tất cả mọi người!
-                </p>
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Users className="w-4 h-4 mr-2" />
-                    <span className="font-medium">Công khai</span>
-                  </div>
-                  <p className="text-xs text-gray-500 ml-6">
-                    Bất kỳ ai cũng có thể nhìn thấy mọi người trong nhóm và những gì họ đăng.
-                  </p>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Eye className="w-4 h-4 mr-2" />
-                    <span className="font-medium">Hiển thị</span>
-                  </div>
-                  <p className="text-xs text-gray-500 ml-6">
-                    Ai cũng có thể tìm thấy nhóm này.
-                  </p>
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Hoạt động gần đây</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src="https://images.unsplash.com/photo-1494790108755-2616b612b048?w=40&h=40&fit=crop&crop=face"
-                      alt="User"
-                      className="w-8 h-8 rounded-full"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800">
-                        <span className="font-medium">Mai Lan</span> đã bình luận về bài viết của bạn
-                      </p>
-                      <p className="text-xs text-gray-500">5 phút trước</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"
-                      alt="User"
-                      className="w-8 h-8 rounded-full"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800">
-                        <span className="font-medium">Trung Hiếu</span> đã thích bài viết về gia phả
-                      </p>
-                      <p className="text-xs text-gray-500">1 giờ trước</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face"
-                      alt="User"
-                      className="w-8 h-8 rounded-full"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800">
-                        <span className="font-medium">Đức Thắng</span> đã chia sẻ ảnh gia đình
-                      </p>
-                      <p className="text-xs text-gray-500">3 giờ trước</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Popular Topics */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Chủ đề phổ biến</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-gray-800">#gia-pha-viet-nam</span>
-                    </div>
-                    <span className="text-xs text-gray-500">125 bài viết</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-gray-800">#truyen-thong-gia-dinh</span>
-                    </div>
-                    <span className="text-xs text-gray-500">89 bài viết</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-gray-800">#tim-hieu-to-tien</span>
-                    </div>
-                    <span className="text-xs text-gray-500">67 bài viết</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <span className="text-sm font-medium text-gray-800">#luu-tru-tai-lieu</span>
-                    </div>
-                    <span className="text-xs text-gray-500">45 bài viết</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Community Guidelines */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Quy tắc cộng đồng</h3>
-                <div className="space-y-3 text-sm text-gray-600">
-                  <div className="flex items-start space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <p>Tôn trọng và lịch sự với tất cả thành viên</p>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <p>Chia sẻ nội dung phù hợp và có giá trị</p>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <p>Không spam hay quảng cáo không mong muốn</p>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    <p>Bảo vệ thông tin cá nhân và riêng tư</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Stats */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">1,234</div>
-                    <div className="text-xs text-gray-600">Thành viên</div>
-                  </div>
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">567</div>
-                    <div className="text-xs text-gray-600">Bài viết</div>
-                  </div>
-                  <div className="text-center p-3 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">89</div>
-                    <div className="text-xs text-gray-600">Hoạt động hôm nay</div>
-                  </div>
-                  <div className="text-center p-3 bg-orange-50 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600">23</div>
-                    <div className="text-xs text-gray-600">Thành viên mới</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search Popup */}
-        {showSearchPopup && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">Tìm kiếm bài viết</h2>
-                  <button
-                    onClick={() => setShowSearchPopup(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Nhập từ khóa tìm kiếm..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleSearchPosts();
-                      }
-                    }}
-                  />
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => setShowSearchPopup(false)}
-                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      onClick={handleSearchPosts}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                    >
-                      Tìm kiếm
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Share Popup */}
-        {showSharePopup && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">Chia sẻ gia phả</h2>
-                  <button
-                    onClick={() => setShowSharePopup(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <img
-                        src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=60&h=60&fit=crop"
-                        alt="Group"
-                        className="w-12 h-12 rounded-lg object-cover"
-                      />
-                      <div>
-                        <h3 className="font-semibold text-gray-900">Gia Phả Gia Đình Nguyễn</h3>
-                        <p className="text-sm text-gray-600">Nhóm công khai • 28.3K thành viên</p>
+                          <Image className="w-4 h-4 text-green-600" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2 bg-white rounded-lg p-3 border">
-                      <span className="flex-1 text-sm text-gray-600 truncate">
-                        {window.location.origin}/group/gia-pha-gia-dinh-nguyen
-                      </span>
-                      <button
-                        onClick={handleCopyLink}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Sao chép
-                      </button>
-                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Report Comment Modal */}
-        {showReportModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">Báo cáo bình luận</h2>
+                {/* Modal Footer */}
+                <div className="p-4 border-t border-gray-200">
                   <button
-                    onClick={() => setShowReportModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    onClick={handleCreatePost}
+                    disabled={isPosting || (!postContent.trim() && selectedImages.length === 0)}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
                   >
-                    <X className="w-6 h-6" />
+                    {isPosting ? 'Đang đăng...' : 'Đăng'}
                   </button>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Lý do báo cáo
-                    </label>
-                    <select
-                      value={reportReason}
-                      onChange={(e) => setReportReason(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Chọn lý do</option>
-                      <option value="spam">Spam</option>
-                      <option value="harassment">Quấy rối</option>
-                      <option value="inappropriate">Nội dung không phù hợp</option>
-                      <option value="false-info">Thông tin sai lệch</option>
-                      <option value="other">Khác</option>
-                    </select>
-                  </div>
-                  {reportReason === 'other' && (
-                    <textarea
-                      placeholder="Mô tả chi tiết..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={3}
-                    />
-                  )}
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => {
-                        setShowReportModal(false);
-                        setReportReason('');
-                      }}
-                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      onClick={handleSubmitReport}
-                      disabled={!reportReason}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
-                    >
-                      Gửi báo cáo
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Report Post Modal */}
-        {showReportPostModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">Báo cáo bài viết</h2>
-                  <button
-                    onClick={() => setShowReportPostModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Lý do báo cáo
-                    </label>
-                    <select
-                      value={postReportReason}
-                      onChange={(e) => setPostReportReason(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Chọn lý do</option>
-                      <option value="spam">Spam</option>
-                      <option value="harassment">Quấy rối</option>
-                      <option value="inappropriate">Nội dung không phù hợp</option>
-                      <option value="false-info">Thông tin sai lệch</option>
-                      <option value="violence">Bạo lực</option>
-                      <option value="hate-speech">Ngôn từ căm thù</option>
-                      <option value="other">Khác</option>
-                    </select>
-                  </div>
-                  {postReportReason === 'other' && (
-                    <textarea
-                      placeholder="Mô tả chi tiết..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={3}
-                    />
-                  )}
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => {
-                        setShowReportPostModal(false);
-                        setPostReportReason('');
-                      }}
-                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      onClick={handleSubmitPostReport}
-                      disabled={!postReportReason}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
-                    >
-                      Gửi báo cáo
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Create Post Modal */}
-        {showCreatePostModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              {/* Modal Header */}
-              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Tạo bài viết</h2>
-                <button
-                  onClick={() => setShowCreatePostModal(false)}
-                  className="text-gray-400 hover:text-gray-600 p-2"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* User Info */}
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <img
-                    src={defaultPicture}
-                    alt="Your avatar"
-                    className="w-10 h-10 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = defaultPicture;
-                    }}
-                  />
-                  <div>
-                    <p className="font-semibold text-gray-900">{user?.name || 'Username'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Post Content */}
-              <div className="p-4">
-                <textarea
-                  value={postContent}
-                  onChange={(e) => setPostContent(e.target.value)}
-                  placeholder="Bạn đang nghĩ gì?"
-                  className="w-full p-3 resize-none border-none focus:outline-none text-lg"
-                  rows={4}
-                  style={{ minHeight: '120px' }}
-                />
-
-                {/* Image Previews */}
-                {imagePreviews.length > 0 && (
-                  <div className="mt-4 border border-gray-200 rounded-lg p-4">
-                    <div className="grid grid-cols-2 gap-2">
-                      {imagePreviews.map((preview, index) => (
-                        <div key={index} className="relative">
-                          <img
-                            src={preview}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            onClick={() => removeImage(index)}
-                            className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Add to Post Options */}
-                <div className="mt-4 p-3 border border-gray-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-900">Thêm vào bài viết của bạn</span>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                        className="hidden"
-                      />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-8 h-8 bg-green-100 hover:bg-green-200 rounded-full flex items-center justify-center transition-colors"
-                      >
-                        <Image className="w-4 h-4 text-green-600" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-4 border-t border-gray-200">
-                <button
-                  onClick={handleCreatePost}
-                  disabled={isPosting || (!postContent.trim() && selectedImages.length === 0)}
-                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
-                >
-                  {isPosting ? 'Đang đăng...' : 'Đăng'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Post Detail Modal */}
-        <PostDetailPage
-          isOpen={showPostDetail}
-          post={selectedPost}
-          onClose={() => setShowPostDetail(false)}
-          commentInputs={commentInputs}
-          setCommentInputs={setCommentInputs}
-          onLikePost={handleLike}
-          onCommentSubmit={handleCommentSubmit}
-          onEditPost={handleModalEditPost}
-          CommentItem={CommentItem}
-        />
+          {/* Post Detail Modal */}
+          <PostDetailPage
+            isOpen={showPostDetail}
+            post={selectedPost}
+            onClose={() => setShowPostDetail(false)}
+            commentInputs={commentInputs}
+            setCommentInputs={setCommentInputs}
+            onLikePost={handleLike}
+            onCommentSubmit={handleCommentSubmit}
+            onEditPost={handleModalEditPost}
+            CommentItem={CommentItem}
+          />
         </div>
       </div>
     </div>

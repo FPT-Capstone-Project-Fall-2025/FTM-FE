@@ -225,34 +225,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
             </div>
           </div>
 
-          {/* Group Information Sections */}
-          <div className="border-b border-gray-200">
-            {/* About Section */}
-            <div className="p-4 border-b border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="font-semibold text-gray-900">Giới thiệu</h5>
-                <button className="text-gray-400 hover:text-gray-600 p-1">
-                  <Edit className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-gray-600 text-sm">
-                Thêm mô tả về nhóm gia phả này để mọi người hiểu rõ hơn về mục đích và hoạt động của nhóm.
-              </p>
-            </div>
-
-            {/* Community Rules Section */}
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="font-semibold text-gray-900">Quy tắc cộng đồng</h5>
-                <button className="text-gray-400 hover:text-gray-600 p-1">
-                  <Edit className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-gray-600 text-sm">
-                Thêm quy tắc để giúp duy trì môi trường thảo luận tích cực và tôn trọng trong nhóm gia phả.
-              </p>
-            </div>
-          </div>
+          
 
           {/* Post Stats */}
           <div className="px-4 py-3 border-b border-gray-200">
