@@ -20,7 +20,7 @@ import { setEdges,
   // setHighlightedNode, 
   setSelectedMember, updateNodePosition } from '@/stores/slices/familyTreeSlice';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-// import FamilyTreeToolbar from './FamilyTreeToolbar';
+import FamilyTreeToolbar from './FamilyTreeToolbar';
 import { addHistory } from '@/stores/slices/historySlice';
 // import { useReactFlowZoom } from '@/hooks/useReactFlowZoom';
 // import SearchBar from './SearchBar';
@@ -155,7 +155,7 @@ const FamilyTreeContent = () => {
             /> */}
           </ReactFlow>
           {/* Toolbar */}
-          {/* <FamilyTreeToolbar /> */}
+          <FamilyTreeToolbar />
           {/* Search Bar */}
           {/* <div className="absolute top-4 right-4 z-10">
             <SearchBar onSelectMember={handleSearchSelect} />

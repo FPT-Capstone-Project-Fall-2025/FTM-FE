@@ -1,80 +1,72 @@
-import React, { useState, useRef } from 'react';
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Link2, Image, Trash2, Edit2 } from 'lucide-react';
-
-interface BiographyEntry {
-    id: string;
-    title: string;
-    startDate: string;
-    endDate: string;
-    content: string;
-}
+import React, { useState, useRef, useEffect } from 'react';
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Link2, Smile, Edit2, Trash2 } from 'lucide-react';
+import type { BiographyDesc, BiographyEntry } from '@/types/biography';
+import biographyService from '@/services/biographyService';
+import { toast } from 'react-toastify';
+import CustomDatePicker from '@/components/ui/DatePicker';
 
 const Biography: React.FC = () => {
-    const initialEntries: BiographyEntry[] = [
-        {
-            id: '1',
-            title: 'Sinh sơn',
-            startDate: '01/01/1990',
-            endDate: '31/12/2000',
-            content: 'Tôi sinh ra ở xã A, huyện B và lớn lên trong một gia đình có truyền thống văn hóa, tôi đã có...'
-        },
-        {
-            id: '2',
-            title: 'Sample',
-            startDate: '01/01/1990',
-            endDate: '31/12/2000',
-            content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.'
-        }
-    ];
 
-    const [entries, setEntries] = useState<BiographyEntry[]>(initialEntries);
-    const [originalEntries, setOriginalEntries] = useState<BiographyEntry[]>(initialEntries);
+    const [entries, setEntries] = useState<BiographyEntry[]>([]);
+    const [originalEntries, setOriginalEntries] = useState<BiographyEntry[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
+
+    const [bioDescription, setBioDescription] = useState<string>('');
+    const [originalBioDescription, setOriginalBioDescription] = useState<string>('');
 
     const [newEntry, setNewEntry] = useState<BiographyEntry>({
         id: '',
         title: '',
-        startDate: '',
-        endDate: '',
-        content: ''
+        description: '',
+        eventDate: '',
+    });
+
+    const [editEntry, setEditEntry] = useState<BiographyEntry>({
+        id: '',
+        title: '',
+        description: '',
+        eventDate: '',
     });
 
     const contentRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        const fetchInitData = async () => {
+            const [bioDesc, entries] = await Promise.all([
+                biographyService.getBiographyDesc(),
+                biographyService.getBiographyEvents()
+            ]);
+            setBioDescription(bioDesc.data.description);
+            setEntries(entries.data);
+        }
+        fetchInitData();
+    }, []);
+
     const hasChanges = () => {
-        return JSON.stringify(entries) !== JSON.stringify(originalEntries);
+        return JSON.stringify(entries) !== JSON.stringify(originalEntries) ||
+            bioDescription !== originalBioDescription;
     };
 
     const hasActiveEditing = () => {
         return editingId !== null;
     };
 
-    const handleEdit = (id: string) => {
-        setEditingId(editingId === id ? null : id);
-    };
-
-    const handleEntryChange = (id: string, field: keyof BiographyEntry, value: string) => {
-        setEntries(prev =>
-            prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry)
-        );
-    };
-
     const handleAddClick = () => {
         setNewEntry({
             id: '',
             title: '',
-            startDate: '',
-            endDate: '',
-            content: ''
+            description: '',
+            eventDate: ''
         });
         setShowAddModal(true);
     };
 
-    const handleAddEntry = () => {
-        if (!newEntry.title || !newEntry.startDate || !newEntry.endDate) {
+    const handleAddEntry = async () => {
+        if (!newEntry.title || !newEntry.eventDate) {
             alert('Vui lòng điền đầy đủ thông tin!');
             return;
         }
@@ -84,9 +76,38 @@ const Biography: React.FC = () => {
             id: Date.now().toString()
         };
 
+        try {
+            const response = await biographyService.addBiographyEvent(entry);
+            console.log(response);
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setShowAddModal(false);
+        }
         setEntries([...entries, entry]);
-        setShowAddModal(false);
-        setEditingId(entry.id);
+    };
+
+    const handleEditClick = (entry: BiographyEntry) => {
+        setEditEntry({ ...entry });
+        setShowEditModal(true);
+    };
+
+    const handleUpdateEntry = async () => {
+        if (!editEntry.title || !editEntry.eventDate) {
+            alert('Vui lòng điền đầy đủ thông tin!');
+            return;
+        }
+        try {
+            await biographyService.updateBiographyEvent(editEntry);
+            setEntries(prev =>
+                prev.map(entry => entry.id === editEntry.id ? editEntry : entry)
+            );
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setShowEditModal(false);
+            toast.success('Chỉnh sửa thông tin thành công');
+        }
     };
 
     const handleDeleteClick = (id: string) => {
@@ -94,28 +115,45 @@ const Biography: React.FC = () => {
         setShowDeleteConfirm(true);
     };
 
-    const confirmDelete = () => {
-        if (deleteId) {
+    const confirmDelete = async () => {
+        if (!deleteId) return;
+        try {
+            await biographyService.deleteBiographyEvent(deleteId);
             setEntries(prev => prev.filter(entry => entry.id !== deleteId));
             if (editingId === deleteId) {
                 setEditingId(null);
             }
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setShowDeleteConfirm(false);
+            setDeleteId(null);
+            toast.success('Xóa thành công!');
         }
-        setShowDeleteConfirm(false);
-        setDeleteId(null);
     };
 
     const handleCancel = () => {
-        if (hasActiveEditing()) {
+        if (hasActiveEditing() || hasChanges()) {
             setEditingId(null);
             setEntries(originalEntries);
+            setBioDescription(originalBioDescription);
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setOriginalEntries(entries);
+        setOriginalBioDescription(bioDescription);
         setEditingId(null);
-        console.log('Saved:', entries);
+        try {
+            const res = await biographyService.updateBiographyDesc(bioDescription);
+            if (res.data) {
+                setBioDescription(res.data.description);
+            }
+        } catch (error) {
+            console.log(error);
+        } finally {
+            toast.success('Cập nhật thông tin thành công!');
+        }
     };
 
     const applyFormat = (command: string, value?: string) => {
@@ -124,192 +162,127 @@ const Biography: React.FC = () => {
 
     return (
         <>
-            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-                <div className="p-8">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-semibold">Tiểu sử</h2>
+            {/* Main Card */}
+            <div className="bg-white rounded-lg border border-gray-300 p-6">
+                {/* Bio Description Section */}
+                <div className="mb-6">
+                    <h2 className="text-lg font-semibold mb-3">Tiểu sử</h2>
+                    <div className="border border-gray-300 rounded">
+                        {/* Toolbar */}
+                        <div className="flex gap-1 p-2 border-b border-gray-300 bg-gray-50">
+                            <button
+                                onClick={() => applyFormat('bold')}
+                                className="p-2 hover:bg-gray-200 rounded"
+                                title="Bold"
+                            >
+                                <Bold size={16} />
+                            </button>
+                            <button
+                                onClick={() => applyFormat('italic')}
+                                className="p-2 hover:bg-gray-200 rounded"
+                                title="Italic"
+                            >
+                                <Italic size={16} />
+                            </button>
+                            <button
+                                onClick={() => applyFormat('underline')}
+                                className="p-2 hover:bg-gray-200 rounded"
+                                title="Underline"
+                            >
+                                <Underline size={16} />
+                            </button>
+                        </div>
+                        {/* Content Area */}
+                        <div
+                            ref={contentRef}
+                            contentEditable
+                            onInput={(e) => {
+                                setBioDescription(e.currentTarget.innerHTML);
+                            }}
+                            suppressContentEditableWarning
+                            className="min-h-32 p-4 focus:outline-none text-gray-600 text-sm"
+                        >
+                            {bioDescription === '' ? (
+                                <span className="text-gray-400">Hãy nhập mô tả tiểu sử ở đây...</span>
+                            ) : bioDescription
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                {/* Events Section */}
+                <div>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-lg font-semibold">Sự kiện</h2>
                         <button
                             onClick={handleAddClick}
-                            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+                            className="text-blue-600 text-sm flex items-center gap-1 hover:text-blue-700"
                         >
-                            + THÊM MỚI MỤC
+                            <span className="text-lg">+</span> THÊM SỰ KIỆN
                         </button>
                     </div>
 
-                    {/* Biography Entries */}
-                    <div className="space-y-6">
+                    {/* Event Entries */}
+                    <div className="space-y-4">
                         {entries.map((entry) => (
-                            <div key={entry.id} className="border border-gray-300 rounded-lg">
-                                <div className="bg-gray-50 px-4 py-3 border-b border-gray-300 flex justify-between items-center">
-                                    <div className="flex-1">
-                                        {editingId === entry.id ? (
-                                            <input
-                                                type="text"
-                                                value={entry.title}
-                                                onChange={(e) => handleEntryChange(entry.id, 'title', e.target.value)}
-                                                className="font-semibold text-base border border-gray-300 rounded px-3 py-1 w-full"
-                                                placeholder="Tiêu đề"
-                                            />
-                                        ) : (
-                                            <h3 className="font-semibold text-base">{entry.title}</h3>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2 ml-4">
-                                        {editingId === entry.id ? (
-                                            <div className="flex gap-2 text-sm text-gray-600">
-                                                <input
-                                                    type="text"
-                                                    value={entry.startDate}
-                                                    onChange={(e) => handleEntryChange(entry.id, 'startDate', e.target.value)}
-                                                    placeholder="dd/mm/yyyy"
-                                                    className="border border-gray-300 rounded px-2 py-1 w-24"
-                                                />
-                                                <span>-</span>
-                                                <input
-                                                    type="text"
-                                                    value={entry.endDate}
-                                                    onChange={(e) => handleEntryChange(entry.id, 'endDate', e.target.value)}
-                                                    placeholder="dd/mm/yyyy"
-                                                    className="border border-gray-300 rounded px-2 py-1 w-24"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <span className="text-sm text-gray-600">
-                                                {entry.startDate} - {entry.endDate}
-                                            </span>
-                                        )}
-                                        <button
-                                            onClick={() => handleEdit(entry.id)}
-                                            className="text-gray-600 hover:text-gray-800"
-                                            title="Chỉnh sửa"
-                                        >
-                                            <Edit2 size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteClick(entry.id)}
-                                            className="text-red-600 hover:text-red-800"
-                                            title="Xóa"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
+                            <div key={entry.id} className="flex gap-4 pb-4 border-b border-gray-200 last:border-b-0">
+                                {/* Date Column */}
+                                <div className="flex-shrink-0 w-24 text-sm text-gray-600">
+                                    {new Date(entry.eventDate).toLocaleDateString('en-GB')}
                                 </div>
 
-                                <div className="p-4">
-                                    {editingId === entry.id ? (
-                                        <div>
-                                            {/* Rich Text Toolbar */}
-                                            <div className="flex gap-2 mb-2 pb-2 border-b border-gray-200">
-                                                <button
-                                                    onClick={() => applyFormat('bold')}
-                                                    className="p-2 hover:bg-gray-100 rounded"
-                                                    title="Bold"
-                                                >
-                                                    <Bold size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => applyFormat('italic')}
-                                                    className="p-2 hover:bg-gray-100 rounded"
-                                                    title="Italic"
-                                                >
-                                                    <Italic size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => applyFormat('underline')}
-                                                    className="p-2 hover:bg-gray-100 rounded"
-                                                    title="Underline"
-                                                >
-                                                    <Underline size={18} />
-                                                </button>
-                                                <div className="w-px bg-gray-300 mx-1"></div>
-                                                <button
-                                                    onClick={() => applyFormat('justifyLeft')}
-                                                    className="p-2 hover:bg-gray-100 rounded"
-                                                    title="Align Left"
-                                                >
-                                                    <AlignLeft size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => applyFormat('justifyCenter')}
-                                                    className="p-2 hover:bg-gray-100 rounded"
-                                                    title="Align Center"
-                                                >
-                                                    <AlignCenter size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => applyFormat('justifyRight')}
-                                                    className="p-2 hover:bg-gray-100 rounded"
-                                                    title="Align Right"
-                                                >
-                                                    <AlignRight size={18} />
-                                                </button>
-                                                <div className="w-px bg-gray-300 mx-1"></div>
-                                                <button
-                                                    onClick={() => {
-                                                        const url = prompt('Nhập URL:');
-                                                        if (url) applyFormat('createLink', url);
-                                                    }}
-                                                    className="p-2 hover:bg-gray-100 rounded"
-                                                    title="Insert Link"
-                                                >
-                                                    <Link2 size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const url = prompt('Nhập URL hình ảnh:');
-                                                        if (url) applyFormat('insertImage', url);
-                                                    }}
-                                                    className="p-2 hover:bg-gray-100 rounded"
-                                                    title="Insert Image"
-                                                >
-                                                    <Image size={18} />
-                                                </button>
-                                            </div>
-                                            <div
-                                                ref={contentRef}
-                                                contentEditable
-                                                onInput={(e) => {
-                                                    handleEntryChange(entry.id, 'content', e.currentTarget.innerHTML);
-                                                }}
-                                                dangerouslySetInnerHTML={{ __html: entry.content }}
-                                                className="min-h-32 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
+                                {/* Content Column */}
+                                <div className="flex-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1">
+                                            <h3 className="font-semibold text-base mb-1">{entry.title}</h3>
+                                            <p className="text-sm text-gray-700 leading-relaxed">{entry.description}</p>
                                         </div>
-                                    ) : (
-                                        <div
-                                            className="text-sm text-gray-700"
-                                            dangerouslySetInnerHTML={{ __html: entry.content }}
-                                        />
-                                    )}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleEditClick(entry)}
+                                                className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                                                title="Chỉnh sửa"
+                                            >
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteClick(entry.id)}
+                                                className="text-red-400 hover:text-red-600 flex-shrink-0"
+                                                title="Xóa"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ))}
                     </div>
+                </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-3 mt-6">
-                        <button
-                            onClick={handleCancel}
-                            disabled={!hasActiveEditing()}
-                            className={`px-6 py-2 border border-gray-300 rounded ${hasActiveEditing()
-                                    ? 'hover:bg-gray-50 cursor-pointer'
-                                    : 'opacity-50 cursor-not-allowed'
-                                }`}
-                        >
-                            Hủy
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={!hasChanges()}
-                            className={`px-6 py-2 rounded text-white ${hasChanges()
-                                    ? 'bg-black hover:bg-gray-800 cursor-pointer'
-                                    : 'bg-gray-400 cursor-not-allowed'
-                                }`}
-                        >
-                            Lưu
-                        </button>
-                    </div>
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 mt-6">
+                    <button
+                        onClick={handleCancel}
+                        disabled={!hasChanges()}
+                        className={`px-6 py-2 border border-gray-300 rounded ${hasChanges()
+                            ? 'hover:bg-gray-50 cursor-pointer'
+                            : 'opacity-50 cursor-not-allowed'
+                            }`}
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={!hasChanges()}
+                        className={`px-6 py-2 rounded text-white ${hasChanges()
+                            ? 'bg-black hover:bg-gray-800 cursor-pointer'
+                            : 'bg-gray-400 cursor-not-allowed'
+                            }`}
+                    >
+                        Lưu
+                    </button>
                 </div>
             </div>
 
@@ -317,7 +290,7 @@ const Biography: React.FC = () => {
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                        <h3 className="text-xl font-semibold mb-4">Thêm mục mới</h3>
+                        <h3 className="text-xl font-semibold mb-4">Thêm sự kiện mới</h3>
 
                         <div className="space-y-4">
                             <div>
@@ -330,35 +303,17 @@ const Biography: React.FC = () => {
                                     placeholder="Nhập tiêu đề"
                                 />
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Ngày bắt đầu</label>
-                                    <input
-                                        type="text"
-                                        value={newEntry.startDate}
-                                        onChange={(e) => setNewEntry({ ...newEntry, startDate: e.target.value })}
-                                        className="w-full border border-gray-300 rounded px-3 py-2"
-                                        placeholder="dd/mm/yyyy"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Ngày kết thúc</label>
-                                    <input
-                                        type="text"
-                                        value={newEntry.endDate}
-                                        onChange={(e) => setNewEntry({ ...newEntry, endDate: e.target.value })}
-                                        className="w-full border border-gray-300 rounded px-3 py-2"
-                                        placeholder="dd/mm/yyyy"
-                                    />
-                                </div>
-                            </div>
-
+                            <CustomDatePicker
+                                label='Ngày sự kiện'
+                                value={newEntry.eventDate}
+                                onChange={(data) => setNewEntry({ ...newEntry, eventDate: data })}
+                                isEditing={showAddModal}
+                            />
                             <div>
                                 <label className="block text-sm font-medium mb-2">Nội dung</label>
                                 <textarea
-                                    value={newEntry.content}
-                                    onChange={(e) => setNewEntry({ ...newEntry, content: e.target.value })}
+                                    value={newEntry.description}
+                                    onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })}
                                     className="w-full border border-gray-300 rounded px-3 py-2 h-32"
                                     placeholder="Nhập nội dung..."
                                 />
@@ -383,13 +338,64 @@ const Biography: React.FC = () => {
                 </div>
             )}
 
+            {/* Edit Entry Modal */}
+            {showEditModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <h3 className="text-xl font-semibold mb-4">Chỉnh sửa sự kiện</h3>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Tiêu đề</label>
+                                <input
+                                    type="text"
+                                    value={editEntry.title}
+                                    onChange={(e) => setEditEntry({ ...editEntry, title: e.target.value })}
+                                    className="w-full border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập tiêu đề"
+                                />
+                            </div>
+                            <CustomDatePicker
+                                label='Ngày sự kiện'
+                                value={editEntry.eventDate}
+                                onChange={(data) => setEditEntry({ ...editEntry, eventDate: data })}
+                                isEditing={showEditModal}
+                            />
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Nội dung</label>
+                                <textarea
+                                    value={editEntry.description}
+                                    onChange={(e) => setEditEntry({ ...editEntry, description: e.target.value })}
+                                    className="w-full border border-gray-300 rounded px-3 py-2 h-32"
+                                    placeholder="Nhập nội dung..."
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setShowEditModal(false)}
+                                className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleUpdateEntry}
+                                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Cập nhật
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 w-full max-w-md">
                         <h3 className="text-xl font-semibold mb-4">Xác nhận xóa</h3>
                         <p className="text-gray-600 mb-6">
-                            Bạn có chắc chắn muốn xóa mục tiểu sử này không?
+                            Bạn có chắc chắn muốn xóa sự kiện này không?
                         </p>
                         <div className="flex justify-end gap-3">
                             <button
