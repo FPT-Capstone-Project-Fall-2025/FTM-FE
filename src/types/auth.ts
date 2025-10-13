@@ -13,11 +13,19 @@ export interface LoginProps {
     password: string;
 }
 
+export interface ResetPassword {
+    code: string;
+    userId: string;
+    password: string;
+    confirmPassword: string;
+}
+
 export interface AuthState {
     user: User | null
     token: string | null
     refreshToken: string | null
     isAuthenticated: boolean
+    isGGLogin: boolean;
     isLoading: boolean
     error: string | null
 }

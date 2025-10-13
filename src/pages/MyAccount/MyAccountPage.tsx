@@ -1,14 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DetailInformation from './DetailInformation';
 import FamilyTree from './FamilyTree/FamilyTree';
-import RecentActivities from './RecentActivities';
+import Biography from './Biography';
+import Occupation from './Occupation';
 
 const MyAccountPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState('personal');
+    const navigate = useNavigate();
+    const location = useLocation();
 
+    // Get tab from URL params or default to 'personal'
+    const getInitialTab = () => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        const validTabs = ['personal', 'biography', 'occupation', 'family'];
+        return validTabs.includes(tab || '') ? tab : 'personal';
+    };
+
+    const [activeTab, setActiveTab] = useState(getInitialTab());
+
+    // Update URL when tab changes
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
+        navigate(`?tab=${tab}`, { replace: true });
     };
+
+    // Sync state with URL on back/forward navigation
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab') || 'personal';
+        setActiveTab(tab);
+    }, [location.search]);
 
     return (
         <div className="h-full w-full bg-gray-50">
@@ -33,6 +55,24 @@ const MyAccountPage: React.FC = () => {
                             THÔNG TIN CƠ BẢN
                         </button>
                         <button
+                            onClick={() => handleTabChange('biography')}
+                            className={`py-3 px-1 border-b-2 font-semibold text-base transition-colors ${activeTab === 'biography'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }`}
+                        >
+                            TIỂU SỬ
+                        </button>
+                        <button
+                            onClick={() => handleTabChange('occupation')}
+                            className={`py-3 px-1 border-b-2 font-semibold text-base transition-colors ${activeTab === 'occupation'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }`}
+                        >
+                            CÔNG VIỆC/HỌC VẤN
+                        </button>
+                        <button
                             onClick={() => handleTabChange('family')}
                             className={`py-3 px-1 border-b-2 font-semibold text-base transition-colors ${activeTab === 'family'
                                 ? 'border-blue-600 text-blue-600'
@@ -41,22 +81,14 @@ const MyAccountPage: React.FC = () => {
                         >
                             GIA PHẢ
                         </button>
-                        <button
-                            onClick={() => handleTabChange('activities')}
-                            className={`py-3 px-1 border-b-2 font-semibold text-base transition-colors ${activeTab === 'activities'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                        >
-                            HOẠT ĐỘNG GẦN ĐÂY
-                        </button>
                     </nav>
                 </div>
 
                 {/* Tab Content */}
                 {activeTab === 'personal' && <DetailInformation />}
+                {activeTab === 'biography' && <Biography />}
                 {activeTab === 'family' && <FamilyTree />}
-                {activeTab === 'activities' && <RecentActivities />}
+                {activeTab === 'occupation' && <Occupation />}
             </div>
         </div>
     );

@@ -11,7 +11,7 @@ import { toast } from 'react-toastify';
 
 const DetailInformation: React.FC = () => {
 
-  const { isLoading: isUserLoading } = useAppSelector(state => state.auth);
+  const { isGGLogin ,isLoading: isUserLoading } = useAppSelector(state => state.auth);
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<UserProfile>({
@@ -371,13 +371,16 @@ const DetailInformation: React.FC = () => {
                     }}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => openPopup('change-password')}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
-                >
-                  THAY ĐỔI MẬT KHẨU
-                </button>
+                {
+                  !isGGLogin && 
+                  <button
+                    type="button"
+                    onClick={() => openPopup('change-password')}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
+                  >
+                    THAY ĐỔI MẬT KHẨU
+                  </button>
+                }
               </div>
             </div>
           </div>
@@ -489,6 +492,7 @@ const DetailInformation: React.FC = () => {
 
                 {/* Birth Date */}
                 <BirthdayPicker
+                  label='Ngày sinh'
                   value={displayData.birthday}
                   onChange={(value) =>
                     setEditData((prev) => ({ ...prev, birthday: value }))

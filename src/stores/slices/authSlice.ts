@@ -1,5 +1,5 @@
 import authService from '@/services/authService';
-import type { AuthState, LoginProps, RegisterProps } from '@/types/auth';
+import type { AuthState, LoginProps, RegisterProps, ResetPassword } from '@/types/auth';
 import type { User } from '@/types/user';
 import {
   createAsyncThunk,
@@ -12,6 +12,7 @@ const initialState: AuthState = {
   token: null,
   refreshToken: null,
   isAuthenticated: false,
+  isGGLogin:false,
   isLoading: false,
   error: null,
 };
@@ -47,6 +48,28 @@ export const registerUser = createAsyncThunk(
       return await authService.register(data);
     } catch (error: any) {
       return rejectWithValue(error.message || 'Registration failed');
+    }
+  }
+);
+
+export const forgotPassword = createAsyncThunk(
+  'auth/forgot-password',
+  async (data: string, { rejectWithValue }) => {
+    try {
+      return await authService.forgotPassword(data);
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Sending email failed');
+    }
+  }
+);
+
+export const resetPassword = createAsyncThunk(
+  'auth/reset-password',
+  async (data: ResetPassword, { rejectWithValue }) => {
+    try {
+      return await authService.resetPassword(data);
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Reset password failed');
     }
   }
 );
@@ -103,8 +126,6 @@ const authSlice = createSlice({
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
         // state.user = action.payload.data?.
-        console.log(action);
-        
         state.token = action.payload.data?.accessToken;
         state.refreshToken = action.payload.data?.refreshToken;
         state.isAuthenticated = true;
@@ -126,6 +147,7 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.isAuthenticated = true;
         // state.user = action.payload.user;
+        state.isGGLogin = true;
         state.token = action.payload.data?.accessToken;
         state.refreshToken = action.payload.data?.refreshToken;
       })
@@ -149,6 +171,23 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(registerUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        state.isAuthenticated = false;
+      });
+
+      // Forgot password
+    builder
+      .addCase(forgotPassword.pending, state => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(forgotPassword.fulfilled, (state) => {
+        state.isLoading = false;
+        state.isAuthenticated = false;
+        state.error = null;
+      })
+      .addCase(forgotPassword.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
