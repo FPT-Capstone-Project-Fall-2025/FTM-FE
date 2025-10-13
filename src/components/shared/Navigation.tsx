@@ -10,10 +10,10 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
-import { useAppDispatch } from '@/hooks/redux';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '@/assets/img/logo.svg';
-import { logout } from '@/stores/slices/authSlice';
+import { logout, getProfileData } from '@/stores/slices/authSlice';
 
 interface NavigationProps {
   onMenuClick: () => void;
@@ -22,10 +22,15 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const navigate = useNavigate();
-  // const { user } = useAppSelector(state => state.auth);
+  const { user, userProfile } = useAppSelector(state => state.auth);
   const dispatch = useAppDispatch();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+
+  useEffect(() => {
+    dispatch(getProfileData());
+  }, [dispatch]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -71,7 +76,7 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
                 className="flex items-center space-x-2 p-2 rounded-md hover:bg-blue-700"
               >
                 <User size={20} />
-                {/* <span>{user?.name || 'Tài khoản'}</span> */}
+                <span className="ml-2">{user?.name || 'User'}</span>
               </button>
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-60 bg-white rounded-md shadow-lg py-2 z-50 text-gray-800">

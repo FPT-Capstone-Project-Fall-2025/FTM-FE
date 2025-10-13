@@ -46,11 +46,11 @@ const router = createBrowserRouter([
   {
     path: '/dashboard',
     element: (
-      <ProtectedRoute>
+      // <ProtectedRoute>
         <MainLayout>
           <MyAccountPage />
         </MainLayout>
-      </ProtectedRoute>
+      // </ProtectedRoute>
     )
   },
   {

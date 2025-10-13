@@ -334,7 +334,48 @@ const DetailInformation: React.FC = () => {
   };
 
   if (isUserLoading) {
-    return <div>Loading user data...</div>;
+    return (
+      <div className="grid grid-cols-12 gap-8 animate-pulse">
+        {/* Left Column Skeleton */}
+        <div className="col-span-12 lg:col-span-3">
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+            <div className="flex flex-col items-center">
+              {/* Title Skeleton */}
+              <div className="w-3/4 h-6 bg-gray-200 rounded-md mb-4"></div>
+              {/* Description Skeleton */}
+              <div className="w-full h-4 bg-gray-200 rounded-md mb-2"></div>
+              <div className="w-5/6 h-4 bg-gray-200 rounded-md mb-6"></div>
+              
+              {/* Avatar Skeleton */}
+              <div className="w-32 h-32 rounded-full bg-gray-200 mb-4"></div>
+              {/* Button Skeleton */}
+              <div className="w-40 h-10 bg-gray-200 rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column Skeleton */}
+        <div className="col-span-12 lg:col-span-9">
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Form Fields Skeleton */}
+              {[...Array(10)].map((_, index) => (
+                <div key={index}>
+                  <div className="w-1/3 h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="w-full h-12 bg-gray-200 rounded-lg"></div>
+                </div>
+              ))}
+            </div>
+
+            {/* Action Buttons Skeleton */}
+            <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
+              <div className="w-32 h-10 bg-gray-200 rounded-lg"></div>
+              <div className="w-32 h-10 bg-gray-200 rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const displayData = isEditing ? editData : formData;
