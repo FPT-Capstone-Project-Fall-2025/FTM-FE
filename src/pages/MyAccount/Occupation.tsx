@@ -1,50 +1,27 @@
-import React, { useState, useEffect } from 'react';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import CustomDatePicker from '@/components/ui/DatePicker';
-import type { Education } from '@/types/biography';
+import type { Education, WorkExperience } from '@/types/biography';
 import biographyService from '@/services/biographyService';
 import { toast } from 'react-toastify';
-
-interface WorkExperience {
-    id: string;
-    company: string;
-    location: string;
-    startDate: string;
-    endDate: string;
-    description: string;
-}
-
-const initialWorkExperiences: WorkExperience[] = [
-    {
-        id: '1',
-        company: 'Công ty ABC',
-        location: 'Vị trí xyz - 1 năm 11 tháng\nĐà Nẵng, Việt Nam',
-        startDate: '2021-08-01T00:00:00.000Z',
-        endDate: '',
-        description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
-    },
-    {
-        id: '2',
-        company: 'Sample',
-        location: '',
-        startDate: '',
-        endDate: '',
-        description: 'Lorem ipsum dolor sit amet.'
-    }
-];
+import { useEffect, useState } from 'react';
 
 const Occupation: React.FC = () => {
 
-    const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>(initialWorkExperiences);
+    const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([]);
     const [educations, setEducations] = useState<Education[]>([]);
-    const [originalWorkExperiences, setOriginalWorkExperiences] = useState<WorkExperience[]>(initialWorkExperiences);
+    const [originalWorkExperiences, setOriginalWorkExperiences] = useState<WorkExperience[]>([]);
     const [originalEducations, setOriginalEducations] = useState<Education[]>([]);
     const [editingWork, setEditingWork] = useState<string | null>(null);
     const [editingEducation, setEditingEducation] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteEducationId, setDeleteEducationId] = useState<string | null>(null);
     const [showEditEducationModal, setShowEditEducationModal] = useState(false);
-    const [showAddEducationModal, setShowAddEducationModal] = useState(false);
+    const [isAddingNew, setIsAddingNew] = useState(false);
+    const [isAddingNewWork, setIsAddingNewWork] = useState(false);
+    const [showEditWorkModal, setShowEditWorkModal] = useState(false);
+    const [showDeleteWorkConfirm, setShowDeleteWorkConfirm] = useState(false);
+    const [deleteWorkId, setDeleteWorkId] = useState<string | null>(null);
+    
     const [newEducation, setNewEducation] = useState<Education>({
         id: '',
         institutionName: '',
@@ -66,18 +43,45 @@ const Occupation: React.FC = () => {
         isCurrent: false
     });
 
+    const [newWork, setNewWork] = useState<WorkExperience>({
+        id: '',
+        companyName: '',
+        description: '',
+        location: '',
+        startDate: '',
+        endDate: '',
+        isCurrent: false,
+        positions: []
+    });
+
+    const [editWork, setEditWork] = useState<WorkExperience>({
+        id: '',
+        companyName: '',
+        description: '',
+        location: '',
+        startDate: '',
+        endDate: '',
+        isCurrent: false,
+        positions: []
+    });
+
     useEffect(() => {
-        const fetchEducations = async () => {
+        const fetchData = async () => {
             try {
-                const response = await biographyService.getEducation();
-                setEducations(response.data);
-                setOriginalEducations(response.data);
+                const [educationRes, workRes] = await Promise.all([
+                    biographyService.getEducation(),
+                    biographyService.getWork()
+                ]);
+                setEducations(educationRes.data);
+                setOriginalEducations(educationRes.data);
+                setWorkExperiences(workRes.data);
+                setOriginalWorkExperiences(workRes.data);
             } catch (error) {
                 console.log(error);
-                toast.error('Không thể tải dữ liệu học vấn');
+                toast.error('Không thể tải dữ liệu');
             }
         };
-        fetchEducations();
+        fetchData();
     }, []);
 
     // Check if there are any changes
@@ -92,7 +96,11 @@ const Occupation: React.FC = () => {
     };
 
     const handleEditWork = (id: string) => {
-        setEditingWork(editingWork === id ? null : id);
+        const work = workExperiences.find(w => w.id === id);
+        if (work) {
+            setEditWork({ ...work });
+            setShowEditWorkModal(true);
+        }
     };
 
     const handleEditEducation = (id: string) => {
@@ -103,14 +111,16 @@ const Occupation: React.FC = () => {
         }
     };
 
-    const handleWorkChange = (id: string, field: keyof WorkExperience, value: string) => {
-        setWorkExperiences(prev =>
-            prev.map(work => work.id === id ? { ...work, [field]: value } : work)
-        );
+    const handleWorkChange = (field: keyof WorkExperience, value: string | boolean) => {
+        if (isAddingNewWork) {
+            setNewWork(prev => ({ ...prev, [field]: value }));
+        } else if (showEditWorkModal) {
+            setEditWork(prev => ({ ...prev, [field]: value }));
+        }
     };
 
     const handleEducationChange = (field: keyof Education, value: string | boolean) => {
-        if (showAddEducationModal) {
+        if (isAddingNew) {
             setNewEducation(prev => ({ ...prev, [field]: value }));
         } else if (showEditEducationModal) {
             setEditEducation(prev => ({ ...prev, [field]: value }));
@@ -118,16 +128,98 @@ const Occupation: React.FC = () => {
     };
 
     const addWorkExperience = () => {
-        const newWork: WorkExperience = {
-            id: Date.now().toString(),
-            company: '',
+        setNewWork({
+            id: '',
+            companyName: '',
+            description: '',
             location: '',
             startDate: '',
             endDate: '',
-            description: ''
+            isCurrent: false,
+            positions: []
+        });
+        setIsAddingNewWork(true);
+    };
+
+    const handleSaveNewWork = async () => {
+        // Validation
+        if (!newWork.companyName.trim()) {
+            toast.error('Vui lòng nhập tên công ty');
+            return;
+        }
+        if (!newWork.location.trim()) {
+            toast.error('Vui lòng nhập địa điểm');
+            return;
+        }
+        if (!newWork.startDate) {
+            toast.error('Vui lòng chọn ngày bắt đầu');
+            return;
+        }
+        if (!newWork.isCurrent && !newWork.endDate) {
+            toast.error('Vui lòng chọn ngày kết thúc hoặc chọn "Đang làm việc"');
+            return;
+        }
+
+        const workToAdd = {
+            ...newWork,
+            id: Date.now().toString()
         };
-        setWorkExperiences([...workExperiences, newWork]);
-        setEditingWork(newWork.id);
+
+        try {
+            const response = await biographyService.createWork(workToAdd);
+            setWorkExperiences([response.data, ...workExperiences]);
+            setIsAddingNewWork(false);
+            toast.success('Thêm công việc thành công');
+        } catch (error) {
+            console.log(error);
+            toast.error('Không thể thêm công việc');
+        }
+    };
+
+    const handleCancelNewWork = () => {
+        setIsAddingNewWork(false);
+        setNewWork({
+            id: '',
+            companyName: '',
+            description: '',
+            location: '',
+            startDate: '',
+            endDate: '',
+            isCurrent: false,
+            positions: []
+        });
+    };
+
+    const handleUpdateWork = async () => {
+        // Validation
+        if (!editWork.companyName.trim()) {
+            toast.error('Vui lòng nhập tên công ty');
+            return;
+        }
+        if (!editWork.location.trim()) {
+            toast.error('Vui lòng nhập địa điểm');
+            return;
+        }
+        if (!editWork.startDate) {
+            toast.error('Vui lòng chọn ngày bắt đầu');
+            return;
+        }
+        if (!editWork.isCurrent && !editWork.endDate) {
+            toast.error('Vui lòng chọn ngày kết thúc hoặc chọn "Đang làm việc"');
+            return;
+        }
+
+        try {
+            await biographyService.updateWork(editWork);
+            setWorkExperiences(prev =>
+                prev.map(work => work.id === editWork.id ? editWork : work)
+            );
+            setShowEditWorkModal(false);
+            toast.success('Cập nhật công việc thành công');
+        } catch (error) {
+            console.log(error);
+            toast.error('Không thể cập nhật công việc');
+        }
     };
 
     const addEducation = () => {
@@ -141,10 +233,10 @@ const Occupation: React.FC = () => {
             description: '',
             isCurrent: false
         });
-        setShowAddEducationModal(true);
+        setIsAddingNew(true);
     };
 
-    const handleAddEducation = async () => {
+    const handleSaveNewEducation = async () => {
         // Validation
         if (!newEducation.institutionName.trim()) {
             toast.error('Vui lòng nhập tên trường');
@@ -174,13 +266,27 @@ const Occupation: React.FC = () => {
         
         try {
             const response = await biographyService.addEducation(educationToAdd);
-            setEducations([...educations, response.data]);
-            setShowAddEducationModal(false);
+            setEducations([response.data, ...educations]);
+            setIsAddingNew(false);
             toast.success('Thêm học vấn thành công');
         } catch (error) {
             console.log(error);
             toast.error('Không thể thêm học vấn');
         }
+    };
+
+    const handleCancelNewEducation = () => {
+        setIsAddingNew(false);
+        setNewEducation({
+            id: '',
+            institutionName: '',
+            major: '',
+            startDate: '',
+            endDate: '',
+            location: '',
+            description: '',
+            isCurrent: false
+        });
     };
 
     const handleUpdateEducation = async () => {
@@ -246,11 +352,26 @@ const Occupation: React.FC = () => {
     };
 
     const handleDeleteWork = (id: string) => {
-        if (window.confirm('Bạn có chắc chắn muốn xóa kinh nghiệm làm việc này?')) {
-            setWorkExperiences(prev => prev.filter(work => work.id !== id));
-            if (editingWork === id) {
+        setDeleteWorkId(id);
+        setShowDeleteWorkConfirm(true);
+    };
+
+    const confirmDeleteWork = async () => {
+        if (!deleteWorkId) return;
+
+        try {
+            await biographyService.deleteWork(deleteWorkId);
+            setWorkExperiences(prev => prev.filter(work => work.id !== deleteWorkId));
+            if (editingWork === deleteWorkId) {
                 setEditingWork(null);
             }
+            toast.success('Xóa công việc thành công');
+        } catch (error) {
+            console.log(error);
+            toast.error('Không thể xóa công việc');
+        } finally {
+            setShowDeleteWorkConfirm(false);
+            setDeleteWorkId(null);
         }
     };
 
@@ -301,35 +422,100 @@ const Occupation: React.FC = () => {
                     </div>
 
                     <div className="space-y-4">
+                        {/* Add New Work Form */}
+                        {isAddingNewWork && (
+                            <div className="border-2 border-blue-500 rounded-lg p-4 bg-blue-50">
+                                <h4 className="font-semibold text-base mb-3">Thêm công việc mới</h4>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">
+                                            Tên công ty <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newWork.companyName}
+                                            onChange={(e) => handleWorkChange('companyName', e.target.value)}
+                                            className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                                            placeholder="Nhập tên công ty"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">
+                                            Địa điểm <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newWork.location}
+                                            onChange={(e) => handleWorkChange('location', e.target.value)}
+                                            className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                                            placeholder="Nhập địa điểm"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <CustomDatePicker
+                                            isEditing={isAddingNewWork}
+                                            label='Ngày bắt đầu'
+                                            value={newWork.startDate}
+                                            onChange={(date) => handleWorkChange('startDate', date ? date : '')}
+                                        />
+                                        <CustomDatePicker
+                                            label='Ngày kết thúc'
+                                            isEditing={isAddingNewWork && !newWork.isCurrent}
+                                            value={newWork.endDate}
+                                            onChange={(date) => handleWorkChange('endDate', date ? date : '')}
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={newWork.isCurrent}
+                                            onChange={(e) => handleWorkChange('isCurrent', e.target.checked)}
+                                            className="w-4 h-4"
+                                        />
+                                        <label className="text-sm">Đang làm việc</label>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Mô tả</label>
+                                        <textarea
+                                            value={newWork.description}
+                                            onChange={(e) => handleWorkChange('description', e.target.value)}
+                                            className="w-full h-24 border border-gray-300 rounded px-3 py-2 bg-white"
+                                            placeholder="Nhập mô tả..."
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 mt-4">
+                                        <button
+                                            onClick={handleCancelNewWork}
+                                            className="px-4 py-2 border border-gray-300 rounded hover:bg-white"
+                                        >
+                                            Hủy
+                                        </button>
+                                        <button
+                                            onClick={handleSaveNewWork}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                        >
+                                            Lưu
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Existing Work Entries */}
                         {workExperiences.map((work) => (
                             <div key={work.id} className="border border-gray-300 rounded-lg p-4">
                                 <div className="flex justify-between items-start mb-3">
-                                    <div className="flex items-start gap-3 flex-1">
-                                        <div className="flex-1">
-                                            {editingWork === work.id ? (
-                                                <div className="space-y-3">
-                                                    <input
-                                                        type="text"
-                                                        value={work.company}
-                                                        onChange={(e) => handleWorkChange(work.id, 'company', e.target.value)}
-                                                        className="w-full font-semibold text-base border border-gray-300 rounded px-3 py-2"
-                                                        placeholder="Tên công ty"
-                                                    />
-                                                    <textarea
-                                                        value={work.location}
-                                                        onChange={(e) => handleWorkChange(work.id, 'location', e.target.value)}
-                                                        className="w-full text-sm text-gray-600 border border-gray-300 rounded px-3 py-2"
-                                                        placeholder="Vị trí - thời gian&#10;Địa điểm"
-                                                        rows={2}
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <h3 className="font-semibold text-base mb-1">{work.company}</h3>
-                                                    <p className="text-sm text-gray-600 whitespace-pre-line">{work.location}</p>
-                                                </>
-                                            )}
-                                        </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-base mb-1">{work.companyName}</h3>
+                                        <p className="text-sm text-gray-600">{work.location}</p>
+                                        <p className="text-sm text-gray-600">
+                                            {formatDisplayDate(work.startDate)} - {work.isCurrent ? 'Hiện tại' : formatDisplayDate(work.endDate)}
+                                        </p>
                                     </div>
                                     <div className="flex gap-2 ml-4">
                                         <button
@@ -349,42 +535,27 @@ const Occupation: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 mb-3">
-                                    {editingWork === work.id ? (
-                                        <>
-                                            <CustomDatePicker
-                                                isEditing={editingWork === work.id}
-                                                label='Ngày bắt đầu'
-                                                value={work.startDate}
-                                                onChange={(date) => handleWorkChange(work.id, 'startDate', date ? date : '')}
-                                            />
-                                            
-                                            <CustomDatePicker
-                                                label='Ngày kết thúc'
-                                                isEditing={editingWork === work.id}
-                                                value={work.endDate}
-                                                onChange={(date) => handleWorkChange(work.id, 'endDate', date ? date : '')}
-                                            />
-                                        </>
-                                    ) : (
-                                        <div className="col-span-2 flex items-center gap-3 text-sm text-gray-600">
-                                            <span>{formatDisplayDate(work.startDate) || 'dd/mm/yyyy'}</span>
-                                            <span>-</span>
-                                            <span>{work.endDate ? formatDisplayDate(work.endDate) : 'Hiện tại'}</span>
-                                        </div>
-                                    )}
-                                </div>
+                                {work.description && (
+                                    <p className="text-sm text-gray-700 mb-3">{work.description}</p>
+                                )}
 
-                                {editingWork === work.id ? (
-                                    <textarea
-                                        value={work.description}
-                                        onChange={(e) => handleWorkChange(work.id, 'description', e.target.value)}
-                                        className="w-full text-sm text-gray-700 border border-gray-300 rounded px-3 py-2"
-                                        placeholder="Mô tả công việc"
-                                        rows={3}
-                                    />
-                                ) : (
-                                    <p className="text-sm text-gray-700">{work.description}</p>
+                                {work.positions && work.positions.length > 0 && (
+                                    <div className="mt-3 pl-4 border-l-2 border-gray-200">
+                                        <h4 className="text-sm font-semibold mb-2">Vị trí công việc:</h4>
+                                        <div className="space-y-2">
+                                            {work.positions.map((position) => (
+                                                <div key={position.id} className="text-sm">
+                                                    <p className="font-medium">{position.title}</p>
+                                                    <p className="text-gray-600 text-xs">
+                                                        {formatDisplayDate(position.startDate)} - {formatDisplayDate(position.endDate)}
+                                                    </p>
+                                                    {position.description && (
+                                                        <p className="text-gray-700 mt-1">{position.description}</p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         ))}
@@ -405,6 +576,105 @@ const Occupation: React.FC = () => {
                     </div>
 
                     <div className="space-y-4">
+                        {/* Add New Education Form */}
+                        {isAddingNew && (
+                            <div className="border-2 border-blue-500 rounded-lg p-4 bg-blue-50">
+                                <h4 className="font-semibold text-base mb-3">Thêm học vấn mới</h4>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">
+                                            Tên trường <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newEducation.institutionName}
+                                            onChange={(e) => handleEducationChange('institutionName', e.target.value)}
+                                            className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                                            placeholder="Nhập tên trường"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">
+                                            Chuyên ngành <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newEducation.major}
+                                            onChange={(e) => handleEducationChange('major', e.target.value)}
+                                            className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                                            placeholder="Nhập chuyên ngành"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">
+                                            Địa điểm <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newEducation.location}
+                                            onChange={(e) => handleEducationChange('location', e.target.value)}
+                                            className="w-full border border-gray-300 rounded px-3 py-2 bg-white"
+                                            placeholder="Nhập địa điểm"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <CustomDatePicker
+                                            isEditing={isAddingNew}
+                                            label='Ngày bắt đầu'
+                                            value={newEducation.startDate}
+                                            onChange={(date) => handleEducationChange('startDate', date ? date : '')}
+                                        />
+                                        <CustomDatePicker
+                                            label='Ngày kết thúc'
+                                            isEditing={isAddingNew}
+                                            value={newEducation.endDate}
+                                            onChange={(date) => handleEducationChange('endDate', date ? date : '')}
+                                            // disabled={newEducation.isCurrent}
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={newEducation.isCurrent}
+                                            onChange={(e) => handleEducationChange('isCurrent', e.target.checked)}
+                                            className="w-4 h-4"
+                                        />
+                                        <label className="text-sm">Đang học</label>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Mô tả</label>
+                                        <textarea
+                                            value={newEducation.description}
+                                            onChange={(e) => handleEducationChange('description', e.target.value)}
+                                            className="w-full h-24 border border-gray-300 rounded px-3 py-2 bg-white"
+                                            placeholder="Nhập mô tả..."
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 mt-4">
+                                        <button
+                                            onClick={handleCancelNewEducation}
+                                            className="px-4 py-2 border border-gray-300 rounded hover:bg-white"
+                                        >
+                                            Hủy
+                                        </button>
+                                        <button
+                                            onClick={handleSaveNewEducation}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                        >
+                                            Lưu
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Existing Education Entries */}
                         {educations.map((edu) => (
                             <div key={edu.id} className="border border-gray-300 rounded-lg p-4">
                                 <div className="flex justify-between items-start mb-3">
@@ -474,36 +744,23 @@ const Occupation: React.FC = () => {
                 </div>
             </div>
 
-            {/* Add Education Modal */}
-            {showAddEducationModal && (
+            {/* Edit Work Modal */}
+            {showEditWorkModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-xl font-semibold mb-4">Thêm học vấn mới</h3>
+                        <h3 className="text-xl font-semibold mb-4">Chỉnh sửa công việc</h3>
 
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium mb-2">
-                                    Tên trường <span className="text-red-500">*</span>
+                                    Tên công ty <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
-                                    value={newEducation.institutionName}
-                                    onChange={(e) => handleEducationChange('institutionName', e.target.value)}
+                                    value={editWork.companyName}
+                                    onChange={(e) => handleWorkChange('companyName', e.target.value)}
                                     className="w-full border border-gray-300 rounded px-3 py-2"
-                                    placeholder="Nhập tên trường"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-2">
-                                    Chuyên ngành <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={newEducation.major}
-                                    onChange={(e) => handleEducationChange('major', e.target.value)}
-                                    className="w-full border border-gray-300 rounded px-3 py-2"
-                                    placeholder="Nhập chuyên ngành"
+                                    placeholder="Nhập tên công ty"
                                 />
                             </div>
 
@@ -513,8 +770,8 @@ const Occupation: React.FC = () => {
                                 </label>
                                 <input
                                     type="text"
-                                    value={newEducation.location}
-                                    onChange={(e) => handleEducationChange('location', e.target.value)}
+                                    value={editWork.location}
+                                    onChange={(e) => handleWorkChange('location', e.target.value)}
                                     className="w-full border border-gray-300 rounded px-3 py-2"
                                     placeholder="Nhập địa điểm"
                                 />
@@ -522,34 +779,34 @@ const Occupation: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <CustomDatePicker
-                                    isEditing={showAddEducationModal}
+                                    isEditing={showEditWorkModal}
                                     label='Ngày bắt đầu'
-                                    value={newEducation.startDate}
-                                    onChange={(date) => handleEducationChange('startDate', date ? date : '')}
+                                    value={editWork.startDate}
+                                    onChange={(date) => handleWorkChange('startDate', date ? date : '')}
                                 />
                                 <CustomDatePicker
                                     label='Ngày kết thúc'
-                                    isEditing={showAddEducationModal && !newEducation.isCurrent}
-                                    value={newEducation.endDate}
-                                    onChange={(date) => handleEducationChange('endDate', date ? date : '')}
+                                    isEditing={showEditWorkModal && !editWork.isCurrent}
+                                    value={editWork.endDate}
+                                    onChange={(date) => handleWorkChange('endDate', date ? date : '')}
                                 />
                             </div>
 
                             <div className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
-                                    checked={newEducation.isCurrent}
-                                    onChange={(e) => handleEducationChange('isCurrent', e.target.checked)}
+                                    checked={editWork.isCurrent}
+                                    onChange={(e) => handleWorkChange('isCurrent', e.target.checked)}
                                     className="w-4 h-4"
                                 />
-                                <label className="text-sm">Đang học</label>
+                                <label className="text-sm">Đang làm việc</label>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium mb-2">Mô tả</label>
                                 <textarea
-                                    value={newEducation.description}
-                                    onChange={(e) => handleEducationChange('description', e.target.value)}
+                                    value={editWork.description}
+                                    onChange={(e) => handleWorkChange('description', e.target.value)}
                                     className="w-full h-24 border border-gray-300 rounded px-3 py-2"
                                     placeholder="Nhập mô tả..."
                                 />
@@ -558,16 +815,42 @@ const Occupation: React.FC = () => {
 
                         <div className="flex justify-end gap-3 mt-6">
                             <button
-                                onClick={() => setShowAddEducationModal(false)}
+                                onClick={() => setShowEditWorkModal(false)}
                                 className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
                             >
                                 Hủy
                             </button>
                             <button
-                                onClick={handleAddEducation}
+                                onClick={handleUpdateWork}
                                 className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
-                                Thêm
+                                Cập nhật
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Work Confirmation Modal */}
+            {showDeleteWorkConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <h3 className="text-xl font-semibold mb-4">Xác nhận xóa</h3>
+                        <p className="text-gray-600 mb-6">
+                            Bạn có chắc chắn muốn xóa công việc này không?
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowDeleteWorkConfirm(false)}
+                                className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={confirmDeleteWork}
+                                className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                                Xóa
                             </button>
                         </div>
                     </div>
@@ -629,9 +912,10 @@ const Occupation: React.FC = () => {
                                 />
                                 <CustomDatePicker
                                     label='Ngày kết thúc'
-                                    isEditing={showEditEducationModal && !editEducation.isCurrent}
+                                    isEditing={showEditEducationModal}
                                     value={editEducation.endDate}
                                     onChange={(date) => handleEducationChange('endDate', date ? date : '')}
+                                    // disabled={editEducation.isCurrent}
                                 />
                             </div>
 
