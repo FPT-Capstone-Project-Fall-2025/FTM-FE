@@ -29,7 +29,7 @@ const SearchBar = ({ onSelectMember }: SearchBarProps) => {
         const lowercaseQuery = value.toLowerCase();
         const results = Object.values(members).filter(member =>
             member.name.toLowerCase().includes(lowercaseQuery) ||
-            member.birthDate.includes(value) ||
+            member.birthDate?.includes(value) ||
             member.bio?.toLowerCase().includes(lowercaseQuery)
         );
 
@@ -125,7 +125,7 @@ const SearchBar = ({ onSelectMember }: SearchBarProps) => {
                             className={`w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors ${index === selectedIndex ? 'bg-blue-50' : ''
                                 }`}
                         >
-                            <div className={`w-10 h-10 rounded-full ${member.gender === 'female' ? 'bg-pink-300' : 'bg-blue-300'
+                            <div className={`w-10 h-10 rounded-full ${member.gender === 1 ? 'bg-pink-300' : 'bg-blue-300'
                                 } flex items-center justify-center flex-shrink-0`}>
                                 <span className="text-white font-semibold">
                                     {member.name.charAt(0)}
@@ -135,7 +135,7 @@ const SearchBar = ({ onSelectMember }: SearchBarProps) => {
                                 <div className="font-medium text-gray-900">{member.name}</div>
                                 <div className="text-sm text-gray-500">Sinh: {member.birthDate}</div>
                             </div>
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${member.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${member.gender === 1 ? 'bg-pink-400' : 'bg-blue-400'
                                 }`} />
                         </button>
                     ))}

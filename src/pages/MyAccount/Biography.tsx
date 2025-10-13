@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Link2, Smile, Edit2, Trash2 } from 'lucide-react';
-import type { BiographyDesc, BiographyEntry } from '@/types/biography';
+import React, { useState, useEffect } from 'react';
+import { Edit2, Trash2 } from 'lucide-react';
+import type { BiographyEntry } from '@/types/biography';
 import biographyService from '@/services/biographyService';
 import { toast } from 'react-toastify';
 import CustomDatePicker from '@/components/ui/DatePicker';
@@ -32,15 +32,15 @@ const Biography: React.FC = () => {
         eventDate: '',
     });
 
-    const contentRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
         const fetchInitData = async () => {
             const [bioDesc, entries] = await Promise.all([
                 biographyService.getBiographyDesc(),
                 biographyService.getBiographyEvents()
             ]);
+            setOriginalBioDescription(bioDesc.data.description);
             setBioDescription(bioDesc.data.description);
+            setOriginalEntries(entries.data);
             setEntries(entries.data);
         }
         fetchInitData();
@@ -78,7 +78,7 @@ const Biography: React.FC = () => {
 
         try {
             const response = await biographyService.addBiographyEvent(entry);
-            console.log(response);
+            toast.success(response.message)
         } catch (error) {
             console.log(error);
         } finally {
@@ -141,23 +141,17 @@ const Biography: React.FC = () => {
     };
 
     const handleSave = async () => {
-        setOriginalEntries(entries);
-        setOriginalBioDescription(bioDescription);
         setEditingId(null);
         try {
             const res = await biographyService.updateBiographyDesc(bioDescription);
             if (res.data) {
-                setBioDescription(res.data.description);
+                setOriginalBioDescription(res.data.description);
             }
         } catch (error) {
             console.log(error);
         } finally {
             toast.success('Cập nhật thông tin thành công!');
         }
-    };
-
-    const applyFormat = (command: string, value?: string) => {
-        document.execCommand(command, false, value);
     };
 
     return (
@@ -167,49 +161,14 @@ const Biography: React.FC = () => {
                 {/* Bio Description Section */}
                 <div className="mb-6">
                     <h2 className="text-lg font-semibold mb-3">Tiểu sử</h2>
-                    <div className="border border-gray-300 rounded">
-                        {/* Toolbar */}
-                        <div className="flex gap-1 p-2 border-b border-gray-300 bg-gray-50">
-                            <button
-                                onClick={() => applyFormat('bold')}
-                                className="p-2 hover:bg-gray-200 rounded"
-                                title="Bold"
-                            >
-                                <Bold size={16} />
-                            </button>
-                            <button
-                                onClick={() => applyFormat('italic')}
-                                className="p-2 hover:bg-gray-200 rounded"
-                                title="Italic"
-                            >
-                                <Italic size={16} />
-                            </button>
-                            <button
-                                onClick={() => applyFormat('underline')}
-                                className="p-2 hover:bg-gray-200 rounded"
-                                title="Underline"
-                            >
-                                <Underline size={16} />
-                            </button>
-                        </div>
-                        {/* Content Area */}
-                        <div
-                            ref={contentRef}
-                            contentEditable
-                            onInput={(e) => {
-                                setBioDescription(e.currentTarget.innerHTML);
-                            }}
-                            suppressContentEditableWarning
-                            className="min-h-32 p-4 focus:outline-none text-gray-600 text-sm"
-                        >
-                            {bioDescription === '' ? (
-                                <span className="text-gray-400">Hãy nhập mô tả tiểu sử ở đây...</span>
-                            ) : bioDescription
-                            }
-                        </div>
-                    </div>
+                    <input
+                        type="text"
+                        value={bioDescription ? bioDescription : ''}
+                        onChange={(e) => setBioDescription(e.target.value)}
+                        className="w-full border border-gray-300 rounded px-4 py-3 focus:outline-none focus:border-blue-500 text-sm"
+                        placeholder="Hãy nhập mô tả tiểu sử ở đây..."
+                    />
                 </div>
-
                 {/* Events Section */}
                 <div>
                     <div className="flex justify-between items-center mb-4">

@@ -8,7 +8,7 @@ const MemberDetailPanel = ({
   member: FamilyMember | null | undefined;
   onClose: () => void;
 }) => {
-  const bgColor = member?.gender === 'female' ? 'bg-pink-200' : 'bg-blue-200';
+  const bgColor = member?.gender === 1 ? 'bg-pink-200' : 'bg-blue-200';
 
   return (
     <>
@@ -29,9 +29,9 @@ const MemberDetailPanel = ({
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
               <div className="flex items-center gap-4">
-                <div className={`w-16 h-16 rounded-full ${member.gender === 'female' ? 'bg-pink-300' : 'bg-blue-300'} flex items-center justify-center`}>
+                <div className={`w-16 h-16 rounded-full ${member.gender === 1 ? 'bg-pink-300' : 'bg-blue-300'} flex items-center justify-center`}>
                   {member.avatar ? (
-                    <img src={member.avatar} alt={member.name} className="w-full h-full rounded-full object-cover" />
+                    <img src={member.avatar} alt={member.name ? member.name : ''} className="w-full h-full rounded-full object-cover" />
                   ) : (
                     <User className="w-8 h-8 text-white" />
                   )}
@@ -66,7 +66,7 @@ const MemberDetailPanel = ({
               <h3 className="font-semibold text-gray-800 mb-3">Video và hình ảnh</h3>
               <div className="grid grid-cols-4 gap-2">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                  <div key={i} className={`aspect-square rounded-lg ${member.gender === 'female' ? 'bg-pink-300' : 'bg-blue-300'}`}>
+                  <div key={i} className={`aspect-square rounded-lg ${member.gender === 1 ? 'bg-pink-300' : 'bg-blue-300'}`}>
                     {/* Placeholder for images */}
                   </div>
                 ))}

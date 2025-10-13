@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { type Node, type Edge, MarkerType } from 'reactflow';
+import { type Node, type Edge } from 'reactflow';
 import type { FamilyMember } from '@/types/familytree';
 import { mapFamilyDataToFlow } from '@/utils/familyTreeMapper';
 import mockData from "@/utils/familyTreeData.json";

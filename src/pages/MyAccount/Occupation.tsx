@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import CustomDatePicker from '@/components/ui/DatePicker';
+import type { Education } from '@/types/biography';
+import biographyService from '@/services/biographyService';
+import { toast } from 'react-toastify';
 
 interface WorkExperience {
     id: string;
@@ -11,57 +14,71 @@ interface WorkExperience {
     description: string;
 }
 
-interface Education {
-    id: string;
-    school: string;
-    major: string;
-    startMonth: string;
-    startYear: string;
-    endMonth: string;
-    endYear: string;
-    description: string;
-}
+const initialWorkExperiences: WorkExperience[] = [
+    {
+        id: '1',
+        company: 'Công ty ABC',
+        location: 'Vị trí xyz - 1 năm 11 tháng\nĐà Nẵng, Việt Nam',
+        startDate: '2021-08-01T00:00:00.000Z',
+        endDate: '',
+        description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+    },
+    {
+        id: '2',
+        company: 'Sample',
+        location: '',
+        startDate: '',
+        endDate: '',
+        description: 'Lorem ipsum dolor sit amet.'
+    }
+];
 
 const Occupation: React.FC = () => {
-    const initialWorkExperiences: WorkExperience[] = [
-        {
-            id: '1',
-            company: 'Công ty ABC',
-            location: 'Vị trí xyz - 1 năm 11 tháng\nĐà Nẵng, Việt Nam',
-            startDate: '2021-08-01T00:00:00.000Z',
-            endDate: '',
-            description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
-        },
-        {
-            id: '2',
-            company: 'Sample',
-            location: '',
-            startDate: '',
-            endDate: '',
-            description: 'Lorem ipsum dolor sit amet.'
-        }
-    ];
-
-    const initialEducations: Education[] = [
-        {
-            id: '1',
-            school: 'ABC Academy',
-            major: 'Sample Major Name',
-            startMonth: 'Tháng Tám',
-            startYear: '2015',
-            endMonth: 'Tháng Sáu',
-            endYear: '2019',
-            description: ''
-        }
-    ];
 
     const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>(initialWorkExperiences);
-    const [educations, setEducations] = useState<Education[]>(initialEducations);
+    const [educations, setEducations] = useState<Education[]>([]);
     const [originalWorkExperiences, setOriginalWorkExperiences] = useState<WorkExperience[]>(initialWorkExperiences);
-    const [originalEducations, setOriginalEducations] = useState<Education[]>(initialEducations);
-
+    const [originalEducations, setOriginalEducations] = useState<Education[]>([]);
     const [editingWork, setEditingWork] = useState<string | null>(null);
     const [editingEducation, setEditingEducation] = useState<string | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteEducationId, setDeleteEducationId] = useState<string | null>(null);
+    const [showEditEducationModal, setShowEditEducationModal] = useState(false);
+    const [showAddEducationModal, setShowAddEducationModal] = useState(false);
+    const [newEducation, setNewEducation] = useState<Education>({
+        id: '',
+        institutionName: '',
+        major: '',
+        startDate: '',
+        endDate: '',
+        location: '',
+        description: '',
+        isCurrent: false
+    });
+    const [editEducation, setEditEducation] = useState<Education>({
+        id: '',
+        institutionName: '',
+        major: '',
+        startDate: '',
+        endDate: '',
+        location: '',
+        description: '',
+        isCurrent: false
+    });
+
+    useEffect(() => {
+        const fetchEducations = async () => {
+            try {
+                const response = await biographyService.getEducation();
+                setEducations(response.data);
+                setOriginalEducations(response.data);
+            } catch (error) {
+                console.log(error);
+                toast.error('Không thể tải dữ liệu học vấn');
+            }
+        };
+        fetchEducations();
+    }, []);
 
     // Check if there are any changes
     const hasChanges = () => {
@@ -79,7 +96,11 @@ const Occupation: React.FC = () => {
     };
 
     const handleEditEducation = (id: string) => {
-        setEditingEducation(editingEducation === id ? null : id);
+        const edu = educations.find(e => e.id === id);
+        if (edu) {
+            setEditEducation({ ...edu });
+            setShowEditEducationModal(true);
+        }
     };
 
     const handleWorkChange = (id: string, field: keyof WorkExperience, value: string) => {
@@ -88,10 +109,12 @@ const Occupation: React.FC = () => {
         );
     };
 
-    const handleEducationChange = (id: string, field: keyof Education, value: string) => {
-        setEducations(prev =>
-            prev.map(edu => edu.id === id ? { ...edu, [field]: value } : edu)
-        );
+    const handleEducationChange = (field: keyof Education, value: string | boolean) => {
+        if (showAddEducationModal) {
+            setNewEducation(prev => ({ ...prev, [field]: value }));
+        } else if (showEditEducationModal) {
+            setEditEducation(prev => ({ ...prev, [field]: value }));
+        }
     };
 
     const addWorkExperience = () => {
@@ -108,40 +131,118 @@ const Occupation: React.FC = () => {
     };
 
     const addEducation = () => {
-        const newEdu: Education = {
-            id: Date.now().toString(),
-            school: '',
+        setNewEducation({
+            id: '',
+            institutionName: '',
             major: '',
-            startMonth: '',
-            startYear: '',
-            endMonth: '',
-            endYear: '',
-            description: ''
+            startDate: '',
+            endDate: '',
+            location: '',
+            description: '',
+            isCurrent: false
+        });
+        setShowAddEducationModal(true);
+    };
+
+    const handleAddEducation = async () => {
+        // Validation
+        if (!newEducation.institutionName.trim()) {
+            toast.error('Vui lòng nhập tên trường');
+            return;
+        }
+        if (!newEducation.major.trim()) {
+            toast.error('Vui lòng nhập chuyên ngành');
+            return;
+        }
+        if (!newEducation.startDate) {
+            toast.error('Vui lòng chọn ngày bắt đầu');
+            return;
+        }
+        if (!newEducation.isCurrent && !newEducation.endDate) {
+            toast.error('Vui lòng chọn ngày kết thúc hoặc chọn "Đang học"');
+            return;
+        }
+        if (!newEducation.location.trim()) {
+            toast.error('Vui lòng nhập địa điểm');
+            return;
+        }
+        
+        const educationToAdd = {
+            ...newEducation,
+            id: Date.now().toString()
         };
-        setEducations([...educations, newEdu]);
-        setEditingEducation(newEdu.id);
+        
+        try {
+            const response = await biographyService.addEducation(educationToAdd);
+            setEducations([...educations, response.data]);
+            setShowAddEducationModal(false);
+            toast.success('Thêm học vấn thành công');
+        } catch (error) {
+            console.log(error);
+            toast.error('Không thể thêm học vấn');
+        }
+    };
+
+    const handleUpdateEducation = async () => {
+        // Validation
+        if (!editEducation.institutionName.trim()) {
+            toast.error('Vui lòng nhập tên trường');
+            return;
+        }
+        if (!editEducation.major.trim()) {
+            toast.error('Vui lòng nhập chuyên ngành');
+            return;
+        }
+        if (!editEducation.startDate) {
+            toast.error('Vui lòng chọn ngày bắt đầu');
+            return;
+        }
+        if (!editEducation.isCurrent && !editEducation.endDate) {
+            toast.error('Vui lòng chọn ngày kết thúc hoặc chọn "Đang học"');
+            return;
+        }
+        if (!editEducation.location.trim()) {
+            toast.error('Vui lòng nhập địa điểm');
+            return;
+        }
+
+        try {
+            await biographyService.updateEducation(editEducation);
+            setEducations(prev =>
+                prev.map(edu => edu.id === editEducation.id ? editEducation : edu)
+            );
+            setShowEditEducationModal(false);
+            toast.success('Cập nhật học vấn thành công');
+        } catch (error) {
+            console.log(error);
+            toast.error('Không thể cập nhật học vấn');
+        }
     };
 
     const handleCancel = () => {
-        if (hasActiveEditing()) {
-            // Close all editing fields
+        if (hasActiveEditing() || hasChanges()) {
             setEditingWork(null);
             setEditingEducation(null);
-            // Revert to original data
             setWorkExperiences(originalWorkExperiences);
             setEducations(originalEducations);
         }
     };
 
-    const handleSave = () => {
-        // Save the current state as the new original
-        setOriginalWorkExperiences(workExperiences);
-        setOriginalEducations(educations);
-        // Close all editing fields
-        setEditingWork(null);
-        setEditingEducation(null);
-        // Here you would typically make an API call to save the data
-        console.log('Saved:', { workExperiences, educations });
+    const handleSave = async () => {
+        try {
+            // Save work experience changes if needed
+            // (Add work experience API calls here if needed)
+            
+            setOriginalWorkExperiences(workExperiences);
+            setOriginalEducations(educations);
+            setEditingWork(null);
+            setEditingEducation(null);
+            
+            toast.success('Lưu thông tin thành công');
+        } catch (error) {
+            console.log(error);
+            toast.error('Không thể lưu thông tin');
+        }
     };
 
     const handleDeleteWork = (id: string) => {
@@ -154,11 +255,26 @@ const Occupation: React.FC = () => {
     };
 
     const handleDeleteEducation = (id: string) => {
-        if (window.confirm('Bạn có chắc chắn muốn xóa học vấn này?')) {
-            setEducations(prev => prev.filter(edu => edu.id !== id));
-            if (editingEducation === id) {
+        setDeleteEducationId(id);
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDeleteEducation = async () => {
+        if (!deleteEducationId) return;
+        
+        try {
+            await biographyService.deleteEducation(deleteEducationId);
+            setEducations(prev => prev.filter(edu => edu.id !== deleteEducationId));
+            if (editingEducation === deleteEducationId) {
                 setEditingEducation(null);
             }
+            toast.success('Xóa học vấn thành công');
+        } catch (error) {
+            console.log(error);
+            toast.error('Không thể xóa học vấn');
+        } finally {
+            setShowDeleteConfirm(false);
+            setDeleteEducationId(null);
         }
     };
 
@@ -291,112 +407,41 @@ const Occupation: React.FC = () => {
                     <div className="space-y-4">
                         {educations.map((edu) => (
                             <div key={edu.id} className="border border-gray-300 rounded-lg p-4">
-                                <div className="flex gap-4">
-                                    <div className="w-20 h-20 border-2 border-gray-300 rounded flex items-center justify-center flex-shrink-0">
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <svg className="w-12 h-12 text-gray-400" viewBox="0 0 100 100">
-                                                <line x1="10" y1="10" x2="90" y2="90" stroke="currentColor" strokeWidth="2" />
-                                                <line x1="90" y1="10" x2="10" y2="90" stroke="currentColor" strokeWidth="2" />
-                                            </svg>
-                                        </div>
-                                    </div>
-
+                                <div className="flex justify-between items-start mb-3">
                                     <div className="flex-1">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex-1">
-                                                {editingEducation === edu.id ? (
-                                                    <div className="space-y-2">
-                                                        <input
-                                                            type="text"
-                                                            value={edu.school}
-                                                            onChange={(e) => handleEducationChange(edu.id, 'school', e.target.value)}
-                                                            className="w-full font-semibold border border-gray-300 rounded px-3 py-2"
-                                                            placeholder="Tên trường"
-                                                        />
-                                                        <input
-                                                            type="text"
-                                                            value={edu.major}
-                                                            onChange={(e) => handleEducationChange(edu.id, 'major', e.target.value)}
-                                                            className="w-full text-sm border border-gray-300 rounded px-3 py-2"
-                                                            placeholder="Chuyên ngành"
-                                                        />
-                                                        <div className="flex gap-2 items-center">
-                                                            <input
-                                                                type="text"
-                                                                value={edu.startMonth}
-                                                                onChange={(e) => handleEducationChange(edu.id, 'startMonth', e.target.value)}
-                                                                className="flex-1 text-sm border border-gray-300 rounded px-3 py-2"
-                                                                placeholder="Tháng"
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                value={edu.startYear}
-                                                                onChange={(e) => handleEducationChange(edu.id, 'startYear', e.target.value)}
-                                                                className="w-20 text-sm border border-gray-300 rounded px-3 py-2"
-                                                                placeholder="Năm"
-                                                            />
-                                                            <span>-</span>
-                                                            <input
-                                                                type="text"
-                                                                value={edu.endMonth}
-                                                                onChange={(e) => handleEducationChange(edu.id, 'endMonth', e.target.value)}
-                                                                className="flex-1 text-sm border border-gray-300 rounded px-3 py-2"
-                                                                placeholder="Tháng"
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                value={edu.endYear}
-                                                                onChange={(e) => handleEducationChange(edu.id, 'endYear', e.target.value)}
-                                                                className="w-20 text-sm border border-gray-300 rounded px-3 py-2"
-                                                                placeholder="Năm"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <h3 className="font-semibold">{edu.school}</h3>
-                                                        <p className="text-sm text-gray-600">{edu.major}</p>
-                                                        <p className="text-sm text-gray-600">
-                                                            {edu.startMonth} {edu.startYear} - {edu.endMonth} {edu.endYear}
-                                                        </p>
-                                                    </>
-                                                )}
-                                            </div>
-                                            <div className="flex gap-2 ml-4">
-                                                <button
-                                                    onClick={() => handleEditEducation(edu.id)}
-                                                    className="text-gray-600 hover:text-gray-800"
-                                                    title="Chỉnh sửa"
-                                                >
-                                                    <Edit2 size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteEducation(edu.id)}
-                                                    className="text-red-600 hover:text-red-800"
-                                                    title="Xóa"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-3">
-                                            <label className="font-semibold text-sm mb-2 block">Mô tả</label>
-                                            {editingEducation === edu.id ? (
-                                                <textarea
-                                                    value={edu.description}
-                                                    onChange={(e) => handleEducationChange(edu.id, 'description', e.target.value)}
-                                                    className="w-full h-24 border border-gray-300 rounded px-3 py-2 text-sm"
-                                                    placeholder="Nhập mô tả..."
-                                                />
-                                            ) : (
-                                                <div className="h-24 border border-gray-300 rounded px-3 py-2 text-sm text-gray-500">
-                                                    {edu.description || ''}
-                                                </div>
-                                            )}
-                                        </div>
+                                        <h3 className="font-semibold text-base mb-1">{edu.institutionName}</h3>
+                                        <p className="text-sm text-gray-600">{edu.major}</p>
+                                        <p className="text-sm text-gray-600">{edu.location}</p>
+                                        <p className="text-sm text-gray-600">
+                                            {formatDisplayDate(edu.startDate)} - {edu.isCurrent ? 'Hiện tại' : formatDisplayDate(edu.endDate)}
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2 ml-4">
+                                        <button
+                                            onClick={() => handleEditEducation(edu.id)}
+                                            className="text-gray-600 hover:text-gray-800"
+                                            title="Chỉnh sửa"
+                                        >
+                                            <Edit2 size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteEducation(edu.id)}
+                                            className="text-red-600 hover:text-red-800"
+                                            title="Xóa"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
                                     </div>
                                 </div>
+
+                                {edu.description && (
+                                    <div className="mt-3">
+                                        <label className="font-semibold text-sm mb-2 block">Mô tả</label>
+                                        <div className="border border-gray-300 rounded px-3 py-2 text-sm text-gray-700">
+                                            {edu.description}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -406,9 +451,9 @@ const Occupation: React.FC = () => {
                 <div className="flex justify-end gap-3 mt-6">
                     <button 
                         onClick={handleCancel}
-                        disabled={!hasActiveEditing()}
+                        disabled={!hasActiveEditing() && !hasChanges()}
                         className={`px-6 py-2 border border-gray-300 rounded ${
-                            hasActiveEditing() 
+                            hasActiveEditing() || hasChanges()
                                 ? 'hover:bg-gray-50 cursor-pointer' 
                                 : 'opacity-50 cursor-not-allowed'
                         }`}
@@ -428,6 +473,232 @@ const Occupation: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Add Education Modal */}
+            {showAddEducationModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-xl font-semibold mb-4">Thêm học vấn mới</h3>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    Tên trường <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newEducation.institutionName}
+                                    onChange={(e) => handleEducationChange('institutionName', e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập tên trường"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    Chuyên ngành <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newEducation.major}
+                                    onChange={(e) => handleEducationChange('major', e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập chuyên ngành"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    Địa điểm <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newEducation.location}
+                                    onChange={(e) => handleEducationChange('location', e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập địa điểm"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <CustomDatePicker
+                                    isEditing={showAddEducationModal}
+                                    label='Ngày bắt đầu'
+                                    value={newEducation.startDate}
+                                    onChange={(date) => handleEducationChange('startDate', date ? date : '')}
+                                />
+                                <CustomDatePicker
+                                    label='Ngày kết thúc'
+                                    isEditing={showAddEducationModal && !newEducation.isCurrent}
+                                    value={newEducation.endDate}
+                                    onChange={(date) => handleEducationChange('endDate', date ? date : '')}
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={newEducation.isCurrent}
+                                    onChange={(e) => handleEducationChange('isCurrent', e.target.checked)}
+                                    className="w-4 h-4"
+                                />
+                                <label className="text-sm">Đang học</label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Mô tả</label>
+                                <textarea
+                                    value={newEducation.description}
+                                    onChange={(e) => handleEducationChange('description', e.target.value)}
+                                    className="w-full h-24 border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập mô tả..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setShowAddEducationModal(false)}
+                                className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleAddEducation}
+                                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Thêm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Education Modal */}
+            {showEditEducationModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-xl font-semibold mb-4">Chỉnh sửa học vấn</h3>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    Tên trường <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editEducation.institutionName}
+                                    onChange={(e) => handleEducationChange('institutionName', e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập tên trường"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    Chuyên ngành <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editEducation.major}
+                                    onChange={(e) => handleEducationChange('major', e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập chuyên ngành"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">
+                                    Địa điểm <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editEducation.location}
+                                    onChange={(e) => handleEducationChange('location', e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập địa điểm"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <CustomDatePicker
+                                    isEditing={showEditEducationModal}
+                                    label='Ngày bắt đầu'
+                                    value={editEducation.startDate}
+                                    onChange={(date) => handleEducationChange('startDate', date ? date : '')}
+                                />
+                                <CustomDatePicker
+                                    label='Ngày kết thúc'
+                                    isEditing={showEditEducationModal && !editEducation.isCurrent}
+                                    value={editEducation.endDate}
+                                    onChange={(date) => handleEducationChange('endDate', date ? date : '')}
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={editEducation.isCurrent}
+                                    onChange={(e) => handleEducationChange('isCurrent', e.target.checked)}
+                                    className="w-4 h-4"
+                                />
+                                <label className="text-sm">Đang học</label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Mô tả</label>
+                                <textarea
+                                    value={editEducation.description}
+                                    onChange={(e) => handleEducationChange('description', e.target.value)}
+                                    className="w-full h-24 border border-gray-300 rounded px-3 py-2"
+                                    placeholder="Nhập mô tả..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setShowEditEducationModal(false)}
+                                className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleUpdateEducation}
+                                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Cập nhật
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <h3 className="text-xl font-semibold mb-4">Xác nhận xóa</h3>
+                        <p className="text-gray-600 mb-6">
+                            Bạn có chắc chắn muốn xóa học vấn này không?
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={confirmDeleteEducation}
+                                className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                                Xóa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
