@@ -11,6 +11,7 @@ const ForgotPassword: React.FC = () => {
     const location = useLocation()
     const { isLoading, error, isAuthenticated } = useAppSelector(state => state.auth)
     const [email, setEmail] = useState<string>('');
+    const [cooldown, setCooldown] = useState<number>(0)
 
     const from = (location.state as any)?.from?.pathname || '/dashboard'
 
@@ -23,10 +24,28 @@ const ForgotPassword: React.FC = () => {
         }
     }, [isAuthenticated, navigate, from, dispatch])
 
+    // countdown effect
+    useEffect(() => {
+        if (cooldown > 0) {
+            const timer = setInterval(() => {
+                setCooldown(prev => prev - 1)
+            }, 1000)
+            return () => clearInterval(timer)
+        }
+    }, [cooldown])
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        await dispatch(forgotPassword(email));
-        toast.success('Gửi email thành công');
+
+        if (cooldown > 0) return // prevent re-click
+
+        const result = await dispatch(forgotPassword(email));
+        if (forgotPassword.fulfilled.match(result)) {
+            toast.success('Gửi email thành công!')
+            setCooldown(60) // start 60s cooldown
+        } else {
+            toast.error('Gửi email thất bại!')
+        }
     }
 
     return (
@@ -63,10 +82,14 @@ const ForgotPassword: React.FC = () => {
                 {/* Submit button */}
                 <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || cooldown > 0}
                     className="w-full py-3 bg-blue-800 hover:bg-blue-900 disabled:bg-blue-800/50 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
-                    {isLoading ? 'ĐANG NHẬP...' : 'XÁC NHẬN'}
+                    {isLoading
+                        ? 'ĐANG GỬI...'
+                        : cooldown > 0
+                            ? `GỬI LẠI SAU ${cooldown}s`
+                            : 'XÁC NHẬN'}
                 </button>
 
                 {/* Divider */}
@@ -82,7 +105,7 @@ const ForgotPassword: React.FC = () => {
                 </div>
             </form>
             <div className="mt-8 text-center">
-                <span className="text-blue-100">Quay lại trang  
+                <span className="text-blue-100">Quay lại trang
                     <Link
                         to="/login"
                         className='pl-1 underline'

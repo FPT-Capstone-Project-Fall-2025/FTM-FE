@@ -1,7 +1,6 @@
 import authService from '@/services/authService';
-import userService from '@/services/userService';
 import type { AuthState, LoginProps, RegisterProps, ResetPassword } from '@/types/auth';
-import type { User, UserProfile } from '@/types/user';
+import type { User } from '@/types/user';
 import {
   createAsyncThunk,
   createSlice,
@@ -18,25 +17,13 @@ const initialState: AuthState = {
   error: null,
 };
 
-export const getProfileData = createAsyncThunk(
-  'auth/getProfileData',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await userService.getProfileData();
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to get profile data');
-    }
-  }
-);
-
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
   async (data: LoginProps, { rejectWithValue }) => {
     try {
       return await authService.login(data);
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Login failed');
+      return rejectWithValue(error.response.data.message || 'Login failed');
     }
   }
 );
@@ -60,7 +47,7 @@ export const registerUser = createAsyncThunk(
     try {
       return await authService.register(data);
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Registration failed');
+      return rejectWithValue(error.response.data.message || 'Registration failed');
     }
   }
 );
@@ -71,7 +58,7 @@ export const forgotPassword = createAsyncThunk(
     try {
       return await authService.forgotPassword(data);
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Sending email failed');
+      return rejectWithValue(error.response.data.message || 'Sending email failed');
     }
   }
 );
@@ -82,7 +69,7 @@ export const resetPassword = createAsyncThunk(
     try {
       return await authService.resetPassword(data);
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Reset password failed');
+      return rejectWithValue(error.response.data.message || 'Reset password failed');
     }
   }
 );
@@ -92,16 +79,21 @@ export const refreshUserToken = createAsyncThunk(
   async (_, { getState, rejectWithValue }) => {
     try {
       const { auth } = getState() as { auth: AuthState };
+      if(!auth.token) {
+        return rejectWithValue('No refresh token available');
+      }
       if (!auth.refreshToken) {
         return rejectWithValue('No refresh token available');
       }
-      // const response = await authAPI.refreshToken(auth.refreshToken)
+      const response = await authService.refreshToken({accessToken: auth.token, refreshToken: auth.refreshToken})
+      console.log(response);
+      
       // if (response.error) {
       //     return rejectWithValue(response.error)
       // }
       // return response
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Token refresh failed');
+      return rejectWithValue(error.response.data.message || 'Token refresh failed');
     }
   }
 );
@@ -144,6 +136,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginUser.rejected, (state, action) => {
+        console.log(action.payload);
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
@@ -203,30 +196,6 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
-      });
-
-    // Get Profile Data
-    builder
-      .addCase(getProfileData.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(getProfileData.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.user = {
-          userId: action.payload.userId,
-          name: action.payload.name,
-          email: action.payload.email,
-          role: 'user',
-          username: action.payload.username,
-          phoneNumber: action.payload.phoneNumber,
-          permissions: []
-        };
-        state.error = null;
-      })
-      .addCase(getProfileData.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
       });
 
     // Refresh Token

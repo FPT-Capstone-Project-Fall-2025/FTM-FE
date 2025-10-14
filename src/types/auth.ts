@@ -20,6 +20,11 @@ export interface ResetPassword {
     confirmPassword: string;
 }
 
+export interface RefreshTokenProps {
+    accessToken: string;
+    refreshToken: string;
+}
+
 export interface AuthState {
     user: User | null
     token: string | null

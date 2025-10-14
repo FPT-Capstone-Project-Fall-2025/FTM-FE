@@ -4,9 +4,11 @@ import type { BiographyEntry } from '@/types/biography';
 import biographyService from '@/services/biographyService';
 import { toast } from 'react-toastify';
 import CustomDatePicker from '@/components/ui/DatePicker';
+import BioAndEventsSkeleton from '@/components/skeleton/BioAndEventsSkeleton';
 
 const Biography: React.FC = () => {
 
+    const [isLoading, setIsLoading] = useState(false);
     const [entries, setEntries] = useState<BiographyEntry[]>([]);
     const [originalEntries, setOriginalEntries] = useState<BiographyEntry[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -14,7 +16,7 @@ const Biography: React.FC = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
-
+    const [initialLoading, setInitialLoading] = useState(false);
     const [bioDescription, setBioDescription] = useState<string>('');
     const [originalBioDescription, setOriginalBioDescription] = useState<string>('');
 
@@ -34,6 +36,7 @@ const Biography: React.FC = () => {
 
     useEffect(() => {
         const fetchInitData = async () => {
+            setInitialLoading(true);
             const [bioDesc, entries] = await Promise.all([
                 biographyService.getBiographyDesc(),
                 biographyService.getBiographyEvents()
@@ -42,6 +45,7 @@ const Biography: React.FC = () => {
             setBioDescription(bioDesc.data.description);
             setOriginalEntries(entries.data);
             setEntries(entries.data);
+            setInitialLoading(false);
         }
         fetchInitData();
     }, []);
@@ -142,6 +146,7 @@ const Biography: React.FC = () => {
 
     const handleSave = async () => {
         setEditingId(null);
+        setIsLoading(true);
         try {
             const res = await biographyService.updateBiographyDesc(bioDescription);
             if (res.data) {
@@ -150,9 +155,14 @@ const Biography: React.FC = () => {
         } catch (error) {
             console.log(error);
         } finally {
+            setIsLoading(false);
             toast.success('Cập nhật thông tin thành công!');
         }
     };
+
+    if(initialLoading) {
+        return <BioAndEventsSkeleton />
+    }
 
     return (
         <>
@@ -240,7 +250,11 @@ const Biography: React.FC = () => {
                             : 'bg-gray-400 cursor-not-allowed'
                             }`}
                     >
-                        Lưu
+                        {
+                            isLoading ? 
+                            'Đang lưu...' :
+                            'Lưu'
+                        }
                     </button>
                 </div>
             </div>

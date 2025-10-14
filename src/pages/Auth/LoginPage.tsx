@@ -39,7 +39,9 @@ const LoginPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        dispatch(loginUser(formData))
+        await dispatch(loginUser(formData))
+        console.log(error);
+        
     }
 
     const handleGoogleSuccess = async (credentialResponse: any) => {
