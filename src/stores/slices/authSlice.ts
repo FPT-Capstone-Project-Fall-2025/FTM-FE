@@ -1,6 +1,7 @@
 import authService from '@/services/authService';
+import userService from '@/services/userService';
 import type { AuthState, LoginProps, RegisterProps, ResetPassword } from '@/types/auth';
-import type { User } from '@/types/user';
+import type { User, UserProfile } from '@/types/user';
 import {
   createAsyncThunk,
   createSlice,
@@ -16,6 +17,18 @@ const initialState: AuthState = {
   isLoading: false,
   error: null,
 };
+
+export const getProfileData = createAsyncThunk(
+  'auth/getProfileData',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await userService.getProfileData();
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to get profile data');
+    }
+  }
+);
 
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
@@ -125,7 +138,6 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        // state.user = action.payload.data?.
         state.token = action.payload.data?.accessToken;
         state.refreshToken = action.payload.data?.refreshToken;
         state.isAuthenticated = true;
@@ -191,6 +203,30 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
+      });
+
+    // Get Profile Data
+    builder
+      .addCase(getProfileData.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(getProfileData.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = {
+          userId: action.payload.userId,
+          name: action.payload.name,
+          email: action.payload.email,
+          role: 'user',
+          username: action.payload.username,
+          phoneNumber: action.payload.phoneNumber,
+          permissions: []
+        };
+        state.error = null;
+      })
+      .addCase(getProfileData.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
 
     // Refresh Token
