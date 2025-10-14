@@ -1,9 +1,10 @@
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import CustomDatePicker from '@/components/ui/DatePicker';
-import type { Education, WorkExperience } from '@/types/biography';
+import type { Education, WorkExperience, WorkPosition } from '@/types/biography';
 import biographyService from '@/services/biographyService';
 import { toast } from 'react-toastify';
 import { useEffect, useState } from 'react';
+import OccupationSkeleton from '@/components/skeleton/OccupationSkeleton';
 
 const Occupation: React.FC = () => {
 
@@ -21,6 +22,11 @@ const Occupation: React.FC = () => {
     const [showEditWorkModal, setShowEditWorkModal] = useState(false);
     const [showDeleteWorkConfirm, setShowDeleteWorkConfirm] = useState(false);
     const [deleteWorkId, setDeleteWorkId] = useState<string | null>(null);
+    const [initialLoading, setInitialLoading] = useState(false);
+    const [isAddingNewLoading, setIsAddingNewLoading] = useState(false);
+    const [isUpdateLoading, setIsUpdateLoading] = useState(false);
+    const [showDeletePositionConfirm, setShowDeletePositionConfirm] = useState(false);
+    const [deletePositionIndex, setDeletePositionIndex] = useState<number | null>(null);
     
     const [newEducation, setNewEducation] = useState<Education>({
         id: '',
@@ -65,9 +71,22 @@ const Occupation: React.FC = () => {
         positions: []
     });
 
+    const [newPosition, setNewPosition] = useState<WorkPosition>({
+        id: '',
+        title: '',
+        startDate: '',
+        endDate: '',
+        description: ''
+    });
+
+    const [editPosition, setEditPosition] = useState<WorkPosition | null>(null);
+    const [editingPositionIndex, setEditingPositionIndex] = useState<number | null>(null);
+    const [isAddingPosition, setIsAddingPosition] = useState(false);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
+                setInitialLoading(true);
                 const [educationRes, workRes] = await Promise.all([
                     biographyService.getEducation(),
                     biographyService.getWork()
@@ -79,6 +98,8 @@ const Occupation: React.FC = () => {
             } catch (error) {
                 console.log(error);
                 toast.error('Không thể tải dữ liệu');
+            } finally {
+                setInitialLoading(false);
             }
         };
         fetchData();
@@ -98,8 +119,18 @@ const Occupation: React.FC = () => {
     const handleEditWork = (id: string) => {
         const work = workExperiences.find(w => w.id === id);
         if (work) {
-            setEditWork({ ...work });
+            setEditWork({ ...work, positions: [...work.positions] });
             setShowEditWorkModal(true);
+            setNewPosition({
+                id: '',
+                title: '',
+                startDate: '',
+                endDate: '',
+                description: ''
+            });
+            setEditPosition(null);
+            setEditingPositionIndex(null);
+            setIsAddingPosition(false);
         }
     };
 
@@ -127,6 +158,138 @@ const Occupation: React.FC = () => {
         }
     };
 
+    // Position management functions
+    const resetPositionForm = () => {
+        setNewPosition({
+            id: '',
+            title: '',
+            startDate: '',
+            endDate: '',
+            description: ''
+        });
+        setIsAddingPosition(false);
+    };
+
+    const handleStartAddPosition = () => {
+        setIsAddingPosition(true);
+        setEditPosition(null);
+        setEditingPositionIndex(null);
+    };
+
+    const handleCancelAddPosition = () => {
+        resetPositionForm();
+    };
+
+    const handleAddPosition = () => {
+        // Validation
+        if (!newPosition.title.trim()) {
+            toast.error('Vui lòng nhập tên vị trí');
+            return;
+        }
+        if (!newPosition.startDate) {
+            toast.error('Vui lòng chọn ngày bắt đầu cho vị trí');
+            return;
+        }
+        if (!newPosition.endDate) {
+            toast.error('Vui lòng chọn ngày kết thúc cho vị trí');
+            return;
+        }
+
+        const positionToAdd = {
+            ...newPosition,
+            id: Date.now().toString()
+        };
+
+        if (isAddingNewWork) {
+            setNewWork(prev => ({
+                ...prev,
+                positions: [...prev.positions, positionToAdd]
+            }));
+        } else if (showEditWorkModal) {
+            setEditWork(prev => ({
+                ...prev,
+                positions: [...prev.positions, positionToAdd]
+            }));
+        }
+
+        resetPositionForm();
+        toast.success('Đã thêm vị trí công việc');
+    };
+
+    const handleRemovePosition = (index: number) => {
+        setDeletePositionIndex(index);
+        setShowDeletePositionConfirm(true);
+    };
+
+    const confirmDeletePosition = () => {
+        if (deletePositionIndex === null) return;
+
+        if (isAddingNewWork) {
+            setNewWork(prev => ({
+                ...prev,
+                positions: prev.positions.filter((_, i) => i !== deletePositionIndex)
+            }));
+        } else if (showEditWorkModal) {
+            setEditWork(prev => ({
+                ...prev,
+                positions: prev.positions.filter((_, i) => i !== deletePositionIndex)
+            }));
+        }
+
+        setShowDeletePositionConfirm(false);
+        setDeletePositionIndex(null);
+        toast.success('Đã xóa vị trí công việc');
+    };
+
+    const handleEditPositionClick = (position: WorkPosition, index: number) => {
+        setEditPosition({ ...position });
+        setEditingPositionIndex(index);
+        setIsAddingPosition(false);
+    };
+
+    const handleUpdatePosition = () => {
+        if (!editPosition) return;
+        
+        // Validation
+        if (!editPosition.title.trim()) {
+            toast.error('Vui lòng nhập tên vị trí');
+            return;
+        }
+        if (!editPosition.startDate) {
+            toast.error('Vui lòng chọn ngày bắt đầu cho vị trí');
+            return;
+        }
+        if (!editPosition.endDate) {
+            toast.error('Vui lòng chọn ngày kết thúc cho vị trí');
+            return;
+        }
+
+        if (isAddingNewWork) {
+            setNewWork(prev => ({
+                ...prev,
+                positions: prev.positions.map((pos, i) => 
+                    i === editingPositionIndex ? editPosition : pos
+                )
+            }));
+        } else if (showEditWorkModal) {
+            setEditWork(prev => ({
+                ...prev,
+                positions: prev.positions.map((pos, i) => 
+                    i === editingPositionIndex ? editPosition : pos
+                )
+            }));
+        }
+
+        setEditPosition(null);
+        setEditingPositionIndex(null);
+        toast.success('Đã cập nhật vị trí công việc');
+    };
+
+    const handleCancelEditPosition = () => {
+        setEditPosition(null);
+        setEditingPositionIndex(null);
+    };
+
     const addWorkExperience = () => {
         setNewWork({
             id: '',
@@ -138,6 +301,7 @@ const Occupation: React.FC = () => {
             isCurrent: false,
             positions: []
         });
+        resetPositionForm();
         setIsAddingNewWork(true);
     };
 
@@ -160,19 +324,19 @@ const Occupation: React.FC = () => {
             return;
         }
 
-        const workToAdd = {
-            ...newWork,
-            id: Date.now().toString()
-        };
-
         try {
-            const response = await biographyService.createWork(workToAdd);
+            setIsAddingNewLoading(true);
+            const response = await biographyService.createWork(newWork);
             setWorkExperiences([response.data, ...workExperiences]);
+            setOriginalWorkExperiences([response.data, ...workExperiences]);
             setIsAddingNewWork(false);
+            resetPositionForm();
             toast.success('Thêm công việc thành công');
         } catch (error) {
             console.log(error);
             toast.error('Không thể thêm công việc');
+        } finally {
+            setIsAddingNewLoading(false);
         }
     };
 
@@ -188,6 +352,7 @@ const Occupation: React.FC = () => {
             isCurrent: false,
             positions: []
         });
+        resetPositionForm();
     };
 
     const handleUpdateWork = async () => {
@@ -210,15 +375,25 @@ const Occupation: React.FC = () => {
         }
 
         try {
+            setIsUpdateLoading(true);
             await biographyService.updateWork(editWork);
-            setWorkExperiences(prev =>
-                prev.map(work => work.id === editWork.id ? editWork : work)
+            
+            const updatedExperiences = workExperiences.map(work => 
+                work.id === editWork.id ? editWork : work
             );
+            
+            setWorkExperiences(updatedExperiences);
+            setOriginalWorkExperiences(updatedExperiences);
             setShowEditWorkModal(false);
+            resetPositionForm();
+            setEditPosition(null);
+            setEditingPositionIndex(null);
             toast.success('Cập nhật công việc thành công');
         } catch (error) {
             console.log(error);
             toast.error('Không thể cập nhật công việc');
+        } finally {
+            setIsUpdateLoading(false);
         }
     };
 
@@ -259,14 +434,10 @@ const Occupation: React.FC = () => {
             return;
         }
         
-        const educationToAdd = {
-            ...newEducation,
-            id: Date.now().toString()
-        };
-        
         try {
-            const response = await biographyService.addEducation(educationToAdd);
+            const response = await biographyService.addEducation(newEducation);
             setEducations([response.data, ...educations]);
+            setOriginalEducations([response.data, ...educations]);
             setIsAddingNew(false);
             toast.success('Thêm học vấn thành công');
         } catch (error) {
@@ -314,9 +485,11 @@ const Occupation: React.FC = () => {
 
         try {
             await biographyService.updateEducation(editEducation);
-            setEducations(prev =>
-                prev.map(edu => edu.id === editEducation.id ? editEducation : edu)
+            const updatedEducations = educations.map(edu => 
+                edu.id === editEducation.id ? editEducation : edu
             );
+            setEducations(updatedEducations);
+            setOriginalEducations(updatedEducations);
             setShowEditEducationModal(false);
             toast.success('Cập nhật học vấn thành công');
         } catch (error) {
@@ -336,9 +509,6 @@ const Occupation: React.FC = () => {
 
     const handleSave = async () => {
         try {
-            // Save work experience changes if needed
-            // (Add work experience API calls here if needed)
-            
             setOriginalWorkExperiences(workExperiences);
             setOriginalEducations(educations);
             setEditingWork(null);
@@ -361,7 +531,9 @@ const Occupation: React.FC = () => {
 
         try {
             await biographyService.deleteWork(deleteWorkId);
-            setWorkExperiences(prev => prev.filter(work => work.id !== deleteWorkId));
+            const updatedExperiences = workExperiences.filter(work => work.id !== deleteWorkId);
+            setWorkExperiences(updatedExperiences);
+            setOriginalWorkExperiences(updatedExperiences);
             if (editingWork === deleteWorkId) {
                 setEditingWork(null);
             }
@@ -385,7 +557,9 @@ const Occupation: React.FC = () => {
         
         try {
             await biographyService.deleteEducation(deleteEducationId);
-            setEducations(prev => prev.filter(edu => edu.id !== deleteEducationId));
+            const updatedEducations = educations.filter(edu => edu.id !== deleteEducationId);
+            setEducations(updatedEducations);
+            setOriginalEducations(updatedEducations);
             if (editingEducation === deleteEducationId) {
                 setEditingEducation(null);
             }
@@ -402,8 +576,147 @@ const Occupation: React.FC = () => {
     const formatDisplayDate = (dateString: string) => {
         if (!dateString) return '';
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB'); // DD/MM/YYYY
+        return date.toLocaleDateString('en-GB');
     };
+
+    // Render position form component
+    const renderPositionForm = (isEditing: boolean = false) => {
+        const position = isEditing ? editPosition : newPosition;
+        const setPosition = isEditing ? setEditPosition : setNewPosition;
+
+        return (
+            <div className="bg-gray-50 border border-gray-300 rounded p-3 space-y-3">
+                <div>
+                    <label className="block text-xs font-medium mb-1">
+                        Tên vị trí <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="text"
+                        value={position?.title || ''}
+                        onChange={(e) => setPosition((prev: any) => ({...prev!, title: e.target.value}))}
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                        placeholder="Ví dụ: Senior Developer"
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <CustomDatePicker 
+                        label='Ngày bắt đầu'
+                        value={position?.startDate || ''}
+                        onChange={(e) => setPosition((prev: any) => ({...prev!, startDate: e}))}
+                        isEditing={true}
+                    />
+                    <CustomDatePicker 
+                        label='Ngày kết thúc'
+                        value={position?.endDate || ''}
+                        onChange={(e) => setPosition((prev: any) => ({...prev!, endDate: e}))}
+                        isEditing={true}
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs font-medium mb-1">Mô tả</label>
+                    <textarea
+                        value={position?.description || ''}
+                        onChange={(e) => setPosition((prev: any) => ({...prev!, description: e.target.value}))}
+                        className="w-full h-16 border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                        placeholder="Mô tả vai trò và trách nhiệm..."
+                    />
+                </div>
+                <div className="flex justify-end gap-2">
+                    <button
+                        onClick={isEditing ? handleCancelEditPosition : handleCancelAddPosition}
+                        className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-white"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        onClick={isEditing ? handleUpdatePosition : handleAddPosition}
+                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                        {isEditing ? 'Cập nhật' : 'Thêm'}
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    // Render positions list
+    const renderPositionsList = (positions: WorkPosition[]) => {
+        if (positions.length === 0) return null;
+
+        return (
+            <div className="space-y-2 mb-3">
+                {positions.map((position, index) => (
+                    <div key={position.id || index} className="bg-white border border-gray-300 rounded p-3">
+                        {editingPositionIndex === index ? (
+                            renderPositionForm(true)
+                        ) : (
+                            <>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex-1">
+                                        <p className="font-medium text-sm">{position.title}</p>
+                                        <p className="text-xs text-gray-600">
+                                            {formatDisplayDate(position.startDate)} - {formatDisplayDate(position.endDate)}
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleEditPositionClick(position, index)}
+                                            className="text-gray-600 hover:text-gray-800"
+                                            title="Chỉnh sửa vị trí"
+                                        >
+                                            <Edit2 size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleRemovePosition(index)}
+                                            className="text-red-600 hover:text-red-800"
+                                            title="Xóa vị trí"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                                {position.description && (
+                                    <p className="text-xs text-gray-700 mt-1">{position.description}</p>
+                                )}
+                            </>
+                        )}
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    // Render work positions section
+    const renderWorkPositionsSection = (work: WorkExperience) => {
+        return (
+            <div className="border-t pt-4 mt-4">
+                <div className="flex justify-between items-center mb-3">
+                    <h5 className="font-semibold text-sm">Vị trí công việc</h5>
+                    {!isAddingPosition && editingPositionIndex === null && (
+                        <button
+                            onClick={handleStartAddPosition}
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                            <Plus size={14} />
+                            Thêm vị trí
+                        </button>
+                    )}
+                </div>
+                
+                {renderPositionsList(work.positions)}
+                
+                {isAddingPosition && renderPositionForm(false)}
+
+                {work.positions.length === 0 && !isAddingPosition && (
+                    <p className="text-xs text-gray-500 italic">Chưa có vị trí công việc nào</p>
+                )}
+            </div>
+        );
+    };
+    
+    if(initialLoading) {
+        return <OccupationSkeleton />
+    }
 
     return (
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -488,6 +801,8 @@ const Occupation: React.FC = () => {
                                         />
                                     </div>
 
+                                    {renderWorkPositionsSection(newWork)}
+
                                     <div className="flex justify-end gap-3 mt-4">
                                         <button
                                             onClick={handleCancelNewWork}
@@ -499,7 +814,11 @@ const Occupation: React.FC = () => {
                                             onClick={handleSaveNewWork}
                                             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                                         >
-                                            Lưu
+                                            {
+                                                isAddingNewLoading ? 
+                                                'Đang lưu...' : 
+                                                'Lưu'
+                                            }
                                         </button>
                                     </div>
                                 </div>
@@ -632,7 +951,6 @@ const Occupation: React.FC = () => {
                                             isEditing={isAddingNew}
                                             value={newEducation.endDate}
                                             onChange={(date) => handleEducationChange('endDate', date ? date : '')}
-                                            // disabled={newEducation.isCurrent}
                                         />
                                     </div>
 
@@ -811,11 +1129,18 @@ const Occupation: React.FC = () => {
                                     placeholder="Nhập mô tả..."
                                 />
                             </div>
+
+                            {renderWorkPositionsSection(editWork)}
                         </div>
 
                         <div className="flex justify-end gap-3 mt-6">
                             <button
-                                onClick={() => setShowEditWorkModal(false)}
+                                onClick={() => {
+                                    setShowEditWorkModal(false);
+                                    resetPositionForm();
+                                    setEditPosition(null);
+                                    setEditingPositionIndex(null);
+                                }}
                                 className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
                             >
                                 Hủy
@@ -824,7 +1149,11 @@ const Occupation: React.FC = () => {
                                 onClick={handleUpdateWork}
                                 className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
-                                Cập nhật
+                                {
+                                    isUpdateLoading ? 
+                                    'Đang cập nhật...': 
+                                    'Cập nhật'
+                                }
                             </button>
                         </div>
                     </div>
@@ -837,7 +1166,7 @@ const Occupation: React.FC = () => {
                     <div className="bg-white rounded-lg p-6 w-full max-w-md">
                         <h3 className="text-xl font-semibold mb-4">Xác nhận xóa</h3>
                         <p className="text-gray-600 mb-6">
-                            Bạn có chắc chắn muốn xóa công việc này không?
+                            Bạn có chắc chắn muốn xóa công việc này không? Tất cả các vị trí công việc liên quan cũng sẽ bị xóa.
                         </p>
                         <div className="flex justify-end gap-3">
                             <button
@@ -848,6 +1177,35 @@ const Occupation: React.FC = () => {
                             </button>
                             <button
                                 onClick={confirmDeleteWork}
+                                className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                                Xóa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Position Confirmation Modal */}
+            {showDeletePositionConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <h3 className="text-xl font-semibold mb-4">Xác nhận xóa</h3>
+                        <p className="text-gray-600 mb-6">
+                            Bạn có chắc chắn muốn xóa vị trí công việc này không?
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowDeletePositionConfirm(false);
+                                    setDeletePositionIndex(null);
+                                }}
+                                className="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={confirmDeletePosition}
                                 className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                             >
                                 Xóa
@@ -915,7 +1273,6 @@ const Occupation: React.FC = () => {
                                     isEditing={showEditEducationModal}
                                     value={editEducation.endDate}
                                     onChange={(date) => handleEducationChange('endDate', date ? date : '')}
-                                    // disabled={editEducation.isCurrent}
                                 />
                             </div>
 
@@ -958,7 +1315,7 @@ const Occupation: React.FC = () => {
                 </div>
             )}
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete Education Confirmation Modal */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 w-full max-w-md">

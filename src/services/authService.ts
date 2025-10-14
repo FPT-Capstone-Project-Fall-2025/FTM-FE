@@ -1,5 +1,5 @@
 import type { ApiResponse } from '@/types/api';
-import type { AuthResponse, LoginProps, RegisterProps, ResetPassword } from '@/types/auth';
+import type { AuthResponse, LoginProps, RefreshTokenProps, RegisterProps, ResetPassword } from '@/types/auth';
 import api from './apiService';
 
 const authService = {
@@ -21,6 +21,10 @@ const authService = {
 
   resetPassword(props: ResetPassword): Promise<ApiResponse<void>> {
     return api.post('/account/reset-password', { ...props });
+  },
+
+  refreshToken(props: RefreshTokenProps): Promise<ApiResponse<AuthResponse>> {
+    return api.post('/account/refresh-token', { ...props });
   },
 };
 

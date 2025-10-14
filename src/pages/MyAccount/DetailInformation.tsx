@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../../hooks/redux';
 import uploadImg from '@/assets/dashboard/import-image.png';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { EyeOff, Eye } from 'lucide-react';
+import { EyeOff, Eye, Camera } from 'lucide-react';
 import type { ChangePasswordProps, EditUserProfile, Province, UserProfile, Ward } from '@/types/user';
 import dataService from '@/services/dataService';
 import userService from '@/services/userService';
 import BirthdayPicker from '@/components/ui/DatePicker';
 import { toast } from 'react-toastify';
+import DetailInformationSkeleton from '@/components/skeleton/DetailInformationSkeleton';
 
 const DetailInformation: React.FC = () => {
 
-  const { isGGLogin ,isLoading: isUserLoading } = useAppSelector(state => state.auth);
+  const { isGGLogin } = useAppSelector(state => state.auth);
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<UserProfile>({
@@ -40,6 +41,7 @@ const DetailInformation: React.FC = () => {
     picture: '',
   });
 
+  const [initialLoading, setInitialLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupType, setPopupType] = useState<'change-avatar' | 'change-password' | null>(null);
@@ -67,10 +69,9 @@ const DetailInformation: React.FC = () => {
   // Load provinces and wards data
   useEffect(() => {
     const loadDefaultData = async () => {
+      setInitialLoading(true);
+      setIsLoadingLocation(true);
       try {
-        setIsLoadingLocation(true);
-
-        // Fetch both APIs in parallel
         const [profileResponse, provincesResponse] = await Promise.all([
           userService.getProfileData(),
           dataService.getProvinces(),
@@ -107,6 +108,7 @@ const DetailInformation: React.FC = () => {
         console.error('Error loading location data:', error);
       } finally {
         setIsLoadingLocation(false);
+        setInitialLoading(false);
       }
     };
     loadDefaultData();
@@ -333,52 +335,11 @@ const DetailInformation: React.FC = () => {
     closePopup();
   };
 
-  if (isUserLoading) {
-    return (
-      <div className="grid grid-cols-12 gap-8 animate-pulse">
-        {/* Left Column Skeleton */}
-        <div className="col-span-12 lg:col-span-3">
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-            <div className="flex flex-col items-center">
-              {/* Title Skeleton */}
-              <div className="w-3/4 h-6 bg-gray-200 rounded-md mb-4"></div>
-              {/* Description Skeleton */}
-              <div className="w-full h-4 bg-gray-200 rounded-md mb-2"></div>
-              <div className="w-5/6 h-4 bg-gray-200 rounded-md mb-6"></div>
-              
-              {/* Avatar Skeleton */}
-              <div className="w-32 h-32 rounded-full bg-gray-200 mb-4"></div>
-              {/* Button Skeleton */}
-              <div className="w-40 h-10 bg-gray-200 rounded-lg"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column Skeleton */}
-        <div className="col-span-12 lg:col-span-9">
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Form Fields Skeleton */}
-              {[...Array(10)].map((_, index) => (
-                <div key={index}>
-                  <div className="w-1/3 h-4 bg-gray-200 rounded mb-2"></div>
-                  <div className="w-full h-12 bg-gray-200 rounded-lg"></div>
-                </div>
-              ))}
-            </div>
-
-            {/* Action Buttons Skeleton */}
-            <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-              <div className="w-32 h-10 bg-gray-200 rounded-lg"></div>
-              <div className="w-32 h-10 bg-gray-200 rounded-lg"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const displayData = isEditing ? editData : formData;
+
+  if (initialLoading) {
+    return <DetailInformationSkeleton />
+  }
 
   return (
     <>
@@ -400,20 +361,23 @@ const DetailInformation: React.FC = () => {
               {/* Profile Picture */}
               <div className="mb-6">
                 <div
-                  className="w-32 h-32 mx-auto rounded-full bg-gray-200 overflow-hidden mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+                  className="relative w-32 h-32 mx-auto bg-gray-200 rounded-full mb-4 cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => openPopup('change-avatar')}
                 >
                   <img
                     src={displayData.picture || defaultPicture}
                     alt="Profile"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover rounded-full"
                     onError={e => {
                       (e.target as HTMLImageElement).src = defaultPicture;
                     }}
                   />
+                  <div className="absolute bottom-0 right-0 w-[30px] h-[30px] flex items-center justify-center bg-gray-400 rounded-full">
+                    <Camera />
+                  </div>
                 </div>
                 {
-                  !isGGLogin && 
+                  !isGGLogin &&
                   <button
                     type="button"
                     onClick={() => openPopup('change-password')}
