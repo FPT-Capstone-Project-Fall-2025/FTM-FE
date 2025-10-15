@@ -1,12 +1,13 @@
 export type UserRole = 'admin' | 'user' | 'guest';
 
 export interface User {
-  id: number;
+  userId: string;
+  username: string;
   name: string;
   email: string;
   role: UserRole;
+  phoneNumber: string | null;
   permissions: string[];
-  createdAt: string;
 }
 
 export interface CreateUserData {
@@ -14,34 +15,53 @@ export interface CreateUserData {
   email: string;
   password: string;
 }
-
 export interface UserProfile {
-  fullName: string;
-  nickname: string;
+  name: string;
   email: string;
-  phone: string;
-  occupation: string;
-  gender: string;
-  birthDate: string;
+  nickname: string;
+  phoneNumber: string;
+  job: string;
+  gender: 0 | 1 | null;
+  birthday: string;
+  province: Province | null;
+  ward: Ward | null;
   address: string;
-  province: string;
-  ward: string;
   picture: string;
+  // isActive: boolean | null;
+  // roles: string[];
+  // createdDate: string | null;
+  // updatedDate: string | null;
+}
+
+export interface AvatarUpdateResponse {
+  avatarUrl: string;
+}
+
+export type EditUserProfile = Omit<UserProfile, 'email' | 'province' | 'ward'> & {
+  provinceId: string | null;
+  wardId: string | null;
+};
+
+export interface ChangePasswordProps {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
 }
 
 export interface Province {
+  id: string;
   code: string;
   name: string;
+  nameWithType: string;
   slug: string;
-  type: string;
-  name_with_type: string;
 }
 
 export interface Ward {
+  id: string;
   code: string;
   name: string;
+  nameWithType: string;
+  path: string;
   slug: string;
-  type: string;
-  name_with_type: string;
-  parent_code: string;
+  pathWithType: string;
 }

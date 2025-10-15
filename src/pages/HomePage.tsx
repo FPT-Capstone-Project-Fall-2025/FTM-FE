@@ -82,7 +82,7 @@ const HomePage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="overflow-auto flex flex-col bg-gray-50">
       {/* Hero Section */}
       <div 
         className="relative h-96 bg-cover bg-center bg-no-repeat"

@@ -85,7 +85,7 @@ export const useAuth = () => {
 export const useAuthInitialization = () => {
     const dispatch = useAppDispatch()
     const { token, isAuthenticated } = useAppSelector(state => state.auth)
-
+    
     useEffect(() => {
         // Check if we have a persisted token but no user data
         if (token && !isAuthenticated) {

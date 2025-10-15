@@ -51,7 +51,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 // Utility functions
 export const hasPermission = (user: User | null, permission: Permission): boolean => {
     if (!user) return false
-    return user.permissions.includes(permission) || ROLE_PERMISSIONS[user.role].includes(permission)
+    return user.permissions.includes(permission) 
+    // || ROLE_PERMISSIONS[user.role].includes(permission)
 }
 
 export const hasRole = (user: User | null, role: UserRole): boolean => {
@@ -71,10 +72,10 @@ export const canAccessRoute = (user: User | null, requiredPermissions: Permissio
 
 // Route access definitions
 export const ROUTE_PERMISSIONS: Record<string, Permission[]> = {
-    '/admin': [PERMISSIONS.MANAGE_SETTINGS],
-    '/admin/users': [PERMISSIONS.VIEW_USERS],
-    '/admin/analytics': [PERMISSIONS.VIEW_ANALYTICS],
-    '/dashboard': [PERMISSIONS.VIEW_CONTENT],
-    '/create': [PERMISSIONS.CREATE_CONTENT],
-    '/moderate': [PERMISSIONS.MODERATE_CONTENT],
+    // '/admin': [PERMISSIONS.MANAGE_SETTINGS],
+    // '/admin/users': [PERMISSIONS.VIEW_USERS],
+    // '/admin/analytics': [PERMISSIONS.VIEW_ANALYTICS],
+    // '/dashboard': [PERMISSIONS.VIEW_CONTENT],
+    // '/create': [PERMISSIONS.CREATE_CONTENT],
+    // '/moderate': [PERMISSIONS.MODERATE_CONTENT],
 }

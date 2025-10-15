@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
-import { useAppDispatch, useAppSelector } from '../hooks/redux'
-import { loginUser, googleLogin, clearError } from '@/stores/slices/authSlice'
+import { useAppDispatch, useAppSelector } from '../../hooks/redux'
+import { loginUser, clearError, googleLogin } from '@/stores/slices/authSlice'
 import GoogleSignInButton from '@/components/ui/GoogleSignInButton'
 import { Users, Eye, EyeOff } from 'lucide-react'
+import type { LoginProps } from '@/types/auth'
 
 const LoginPage: React.FC = () => {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const location = useLocation()
     const { isLoading, error, isAuthenticated } = useAppSelector(state => state.auth)
-
-    const [formData, setFormData] = useState({
-        email: '',
+    const [rememberMe, setRememberMe] = useState(false);
+    const [formData, setFormData] = useState<LoginProps>({
+        username: '',
         password: '',
-        rememberMe: false
     })
 
     const [showPassword, setShowPassword] = useState(false)
@@ -39,11 +39,28 @@ const LoginPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        dispatch(loginUser({ email: formData.email, password: formData.password }))
+        await dispatch(loginUser(formData))
+        console.log(error);
+        
     }
 
-    const handleGoogleSuccess = (token: string) => {
-        dispatch(googleLogin(token))
+    const handleGoogleSuccess = async (credentialResponse: any) => {
+        try {
+            // The credential is a JWT token from Google
+            const token = credentialResponse.credential
+
+            // Dispatch the googleLogin action with the token
+            await dispatch(googleLogin({ token })).unwrap()
+
+            // Navigation will be handled by the useEffect when isAuthenticated becomes true
+        } catch (error) {
+            console.error('Google login failed:', error)
+        }
+    }
+
+    const handleGoogleError = () => {
+        console.error('Google Sign-In failed')
+        // Optionally show an error message to the user
     }
 
     return (
@@ -70,8 +87,8 @@ const LoginPage: React.FC = () => {
                 <div>
                     <input
                         type="email"
-                        name="email"
-                        value={formData.email}
+                        name="username"
+                        value={formData.username}
                         onChange={handleInputChange}
                         placeholder="Nhập email"
                         required
@@ -111,8 +128,8 @@ const LoginPage: React.FC = () => {
                         <input
                             type="checkbox"
                             name="rememberMe"
-                            checked={formData.rememberMe}
-                            onChange={handleInputChange}
+                            checked={rememberMe}
+                            onChange={() => setRememberMe(!rememberMe)}
                             className="w-4 h-4 mr-2 rounded border-white/20 bg-white/10 text-blue-600 focus:ring-white/30"
                         />
                         Lưu mật khẩu
@@ -128,9 +145,24 @@ const LoginPage: React.FC = () => {
                     {isLoading ? 'ĐANG NHẬP...' : 'ĐĂNG NHẬP'}
                 </button>
 
+                {/* Divider */}
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-white/20"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                        <span className="px-4 bg-gradient-to-br from-blue-600 to-blue-700 text-blue-100">
+                            Hoặc
+                        </span>
+                    </div>
+                </div>
+
                 {/* Google Sign In */}
                 <div className="mt-6">
-                    <GoogleSignInButton onSuccess={handleGoogleSuccess} />
+                    <GoogleSignInButton
+                        onSuccess={handleGoogleSuccess}
+                        onError={handleGoogleError}
+                    />
                 </div>
             </form>
 

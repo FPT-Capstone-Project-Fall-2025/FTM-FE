@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import BreadcrumbNavigation from '../components/shared/BreadcrumbNavigation';
+import BreadcrumbNavigation from '../../components/shared/BreadcrumbNavigation';
 import { Search, Plus } from 'lucide-react';
 
 interface FamilyMember {
