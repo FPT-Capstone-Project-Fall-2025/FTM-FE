@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useAppSelector } from '../hooks/redux';
+import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import { MessageCircle, Send, X, ThumbsUp, Edit, Save, XCircle } from 'lucide-react';
 

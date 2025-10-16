@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { useAppSelector } from '../hooks/redux';
+import React, { useState, useRef, useEffect } from 'react';
+import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, Eye, Globe, Settings, Share, Plus } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
@@ -36,10 +36,15 @@ interface Comment {
 
 const PostPage: React.FC = () => {
   const { user } = useAppSelector(state => state.auth);
+  const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [fileCaptions, setFileCaptions] = useState<string[]>([]);
   const [isPosting, setIsPosting] = useState(false);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [postsError, setPostsError] = useState<string | null>(null);
+  const [currentFamilyTreeId, setCurrentFamilyTreeId] = useState<string>('1123123'); // Default or get from props/route
   const [commentInputs, setCommentInputs] = useState<{ [key: string]: string }>({});
   const [commentImages, setCommentImages] = useState<{ [key: string]: File[] }>({});
   const [commentImagePreviews, setCommentImagePreviews] = useState<{ [key: string]: string[] }>({});
@@ -168,15 +173,18 @@ const PostPage: React.FC = () => {
         alert(`File ${file.name} quá lớn. Kích thước tối đa là 5MB`);
         return false;
       }
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4', 'video/avi', 'video/mov'];
       if (!allowedTypes.includes(file.type)) {
-        alert(`File ${file.name} không đúng định dạng. Chỉ chấp nhận JPEG, JPG, PNG, GIF`);
+        alert(`File ${file.name} không đúng định dạng. Chỉ chấp nhận JPEG, JPG, PNG, GIF, MP4, AVI, MOV`);
         return false;
       }
       return true;
     });
 
     setSelectedImages(prev => [...prev, ...validFiles]);
+    
+    // Initialize captions for new files
+    setFileCaptions(prev => [...prev, ...validFiles.map(() => '')]);
 
     // Create previews
     validFiles.forEach(file => {
@@ -191,6 +199,15 @@ const PostPage: React.FC = () => {
   const removeImage = (index: number) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setFileCaptions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateFileCaption = (index: number, caption: string) => {
+    setFileCaptions(prev => {
+      const newCaptions = [...prev];
+      newCaptions[index] = caption;
+      return newCaptions;
+    });
   };
 
   const handleCreatePost = async () => {
@@ -201,29 +218,67 @@ const PostPage: React.FC = () => {
 
     setIsPosting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      const newPost: Post = {
-        id: Date.now().toString(),
-        author: {
-          name: user?.name || 'Username',
-          avatar: defaultPicture,
-          timeAgo: 'Vừa xong'
-        },
-        content: postContent,
-        images: imagePreviews,
-        likes: 0,
-        isLiked: false,
-        comments: []
+    try {
+      // Prepare data according to API structure
+      const postData = {
+        GPId: "your-group-id-here", // Replace with actual group ID
+        Title: postTitle.trim() || '',
+        Content: postContent.trim(),
+        GPMemberId: user?.id || "user-id-placeholder", // Replace with actual user/member ID
+        Status: 1, // Active status
+        Files: selectedImages, // File objects
+        Captions: fileCaptions.length > 0 ? fileCaptions : selectedImages.map(() => ''), // Caption for each file
+        FileTypes: selectedImages.map(file => {
+          if (file.type.startsWith('image/')) return 'image';
+          if (file.type.startsWith('video/')) return 'video';
+          return 'file';
+        })
       };
 
-      setPosts(prev => [newPost, ...prev]);
-      setPostContent('');
-      setSelectedImages([]);
-      setImagePreviews([]);
+      console.log('Creating post with data:', postData);
+
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/posts', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify(postData)
+      // });
+
+      // Simulate API call for now
+      setTimeout(() => {
+        const newPost: Post = {
+          id: Date.now().toString(),
+          author: {
+            name: user?.name || 'Username',
+            avatar: defaultPicture,
+            timeAgo: 'Vừa xong'
+          },
+          content: postContent,
+          images: imagePreviews,
+          likes: 0,
+          isLiked: false,
+          comments: []
+        };
+
+        setPosts(prev => [newPost, ...prev]);
+        
+        // Reset form
+        setPostTitle('');
+        setPostContent('');
+        setSelectedImages([]);
+        setImagePreviews([]);
+        setFileCaptions([]);
+        setIsPosting(false);
+        setShowCreatePostModal(false);
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error creating post:', error);
+      alert('Có lỗi xảy ra khi tạo bài viết. Vui lòng thử lại!');
       setIsPosting(false);
-      setShowCreatePostModal(false); // Close modal after successful post
-    }, 1000);
+    }
   };
 
   const handleLike = (id: string, type: 'post' | 'comment', postId?: string) => {
@@ -953,7 +1008,7 @@ const PostPage: React.FC = () => {
           </div>
 
           {/* Group Info */}
-          <div className="bg-white border-b border-gray-200">
+          <div className="bg-white border-b border-gray-200 px-4">
             <div className="max-w-7xl mx-auto">
               <div className="flex items-end justify-between pb-6 mt-4">
                 <div className="flex items-end space-x-6">
@@ -1730,6 +1785,16 @@ const PostPage: React.FC = () => {
 
                 {/* Post Content */}
                 <div className="p-4">
+                  {/* Title Input */}
+                  <input
+                    type="text"
+                    value={postTitle}
+                    onChange={(e) => setPostTitle(e.target.value)}
+                    placeholder="Tiêu đề bài viết (tùy chọn)"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                  />
+                  
+                  {/* Content Input */}
                   <textarea
                     value={postContent}
                     onChange={(e) => setPostContent(e.target.value)}
@@ -1739,23 +1804,41 @@ const PostPage: React.FC = () => {
                     style={{ minHeight: '120px' }}
                   />
 
-                  {/* Image Previews */}
+                  {/* Image Previews with Captions */}
                   {imagePreviews.length > 0 && (
                     <div className="mt-4 border border-gray-200 rounded-lg p-4">
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-4">
                         {imagePreviews.map((preview, index) => (
-                          <div key={index} className="relative">
-                            <img
-                              src={preview}
-                              alt={`Preview ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg"
+                          <div key={index} className="space-y-2">
+                            <div className="relative">
+                              {selectedImages[index]?.type.startsWith('video/') ? (
+                                <video
+                                  src={preview}
+                                  className="w-full h-32 object-cover rounded-lg"
+                                  controls
+                                />
+                              ) : (
+                                <img
+                                  src={preview}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-32 object-cover rounded-lg"
+                                />
+                              )}
+                              <button
+                                onClick={() => removeImage(index)}
+                                className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                            {/* Caption Input */}
+                            <input
+                              type="text"
+                              value={fileCaptions[index] || ''}
+                              onChange={(e) => updateFileCaption(index, e.target.value)}
+                              placeholder={`Mô tả cho ${selectedImages[index]?.type.startsWith('video/') ? 'video' : 'ảnh'} ${index + 1}...`}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            <button
-                              onClick={() => removeImage(index)}
-                              className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
                           </div>
                         ))}
                       </div>
@@ -1771,13 +1854,14 @@ const PostPage: React.FC = () => {
                           ref={fileInputRef}
                           type="file"
                           multiple
-                          accept="image/*"
+                          accept="image/*,video/*"
                           onChange={handleImageSelect}
                           className="hidden"
                         />
                         <button
                           onClick={() => fileInputRef.current?.click()}
                           className="w-8 h-8 bg-green-100 hover:bg-green-200 rounded-full flex items-center justify-center transition-colors"
+                          title="Thêm ảnh/video"
                         >
                           <Image className="w-4 h-4 text-green-600" />
                         </button>
