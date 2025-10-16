@@ -22,7 +22,7 @@ const MainLayout: React.FC<LayoutProps> = ({ children }) => {
       <Navigation onMenuClick={toggleSidebar} />
       <div className="h-full grow overflow-hidden flex">
         <Sidebar isCollapsed={isSidebarCollapsed} />
-        <main className="h-full grow overflow-y-auto">
+        <main className="h-full grow">
           {children}
         </main>
       </div>
