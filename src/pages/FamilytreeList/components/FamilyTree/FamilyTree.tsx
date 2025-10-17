@@ -164,7 +164,12 @@ const FamilyTreeContent = () => {
             <SearchBar onSelectMember={handleSearchSelect} />
           </div>
         </div>
-        <AddNewNode />
+        {/* <AddNewNode
+          parentMember={{ id: "1", name: "Nguyễn Văn A", birthYear: "1966" }}
+          existingRelationships={["father", "spouse"]} 
+          onSelectType={(type) => console.log(type)}
+          onClose={() => { }}
+        /> */}
         {/* Side Panel */}
         <MemberDetailPanel
           member={selectedMember}
