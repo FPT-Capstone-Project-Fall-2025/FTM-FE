@@ -1,11 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, Eye, Globe, Settings, Share, Plus } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, User, Eye, Settings, Share, Plus } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
+import postService, { type PostData, type CreatePostData } from '@/services/postService';
+import familyTreeService from '@/services/familyTreeService';
+import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
+import userService from '@/services/userService';
 
 interface Post {
   id: string;
+  title?: string;
   author: {
     name: string;
     avatar: string;
@@ -18,11 +24,14 @@ interface Post {
   isLiked: boolean;
   isEdited?: boolean;
   editedAt?: string;
+  totalReactions: number;
+  reactionsSummary: { [key: string]: number };
+  userReaction?: string | null;
 }
 
 interface Comment {
   id: string;
-  author: {
+  author?: {
     name: string;
     avatar: string;
   };
@@ -35,21 +44,33 @@ interface Comment {
 }
 
 const PostPage: React.FC = () => {
-  const { user } = useAppSelector(state => state.auth);
+  const { user, token, isAuthenticated } = useAppSelector(state => state.auth);
+  const { id: familyTreeId } = useParams<{ id: string }>();
+  
+  // Post management state
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [initialLoading, setInitialLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Post creation state
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [fileCaptions, setFileCaptions] = useState<string[]>([]);
   const [isPosting, setIsPosting] = useState(false);
-  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
-  const [postsError, setPostsError] = useState<string | null>(null);
-  const [currentFamilyTreeId, setCurrentFamilyTreeId] = useState<string>('1123123'); // Default or get from props/route
   const [commentInputs, setCommentInputs] = useState<{ [key: string]: string }>({});
   const [commentImages, setCommentImages] = useState<{ [key: string]: File[] }>({});
   const [commentImagePreviews, setCommentImagePreviews] = useState<{ [key: string]: string[] }>({});
   const [showSearchPopup, setShowSearchPopup] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
+  
+  // Family tree details state
+  const [familyTreeData, setFamilyTreeData] = useState<any>(null);
+  const [familyTreeLoading, setFamilyTreeLoading] = useState(false);
+  
+  // User data state (similar to Navigation.tsx)
+  const [userData, setUserData] = useState({ name: '', picture: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -69,97 +90,433 @@ const PostPage: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Mock posts data
-  const [posts, setPosts] = useState<Post[]>([
-    {
-      id: '1',
+  // Reaction states
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [hoveredPost, setHoveredPost] = useState<string | null>(null);
+  const [postReactions, setPostReactions] = useState<{ [postId: string]: any[] }>({});
+  const [showReactionPopup, setShowReactionPopup] = useState<string | null>(null);
+  const [reactionSummaryData, setReactionSummaryData] = useState<{ [postId: string]: { [key: string]: number } }>({});
+
+  // Search states
+  const [searchResults, setSearchResults] = useState<Post[]>([]);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // Reaction types
+  const reactionTypes = [
+    { type: 'Like', emoji: '👍', label: 'Thích' },
+    { type: 'Love', emoji: '❤️', label: 'Yêu thích' },
+    { type: 'Haha', emoji: '😆', label: 'Haha' },
+    { type: 'Wow', emoji: '😮', label: 'Wow' },
+    { type: 'Sad', emoji: '😢', label: 'Buồn' },
+    { type: 'Angry', emoji: '😠', label: 'Giận dữ' }
+  ];
+
+  // Function to transform API comment to Comment interface
+  const transformApiComment = (apiComment: any): Comment => {
+    return {
+      id: apiComment.id || `comment-${Date.now()}-${Math.random()}`,
       author: {
-        name: 'Nguyễn Văn An',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-        timeAgo: '2 giờ trước'
+        name: apiComment.authorName || 'Unknown User',
+        avatar: apiComment.authorPicture || defaultPicture
       },
-      content: 'Mình vừa tìm được thông tin về tổ tiên đời thứ 8 của gia đình. Rất vui mừng và xúc động khi khám phá được nguồn gốc gia phả của mình. Có ai cũng đang nghiên cứu về gia phả họ Nguyễn không ạ?',
-      images: ['https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=600&h=400&fit=crop'],
-      likes: 24,
-      isLiked: false,
-      comments: [
-        {
-          id: '1-1',
-          author: {
-            name: 'Trần Thị Bình',
-            avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
-          },
-          content: 'Tuyệt vời quá! Mình cũng đang tìm hiểu về dòng họ Trần. Có thể chia sẻ kinh nghiệm không ạ?',
-          timeAgo: '1 giờ trước',
-          likes: 3,
-          isLiked: false,
-          replies: [
-            {
-              id: '1-1-1',
-              author: {
-                name: 'Nguyễn Văn An',
-                avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-              },
-              content: 'Chào chị Bình! Mình rất sẵn lòng chia sẻ. Có thể liên hệ qua tin nhắn riêng không ạ?',
-              timeAgo: '45 phút trước',
-              likes: 1,
-              isLiked: false
-            },
-            {
-              id: '1-1-2',
-              author: {
-                name: 'Phạm Văn Đức',
-                avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face'
-              },
-              content: 'Mình cũng quan tâm đến chủ đề này. Cho mình tham gia thảo luận được không ạ?',
-              timeAgo: '30 phút trước',
-              likes: 2,
-              isLiked: true
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: '2',
-      author: {
-        name: 'Lê Minh Hoàng',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-        timeAgo: '5 giờ trước'
-      },
-      content: 'Hôm nay về quê và được nghe ông nội kể về những câu chuyện xưa. Cảm ơn ứng dụng đã giúp mình ghi chép lại những thông tin quý báu này!',
-      likes: 42,
-      isLiked: true,
-      comments: [
-        {
-          id: '2-1',
-          author: {
-            name: 'Phạm Thị Mai',
-            avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face'
-          },
-          content: 'Thật là ý nghĩa! Những câu chuyện từ ông bà là kho báu vô giá. Đây là một số tài liệu về gia phả mà gia đình mình lưu giữ:',
-          images: [
-            'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=300&h=200&fit=crop',
-            'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=200&fit=crop'
-          ],
-          timeAgo: '3 giờ trước',
-          likes: 5,
-          isLiked: true
-        },
-        {
-          id: '2-2',
-          author: {
-            name: 'Vũ Đức Thắng',
-            avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face'
-          },
-          content: 'Mình cũng nên về quê hỏi ông bà nhiều hơn. Cảm ơn bạn đã nhắc nhở!',
-          timeAgo: '2 giờ trước',
-          likes: 2,
-          isLiked: false
-        }
-      ]
+      content: apiComment.content || '',
+      images: apiComment.attachments?.map((file: any) => file.url) || [],
+      timeAgo: formatTimeAgo(apiComment.createdOn || new Date().toISOString()),
+      likes: apiComment.totalReactions || 0,
+      isLiked: apiComment.isLiked || false,
+      replies: apiComment.childComments ? apiComment.childComments.map(transformApiComment) : []
+    };
+  };
+
+  // Function to load comments for a specific post
+  const loadCommentsForPost = async (postId: string): Promise<Comment[]> => {
+    try {
+      const result = await postService.getComments(postId);
+      
+      // Handle both API response formats
+      const success = result.success || result.status || (result.statusCode === 200);
+      const data = result.data;
+      
+      if (success && data) {
+        // Transform API comment data to match Comment interface
+        return data.map(transformApiComment);
+      }
+      return [];
+    } catch (error) {
+      console.error(`Error loading comments for post ${postId}:`, error);
+      return [];
     }
-  ]);
+  };
+
+  // Function to refresh comments for a specific post
+  const refreshCommentsForPost = async (postId: string) => {
+    try {
+      const comments = await loadCommentsForPost(postId);
+      setPosts(prev => prev.map(post =>
+        post.id === postId
+          ? { ...post, comments }
+          : post
+      ));
+    } catch (error) {
+      console.error(`Error refreshing comments for post ${postId}:`, error);
+    }
+  };
+
+  // Function to load replies for a specific comment
+  const loadRepliesForComment = async (commentId: string): Promise<Comment[]> => {
+    try {
+      const result = await postService.getCommentReplies(commentId);
+      if (result.success && result.data) {
+        return result.data.map(transformApiComment);
+      }
+      return [];
+    } catch (error) {
+      console.error(`Error loading replies for comment ${commentId}:`, error);
+      return [];
+    }
+  };
+
+  // Function to refresh replies for a specific comment (useful for "Load more replies" functionality)
+  const refreshRepliesForComment = async (postId: string, commentId: string) => {
+    try {
+      const replies = await loadRepliesForComment(commentId);
+      setPosts(prev => prev.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            comments: post.comments.map(comment => {
+              if (comment.id === commentId) {
+                return { ...comment, replies };
+              }
+              return comment;
+            })
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error(`Error refreshing replies for comment ${commentId}:`, error);
+    }
+  };
+
+  // Load posts from API
+  const loadPosts = async () => {
+    // Use familyTreeId from params or fallback to a default one for testing
+    const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
+    
+    if (!currentFamilyTreeId) {
+      setError('Family Tree ID is required');
+      return;
+    }
+
+    setInitialLoading(true);
+    setError(null);
+    try {
+      const result = await postService.getPostsByFamilyTree(currentFamilyTreeId);
+      
+      console.log('Posts API response:', result);
+      
+      // Handle both API response formats
+      const success = result.success || result.status || (result.statusCode === 200);
+      const data = result.data;
+      
+      if (success && data) {
+        // Transform API data to match Post interface
+        const transformedPosts: Post[] = await Promise.all(
+          data.map(async (apiPost: PostData) => {
+            // Load comments for each post
+            const comments = await loadCommentsForPost(apiPost.id);
+            
+            return {
+              id: apiPost.id,
+              title: apiPost.title,
+              author: {
+                name: apiPost.authorName || apiPost.author?.name || apiPost.createdBy || 'Unknown User',
+                avatar: apiPost.authorPicture || apiPost.author?.avatar || defaultPicture,
+                timeAgo: formatTimeAgo(apiPost.createdOn || apiPost.createdAt || new Date().toISOString())
+              },
+              content: apiPost.content,
+              images: apiPost.attachments?.map(file => file.fileUrl || file.url) || apiPost.images || apiPost.files?.map(file => file.url) || [],
+              likes: apiPost.totalReactions || apiPost.likes || apiPost.likesCount || 0,
+              totalReactions: apiPost.totalReactions || 0,
+              reactionsSummary: apiPost.reactionsSummary || {},
+              userReaction: null, // Will be loaded separately
+              isLiked: apiPost.isLiked || false,
+              comments: comments,
+              isEdited: apiPost.lastModifiedOn !== apiPost.createdOn || apiPost.lastModifiedAt !== apiPost.createdAt,
+              ...(apiPost.lastModifiedOn !== apiPost.createdOn || apiPost.lastModifiedAt !== apiPost.createdAt) && {
+                editedAt: formatTimeAgo(apiPost.lastModifiedOn || apiPost.lastModifiedAt || new Date().toISOString())
+              }
+            };
+          })
+        );
+        
+        setPosts(transformedPosts);
+        
+        // Load reactions for each post
+        transformedPosts.forEach(post => {
+          loadPostReactions(post.id);
+          loadReactionSummary(post.id);
+        });
+      } else {
+        const errorMessage = result.message || result.errors || 'Failed to load posts';
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      
+      // More detailed error handling
+      let errorMessage = 'Có lỗi xảy ra khi tải bài viết';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        // Handle axios error or API error
+        const apiError = error as any;
+        if (apiError.response?.data?.message) {
+          errorMessage = apiError.response.data.message;
+        } else if (apiError.response?.data?.errors) {
+          errorMessage = apiError.response.data.errors;
+        } else if (apiError.message) {
+          errorMessage = apiError.message;
+        }
+      }
+      
+      console.error('Detailed error:', {
+        error,
+        familyTreeId: currentFamilyTreeId,
+        user,
+        token: token ? 'Present' : 'Missing'
+      });
+      
+      setError(errorMessage);
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPosts();
+  }, [familyTreeId]);
+
+  // Function to load reactions for a post
+  const loadPostReactions = async (postId: string) => {
+    try {
+      const result = await postService.getPostReactions(postId);
+      const success = result.success || result.status || (result.statusCode === 200);
+      
+      if (success && result.data) {
+        setPostReactions(prev => ({ ...prev, [postId]: result.data }));
+        
+        // Check if current user has reacted
+        const currentUserId = getUserIdFromToken(token || '');
+        const userReaction = result.data.find((reaction: any) => reaction.gpMemberId === currentUserId);
+        
+        // Update post with user reaction
+        setPosts(prev => prev.map(post => 
+          post.id === postId 
+            ? { ...post, userReaction: userReaction?.reactionType || null }
+            : post
+        ));
+      }
+    } catch (error) {
+      console.error(`Error loading reactions for post ${postId}:`, error);
+    }
+  };
+
+  // Function to handle reaction click
+  const handleReaction = async (postId: string, reactionType: string) => {
+    try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+
+      // If user already has this reaction, remove it
+      if (post.userReaction === reactionType) {
+        await postService.removePostReaction(postId);
+        
+        // Update local state
+        setPosts(prev => prev.map(p => {
+          if (p.id === postId) {
+            const newReactionsSummary = { ...p.reactionsSummary };
+            const reactionKey = reactionType.toLowerCase();
+            if (newReactionsSummary[reactionKey]) {
+              newReactionsSummary[reactionKey]--;
+              if (newReactionsSummary[reactionKey] === 0) {
+                delete newReactionsSummary[reactionKey];
+              }
+            }
+            
+            return {
+              ...p,
+              userReaction: null,
+              totalReactions: Math.max(0, p.totalReactions - 1),
+              reactionsSummary: newReactionsSummary,
+              isLiked: false
+            };
+          }
+          return p;
+        }));
+      } else {
+        // Add or change reaction
+        await postService.addPostReaction(postId, reactionType);
+        
+        // Update local state
+        setPosts(prev => prev.map(p => {
+          if (p.id === postId) {
+            const newReactionsSummary = { ...p.reactionsSummary };
+            
+            // Remove old reaction if exists
+            if (p.userReaction) {
+              const oldReactionKey = p.userReaction.toLowerCase();
+              if (newReactionsSummary[oldReactionKey]) {
+                newReactionsSummary[oldReactionKey]--;
+                if (newReactionsSummary[oldReactionKey] === 0) {
+                  delete newReactionsSummary[oldReactionKey];
+                }
+              }
+            }
+            
+            // Add new reaction
+            const newReactionKey = reactionType.toLowerCase();
+            newReactionsSummary[newReactionKey] = (newReactionsSummary[newReactionKey] || 0) + 1;
+            
+            const totalChange = p.userReaction ? 0 : 1; // Only increase if no previous reaction
+            
+            return {
+              ...p,
+              userReaction: reactionType,
+              totalReactions: p.totalReactions + totalChange,
+              reactionsSummary: newReactionsSummary,
+              isLiked: reactionType === 'Like'
+            };
+          }
+          return p;
+        }));
+      }
+      
+      setShowReactionPicker(null);
+      
+      // Reload reaction summary to get updated data
+      loadReactionSummary(postId);
+    } catch (error) {
+      console.error('Error handling reaction:', error);
+    }
+  };
+
+  // Function to get reaction summary text (top 3 reactions with emojis)
+  const getReactionSummaryText = (post: Post): string => {
+    const summary = post.reactionsSummary;
+    const entries = Object.entries(summary);
+    
+    if (entries.length === 0) return '';
+    
+    const reactionEmojis: { [key: string]: string } = {
+      like: '👍',
+      love: '❤️',
+      haha: '😆',
+      wow: '😮',
+      sad: '😢',
+      angry: '😠'
+    };
+    
+    const sortedEntries = entries.sort((a, b) => b[1] - a[1]);
+    const topReactions = sortedEntries.slice(0, 3);
+    
+    return topReactions.map(([type]) => 
+      reactionEmojis[type.toLowerCase()] || '👍'
+    ).join('');
+  };
+
+  // Function to load reaction summary for a post
+  const loadReactionSummary = async (postId: string) => {
+    try {
+      const result = await postService.getPostReactionSummary(postId);
+      const success = result.success || result.status || (result.statusCode === 200);
+      
+      if (success && result.data) {
+        setReactionSummaryData(prev => ({ ...prev, [postId]: result.data }));
+        
+        // Update post with reaction summary
+        setPosts(prev => prev.map(post => 
+          post.id === postId 
+            ? { ...post, reactionsSummary: result.data }
+            : post
+        ));
+      }
+    } catch (error) {
+      console.error(`Error loading reaction summary for post ${postId}:`, error);
+    }
+  };
+
+  // Function to handle reaction summary click (show popup)
+  const handleReactionSummaryClick = (postId: string) => {
+    setShowReactionPopup(postId);
+  };
+
+  // Load family tree details
+  useEffect(() => {
+    const loadFamilyTreeDetails = async () => {
+      const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
+      
+      if (!currentFamilyTreeId) return;
+
+      setFamilyTreeLoading(true);
+      try {
+        const result = await familyTreeService.getFamilyTreeById(currentFamilyTreeId);
+        
+        // Handle both API response formats
+        const success = result.success || result.status || (result.statusCode === 200);
+        const data = result.data;
+        
+        if (success && data) {
+          setFamilyTreeData(data);
+        } else {
+          console.error('Failed to load family tree details:', result.message);
+        }
+      } catch (error) {
+        console.error('Error loading family tree details:', error);
+      } finally {
+        setFamilyTreeLoading(false);
+      }
+    };
+
+    loadFamilyTreeDetails();
+  }, [familyTreeId]);
+
+  // Fetch user data (similar to Navigation.tsx)
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const response = await userService.getProfileData();
+        setUserData(prev => ({
+          ...prev,
+          name: response.data.name,
+          picture: response.data.picture
+        }));
+      } catch (error) {
+        console.log(error);
+      }
+    };
+    fetchInitialData();
+  }, []);
+
+  // Helper function to format time ago
+  const formatTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInMinutes < 1) return 'Vừa xong';
+    if (diffInMinutes < 60) return `${diffInMinutes} phút trước`;
+    if (diffInHours < 24) return `${diffInHours} giờ trước`;
+    if (diffInDays < 7) return `${diffInDays} ngày trước`;
+    
+    return date.toLocaleDateString('vi-VN');
+  };
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -212,74 +569,169 @@ const PostPage: React.FC = () => {
 
   const handleCreatePost = async () => {
     if (!postContent.trim() && selectedImages.length === 0) {
-      alert('Vui lòng nhập nội dung hoặc chọn ảnh');
+      alert('Vui lòng nhập nội dung bài viết hoặc chọn ảnh');
+      return;
+    }
+
+    // Validate content length
+    if (postContent.trim().length > 5000) {
+      alert('Nội dung bài viết không được vượt quá 5000 ký tự');
+      return;
+    }
+
+    // Validate title length if provided
+    if (postTitle.trim().length > 200) {
+      alert('Tiêu đề bài viết không được vượt quá 200 ký tự');
+      return;
+    }
+
+    // Use familyTreeId from params or fallback to a default one for testing
+    const currentFamilyTreeId = familyTreeId || '374a1ace-479b-435b-9bcf-05ea83ef7d17'; // Use the same ID as in curl example
+    
+    if (!currentFamilyTreeId) {
+      alert('Không tìm thấy ID gia phả');
+      return;
+    }
+
+    if (!token || !isAuthenticated) {
+      alert('Bạn cần đăng nhập để tạo bài viết');
       return;
     }
 
     setIsPosting(true);
 
     try {
+      // Extract user ID from JWT token
+      let memberId: string | null = null;
+      
+      try {
+        memberId = getUserIdFromToken(token!);
+        console.log('Extracted member ID from JWT:', memberId);
+      } catch (jwtError) {
+        console.error('Error extracting user ID from JWT:', jwtError);
+      }
+      
+      // Fallback to user state if JWT extraction fails
+      if (!memberId && user?.userId) {
+        memberId = user.userId;
+        console.log('Using user state member ID:', memberId);
+      }
+      
+      // If still no member ID, show error instead of using fallback
+      if (!memberId) {
+        alert('Không thể xác định thông tin người dùng. Vui lòng đăng nhập lại.');
+        return;
+      }
+      
       // Prepare data according to API structure
-      const postData = {
-        GPId: "your-group-id-here", // Replace with actual group ID
-        Title: postTitle.trim() || '',
+      const postData: CreatePostData = {
+        GPId: currentFamilyTreeId,
+        Title: postTitle.trim() || 'Untitled Post',
         Content: postContent.trim(),
-        GPMemberId: user?.id || "user-id-placeholder", // Replace with actual user/member ID
-        Status: 1, // Active status
-        Files: selectedImages, // File objects
-        Captions: fileCaptions.length > 0 ? fileCaptions : selectedImages.map(() => ''), // Caption for each file
-        FileTypes: selectedImages.map(file => {
+        GPMemberId: memberId,
+        Status: 1,
+        Files: selectedImages.length > 0 ? selectedImages : undefined,
+        Captions: fileCaptions.length > 0 ? fileCaptions : undefined,
+        FileTypes: selectedImages.length > 0 ? selectedImages.map(file => {
           if (file.type.startsWith('image/')) return 'image';
           if (file.type.startsWith('video/')) return 'video';
           return 'file';
-        })
+        }) : undefined
       };
 
       console.log('Creating post with data:', postData);
+      console.log('User info (state):', user);
+      console.log('User data (API):', userData);
+      console.log('Family Tree ID:', currentFamilyTreeId);
+      console.log('Extracted Member ID from JWT:', memberId);
+      console.log('Full name from JWT:', getFullNameFromToken(token!));
 
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/posts', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(postData)
-      // });
+      const response = await postService.createPost(postData);
+      
+      console.log('Post creation response:', response);
 
-      // Simulate API call for now
-      setTimeout(() => {
+      // Handle both API response formats
+      const success = response.success || response.status || (response.statusCode === 200);
+      const data = response.data;
+
+      if (success && data) {
+        // Transform API response to Post interface
         const newPost: Post = {
-          id: Date.now().toString(),
+          id: data.id,
           author: {
-            name: user?.name || 'Username',
-            avatar: defaultPicture,
+            name: data.authorName || userData.name || 'Username',
+            avatar: data.authorPicture || userData.picture || defaultPicture,
             timeAgo: 'Vừa xong'
           },
-          content: postContent,
-          images: imagePreviews,
-          likes: 0,
+          content: data.content,
+          images: data.attachments?.map((file: any) => file.url) || [],
+          likes: data.totalReactions || 0,
+          totalReactions: data.totalReactions || 0,
+          reactionsSummary: data.reactionsSummary || {},
+          userReaction: null,
           isLiked: false,
-          comments: []
+          comments: response.data.comments || [],
+          title: response.data.title
         };
 
         setPosts(prev => [newPost, ...prev]);
         
-        // Reset form
-        setPostTitle('');
-        setPostContent('');
-        setSelectedImages([]);
-        setImagePreviews([]);
-        setFileCaptions([]);
-        setIsPosting(false);
-        setShowCreatePostModal(false);
-      }, 1000);
-
-    } catch (error) {
+        // Close modal and reset form
+        handleCloseCreatePostModal();
+        
+        alert('Bài viết đã được tạo thành công!');
+      } else {
+        console.error('Post creation failed:', response);
+        throw new Error(response.message || 'Failed to create post');
+      }
+    } catch (error: any) {
       console.error('Error creating post:', error);
-      alert('Có lỗi xảy ra khi tạo bài viết. Vui lòng thử lại!');
+      
+      // More specific error messages
+      let errorMessage = 'Có lỗi xảy ra khi tạo bài viết. Vui lòng thử lại!';
+      
+      if (error.response?.status === 400) {
+        errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Bạn không có quyền thực hiện hành động này.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
+    } finally {
       setIsPosting(false);
     }
   };
+
+  const handleCloseCreatePostModal = () => {
+    // Reset form when closing modal
+    setPostTitle('');
+    setPostContent('');
+    setSelectedImages([]);
+    setImagePreviews([]);
+    setFileCaptions([]);
+    setShowCreatePostModal(false);
+  };
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showCreatePostModal) {
+        handleCloseCreatePostModal();
+      }
+    };
+
+    if (showCreatePostModal) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showCreatePostModal]);
 
   const handleLike = (id: string, type: 'post' | 'comment', postId?: string) => {
     // Validation
@@ -359,35 +811,78 @@ const PostPage: React.FC = () => {
     handleLike(commentId, 'comment', postId);
   };
 
-  const handleCommentSubmit = (postId: string) => {
+  const handleCommentSubmit = async (postId: string) => {
     const commentText = commentInputs[postId]?.trim();
-    const images = commentImagePreviews[postId] || [];
+    const images = commentImages[postId] || [];
 
     if (!commentText && images.length === 0) return;
 
-    const newComment: Comment = {
-      id: `${postId}-${Date.now()}`,
-      author: {
-        name: getCurrentUserName(),
-        avatar: defaultPicture
-      },
-      content: commentText || '',
-      ...(images.length > 0 && { images }),
-      timeAgo: 'Vừa xong',
-      likes: 0,
-      isLiked: false
-    };
+    try {
+      // Submit comment to API
+      const result = await postService.addComment(postId, commentText || '', images);
+      
+      // Handle both API response formats
+      const success = result.success || result.status || (result.statusCode === 200);
+      const data = result.data;
+      
+      if (success && data) {
+        // Create new comment from API response
+        const newComment: Comment = {
+          id: data.id || `${postId}-${Date.now()}`,
+          author: {
+            name: data.authorName || userData.name || getCurrentUserName(),
+            avatar: data.authorPicture || userData.picture || defaultPicture
+          },
+          content: data.content || commentText || '',
+          images: data.attachments?.map((file: any) => file.url) || [],
+          timeAgo: 'Vừa xong',
+          likes: data.totalReactions || 0,
+          isLiked: false
+        };
 
-    setPosts(prev => prev.map(post =>
-      post.id === postId
-        ? { ...post, comments: [...post.comments, newComment] }
-        : post
-    ));
+        // Update posts state with new comment
+        setPosts(prev => prev.map(post =>
+          post.id === postId
+            ? { ...post, comments: [...post.comments, newComment] }
+            : post
+        ));
 
-    // Clear comment input and images
-    setCommentInputs(prev => ({ ...prev, [postId]: '' }));
-    setCommentImages(prev => ({ ...prev, [postId]: [] }));
-    setCommentImagePreviews(prev => ({ ...prev, [postId]: [] }));
+        // Clear comment input and images
+        setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+        setCommentImages(prev => ({ ...prev, [postId]: [] }));
+        setCommentImagePreviews(prev => ({ ...prev, [postId]: [] }));
+      } else {
+        throw new Error(result.message || 'Failed to submit comment');
+      }
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+      alert('Có lỗi xảy ra khi gửi bình luận. Vui lòng thử lại.');
+      
+      // Fallback: Add comment locally (temporary until refresh)
+      const newComment: Comment = {
+        id: `${postId}-${Date.now()}`,
+        author: {
+          name: userData.name || getCurrentUserName(),
+          avatar: userData.picture || defaultPicture
+        },
+        content: commentText || '',
+        images: commentImagePreviews[postId] || [],
+        timeAgo: 'Vừa xong',
+        likes: 0,
+        isLiked: false
+      };
+
+      setPosts(prev => prev.map(post =>
+        post.id === postId
+          ? { ...post, comments: [...post.comments, newComment] }
+          : post
+      ));
+
+      // Clear comment input and images
+      setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+      setCommentImages(prev => ({ ...prev, [postId]: [] }));
+      setCommentImagePreviews(prev => ({ ...prev, [postId]: [] }));
+    }
   };
 
   // New handler functions
@@ -487,7 +982,8 @@ const PostPage: React.FC = () => {
   // Copy link function
   const handleCopyLink = async () => {
     try {
-      const groupUrl = `${window.location.origin}/group/gia-pha-gia-dinh-nguyen`;
+      const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
+      const groupUrl = `${window.location.origin}/group/${currentFamilyTreeId}`;
       await navigator.clipboard.writeText(groupUrl);
       alert('Đã sao chép link vào clipboard!');
       setShowSharePopup(false);
@@ -642,7 +1138,7 @@ const PostPage: React.FC = () => {
     }
 
     // Check if the current user is the author of the comment
-    if (!isCurrentUserComment(comment.author.name)) {
+    if (!isCurrentUserComment(comment.author?.name)) {
       console.warn('User attempting to delete another user\'s comment');
       alert('Bạn chỉ có thể xóa bình luận của chính mình!');
       setShowCommentMenu(null);
@@ -708,13 +1204,31 @@ const PostPage: React.FC = () => {
 
   const handleSearchPosts = () => {
     if (searchQuery.trim()) {
-      const filteredPosts = posts.filter(post =>
-        post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        post.author.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      console.log('Search results:', filteredPosts);
-      // TODO: Display filtered results
+      setSearchLoading(true);
+      
+      // Simulate API call delay (remove this in production if API exists)
+      setTimeout(() => {
+        const filteredPosts = posts.filter(post =>
+          post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          post.author.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        
+        setSearchResults(filteredPosts);
+        setIsSearchActive(true);
+        setSearchLoading(false);
+        setShowSearchPopup(false);
+        
+        console.log(`Tìm thấy ${filteredPosts.length} bài viết cho từ khóa: "${searchQuery}"`);
+      }, 500);
     }
+  };
+
+  // Function to clear search and show all posts
+  const handleClearSearch = () => {
+    setSearchResults([]);
+    setIsSearchActive(false);
+    setSearchQuery('');
   };
 
   const handleCommentImageSelect = (postId: string, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -758,43 +1272,92 @@ const PostPage: React.FC = () => {
     setCommentImagePreviews(prev => ({ ...prev, [postId]: newPreviews }));
   };
 
-  const handleReplySubmit = (postId: string, parentCommentId: string) => {
+  const handleReplySubmit = async (postId: string, parentCommentId: string) => {
     const replyText = replyInputs[parentCommentId]?.trim();
     if (!replyText) return;
 
-    const newReply: Comment = {
-      id: `${parentCommentId}-reply-${Date.now()}`,
-      author: {
-        name: user?.name || 'Username',
-        avatar: defaultPicture
-      },
-      content: replyText,
-      timeAgo: 'Vừa xong',
-      likes: 0,
-      isLiked: false
-    };
-
-    setPosts(prev => prev.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          comments: post.comments.map(comment => {
-            if (comment.id === parentCommentId) {
-              return {
-                ...comment,
-                replies: [...(comment.replies || []), newReply]
-              };
-            }
-            return comment;
-          })
+    try {
+      // Submit reply to API
+      const result = await postService.addCommentReply(parentCommentId, replyText);
+      
+      if (result.success && result.data) {
+        // Create new reply from API response
+        const newReply: Comment = {
+          id: result.data.id || `${parentCommentId}-reply-${Date.now()}`,
+          author: {
+            name: result.data.authorName || userData.name || user?.name || 'Username',
+            avatar: result.data.authorPicture || userData.picture || defaultPicture
+          },
+          content: result.data.content || replyText,
+          timeAgo: 'Vừa xong',
+          likes: result.data.totalReactions || 0,
+          isLiked: false
         };
-      }
-      return post;
-    }));
 
-    // Clear reply input and hide reply interface
-    setReplyInputs(prev => ({ ...prev, [parentCommentId]: '' }));
-    setReplyingToComment(null);
+        // Update posts state with new reply
+        setPosts(prev => prev.map(post => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              comments: post.comments.map(comment => {
+                if (comment.id === parentCommentId) {
+                  return {
+                    ...comment,
+                    replies: [...(comment.replies || []), newReply]
+                  };
+                }
+                return comment;
+              })
+            };
+          }
+          return post;
+        }));
+
+        // Clear reply input and hide reply interface
+        setReplyInputs(prev => ({ ...prev, [parentCommentId]: '' }));
+        setReplyingToComment(null);
+      } else {
+        throw new Error(result.message || 'Failed to submit reply');
+      }
+    } catch (error) {
+      console.error('Error submitting reply:', error);
+      alert('Có lỗi xảy ra khi gửi trả lời. Vui lòng thử lại.');
+      
+      // Fallback: Add reply locally (temporary until refresh)
+      const newReply: Comment = {
+        id: `${parentCommentId}-reply-${Date.now()}`,
+        author: {
+          name: userData.name || user?.name || 'Username',
+          avatar: userData.picture || defaultPicture
+        },
+        content: replyText,
+        timeAgo: 'Vừa xong',
+        likes: 0,
+        isLiked: false
+      };
+
+      setPosts(prev => prev.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            comments: post.comments.map(comment => {
+              if (comment.id === parentCommentId) {
+                return {
+                  ...comment,
+                  replies: [...(comment.replies || []), newReply]
+                };
+              }
+              return comment;
+            })
+          };
+        }
+        return post;
+      }));
+
+      // Clear reply input and hide reply interface
+      setReplyInputs(prev => ({ ...prev, [parentCommentId]: '' }));
+      setReplyingToComment(null);
+    }
   };
 
   const handleOpenPostDetail = (post: Post) => {
@@ -811,8 +1374,8 @@ const PostPage: React.FC = () => {
     return user?.name === authorName;
   };
 
-  const isCurrentUserComment = (commentAuthorName: string) => {
-    return user?.name === commentAuthorName;
+  const isCurrentUserComment = (commentAuthorName?: string) => {
+    return user?.name && commentAuthorName && user.name === commentAuthorName;
   };
 
   // Recursive Comment Component
@@ -833,8 +1396,8 @@ const PostPage: React.FC = () => {
 
         <div className="flex items-start space-x-3">
           <img
-            src={comment.author.avatar}
-            alt={comment.author.name}
+            src={comment.author?.avatar || defaultPicture}
+            alt={comment.author?.name || 'User'}
             className="w-8 h-8 rounded-full object-cover flex-shrink-0 relative z-10 bg-white"
             onError={(e) => {
               (e.target as HTMLImageElement).src = defaultPicture;
@@ -842,7 +1405,7 @@ const PostPage: React.FC = () => {
           />
           <div className="flex-1">
             <div className="bg-gray-100 rounded-lg px-4 py-2">
-              <p className="font-semibold text-sm text-gray-900">{comment.author.name}</p>
+              <p className="font-semibold text-sm text-gray-900">{comment.author?.name || 'User'}</p>
               <p className="text-gray-900">{comment.content}</p>
 
               {/* Comment Images */}
@@ -902,7 +1465,7 @@ const PostPage: React.FC = () => {
                 </button>
                 {showCommentMenu === comment.id && (
                   <div className="absolute right-0 top-6 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-                    {isCurrentUserComment(comment.author.name) ? (
+                    {isCurrentUserComment(comment.author?.name) ? (
                       <>
                         <button
                           onClick={() => {
@@ -941,14 +1504,20 @@ const PostPage: React.FC = () => {
             {replyingToComment === comment.id && canReply && (
               <div className="mt-3">
                 <div className="flex items-center space-x-2">
-                  <img
-                    src={defaultPicture}
-                    alt="Your avatar"
-                    className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = defaultPicture;
-                    }}
-                  />
+                  {userData.picture ? (
+                    <img
+                      src={userData.picture}
+                      alt="Your avatar"
+                      className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = defaultPicture;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <User size={12} className="text-gray-500" />
+                    </div>
+                  )}
                   <input
                     type="text"
                     value={replyInputs[comment.id] || ''}
@@ -1000,7 +1569,7 @@ const PostPage: React.FC = () => {
           {/* Cover Photo */}
           <div className="h-80 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 relative overflow-hidden">
             <img
-              src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=1200&h=400&fit=crop"
+              src={familyTreeData?.picture || "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=1200&h=400&fit=crop"}
               alt="Group cover"
               className="w-full h-full object-cover opacity-80"
             />
@@ -1015,32 +1584,19 @@ const PostPage: React.FC = () => {
                   {/* Group Details */}
                   <div>
                     <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                      Gia Phả Gia Đình Nguyễn
+                      {familyTreeLoading ? (
+                        <div className="h-10 bg-gray-200 rounded animate-pulse w-64"></div>
+                      ) : (
+                        familyTreeData?.name || 'Gia Phả Gia Đình'
+                      )}
                     </h1>
                     <div className="flex items-center space-x-4 text-gray-600 mb-2">
-                      <span className="text-sm font-medium">28.3K thành viên</span>
-                    </div>
-
-                    {/* Member Avatars */}
-                    <div className="flex items-center space-x-1">
-                      <div className="flex -space-x-1">
-                        {[
-                          'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face',
-                          'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face',
-                          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face',
-                          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face',
-                          'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face'
-                        ].map((avatar, index) => (
-                          <img
-                            key={index}
-                            src={avatar}
-                            alt={`Member ${index + 1}`}
-                            className="w-6 h-6 rounded-full border-2 border-white object-cover"
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs text-gray-500 ml-2">
-                        <span className="font-medium">Trần Thị Bình</span> và {Math.floor(Math.random() * 10) + 5} người khác là bạn bè của bạn
+                      <span className="text-sm font-medium">
+                        {familyTreeLoading ? (
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+                        ) : (
+                          `${familyTreeData?.numberOfMember || 0} thành viên`
+                        )}
                       </span>
                     </div>
                   </div>
@@ -1085,14 +1641,20 @@ const PostPage: React.FC = () => {
                 <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                   <div className="p-4">
                     <div className="flex items-center space-x-3">
-                      <img
-                        src={defaultPicture}
-                        alt="Your avatar"
-                        className="w-10 h-10 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = defaultPicture;
-                        }}
-                      />
+                      {userData.picture ? (
+                        <img
+                          src={userData.picture}
+                          alt="Your avatar"
+                          className="w-10 h-10 rounded-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = defaultPicture;
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <User size={20} className="text-gray-500" />
+                        </div>
+                      )}
                       <button
                         onClick={() => setShowCreatePostModal(true)}
                         className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-full text-left text-gray-500 transition-colors cursor-pointer"
@@ -1126,8 +1688,136 @@ const PostPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Loading State */}
+                {initialLoading ? (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="animate-pulse">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                        <div className="space-y-2 flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/6"></div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      </div>
+                      <div className="h-32 bg-gray-200 rounded mt-4"></div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Error State */}
+                {error && !initialLoading ? (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="text-center">
+                      <div className="text-red-500 mb-2">
+                        <X className="w-12 h-12 mx-auto" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Không thể tải bài viết</h3>
+                      <p className="text-gray-600 mb-4">{error}</p>
+                      <div className="space-x-3">
+                        <button
+                          onClick={() => {
+                            setError(null);
+                            loadPosts();
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                          Thử lại
+                        </button>
+                        <button
+                          onClick={() => window.location.reload()}
+                          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                        >
+                          Tải lại trang
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Empty State */}
+                {!initialLoading && !error && posts.length === 0 ? (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                    <div className="text-center">
+                      <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có bài viết nào</h3>
+                      <p className="text-gray-600 mb-4">Hãy là người đầu tiên chia sẻ câu chuyện của gia đình!</p>
+                      <button
+                        onClick={() => setShowCreatePostModal(true)}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        Tạo bài viết đầu tiên
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Search Results Header */}
+                {isSearchActive && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Kết quả tìm kiếm cho "{searchQuery}"
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Tìm thấy {searchResults.length} bài viết
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleClearSearch}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center space-x-2"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Xóa tìm kiếm</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Search Loading State */}
+                {searchLoading && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="animate-pulse">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                        <div className="space-y-2 flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/6"></div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Search Empty State */}
+                {isSearchActive && !searchLoading && searchResults.length === 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                    <div className="text-center">
+                      <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Không tìm thấy bài viết nào</h3>
+                      <p className="text-gray-600 mb-4">
+                        Không có bài viết nào chứa từ khóa "{searchQuery}". Thử tìm kiếm với từ khóa khác.
+                      </p>
+                      <button
+                        onClick={handleClearSearch}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        Xem tất cả bài viết
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Posts Feed */}
-                {posts.map((post) => (
+                {!initialLoading && !error && !searchLoading && (isSearchActive ? searchResults : posts).length > 0 && (isSearchActive ? searchResults : posts).map((post) => (
                   <div key={post.id} className="bg-white shadow-sm rounded-lg border border-gray-200">
                     {/* Post Header */}
                     <div className="p-6 pb-4">
@@ -1203,6 +1893,13 @@ const PostPage: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Post Title */}
+                    {post.title && (
+                      <div className="px-6 pb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">{post.title}</h3>
+                      </div>
+                    )}
+
                     {/* Post Content */}
                     <div className="px-6 pb-4">
                       {editingPostId === post.id ? (
@@ -1254,8 +1951,40 @@ const PostPage: React.FC = () => {
                     <div className="px-6 py-3 border-t border-gray-200">
                       <div className="flex items-center justify-between text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
-                          <ThumbsUp className="w-4 h-4 text-blue-600" />
-                          <span>{post.likes} lượt thích</span>
+                          {post.totalReactions > 0 ? (
+                            <div className="flex items-center space-x-1 cursor-pointer hover:underline"
+                                 onClick={() => handleReactionSummaryClick(post.id)}
+                                 onMouseEnter={() => setHoveredPost(post.id)}
+                                 onMouseLeave={() => setHoveredPost(null)}>
+                              <span className="text-lg">{getReactionSummaryText(post)}</span>
+                              <span>{post.totalReactions}</span>
+                              
+                              {/* Reaction tooltip on hover */}
+                              {hoveredPost === post.id && (
+                                <div className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 mt-8 min-w-48">
+                                  <div className="space-y-1 text-sm">
+                                    {Object.entries(post.reactionsSummary)
+                                      .sort((a, b) => b[1] - a[1])
+                                      .map(([type, count]) => {
+                                      const reactionEmoji = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase())?.emoji || '👍';
+                                      const reactionLabel = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase())?.label || type;
+                                      return (
+                                        <div key={type} className="flex items-center justify-between">
+                                          <span className="flex items-center space-x-2">
+                                            <span className="text-base">{reactionEmoji}</span>
+                                            <span>{reactionLabel}</span>
+                                          </span>
+                                          <span className="font-medium">{count}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span>0 phản ứng</span>
+                          )}
                         </div>
                         <div>
                           {post.comments.length > 0 && (
@@ -1268,14 +1997,55 @@ const PostPage: React.FC = () => {
                     {/* Post Actions */}
                     <div className="px-6 py-3 border-t border-gray-200">
                       <div className="flex items-center justify-around">
-                        <button
-                          onClick={() => handleLike(post.id, 'post')}
-                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors ${post.isLiked ? 'text-blue-600' : 'text-gray-600'
+                        <div className="relative">
+                          <button
+                            onMouseEnter={() => setShowReactionPicker(post.id)}
+                            onMouseLeave={() => {
+                              // Delay hiding to allow hovering over picker
+                              setTimeout(() => {
+                                if (showReactionPicker === post.id) {
+                                  setShowReactionPicker(null);
+                                }
+                              }, 300);
+                            }}
+                            onClick={() => handleReaction(post.id, 'Like')}
+                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors relative ${
+                              post.userReaction ? 'text-blue-600' : 'text-gray-600'
                             }`}
-                        >
-                          <ThumbsUp className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
-                          <span className="font-medium">Thích</span>
-                        </button>
+                          >
+                            {post.userReaction ? (
+                              <span className="text-lg">
+                                {reactionTypes.find(r => r.type === post.userReaction)?.emoji || '👍'}
+                              </span>
+                            ) : (
+                              <ThumbsUp className="w-5 h-5" />
+                            )}
+                            <span className="font-medium">
+                              {post.userReaction ? reactionTypes.find(r => r.type === post.userReaction)?.label : 'Thích'}
+                            </span>
+                          </button>
+
+                          {/* Reaction Picker */}
+                          {showReactionPicker === post.id && (
+                            <div 
+                              className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-full shadow-lg p-2 flex space-x-2 z-50"
+                              onMouseEnter={() => setShowReactionPicker(post.id)}
+                              onMouseLeave={() => setShowReactionPicker(null)}
+                            >
+                              {reactionTypes.map((reaction) => (
+                                <button
+                                  key={reaction.type}
+                                  onClick={() => handleReaction(post.id, reaction.type)}
+                                  className="text-2xl hover:scale-125 transition-transform duration-200 p-1 rounded-full hover:bg-gray-100"
+                                  title={reaction.label}
+                                >
+                                  {reaction.emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                         <button
                           onClick={() => {
                             const input = document.querySelector(`input[placeholder="Viết bình luận..."]`) as HTMLInputElement;
@@ -1307,14 +2077,20 @@ const PostPage: React.FC = () => {
                     {/* Comment Input - Always Visible */}
                     <div className="px-6 pb-4 border-t border-gray-200">
                       <div className="flex items-start space-x-3 mt-4">
-                        <img
-                          src={defaultPicture}
-                          alt="Your avatar"
-                          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = defaultPicture;
-                          }}
-                        />
+                        {userData.picture ? (
+                          <img
+                            src={userData.picture}
+                            alt="Your avatar"
+                            className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = defaultPicture;
+                            }}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            <User size={16} className="text-gray-500" />
+                          </div>
+                        )}
                         <div className="flex-1">
                           {/* Comment Image Previews */}
                           {(commentImagePreviews[post.id]?.length || 0) > 0 && (
@@ -1534,7 +2310,7 @@ const PostPage: React.FC = () => {
           {/* Search Popup */}
           {showSearchPopup && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold text-gray-900">Tìm kiếm bài viết</h2>
@@ -1545,31 +2321,71 @@ const PostPage: React.FC = () => {
                       <X className="w-6 h-6" />
                     </button>
                   </div>
+                  
                   <div className="space-y-4">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Nhập từ khóa tìm kiếm..."
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSearchPosts();
-                        }
-                      }}
-                    />
+                    {/* Search Input */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Từ khóa tìm kiếm
+                      </label>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Nhập nội dung bài viết, tiêu đề hoặc tên tác giả..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSearchPosts();
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Search Criteria */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-medium text-gray-900 mb-3">Tìm kiếm trong:</h3>
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span>Nội dung bài viết</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span>Tiêu đề bài viết</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                          <span>Tên tác giả</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Current Total Posts */}
+                    <div className="text-sm text-gray-500 text-center">
+                      Tổng cộng {posts.length} bài viết trong nhóm
+                    </div>
+
+                    {/* Action Buttons */}
                     <div className="flex justify-end space-x-3">
                       <button
-                        onClick={() => setShowSearchPopup(false)}
+                        onClick={() => {
+                          setShowSearchPopup(false);
+                          setSearchQuery('');
+                        }}
                         className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                       >
                         Hủy
                       </button>
                       <button
                         onClick={handleSearchPosts}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                        disabled={!searchQuery.trim()}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg transition-colors"
                       >
-                        Tìm kiếm
+                        <div className="flex items-center space-x-2">
+                          <Search className="w-4 h-4" />
+                          <span>Tìm kiếm</span>
+                        </div>
                       </button>
                     </div>
                   </div>
@@ -1596,18 +2412,22 @@ const PostPage: React.FC = () => {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center space-x-3 mb-3">
                         <img
-                          src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=60&h=60&fit=crop"
+                          src={familyTreeData?.picture || "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=60&h=60&fit=crop"}
                           alt="Group"
                           className="w-12 h-12 rounded-lg object-cover"
                         />
                         <div>
-                          <h3 className="font-semibold text-gray-900">Gia Phả Gia Đình Nguyễn</h3>
-                          <p className="text-sm text-gray-600">Nhóm công khai • 28.3K thành viên</p>
+                          <h3 className="font-semibold text-gray-900">
+                            {familyTreeData?.name || 'Gia Phả Gia Đình'}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            Nhóm công khai • {familyTreeData?.numberOfMember || 0} thành viên
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2 bg-white rounded-lg p-3 border">
                         <span className="flex-1 text-sm text-gray-600 truncate">
-                          {window.location.origin}/group/gia-pha-gia-dinh-nguyen
+                          {window.location.origin}/group/{familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440'}
                         </span>
                         <button
                           onClick={handleCopyLink}
@@ -1753,14 +2573,22 @@ const PostPage: React.FC = () => {
 
           {/* Create Post Modal */}
           {showCreatePostModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div 
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+              onClick={handleCloseCreatePostModal}
+            >
+              <div 
+                className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {/* Modal Header */}
                 <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                   <h2 className="text-xl font-bold text-gray-900">Tạo bài viết</h2>
                   <button
-                    onClick={() => setShowCreatePostModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-2"
+                    onClick={handleCloseCreatePostModal}
+                    className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    type="button"
+                    aria-label="Đóng"
                   >
                     <X className="w-6 h-6" />
                   </button>
@@ -1769,16 +2597,24 @@ const PostPage: React.FC = () => {
                 {/* User Info */}
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center space-x-3">
-                    <img
-                      src={defaultPicture}
-                      alt="Your avatar"
-                      className="w-10 h-10 rounded-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = defaultPicture;
-                      }}
-                    />
+                    {userData.picture ? (
+                      <img 
+                        src={userData.picture} 
+                        alt="Avatar" 
+                        className="w-10 h-10 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = defaultPicture;
+                        }}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <User size={20} className="text-gray-500" />
+                      </div>
+                    )}
                     <div>
-                      <p className="font-semibold text-gray-900">{user?.name || 'Username'}</p>
+                      <p className="font-semibold text-gray-900">
+                        {userData?.name || 'User'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1878,6 +2714,61 @@ const PostPage: React.FC = () => {
                     className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
                   >
                     {isPosting ? 'Đang đăng...' : 'Đăng'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reaction Popup Modal */}
+          {showReactionPopup && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                {/* Modal Header */}
+                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Phản ứng</h3>
+                  <button
+                    onClick={() => setShowReactionPopup(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-4 max-h-96 overflow-y-auto">
+                  {showReactionPopup && posts.find(p => p.id === showReactionPopup) && (
+                    <div className="space-y-3">
+                      {Object.entries(posts.find(p => p.id === showReactionPopup)!.reactionsSummary)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([type, count]) => {
+                          const reactionData = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase());
+                          const emoji = reactionData?.emoji || '👍';
+                          const label = reactionData?.label || type;
+                          
+                          return (
+                            <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center space-x-3">
+                                <span className="text-2xl">{emoji}</span>
+                                <div>
+                                  <span className="font-medium text-gray-900">{label}</span>
+                                </div>
+                              </div>
+                              <span className="text-lg font-semibold text-blue-600">{count}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-4 border-t border-gray-200">
+                  <button
+                    onClick={() => setShowReactionPopup(null)}
+                    className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                  >
+                    Đóng
                   </button>
                 </div>
               </div>
