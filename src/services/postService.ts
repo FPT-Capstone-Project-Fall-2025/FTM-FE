@@ -74,25 +74,24 @@ const postService = {
     formData.append('GPMemberId', data.GPMemberId);
     formData.append('Status', data.Status.toString());
     
-    // Add files if provided
+    // Handle files, captions, and file types together
     if (data.Files && data.Files.length > 0) {
+      console.log('Processing files:', data.Files.length);
+      console.log('Captions provided:', data.Captions?.length || 0);
+      
+      // Add files, captions, and file types in sync
       data.Files.forEach((file, index) => {
+        // Add file
         formData.append('Files', file);
-      });
-    }
-    // Note: Don't append Files if no files are selected - let the API handle the absence
-    
-    // Add captions if provided
-    if (data.Captions && data.Captions.length > 0) {
-      data.Captions.forEach((caption, index) => {
+        
+        // Add caption (empty string if not provided)
+        const caption = data.Captions && data.Captions[index] !== undefined ? data.Captions[index] : '';
         formData.append('Captions', caption);
-      });
-    }
-    
-    // Add file types if provided
-    if (data.FileTypes && data.FileTypes.length > 0) {
-      data.FileTypes.forEach((fileType, index) => {
-        formData.append('FileTypes', fileType);
+        
+        // Skip FileTypes to avoid validation errors - let API auto-detect
+        // API can determine file type from the actual file
+        
+        console.log(`File ${index}: ${file.name}, Caption: "${caption}"`);
       });
     }
 
@@ -101,6 +100,11 @@ const postService = {
     for (let pair of formData.entries()) {
       console.log(pair[0] + ': ' + pair[1]);
     }
+    
+    // Log detailed FormData structure  
+    console.log('Detailed FormData analysis:');
+    const formDataEntries = Array.from(formData.entries());
+    console.log('FormData entries count:', formDataEntries.length);
 
     return api.post('/post', formData, {
       headers: {
@@ -117,6 +121,65 @@ const postService = {
   // Update a post
   updatePost(postId: string, data: Partial<PostData>): Promise<ApiResponse<PostData>> {
     return api.put(`/post/${postId}`, data);
+  },
+
+  // Update post with files (Facebook-style editing)
+  updatePostWithFiles(postId: string, data: {
+    Title?: string;
+    Content?: string;
+    Status?: number;
+    GPId?: string;
+    GPMemberId?: string;
+    Files?: File[];
+    Captions?: string[];
+    FileTypes?: string[];
+    RemoveImageIds?: string[]; // IDs of images to remove
+  }): Promise<ApiResponse<PostData>> {
+    const formData = new FormData();
+    
+    // Add basic post data - Always include these fields even if empty
+    formData.append('Title', data.Title || '');
+    formData.append('Content', data.Content || '');
+    if (data.Status !== undefined) formData.append('Status', data.Status.toString());
+    if (data.GPId) formData.append('GPId', data.GPId);
+    if (data.GPMemberId) formData.append('GPMemberId', data.GPMemberId);
+    
+    // Handle files, captions, and file types if provided
+    if (data.Files && data.Files.length > 0) {
+      console.log('Processing files for update:', data.Files.length);
+      
+      data.Files.forEach((file, index) => {
+        formData.append('Files', file);
+        
+        const caption = data.Captions && data.Captions[index] !== undefined ? data.Captions[index] : '';
+        formData.append('Captions', caption);
+        
+        // Skip FileTypes for update to avoid validation errors
+        // Let API auto-detect file types from the actual file
+        
+        console.log(`Update File ${index}: ${file.name}, Caption: "${caption}"`);
+      });
+    }
+    
+    // Handle image removal
+    if (data.RemoveImageIds && data.RemoveImageIds.length > 0) {
+      data.RemoveImageIds.forEach(imageId => {
+        formData.append('RemoveImageIds', imageId);
+      });
+      console.log('Images to remove:', data.RemoveImageIds);
+    }
+
+    // Log the form data for debugging
+    console.log('Update FormData contents:');
+    for (let pair of formData.entries()) {
+      console.log(pair[0] + ': ' + pair[1]);
+    }
+
+    return api.put(`/post/${postId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   },
 
   // Delete a post

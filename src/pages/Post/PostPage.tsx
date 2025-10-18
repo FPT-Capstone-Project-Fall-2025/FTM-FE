@@ -2,16 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, User, Eye, Settings, Share, Plus } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, User, Eye, Settings, Share, Plus, Lock, Globe, Save, Camera, XCircle } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
 import postService, { type PostData, type CreatePostData } from '@/services/postService';
 import familyTreeService from '@/services/familyTreeService';
 import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
 import userService from '@/services/userService';
+import { useGPMember, useGPMemberId } from '@/hooks/useGPMember';
+import { toast } from 'react-toastify';
 
 interface Post {
   id: string;
   title?: string;
+  gpMemberId: string;
   author: {
     name: string;
     avatar: string;
@@ -72,8 +75,27 @@ const PostPage: React.FC = () => {
   // User data state (similar to Navigation.tsx)
   const [userData, setUserData] = useState({ name: '', picture: '' });
   const [searchQuery, setSearchQuery] = useState('');
+
+  // GPMember integration - Get GPMemberId for the current user in this family tree
+  const currentUserId = getUserIdFromToken(token || '') || user?.userId;
+  const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
+  
+  const { 
+    gpMemberId, 
+    gpMember, 
+    loading: gpMemberLoading, 
+    error: gpMemberError 
+  } = useGPMember(currentFamilyTreeId, currentUserId || null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editStatus, setEditStatus] = useState<number>(1); // 1 = public, 0 = private
+  const [editImages, setEditImages] = useState<File[]>([]);
+  const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
+  const [editCaptions, setEditCaptions] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<{id: string, url: string, caption?: string}[]>([]);
+  const [imagesToRemove, setImagesToRemove] = useState<string[]>([]);
+  const [isUpdatingPost, setIsUpdatingPost] = useState(false);
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null);
   const [showCommentMenu, setShowCommentMenu] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState('');
@@ -231,6 +253,7 @@ const PostPage: React.FC = () => {
             return {
               id: apiPost.id,
               title: apiPost.title,
+              gpMemberId: apiPost.gpMemberId,
               author: {
                 name: apiPost.authorName || apiPost.author?.name || apiPost.createdBy || 'Unknown User',
                 avatar: apiPost.authorPicture || apiPost.author?.avatar || defaultPicture,
@@ -300,6 +323,18 @@ const PostPage: React.FC = () => {
     loadPosts();
   }, [familyTreeId]);
 
+  // Log GPMemberId when it's loaded for debugging
+  useEffect(() => {
+    if (gpMemberId) {
+      console.log('GPMemberId loaded successfully:', gpMemberId);
+      console.log('Family Tree ID:', currentFamilyTreeId);
+      console.log('User ID:', currentUserId);
+    }
+    if (gpMemberError) {
+      console.error('GPMember error:', gpMemberError);
+    }
+  }, [gpMemberId, gpMemberError]);
+
   // Function to load reactions for a post
   const loadPostReactions = async (postId: string) => {
     try {
@@ -309,9 +344,8 @@ const PostPage: React.FC = () => {
       if (success && result.data) {
         setPostReactions(prev => ({ ...prev, [postId]: result.data }));
         
-        // Check if current user has reacted
-        const currentUserId = getUserIdFromToken(token || '');
-        const userReaction = result.data.find((reaction: any) => reaction.gpMemberId === currentUserId);
+        // Check if current user has reacted using gpMemberId
+        const userReaction = result.data.find((reaction: any) => reaction.gpMemberId === gpMemberId);
         
         // Update post with user reaction
         setPosts(prev => prev.map(post => 
@@ -521,18 +555,18 @@ const PostPage: React.FC = () => {
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (files.length + selectedImages.length > 4) {
-      alert('Chỉ có thể tải lên tối đa 4 ảnh');
+      toast.error('Chỉ có thể tải lên tối đa 4 ảnh');
       return;
     }
 
     const validFiles = files.filter(file => {
       if (file.size > 5 * 1024 * 1024) {
-        alert(`File ${file.name} quá lớn. Kích thước tối đa là 5MB`);
+        toast.error(`File ${file.name} quá lớn. Kích thước tối đa là 5MB`);
         return false;
       }
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4', 'video/avi', 'video/mov'];
       if (!allowedTypes.includes(file.type)) {
-        alert(`File ${file.name} không đúng định dạng. Chỉ chấp nhận JPEG, JPG, PNG, GIF, MP4, AVI, MOV`);
+        toast.error(`File ${file.name} không đúng định dạng. Chỉ chấp nhận JPEG, JPG, PNG, GIF, MP4, AVI, MOV`);
         return false;
       }
       return true;
@@ -569,19 +603,19 @@ const PostPage: React.FC = () => {
 
   const handleCreatePost = async () => {
     if (!postContent.trim() && selectedImages.length === 0) {
-      alert('Vui lòng nhập nội dung bài viết hoặc chọn ảnh');
+      toast.error('Vui lòng nhập nội dung bài viết hoặc chọn ảnh');
       return;
     }
 
     // Validate content length
     if (postContent.trim().length > 5000) {
-      alert('Nội dung bài viết không được vượt quá 5000 ký tự');
+      toast.error('Nội dung bài viết không được vượt quá 5000 ký tự');
       return;
     }
 
     // Validate title length if provided
     if (postTitle.trim().length > 200) {
-      alert('Tiêu đề bài viết không được vượt quá 200 ký tự');
+      toast.error('Tiêu đề bài viết không được vượt quá 200 ký tự');
       return;
     }
 
@@ -589,61 +623,61 @@ const PostPage: React.FC = () => {
     const currentFamilyTreeId = familyTreeId || '374a1ace-479b-435b-9bcf-05ea83ef7d17'; // Use the same ID as in curl example
     
     if (!currentFamilyTreeId) {
-      alert('Không tìm thấy ID gia phả');
+      toast.error('Không tìm thấy ID gia phả');
       return;
     }
 
     if (!token || !isAuthenticated) {
-      alert('Bạn cần đăng nhập để tạo bài viết');
+      toast.error('Bạn cần đăng nhập để tạo bài viết');
       return;
     }
 
     setIsPosting(true);
 
     try {
-      // Extract user ID from JWT token
-      let memberId: string | null = null;
-      
-      try {
-        memberId = getUserIdFromToken(token!);
-        console.log('Extracted member ID from JWT:', memberId);
-      } catch (jwtError) {
-        console.error('Error extracting user ID from JWT:', jwtError);
-      }
-      
-      // Fallback to user state if JWT extraction fails
-      if (!memberId && user?.userId) {
-        memberId = user.userId;
-        console.log('Using user state member ID:', memberId);
-      }
-      
-      // If still no member ID, show error instead of using fallback
-      if (!memberId) {
-        alert('Không thể xác định thông tin người dùng. Vui lòng đăng nhập lại.');
+      // Use gpMemberId from hook instead of manually extracting from token
+      if (!gpMemberId) {
+        if (gpMemberLoading) {
+          toast.warning('Đang tải thông tin thành viên gia phả. Vui lòng thử lại sau.');
+          return;
+        }
+        if (gpMemberError) {
+          toast.error(`Lỗi khi lấy thông tin thành viên gia phả: ${gpMemberError}`);
+          return;
+        }
+        toast.error('Không thể xác định thông tin thành viên trong gia phả. Vui lòng kiểm tra lại.');
         return;
       }
+      
+      console.log('Using GPMemberId:', gpMemberId);
+      
+      // Debug logging for arrays
+      console.log('selectedImages length:', selectedImages.length);
+      console.log('fileCaptions length:', fileCaptions.length);
+      console.log('fileCaptions array:', fileCaptions);
       
       // Prepare data according to API structure
       const postData: CreatePostData = {
         GPId: currentFamilyTreeId,
-        Title: postTitle.trim() || 'Untitled Post',
-        Content: postContent.trim(),
-        GPMemberId: memberId,
+        Title: postTitle.trim() || '',  // Allow empty title
+        Content: postContent.trim() || '', // Ensure Content is never undefined
+        GPMemberId: gpMemberId,
         Status: 1,
         Files: selectedImages.length > 0 ? selectedImages : undefined,
-        Captions: fileCaptions.length > 0 ? fileCaptions : undefined,
-        FileTypes: selectedImages.length > 0 ? selectedImages.map(file => {
-          if (file.type.startsWith('image/')) return 'image';
-          if (file.type.startsWith('video/')) return 'video';
-          return 'file';
-        }) : undefined
+        Captions: selectedImages.length > 0 ? fileCaptions : undefined,
+        // Temporarily disable FileTypes to test if it's causing the validation error
+        // FileTypes: selectedImages.length > 0 ? selectedImages.map((file, index) => {
+        //   if (file.type.startsWith('image/')) return 'Image';
+        //   if (file.type.startsWith('video/')) return 'Video';
+        //   return 'File';
+        // }) : undefined
       };
 
       console.log('Creating post with data:', postData);
       console.log('User info (state):', user);
       console.log('User data (API):', userData);
       console.log('Family Tree ID:', currentFamilyTreeId);
-      console.log('Extracted Member ID from JWT:', memberId);
+      console.log('GPMemberId:', gpMemberId);
       console.log('Full name from JWT:', getFullNameFromToken(token!));
 
       const response = await postService.createPost(postData);
@@ -658,6 +692,8 @@ const PostPage: React.FC = () => {
         // Transform API response to Post interface
         const newPost: Post = {
           id: data.id,
+          title: data.title,
+          gpMemberId: data.gpMemberId,
           author: {
             name: data.authorName || userData.name || 'Username',
             avatar: data.authorPicture || userData.picture || defaultPicture,
@@ -670,8 +706,7 @@ const PostPage: React.FC = () => {
           reactionsSummary: data.reactionsSummary || {},
           userReaction: null,
           isLiked: false,
-          comments: response.data.comments || [],
-          title: response.data.title
+          comments: response.data.comments || []
         };
 
         setPosts(prev => [newPost, ...prev]);
@@ -679,19 +714,35 @@ const PostPage: React.FC = () => {
         // Close modal and reset form
         handleCloseCreatePostModal();
         
-        alert('Bài viết đã được tạo thành công!');
+        toast.success('Bài viết đã được tạo thành công!');
       } else {
         console.error('Post creation failed:', response);
         throw new Error(response.message || 'Failed to create post');
       }
     } catch (error: any) {
       console.error('Error creating post:', error);
+      console.error('Error response data:', error.response?.data);
       
       // More specific error messages
       let errorMessage = 'Có lỗi xảy ra khi tạo bài viết. Vui lòng thử lại!';
       
       if (error.response?.status === 400) {
-        errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
+        // Check for validation errors
+        const validationErrors = error.response?.data?.errors;
+        if (validationErrors) {
+          console.error('Validation errors:', validationErrors);
+          const errorMessages = Object.entries(validationErrors)
+            .map(([field, messages]: [string, any]) => {
+              if (Array.isArray(messages)) {
+                return `${field}: ${messages.join(', ')}`;
+              }
+              return `${field}: ${messages}`;
+            })
+            .join('\n');
+          errorMessage = `Lỗi validation:\n${errorMessages}`;
+        } else {
+          errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
+        }
       } else if (error.response?.status === 401) {
         errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
       } else if (error.response?.status === 403) {
@@ -700,7 +751,7 @@ const PostPage: React.FC = () => {
         errorMessage = error.message;
       }
       
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsPosting(false);
     }
@@ -856,7 +907,7 @@ const PostPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error submitting comment:', error);
-      alert('Có lỗi xảy ra khi gửi bình luận. Vui lòng thử lại.');
+      toast.error('Có lỗi xảy ra khi gửi bình luận. Vui lòng thử lại.');
       
       // Fallback: Add comment locally (temporary until refresh)
       const newComment: Comment = {
@@ -885,8 +936,8 @@ const PostPage: React.FC = () => {
     }
   };
 
-  // New handler functions
-  const handleEditPost = (postId: string, content: string) => {
+  // Facebook-style edit post handler
+  const handleEditPost = (postId: string, content: string, title?: string) => {
     console.log('Attempting to edit post:', postId, 'by user:', getCurrentUserName());
 
     // Find the post to check ownership
@@ -894,89 +945,223 @@ const PostPage: React.FC = () => {
 
     if (!postToEdit) {
       console.error('Post not found:', postId);
-      alert('Bài viết không tồn tại!');
+      toast.error('Bài viết không tồn tại!');
       setShowPostMenu(null);
       return;
     }
 
     // Check if user is logged in
-    if (!user) {
-      console.error('User not logged in');
-      alert('Bạn cần đăng nhập để thực hiện hành động này!');
+    if (!isAuthenticated || !token) {
+      console.error('User not authenticated');
+      toast.error('Bạn cần đăng nhập để thực hiện hành động này!');
       setShowPostMenu(null);
       return;
     }
 
     // Check if the current user is the author of the post
-    if (!isCurrentUserPost(postToEdit.author.name)) {
+    if (!isCurrentUserPost(postToEdit.gpMemberId)) {
       console.warn('User attempting to edit another user\'s post');
-      alert('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
+      toast.error('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
       setShowPostMenu(null);
       return;
     }
 
     console.log('Edit permission granted, opening edit mode');
+    
+    // Initialize edit state
     setEditingPostId(postId);
     setEditContent(content);
+    setEditTitle(title || postToEdit.title || '');
+    setEditStatus(1); // Default to public, TODO: get from post data
+    
+    // Initialize existing images
+    const existingImgs = postToEdit.images?.map((url, index) => ({
+      id: `existing-${index}`, // Temporary ID for existing images
+      url: url,
+      caption: '' // TODO: get from post data if available
+    })) || [];
+    setExistingImages(existingImgs);
+    
+    // Reset edit states
+    setEditImages([]);
+    setEditImagePreviews([]);
+    setEditCaptions([]);
+    setImagesToRemove([]);
+    
     setShowPostMenu(null);
   };
 
-  const handleSaveEdit = (postId: string) => {
-    console.log('Attempting to save edit for post:', postId, 'by user:', getCurrentUserName());
-
-    // Find the post to check ownership before saving
-    const postToEdit = posts.find(post => post.id === postId);
-
-    if (!postToEdit) {
-      console.error('Post not found:', postId);
-      alert('Bài viết không tồn tại!');
-      setEditingPostId(null);
-      setEditContent('');
+  const handleSaveEdit = async (postId: string) => {
+    if (!editContent.trim() && editImages.length === 0 && existingImages.length === imagesToRemove.length) {
+      toast.error('Bài viết không thể trống');
       return;
     }
 
-    // Check if user is logged in
-    if (!user) {
-      console.error('User not logged in');
-      alert('Bạn cần đăng nhập để thực hiện hành động này!');
-      setEditingPostId(null);
-      setEditContent('');
+    if (!gpMemberId) {
+      toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
       return;
     }
 
-    // Check if the current user is the author of the post
-    if (!isCurrentUserPost(postToEdit.author.name)) {
-      console.warn('User attempting to save edit for another user\'s post');
-      alert('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
-      setEditingPostId(null);
-      setEditContent('');
-      return;
+    console.log('Attempting to save edit for post:', postId);
+    setIsUpdatingPost(true);
+
+    try {
+      const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
+      
+      // Prepare update data - ensure Content is never empty for API validation
+      const updateData = {
+        Title: editTitle.trim(),
+        Content: editContent.trim() || ' ', // Ensure content is never empty string
+        Status: editStatus,
+        GPId: currentFamilyTreeId, // Include Family Tree ID
+        GPMemberId: gpMemberId, // Include GPMemberId for ownership verification
+        Files: editImages.length > 0 ? editImages : undefined,
+        Captions: editImages.length > 0 ? editCaptions : undefined,
+        // Skip FileTypes to avoid validation errors - let API auto-detect
+        RemoveImageIds: imagesToRemove.length > 0 ? imagesToRemove : undefined
+      };
+
+      console.log('Updating post with data:', updateData);
+      const response = await postService.updatePostWithFiles(postId, updateData);
+
+      const success = response.success || response.status || (response.statusCode === 200);
+      if (success && response.data) {
+        // Update local post data
+        setPosts(prev => prev.map(post =>
+          post.id === postId ? {
+            ...post,
+            title: response.data.title,
+            content: response.data.content,
+            images: response.data.attachments?.map((file: any) => file.url) || [],
+            isEdited: true,
+            editedAt: 'Vừa xong'
+          } : post
+        ));
+
+        // Also update selectedPost if it's the same post being edited
+        if (selectedPost?.id === postId) {
+          setSelectedPost(prev => prev ? {
+            ...prev,
+            title: response.data.title,
+            content: response.data.content,
+            images: response.data.attachments?.map((file: any) => file.url) || [],
+            isEdited: true,
+            editedAt: 'Vừa xong'
+          } : null);
+        }
+
+        // Reset edit state
+        handleCancelEdit();
+        toast.success('Cập nhật bài viết thành công!');
+      } else {
+        throw new Error(response.message || 'Failed to update post');
+      }
+    } catch (error: any) {
+      console.error('Error updating post:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      
+      let errorMessage = 'Có lỗi xảy ra khi cập nhật bài viết. Vui lòng thử lại!';
+      
+      if (error.response?.status === 400) {
+        const responseData = error.response?.data;
+        
+        // Check for validation errors in different formats
+        if (responseData?.errors) {
+          const errorMessages = Object.entries(responseData.errors)
+            .map(([field, messages]: [string, any]) => {
+              if (Array.isArray(messages)) {
+                return `${field}: ${messages.join(', ')}`;
+              }
+              return `${field}: ${messages}`;
+            })
+            .join('\n');
+          errorMessage = `Lỗi validation:\n${errorMessages}`;
+        } else if (responseData?.message) {
+          errorMessage = `Lỗi API: ${responseData.message}`;
+        } else if (responseData?.title) {
+          errorMessage = `Lỗi API: ${responseData.title}`;
+        } else {
+          errorMessage = `Lỗi API 400: ${JSON.stringify(responseData)}`;
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = `Lỗi: ${error.response.data.message}`;
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsUpdatingPost(false);
     }
+  };
 
-    console.log('Save permission granted, updating post');
+  // Handle adding new images to edit
+  const handleEditImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    
+    const validFiles = files.filter(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`File ${file.name} quá lớn. Kích thước tối đa là 5MB`);
+        return false;
+      }
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4', 'video/avi', 'video/mov'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`File ${file.name} không đúng định dạng. Chỉ chấp nhận JPEG, JPG, PNG, GIF, MP4, AVI, MOV`);
+        return false;
+      }
+      return true;
+    });
 
-    setPosts(prev => prev.map(post =>
-      post.id === postId ? {
-        ...post,
-        content: editContent,
-        isEdited: true,
-        editedAt: 'Vừa xong'
-      } : post
-    ));
+    setEditImages(prev => [...prev, ...validFiles]);
+    setEditCaptions(prev => [...prev, ...validFiles.map(() => '')]);
 
-    // Also update selectedPost if it's the same post being edited
-    if (selectedPost?.id === postId) {
-      setSelectedPost(prev => prev ? {
-        ...prev,
-        content: editContent,
-        isEdited: true,
-        editedAt: 'Vừa xong'
-      } : null);
-    }
+    // Create previews
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setEditImagePreviews(prev => [...prev, e.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
 
+  // Remove new image from edit
+  const removeEditImage = (index: number) => {
+    setEditImages(prev => prev.filter((_, i) => i !== index));
+    setEditImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setEditCaptions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Remove existing image from edit
+  const removeExistingImage = (imageId: string) => {
+    setImagesToRemove(prev => [...prev, imageId]);
+    setExistingImages(prev => prev.filter(img => img.id !== imageId));
+  };
+
+  // Update caption for new images
+  const updateEditCaption = (index: number, caption: string) => {
+    setEditCaptions(prev => {
+      const newCaptions = [...prev];
+      newCaptions[index] = caption;
+      return newCaptions;
+    });
+  };
+
+  // Cancel edit and reset all states
+  const handleCancelEdit = () => {
     setEditingPostId(null);
     setEditContent('');
-    console.log('Post edit saved successfully');
+    setEditTitle('');
+    setEditStatus(1);
+    setEditImages([]);
+    setEditImagePreviews([]);
+    setEditCaptions([]);
+    setExistingImages([]);
+    setImagesToRemove([]);
+  };
+
+  // Toggle post privacy
+  const togglePostPrivacy = (postId: string) => {
+    setEditStatus(prev => prev === 1 ? 0 : 1);
   };
 
   // Copy link function
@@ -1007,14 +1192,14 @@ const PostPage: React.FC = () => {
     }
 
     // Check if user is logged in
-    if (!user) {
-      console.error('User not logged in');
+    if (!isAuthenticated || !token) {
+      console.error('User not authenticated');
       alert('Bạn cần đăng nhập để thực hiện hành động này!');
       return;
     }
 
     // Check if the current user is the author of the post
-    if (!isCurrentUserPost(postToEdit.author.name)) {
+    if (!isCurrentUserPost(postToEdit.gpMemberId)) {
       console.warn('User attempting to save modal edit for another user\'s post');
       alert('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
       return;
@@ -1044,10 +1229,7 @@ const PostPage: React.FC = () => {
     console.log('Modal post edit saved successfully');
   };
 
-  const handleCancelEdit = () => {
-    setEditingPostId(null);
-    setEditContent('');
-  };
+
 
   const handleDeletePost = (postId: string) => {
     console.log('Attempting to delete post:', postId, 'by user:', getCurrentUserName());
@@ -1065,15 +1247,15 @@ const PostPage: React.FC = () => {
     console.log('Post found:', postToDelete.author.name, 'vs current user:', getCurrentUserName());
 
     // Check if user is logged in
-    if (!user) {
-      console.error('User not logged in');
+    if (!isAuthenticated || !token) {
+      console.error('User not authenticated');
       alert('Bạn cần đăng nhập để thực hiện hành động này!');
       setShowPostMenu(null);
       return;
     }
 
     // Check if the current user is the author of the post
-    if (!isCurrentUserPost(postToDelete.author.name)) {
+    if (!isCurrentUserPost(postToDelete.gpMemberId)) {
       console.warn('User attempting to delete another user\'s post');
       alert('Bạn chỉ có thể xóa bài viết của chính mình!');
       setShowPostMenu(null);
@@ -1130,8 +1312,8 @@ const PostPage: React.FC = () => {
     }
 
     // Check if user is logged in
-    if (!user) {
-      console.error('User not logged in');
+    if (!isAuthenticated || !token) {
+      console.error('User not authenticated');
       alert('Bạn cần đăng nhập để thực hiện hành động này!');
       setShowCommentMenu(null);
       return;
@@ -1186,6 +1368,12 @@ const PostPage: React.FC = () => {
   };
 
   const handleReportPost = (postId: string) => {
+    setReportingPostId(postId);
+    setShowReportPostModal(true);
+    setShowPostMenu(null);
+  };
+
+  const handlePostActions = (postId: string) => {
     setReportingPostId(postId);
     setShowReportPostModal(true);
     setShowPostMenu(null);
@@ -1367,15 +1555,16 @@ const PostPage: React.FC = () => {
 
   // Helper function to get current user's name
   const getCurrentUserName = (): string => {
-    return user?.name || 'Username';
+    return userData.name || user?.name || 'Username';
   };
 
-  const isCurrentUserPost = (authorName: string) => {
-    return user?.name === authorName;
+  const isCurrentUserPost = (postGpMemberId: string) => {
+    return gpMemberId === postGpMemberId;
   };
 
   const isCurrentUserComment = (commentAuthorName?: string) => {
-    return user?.name && commentAuthorName && user.name === commentAuthorName;
+    const currentUserName = userData.name || user?.name;
+    return currentUserName && commentAuthorName && currentUserName === commentAuthorName;
   };
 
   // Recursive Comment Component
@@ -1640,6 +1829,24 @@ const PostPage: React.FC = () => {
                 {/* Simple Post Input - Opens Modal */}
                 <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                   <div className="p-4">
+                    {/* GPMember Status Indicator */}
+                    {(gpMemberLoading || gpMemberError) && (
+                      <div className="mb-3 p-2 rounded-lg text-sm">
+                        {gpMemberLoading && (
+                          <div className="flex items-center space-x-2 text-blue-600">
+                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span>Đang tải thông tin thành viên gia phả...</span>
+                          </div>
+                        )}
+                        {gpMemberError && (
+                          <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-2 rounded">
+                            <X className="w-4 h-4" />
+                            <span>{gpMemberError}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex items-center space-x-3">
                       {userData.picture ? (
                         <img
@@ -1658,8 +1865,9 @@ const PostPage: React.FC = () => {
                       <button
                         onClick={() => setShowCreatePostModal(true)}
                         className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-full text-left text-gray-500 transition-colors cursor-pointer"
+                        disabled={gpMemberLoading || !!gpMemberError}
                       >
-                        Bạn đang nghĩ gì?
+                        {gpMemberLoading ? 'Đang tải...' : gpMemberError ? 'Không thể tạo bài viết' : 'Bạn đang nghĩ gì?'}
                       </button>
                     </div>
 
@@ -1667,7 +1875,8 @@ const PostPage: React.FC = () => {
                     <div className="flex items-center justify-around mt-3 pt-3 border-t border-gray-200">
                       <button
                         onClick={() => setShowCreatePostModal(true)}
-                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-green-600"
+                        disabled={gpMemberLoading || !!gpMemberError || !gpMemberId}
+                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
                           <Image className="w-4 h-4 text-green-600" />
@@ -1677,7 +1886,8 @@ const PostPage: React.FC = () => {
 
                       <button
                         onClick={() => setShowCreatePostModal(true)}
-                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-blue-600"
+                        disabled={gpMemberLoading || !!gpMemberError || !gpMemberId}
+                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                           <span className="text-blue-600 text-sm">📍</span>
@@ -1687,6 +1897,44 @@ const PostPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Debug Panel (Development Only) */}
+                {import.meta.env.DEV && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-blue-800 mb-2">Debug Info (Dev Only)</h4>
+                    <div className="text-xs text-blue-700 space-y-1">
+                      <div><strong>GPMemberId:</strong> {gpMemberId || 'Loading...'}</div>
+                      <div><strong>Family Tree ID:</strong> {currentFamilyTreeId}</div>
+                      <div><strong>User ID:</strong> {currentUserId}</div>
+                      <div><strong>Loading:</strong> {gpMemberLoading ? 'Yes' : 'No'}</div>
+                      <div><strong>Error:</strong> {gpMemberError || 'None'}</div>
+                      {gpMember && (
+                        <>
+                          <div><strong>Member Name:</strong> {gpMember.fullname}</div>
+                          <div><strong>Role:</strong> {gpMember.ftRole}</div>
+                          <div><strong>Email:</strong> {gpMember.email}</div>
+                        </>
+                      )}
+                    </div>
+                    
+                    {/* Test Button */}
+                    <button
+                      onClick={() => {
+                        console.log('=== GPMember Debug Info ===');
+                        console.log('GPMemberId:', gpMemberId);
+                        console.log('Family Tree ID:', currentFamilyTreeId);
+                        console.log('User ID:', currentUserId);
+                        console.log('Loading:', gpMemberLoading);
+                        console.log('Error:', gpMemberError);
+                        console.log('Full GPMember data:', gpMember);
+                        console.log('=========================');
+                      }}
+                      className="mt-2 px-3 py-1 bg-blue-200 hover:bg-blue-300 text-blue-800 text-xs rounded"
+                    >
+                      Log Debug Info
+                    </button>
+                  </div>
+                )}
 
                 {/* Loading State */}
                 {initialLoading ? (
@@ -1747,9 +1995,10 @@ const PostPage: React.FC = () => {
                       <p className="text-gray-600 mb-4">Hãy là người đầu tiên chia sẻ câu chuyện của gia đình!</p>
                       <button
                         onClick={() => setShowCreatePostModal(true)}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        disabled={gpMemberLoading || !!gpMemberError || !gpMemberId}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Tạo bài viết đầu tiên
+                        {gpMemberLoading ? 'Đang tải...' : gpMemberError ? 'Không thể tạo bài viết' : 'Tạo bài viết đầu tiên'}
                       </button>
                     </div>
                   </div>
@@ -1849,35 +2098,27 @@ const PostPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="relative">
-                          <button
-                            onClick={() => setShowPostMenu(showPostMenu === post.id ? null : post.id)}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <MoreHorizontal className="w-5 h-5" />
-                          </button>
+                          {/* Show Edit button for own posts, More menu for others */}
+                          {isCurrentUserPost(post.gpMemberId) ? (
+                            <button
+                              onClick={() => handlePostActions(post.id)}
+                              className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                              title="Tùy chọn bài viết"
+                            >
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setShowPostMenu(showPostMenu === post.id ? null : post.id)}
+                                className="text-gray-400 hover:text-gray-600"
+                              >
+                                <MoreHorizontal className="w-5 h-5" />
+                              </button>
 
-                          {/* Dropdown Menu */}
-                          {showPostMenu === post.id && (
-                            <div className="absolute right-0 top-8 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
-                              {isCurrentUserPost(post.author.name) ? (
-                                <>
-                                  <button
-                                    onClick={() => handleEditPost(post.id, post.content)}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                    <span>Chỉnh sửa bài viết</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeletePost(post.id)}
-                                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    <span>Xóa bài viết</span>
-                                  </button>
-                                </>
-                              ) : (
-                                <>
+                              {/* Dropdown Menu - Only for other users' posts */}
+                              {showPostMenu === post.id && (
+                                <div className="absolute right-0 top-8 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
                                   <button
                                     onClick={() => handleReportPost(post.id)}
                                     className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600"
@@ -1885,9 +2126,9 @@ const PostPage: React.FC = () => {
                                     <Flag className="w-4 h-4" />
                                     <span>Báo cáo bài viết</span>
                                   </button>
-                                </>
+                                </div>
                               )}
-                            </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -1903,25 +2144,149 @@ const PostPage: React.FC = () => {
                     {/* Post Content */}
                     <div className="px-6 pb-4">
                       {editingPostId === post.id ? (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
+                          {/* Edit Header with Privacy */}
+                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <h4 className="font-semibold text-gray-900">Chỉnh sửa bài viết</h4>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => togglePostPrivacy(post.id)}
+                                className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                              >
+                                {editStatus === 1 ? (
+                                  <>
+                                    <Globe className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm text-gray-700">Công khai</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock className="w-4 h-4 text-gray-600" />
+                                    <span className="text-sm text-gray-700">Chỉ mình tôi</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Title Input */}
+                          <input
+                            type="text"
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            placeholder="Tiêu đề bài viết (tùy chọn)"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+
+                          {/* Content Input */}
                           <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
+                            placeholder="Bạn đang nghĩ gì?"
                             className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={4}
                           />
-                          <div className="flex justify-end space-x-2">
+
+                          {/* Existing Images */}
+                          {existingImages.length > 0 && (
+                            <div className="space-y-2">
+                              <h5 className="text-sm font-medium text-gray-700">Ảnh hiện tại:</h5>
+                              <div className="grid grid-cols-2 gap-2">
+                                {existingImages.map((image, index) => (
+                                  <div key={image.id} className="relative">
+                                    <img
+                                      src={image.url}
+                                      alt={`Existing ${index + 1}`}
+                                      className="w-full h-32 object-cover rounded-lg"
+                                    />
+                                    <button
+                                      onClick={() => removeExistingImage(image.id)}
+                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* New Images */}
+                          {editImagePreviews.length > 0 && (
+                            <div className="space-y-2">
+                              <h5 className="text-sm font-medium text-gray-700">Ảnh mới:</h5>
+                              <div className="grid grid-cols-2 gap-2">
+                                {editImagePreviews.map((preview, index) => (
+                                  <div key={index} className="space-y-2">
+                                    <div className="relative">
+                                      <img
+                                        src={preview}
+                                        alt={`New ${index + 1}`}
+                                        className="w-full h-32 object-cover rounded-lg"
+                                      />
+                                      <button
+                                        onClick={() => removeEditImage(index)}
+                                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={editCaptions[index] || ''}
+                                      onChange={(e) => updateEditCaption(index, e.target.value)}
+                                      placeholder={`Mô tả cho ảnh ${index + 1}...`}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Add Media Button */}
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="file"
+                              id={`edit-image-${post.id}`}
+                              multiple
+                              accept="image/*,video/*"
+                              onChange={handleEditImageSelect}
+                              className="hidden"
+                            />
+                            <label
+                              htmlFor={`edit-image-${post.id}`}
+                              className="flex items-center space-x-2 px-4 py-2 bg-green-100 hover:bg-green-200 text-green-600 rounded-lg cursor-pointer transition-colors"
+                            >
+                              <Camera className="w-4 h-4" />
+                              <span className="text-sm font-medium">Thêm ảnh/video</span>
+                            </label>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex justify-end space-x-2 pt-2 border-t border-gray-200">
                             <button
                               onClick={handleCancelEdit}
-                              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                              disabled={isUpdatingPost}
+                              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                             >
                               Hủy
                             </button>
                             <button
                               onClick={() => handleSaveEdit(post.id)}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                              disabled={isUpdatingPost}
+                              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
                             >
-                              Lưu
+                              {isUpdatingPost ? (
+                                <>
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                  <span>Đang lưu...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-4 h-4" />
+                                  <span>Lưu thay đổi</span>
+                                </>
+                              )}
                             </button>
                           </div>
                         </div>
@@ -2048,7 +2413,7 @@ const PostPage: React.FC = () => {
 
                         <button
                           onClick={() => {
-                            const input = document.querySelector(`input[placeholder="Viết bình luận..."]`) as HTMLInputElement;
+                            const input = document.querySelector(`#comment-input-${post.id}`) as HTMLInputElement;
                             if (input) input.focus();
                           }}
                           className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
@@ -2115,6 +2480,7 @@ const PostPage: React.FC = () => {
 
                           <div className="flex items-center space-x-2">
                             <input
+                              id={`comment-input-${post.id}`}
                               type="text"
                               value={commentInputs[post.id] || ''}
                               onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
@@ -2506,70 +2872,116 @@ const PostPage: React.FC = () => {
             </div>
           )}
 
-          {/* Report Post Modal */}
-          {showReportPostModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-gray-900">Báo cáo bài viết</h2>
-                    <button
-                      onClick={() => setShowReportPostModal(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Lý do báo cáo
-                      </label>
-                      <select
-                        value={postReportReason}
-                        onChange={(e) => setPostReportReason(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          {/* Post Action Modal (Edit or Report) */}
+          {showReportPostModal && reportingPostId && (() => {
+            const reportingPost = posts.find(p => p.id === reportingPostId);
+            const isOwnPost = reportingPost ? isCurrentUserPost(reportingPost.gpMemberId) : false;
+            
+            return (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-bold text-gray-900">
+                        {isOwnPost ? 'Tùy chọn bài viết' : 'Báo cáo bài viết'}
+                      </h2>
+                      <button
+                        onClick={() => setShowReportPostModal(false)}
+                        className="text-gray-400 hover:text-gray-600"
                       >
-                        <option value="">Chọn lý do</option>
-                        <option value="spam">Spam</option>
-                        <option value="harassment">Quấy rối</option>
-                        <option value="inappropriate">Nội dung không phù hợp</option>
-                        <option value="false-info">Thông tin sai lệch</option>
-                        <option value="violence">Bạo lực</option>
-                        <option value="hate-speech">Ngôn từ căm thù</option>
-                        <option value="other">Khác</option>
-                      </select>
+                        <X className="w-6 h-6" />
+                      </button>
                     </div>
-                    {postReportReason === 'other' && (
-                      <textarea
-                        placeholder="Mô tả chi tiết..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows={3}
-                      />
+
+                    {isOwnPost ? (
+                      /* Edit options for own post */
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => {
+                            if (reportingPost) {
+                              handleEditPost(reportingPost.id, reportingPost.content, reportingPost.title);
+                            }
+                            setShowReportPostModal(false);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-100 rounded-lg flex items-center space-x-3 transition-colors"
+                        >
+                          <Edit className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <div className="font-medium text-gray-900">Chỉnh sửa bài viết</div>
+                            <div className="text-sm text-gray-500">Thay đổi nội dung hoặc ảnh</div>
+                          </div>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            if (reportingPost) {
+                              handleDeletePost(reportingPost.id);
+                            }
+                            setShowReportPostModal(false);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-red-50 rounded-lg flex items-center space-x-3 transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5 text-red-600" />
+                          <div>
+                            <div className="font-medium text-red-600">Xóa bài viết</div>
+                            <div className="text-sm text-gray-500">Xóa bài viết vĩnh viễn</div>
+                          </div>
+                        </button>
+                      </div>
+                    ) : (
+                      /* Report options for others' posts */
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Lý do báo cáo
+                          </label>
+                          <select
+                            value={postReportReason}
+                            onChange={(e) => setPostReportReason(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Chọn lý do</option>
+                            <option value="spam">Spam</option>
+                            <option value="harassment">Quấy rối</option>
+                            <option value="inappropriate">Nội dung không phù hợp</option>
+                            <option value="false-info">Thông tin sai lệch</option>
+                            <option value="violence">Bạo lực</option>
+                            <option value="hate-speech">Ngôn từ căm thù</option>
+                            <option value="other">Khác</option>
+                          </select>
+                        </div>
+                        {postReportReason === 'other' && (
+                          <textarea
+                            placeholder="Mô tả chi tiết..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={3}
+                          />
+                        )}
+                        <div className="flex justify-end space-x-3">
+                          <button
+                            onClick={() => {
+                              setShowReportPostModal(false);
+                              setPostReportReason('');
+                            }}
+                            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            onClick={handleSubmitPostReport}
+                            disabled={!postReportReason}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
+                          >
+                            Gửi báo cáo
+                          </button>
+                        </div>
+                      </div>
                     )}
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={() => {
-                          setShowReportPostModal(false);
-                          setPostReportReason('');
-                        }}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        onClick={handleSubmitPostReport}
-                        disabled={!postReportReason}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
-                      >
-                        Gửi báo cáo
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Create Post Modal */}
           {showCreatePostModal && (
