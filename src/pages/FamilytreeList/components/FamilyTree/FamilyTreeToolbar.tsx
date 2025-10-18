@@ -4,7 +4,11 @@ import {
     Upload,
     Undo,
     Redo,
-    Grid3x3
+    Grid3x3,
+    ArrowDown,
+    ArrowRight,
+    ArrowUp,
+    ArrowLeft
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import {
@@ -31,7 +35,7 @@ const FamilyTreeToolbar = () => {
         // Save current state to history
         dispatch(addHistory({ nodes, edges }));
 
-        const { nodes: layoutedNodes, 
+        const { nodes: layoutedNodes,
             // edges: layoutedEdges 
         } = getLayoutedElements(
             nodes,
@@ -112,40 +116,43 @@ const FamilyTreeToolbar = () => {
                 <button
                     onClick={() => handleAutoLayout('TB')}
                     className="p-2 hover:bg-gray-100 rounded transition-colors"
-                    title="Auto Layout (Top to Bottom)"
+                    title="Tự động sắp xếp"
                 >
                     <Grid3x3 className="w-5 h-5" />
                 </button>
 
                 {/* Layout direction dropdown */}
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg p-1 hidden group-hover:block">
+                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-1 hidden group-hover:block z-10 min-w-[180px]">
                     <button
                         onClick={() => handleAutoLayout('TB')}
-                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm"
+                        className="flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-sm transition-colors"
                     >
-                        Top to Bottom
+                        <ArrowDown className="w-4 h-4 text-blue-500" />
+                        <span>Trên xuống dưới</span>
                     </button>
                     <button
                         onClick={() => handleAutoLayout('LR')}
-                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm"
+                        className="flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-sm transition-colors"
                     >
-                        Left to Right
+                        <ArrowRight className="w-4 h-4 text-blue-500" />
+                        <span>Trái sang phải</span>
                     </button>
                     <button
                         onClick={() => handleAutoLayout('BT')}
-                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm"
+                        className="flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-sm transition-colors"
                     >
-                        Bottom to Top
+                        <ArrowUp className="w-4 h-4 text-blue-500" />
+                        <span>Dưới lên trên</span>
                     </button>
                     <button
                         onClick={() => handleAutoLayout('RL')}
-                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm"
+                        className="flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-sm transition-colors"
                     >
-                        Right to Left
+                        <ArrowLeft className="w-4 h-4 text-blue-500" />
+                        <span>Phải sang trái</span>
                     </button>
                 </div>
             </div>
-
             <div className="w-px bg-gray-300" />
 
             {/* Undo */}
