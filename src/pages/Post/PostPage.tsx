@@ -34,6 +34,7 @@ interface Post {
 
 interface Comment {
   id: string;
+  gpMemberId?: string;
   author?: {
     name: string;
     avatar: string;
@@ -43,6 +44,8 @@ interface Comment {
   timeAgo: string;
   likes: number;
   isLiked: boolean;
+  isEdited?: boolean;
+  editedAt?: string;
   replies?: Comment[];
 }
 
@@ -112,6 +115,10 @@ const PostPage: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Comment editing states
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentContent, setEditCommentContent] = useState('');
+
   // Reaction states
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const [hoveredPost, setHoveredPost] = useState<string | null>(null);
@@ -138,6 +145,7 @@ const PostPage: React.FC = () => {
   const transformApiComment = (apiComment: any): Comment => {
     return {
       id: apiComment.id || `comment-${Date.now()}-${Math.random()}`,
+      gpMemberId: apiComment.gpMemberId,
       author: {
         name: apiComment.authorName || 'Unknown User',
         avatar: apiComment.authorPicture || defaultPicture
@@ -147,6 +155,8 @@ const PostPage: React.FC = () => {
       timeAgo: formatTimeAgo(apiComment.createdOn || new Date().toISOString()),
       likes: apiComment.totalReactions || 0,
       isLiked: apiComment.isLiked || false,
+      isEdited: apiComment.isEdited || false,
+      editedAt: apiComment.lastModifiedOn ? formatTimeAgo(apiComment.lastModifiedOn) : undefined,
       replies: apiComment.childComments ? apiComment.childComments.map(transformApiComment) : []
     };
   };
@@ -866,11 +876,26 @@ const PostPage: React.FC = () => {
     const commentText = commentInputs[postId]?.trim();
     const images = commentImages[postId] || [];
 
-    if (!commentText && images.length === 0) return;
+    if (!commentText && images.length === 0) {
+      toast.error('Vui lòng nhập nội dung bình luận');
+      return;
+    }
+
+    if (!gpMemberId) {
+      toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
+      return;
+    }
 
     try {
-      // Submit comment to API
-      const result = await postService.addComment(postId, commentText || '', images);
+      // Submit comment to API with new format
+      const result = await postService.addComment({
+        postId: postId,
+        gpMemberId: gpMemberId,
+        content: commentText || '',
+        parentCommentId: undefined, // This is a root comment (not a reply)
+      });
+      
+      console.log('Comment result:', result);
       
       // Handle both API response formats
       const success = result.success || result.status || (result.statusCode === 200);
@@ -880,6 +905,7 @@ const PostPage: React.FC = () => {
         // Create new comment from API response
         const newComment: Comment = {
           id: data.id || `${postId}-${Date.now()}`,
+          gpMemberId: data.gpMemberId || gpMemberId,
           author: {
             name: data.authorName || userData.name || getCurrentUserName(),
             avatar: data.authorPicture || userData.picture || defaultPicture
@@ -888,7 +914,8 @@ const PostPage: React.FC = () => {
           images: data.attachments?.map((file: any) => file.url) || [],
           timeAgo: 'Vừa xong',
           likes: data.totalReactions || 0,
-          isLiked: false
+          isLiked: false,
+          replies: []
         };
 
         // Update posts state with new comment
@@ -902,37 +929,15 @@ const PostPage: React.FC = () => {
         setCommentInputs(prev => ({ ...prev, [postId]: '' }));
         setCommentImages(prev => ({ ...prev, [postId]: [] }));
         setCommentImagePreviews(prev => ({ ...prev, [postId]: [] }));
+        
+        toast.success('Đã gửi bình luận');
       } else {
         throw new Error(result.message || 'Failed to submit comment');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting comment:', error);
-      toast.error('Có lỗi xảy ra khi gửi bình luận. Vui lòng thử lại.');
-      
-      // Fallback: Add comment locally (temporary until refresh)
-      const newComment: Comment = {
-        id: `${postId}-${Date.now()}`,
-        author: {
-          name: userData.name || getCurrentUserName(),
-          avatar: userData.picture || defaultPicture
-        },
-        content: commentText || '',
-        images: commentImagePreviews[postId] || [],
-        timeAgo: 'Vừa xong',
-        likes: 0,
-        isLiked: false
-      };
-
-      setPosts(prev => prev.map(post =>
-        post.id === postId
-          ? { ...post, comments: [...post.comments, newComment] }
-          : post
-      ));
-
-      // Clear comment input and images
-      setCommentInputs(prev => ({ ...prev, [postId]: '' }));
-      setCommentImages(prev => ({ ...prev, [postId]: [] }));
-      setCommentImagePreviews(prev => ({ ...prev, [postId]: [] }));
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi gửi bình luận';
+      toast.error(errorMessage);
     }
   };
 
@@ -1291,68 +1296,141 @@ const PostPage: React.FC = () => {
     setShowCommentMenu(null);
   };
 
-  const handleDeleteComment = (postId: string, commentId: string) => {
+  const handleEditComment = async (postId: string, commentId: string) => {
+    if (!editCommentContent.trim()) {
+      toast.error('Nội dung bình luận không thể trống');
+      return;
+    }
+
+    try {
+      const result = await postService.editComment(commentId, editCommentContent);
+      
+      console.log('Edit comment result:', result);
+      
+      const success = result.success || result.status || (result.statusCode === 200);
+      
+      if (success) {
+        // Update comment in posts state recursively
+        const updateCommentRecursively = (comments: Comment[]): Comment[] => {
+          return comments.map(comment => {
+            if (comment.id === commentId) {
+              return {
+                ...comment,
+                content: editCommentContent,
+                isEdited: true,
+                editedAt: 'Vừa xong'
+              };
+            }
+            if (comment.replies && comment.replies.length > 0) {
+              return {
+                ...comment,
+                replies: updateCommentRecursively(comment.replies)
+              };
+            }
+            return comment;
+          });
+        };
+
+        setPosts(prev => prev.map(post =>
+          post.id === postId
+            ? { ...post, comments: updateCommentRecursively(post.comments) }
+            : post
+        ));
+
+        // Also update selectedPost if it's the same post
+        if (selectedPost?.id === postId) {
+          setSelectedPost(prev => prev ? {
+            ...prev,
+            comments: updateCommentRecursively(prev.comments)
+          } : null);
+        }
+
+        // Reset edit state
+        setEditingCommentId(null);
+        setEditCommentContent('');
+        setShowCommentMenu(null);
+        
+        toast.success('Đã cập nhật bình luận');
+      } else {
+        throw new Error(result.message || 'Failed to edit comment');
+      }
+    } catch (error: any) {
+      console.error('Error editing comment:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi chỉnh sửa bình luận';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleDeleteComment = async (postId: string, commentId: string) => {
     console.log('Attempting to delete comment:', commentId, 'by user:', getCurrentUserName());
-
-    // Find the post and comment to check ownership
-    const post = posts.find(p => p.id === postId);
-    if (!post) {
-      console.error('Post not found:', postId);
-      alert('Bài viết không tồn tại!');
-      setShowCommentMenu(null);
-      return;
-    }
-
-    const comment = post.comments.find(c => c.id === commentId);
-    if (!comment) {
-      console.error('Comment not found:', commentId);
-      alert('Bình luận không tồn tại!');
-      setShowCommentMenu(null);
-      return;
-    }
 
     // Check if user is logged in
     if (!isAuthenticated || !token) {
       console.error('User not authenticated');
-      alert('Bạn cần đăng nhập để thực hiện hành động này!');
-      setShowCommentMenu(null);
-      return;
-    }
-
-    // Check if the current user is the author of the comment
-    if (!isCurrentUserComment(comment.author?.name)) {
-      console.warn('User attempting to delete another user\'s comment');
-      alert('Bạn chỉ có thể xóa bình luận của chính mình!');
+      toast.error('Bạn cần đăng nhập để thực hiện hành động này!');
       setShowCommentMenu(null);
       return;
     }
 
     // Confirm deletion
-    const confirmMessage = `Bạn có chắc chắn muốn xóa bình luận này?\n\nNội dung: "${comment.content.substring(0, 50)}${comment.content.length > 50 ? '...' : ''}"\n\nHành động này không thể hoàn tác.`;
+    const confirmMessage = 'Bạn có chắc chắn muốn xóa bình luận này?\n\nHành động này không thể hoàn tác.';
 
-    if (window.confirm(confirmMessage)) {
-      console.log('User confirmed deletion, removing comment:', commentId);
-
-      // Remove the comment from the post
-      setPosts(prev => prev.map(p =>
-        p.id === postId
-          ? { ...p, comments: p.comments.filter(c => c.id !== commentId) }
-          : p
-      ));
-
-      // Also update selectedPost if it's the same post
-      if (selectedPost?.id === postId) {
-        setSelectedPost(prev => prev ? {
-          ...prev,
-          comments: prev.comments.filter(c => c.id !== commentId)
-        } : null);
-      }
-
-      console.log('Comment deleted successfully');
-      alert('Bình luận đã được xóa thành công!');
-    } else {
+    if (!window.confirm(confirmMessage)) {
       console.log('User cancelled comment deletion');
+      setShowCommentMenu(null);
+      return;
     }
+
+    try {
+      console.log('User confirmed deletion, calling API to delete comment:', commentId);
+      
+      const result = await postService.deleteComment(commentId);
+      
+      console.log('Delete comment result:', result);
+      
+      const success = result.success || result.status || (result.statusCode === 200);
+      
+      if (success) {
+        // Remove comment from posts state recursively
+        const removeCommentRecursively = (comments: Comment[]): Comment[] => {
+          return comments
+            .filter(c => c.id !== commentId)
+            .map(comment => {
+              if (comment.replies && comment.replies.length > 0) {
+                return {
+                  ...comment,
+                  replies: removeCommentRecursively(comment.replies)
+                };
+              }
+              return comment;
+            });
+        };
+
+        setPosts(prev => prev.map(p =>
+          p.id === postId
+            ? { ...p, comments: removeCommentRecursively(p.comments) }
+            : p
+        ));
+
+        // Also update selectedPost if it's the same post
+        if (selectedPost?.id === postId) {
+          setSelectedPost(prev => prev ? {
+            ...prev,
+            comments: removeCommentRecursively(prev.comments)
+          } : null);
+        }
+
+        console.log('Comment deleted successfully');
+        toast.success('Bình luận đã được xóa thành công!');
+      } else {
+        throw new Error(result.message || 'Failed to delete comment');
+      }
+    } catch (error: any) {
+      console.error('Error deleting comment:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa bình luận';
+      toast.error(errorMessage);
+    }
+    
     setShowCommentMenu(null);
   };
 
@@ -1462,24 +1540,45 @@ const PostPage: React.FC = () => {
 
   const handleReplySubmit = async (postId: string, parentCommentId: string) => {
     const replyText = replyInputs[parentCommentId]?.trim();
-    if (!replyText) return;
+    
+    if (!replyText) {
+      toast.error('Vui lòng nhập nội dung trả lời');
+      return;
+    }
+
+    if (!gpMemberId) {
+      toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
+      return;
+    }
 
     try {
-      // Submit reply to API
-      const result = await postService.addCommentReply(parentCommentId, replyText);
+      // Submit reply to API using addComment with parentCommentId
+      const result = await postService.addComment({
+        postId: postId,
+        gpMemberId: gpMemberId,
+        content: replyText,
+        parentCommentId: parentCommentId, // This makes it a reply
+      });
       
-      if (result.success && result.data) {
+      console.log('Reply result:', result);
+      
+      const success = result.success || result.status || (result.statusCode === 200);
+      const data = result.data;
+      
+      if (success && data) {
         // Create new reply from API response
         const newReply: Comment = {
-          id: result.data.id || `${parentCommentId}-reply-${Date.now()}`,
+          id: data.id || `${parentCommentId}-reply-${Date.now()}`,
+          gpMemberId: data.gpMemberId || gpMemberId,
           author: {
-            name: result.data.authorName || userData.name || user?.name || 'Username',
-            avatar: result.data.authorPicture || userData.picture || defaultPicture
+            name: data.authorName || userData.name || user?.name || 'Username',
+            avatar: data.authorPicture || userData.picture || defaultPicture
           },
-          content: result.data.content || replyText,
-          timeAgo: 'Vừa xong',
-          likes: result.data.totalReactions || 0,
-          isLiked: false
+          content: data.content || replyText,
+          timeAgo: 'Vừa xông',
+          likes: data.totalReactions || 0,
+          isLiked: false,
+          replies: []
         };
 
         // Update posts state with new reply
@@ -1504,47 +1603,15 @@ const PostPage: React.FC = () => {
         // Clear reply input and hide reply interface
         setReplyInputs(prev => ({ ...prev, [parentCommentId]: '' }));
         setReplyingToComment(null);
+        
+        toast.success('Đã gửi trả lời');
       } else {
         throw new Error(result.message || 'Failed to submit reply');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting reply:', error);
-      alert('Có lỗi xảy ra khi gửi trả lời. Vui lòng thử lại.');
-      
-      // Fallback: Add reply locally (temporary until refresh)
-      const newReply: Comment = {
-        id: `${parentCommentId}-reply-${Date.now()}`,
-        author: {
-          name: userData.name || user?.name || 'Username',
-          avatar: userData.picture || defaultPicture
-        },
-        content: replyText,
-        timeAgo: 'Vừa xong',
-        likes: 0,
-        isLiked: false
-      };
-
-      setPosts(prev => prev.map(post => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            comments: post.comments.map(comment => {
-              if (comment.id === parentCommentId) {
-                return {
-                  ...comment,
-                  replies: [...(comment.replies || []), newReply]
-                };
-              }
-              return comment;
-            })
-          };
-        }
-        return post;
-      }));
-
-      // Clear reply input and hide reply interface
-      setReplyInputs(prev => ({ ...prev, [parentCommentId]: '' }));
-      setReplyingToComment(null);
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi gửi trả lời';
+      toast.error(errorMessage);
     }
   };
 
@@ -1593,25 +1660,60 @@ const PostPage: React.FC = () => {
             }}
           />
           <div className="flex-1">
-            <div className="bg-gray-100 rounded-lg px-4 py-2">
-              <p className="font-semibold text-sm text-gray-900">{comment.author?.name || 'User'}</p>
-              <p className="text-gray-900">{comment.content}</p>
-
-              {/* Comment Images */}
-              {comment.images && comment.images.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {comment.images.map((image, imageIndex) => (
-                    <img
-                      key={imageIndex}
-                      src={image}
-                      alt={`Comment image ${imageIndex + 1}`}
-                      className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => window.open(image, '_blank')}
-                    />
-                  ))}
+            {editingCommentId === comment.id ? (
+              // Edit mode
+              <div className="bg-gray-100 rounded-lg px-4 py-2">
+                <p className="font-semibold text-sm text-gray-900 mb-2">{comment.author?.name || 'User'}</p>
+                <textarea
+                  value={editCommentContent}
+                  onChange={(e) => setEditCommentContent(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={3}
+                  autoFocus
+                />
+                <div className="flex items-center space-x-2 mt-2">
+                  <button
+                    onClick={() => handleEditComment(postId, comment.id)}
+                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700"
+                  >
+                    Lưu
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingCommentId(null);
+                      setEditCommentContent('');
+                    }}
+                    className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded-md hover:bg-gray-400"
+                  >
+                    Hủy
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              // View mode
+              <div className="bg-gray-100 rounded-lg px-4 py-2">
+                <p className="font-semibold text-sm text-gray-900">{comment.author?.name || 'User'}</p>
+                <p className="text-gray-900">{comment.content}</p>
+                {comment.isEdited && comment.editedAt && (
+                  <p className="text-xs text-gray-500 italic mt-1">Đã chỉnh sửa {comment.editedAt}</p>
+                )}
+
+                {/* Comment Images */}
+                {comment.images && comment.images.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {comment.images.map((image, imageIndex) => (
+                      <img
+                        key={imageIndex}
+                        src={image}
+                        alt={`Comment image ${imageIndex + 1}`}
+                        className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(image, '_blank')}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between mt-1">
               <div className="flex items-center space-x-4 text-xs text-gray-500">
@@ -1654,34 +1756,36 @@ const PostPage: React.FC = () => {
                 </button>
                 {showCommentMenu === comment.id && (
                   <div className="absolute right-0 top-6 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-                    {isCurrentUserComment(comment.author?.name) ? (
+                    {comment.gpMemberId && comment.gpMemberId === gpMemberId ? (
+                      // Own comment - show Edit and Delete
                       <>
                         <button
                           onClick={() => {
-                            // TODO: Implement edit comment functionality
-                            alert('Tính năng chỉnh sửa bình luận sẽ được triển khai sau');
+                            setEditingCommentId(comment.id);
+                            setEditCommentContent(comment.content);
                             setShowCommentMenu(null);
                           }}
                           className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-xs"
                         >
                           <Edit className="w-3 h-3" />
-                          <span>Chỉnh sửa bình luận</span>
+                          <span>Chỉnh sửa</span>
                         </button>
                         <button
                           onClick={() => handleDeleteComment(postId, comment.id)}
                           className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600 text-xs"
                         >
                           <Trash2 className="w-3 h-3" />
-                          <span>Xóa bình luận</span>
+                          <span>Xóa</span>
                         </button>
                       </>
                     ) : (
+                      // Other user's comment - show Report only
                       <button
                         onClick={() => handleReportComment(comment.id)}
                         className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center space-x-2 text-red-600 text-xs"
                       >
                         <Flag className="w-3 h-3" />
-                        <span>Báo cáo bình luận</span>
+                        <span>Báo cáo</span>
                       </button>
                     )}
                   </div>

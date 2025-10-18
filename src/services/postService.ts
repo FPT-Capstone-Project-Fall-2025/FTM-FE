@@ -197,45 +197,54 @@ const postService = {
     return api.get(`/post/${postId}/comments`);
   },
 
-  // Add a comment to a post
-  addComment(postId: string, content: string, images?: File[]): Promise<ApiResponse<any>> {
-    const formData = new FormData();
-    formData.append('content', content);
-    
-    if (images && images.length > 0) {
-      images.forEach((image) => {
-        formData.append('images', image);
-      });
-    }
+  // Add a comment to a post or reply to a comment
+  addComment(data: {
+    postId: string;
+    gpMemberId: string;
+    content: string;
+    parentCommentId?: string;
+    files?: File[];
+  }): Promise<ApiResponse<any>> {
+    const payload = {
+      postId: data.postId,
+      gpMemberId: data.gpMemberId,
+      content: data.content,
+      parentCommentId: data.parentCommentId || null
+    };
 
-    return api.post(`/post/${postId}/comments`, formData, {
+    console.log('Adding comment with payload:', payload);
+    
+    return api.post('/post/comments', payload, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/json',
       },
     });
   },
 
-  // Get replies for a specific comment
-  getCommentReplies(commentId: string): Promise<ApiResponse<any[]>> {
-    return api.get(`/post/comments/${commentId}/replies`);
-  },
+  // Get replies for a specific comment (removed - now handled by addComment with parentCommentId)
+  
+  // Add a reply to a comment (removed - now handled by addComment with parentCommentId)
 
-  // Add a reply to a comment
-  addCommentReply(commentId: string, content: string, images?: File[]): Promise<ApiResponse<any>> {
-    const formData = new FormData();
-    formData.append('content', content);
+  // Edit a comment or reply
+  editComment(commentId: string, content: string): Promise<ApiResponse<any>> {
+    const payload = {
+      id: commentId,
+      content: content
+    };
+
+    console.log('Editing comment with payload:', payload);
     
-    if (images && images.length > 0) {
-      images.forEach((image) => {
-        formData.append('images', image);
-      });
-    }
-
-    return api.post(`/post/comments/${commentId}/replies`, formData, {
+    return api.put(`/post/comments/${commentId}`, payload, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/json',
       },
     });
+  },
+
+  // Delete a comment or reply
+  deleteComment(commentId: string): Promise<ApiResponse<any>> {
+    console.log('Deleting comment:', commentId);
+    return api.delete(`/post/comments/${commentId}`);
   },
 
   // Get reactions for a post
