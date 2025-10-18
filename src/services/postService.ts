@@ -258,13 +258,30 @@ const postService = {
   },
 
   // Add/toggle reaction to a post
-  addPostReaction(postId: string, reactionType: string): Promise<ApiResponse<any>> {
-    return api.post(`/post/${postId}/reactions`, { reactionType });
+  addPostReaction(data: {
+    postId: string;
+    gpMemberId: string;
+    reactionType: number; // 1=Like, 2=Love, 3=Haha, 4=Wow, 5=Sad, 6=Angry
+  }): Promise<ApiResponse<any>> {
+    const payload = {
+      postId: data.postId,
+      gpMemberId: data.gpMemberId,
+      reactionType: data.reactionType
+    };
+
+    console.log('Adding post reaction with payload:', payload);
+
+    return api.post('/post/reactions', payload, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   },
 
   // Remove reaction from a post
-  removePostReaction(postId: string): Promise<ApiResponse<any>> {
-    return api.delete(`/post/${postId}/reactions`);
+  removePostReaction(reactionId: string): Promise<ApiResponse<any>> {
+    console.log('Removing post reaction with reactionId:', reactionId);
+    return api.delete(`/post/reactions/${reactionId}`);
   },
 };
 

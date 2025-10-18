@@ -30,6 +30,7 @@ interface Post {
   totalReactions: number;
   reactionsSummary: { [key: string]: number };
   userReaction?: string | null;
+  userReactionId?: string | null; // ID of the user's reaction for deletion
 }
 
 interface Comment {
@@ -131,14 +132,14 @@ const PostPage: React.FC = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // Reaction types
+  // Reaction types with numeric IDs for API
   const reactionTypes = [
-    { type: 'Like', emoji: '👍', label: 'Thích' },
-    { type: 'Love', emoji: '❤️', label: 'Yêu thích' },
-    { type: 'Haha', emoji: '😆', label: 'Haha' },
-    { type: 'Wow', emoji: '😮', label: 'Wow' },
-    { type: 'Sad', emoji: '😢', label: 'Buồn' },
-    { type: 'Angry', emoji: '😠', label: 'Giận dữ' }
+    { type: 'Like', id: 1, emoji: '👍', label: 'Thích' },
+    { type: 'Love', id: 2, emoji: '❤️', label: 'Yêu thích' },
+    { type: 'Haha', id: 3, emoji: '😆', label: 'Haha' },
+    { type: 'Wow', id: 4, emoji: '😮', label: 'Wow' },
+    { type: 'Sad', id: 5, emoji: '😢', label: 'Buồn' },
+    { type: 'Angry', id: 6, emoji: '😠', label: 'Giận dữ' }
   ];
 
   // Function to transform API comment to Comment interface
@@ -357,10 +358,14 @@ const PostPage: React.FC = () => {
         // Check if current user has reacted using gpMemberId
         const userReaction = result.data.find((reaction: any) => reaction.gpMemberId === gpMemberId);
         
-        // Update post with user reaction
+        // Update post with user reaction and reactionId
         setPosts(prev => prev.map(post => 
           post.id === postId 
-            ? { ...post, userReaction: userReaction?.reactionType || null }
+            ? { 
+                ...post, 
+                userReaction: userReaction?.reactionType || null,
+                userReactionId: userReaction?.id || null // Store reaction ID for deletion
+              }
             : post
         ));
       }
@@ -372,12 +377,49 @@ const PostPage: React.FC = () => {
   // Function to handle reaction click
   const handleReaction = async (postId: string, reactionType: string) => {
     try {
-      const post = posts.find(p => p.id === postId);
-      if (!post) return;
+      if (!gpMemberId) {
+        toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
+        return;
+      }
 
-      // If user already has this reaction, remove it
+      if (!postId) {
+        toast.error('Không tìm thấy bài viết!');
+        return;
+      }
+
+      const post = posts.find(p => p.id === postId);
+      if (!post) {
+        toast.error('Không tìm thấy bài viết!');
+        return;
+      }
+
+      // Find the numeric reaction ID from reactionType string
+      const reactionConfig = reactionTypes.find(r => r.type === reactionType);
+      if (!reactionConfig) {
+        console.error('Invalid reaction type:', reactionType);
+        toast.error('Loại phản ứng không hợp lệ!');
+        return;
+      }
+
+      console.log('=== Reaction Action ===');
+      console.log('PostID:', postId);
+      console.log('GPMemberID:', gpMemberId);
+      console.log('Reaction Type:', reactionType);
+      console.log('Reaction ID:', reactionConfig.id);
+      console.log('Current User Reaction:', post.userReaction);
+      console.log('Current User Reaction ID:', post.userReactionId);
+      console.log('=====================');
+
+      // If user already has this reaction, remove it (toggle off)
       if (post.userReaction === reactionType) {
-        await postService.removePostReaction(postId);
+        // Use the stored reaction ID for deletion
+        if (!post.userReactionId) {
+          toast.error('Không tìm thấy ID phản ứng. Vui lòng thử lại!');
+          return;
+        }
+        
+        console.log('Removing reaction with ID:', post.userReactionId);
+        await postService.removePostReaction(post.userReactionId);
         
         // Update local state
         setPosts(prev => prev.map(p => {
@@ -394,6 +436,7 @@ const PostPage: React.FC = () => {
             return {
               ...p,
               userReaction: null,
+              userReactionId: null,
               totalReactions: Math.max(0, p.totalReactions - 1),
               reactionsSummary: newReactionsSummary,
               isLiked: false
@@ -402,15 +445,40 @@ const PostPage: React.FC = () => {
           return p;
         }));
       } else {
-        // Add or change reaction
-        await postService.addPostReaction(postId, reactionType);
+        // If user has a different reaction, remove it first
+        if (post.userReaction && post.userReactionId) {
+          console.log('Removing old reaction:', post.userReaction, 'with ID:', post.userReactionId);
+          await postService.removePostReaction(post.userReactionId);
+        }
+        
+        // Add new reaction using new API format
+        console.log('Adding reaction:', {
+          postId,
+          gpMemberId,
+          reactionType: reactionConfig.id,
+          reactionTypeName: reactionType
+        });
+        
+        const response = await postService.addPostReaction({
+          postId: postId,
+          gpMemberId: gpMemberId,
+          reactionType: reactionConfig.id // Use numeric ID (1-6)
+        });
+        
+        console.log('Reaction response:', response);
+        
+        // Extract the new reaction ID from response
+        const newReactionId = response.data?.id || response.data;
+        
+        console.log('New reaction ID:', newReactionId);
         
         // Update local state
         setPosts(prev => prev.map(p => {
           if (p.id === postId) {
             const newReactionsSummary = { ...p.reactionsSummary };
             
-            // Remove old reaction if exists
+            // If changing from one reaction to another, adjust counts
+            // (The old reaction was already deleted via API)
             if (p.userReaction) {
               const oldReactionKey = p.userReaction.toLowerCase();
               if (newReactionsSummary[oldReactionKey]) {
@@ -425,11 +493,13 @@ const PostPage: React.FC = () => {
             const newReactionKey = reactionType.toLowerCase();
             newReactionsSummary[newReactionKey] = (newReactionsSummary[newReactionKey] || 0) + 1;
             
-            const totalChange = p.userReaction ? 0 : 1; // Only increase if no previous reaction
+            // Total reactions: only increase if user had no previous reaction
+            const totalChange = p.userReaction ? 0 : 1;
             
             return {
               ...p,
               userReaction: reactionType,
+              userReactionId: newReactionId, // Store the new reaction ID
               totalReactions: p.totalReactions + totalChange,
               reactionsSummary: newReactionsSummary,
               isLiked: reactionType === 'Like'
@@ -443,8 +513,16 @@ const PostPage: React.FC = () => {
       
       // Reload reaction summary to get updated data
       loadReactionSummary(postId);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error handling reaction:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi thả cảm xúc';
+      toast.error(`Lỗi phản ứng: ${errorMessage}`);
+      
+      // Reload reactions to sync state with server
+      loadPostReactions(postId);
     }
   };
 
@@ -1652,7 +1730,11 @@ const PostPage: React.FC = () => {
 
         <div className="flex items-start space-x-3">
           <img
-            src={comment.author?.avatar || defaultPicture}
+            src={
+              comment.gpMemberId && comment.gpMemberId === gpMemberId 
+                ? (userData.picture || comment.author?.avatar || defaultPicture)
+                : (comment.author?.avatar || defaultPicture)
+            }
             alt={comment.author?.name || 'User'}
             className="w-8 h-8 rounded-full object-cover flex-shrink-0 relative z-10 bg-white"
             onError={(e) => {
@@ -2177,7 +2259,11 @@ const PostPage: React.FC = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3">
                           <img
-                            src={post.author.avatar}
+                            src={
+                              post.gpMemberId && post.gpMemberId === gpMemberId
+                                ? (userData.picture || post.author.avatar || defaultPicture)
+                                : (post.author.avatar || defaultPicture)
+                            }
                             alt={post.author.name}
                             className="w-12 h-12 rounded-full object-cover"
                             onError={(e) => {
@@ -2419,18 +2505,24 @@ const PostPage: React.FC = () => {
                     {/* Post Stats */}
                     <div className="px-6 py-3 border-t border-gray-200">
                       <div className="flex items-center justify-between text-sm text-gray-500">
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center space-x-1 relative">
                           {post.totalReactions > 0 ? (
-                            <div className="flex items-center space-x-1 cursor-pointer hover:underline"
-                                 onClick={() => handleReactionSummaryClick(post.id)}
-                                 onMouseEnter={() => setHoveredPost(post.id)}
-                                 onMouseLeave={() => setHoveredPost(null)}>
-                              <span className="text-lg">{getReactionSummaryText(post)}</span>
-                              <span>{post.totalReactions}</span>
+                            <>
+                              <div className="flex items-center space-x-1 cursor-pointer hover:underline"
+                                   onClick={() => handleReactionSummaryClick(post.id)}
+                                   onMouseEnter={() => setHoveredPost(post.id)}
+                                   onMouseLeave={() => setHoveredPost(null)}>
+                                <span className="text-lg">{getReactionSummaryText(post)}</span>
+                                <span>{post.totalReactions}</span>
+                              </div>
                               
                               {/* Reaction tooltip on hover */}
                               {hoveredPost === post.id && (
-                                <div className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 mt-8 min-w-48">
+                                <div 
+                                  className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 mt-8 min-w-48"
+                                  onMouseEnter={() => setHoveredPost(post.id)}
+                                  onMouseLeave={() => setHoveredPost(null)}
+                                >
                                   <div className="space-y-1 text-sm">
                                     {Object.entries(post.reactionsSummary)
                                       .sort((a, b) => b[1] - a[1])
@@ -2450,7 +2542,7 @@ const PostPage: React.FC = () => {
                                   </div>
                                 </div>
                               )}
-                            </div>
+                            </>
                           ) : (
                             <span>0 phản ứng</span>
                           )}
@@ -2477,7 +2569,12 @@ const PostPage: React.FC = () => {
                                 }
                               }, 300);
                             }}
-                            onClick={() => handleReaction(post.id, 'Like')}
+                            onClick={() => {
+                              // If user already has a reaction, clicking toggles it off
+                              // If no reaction, add Like by default
+                              const reactionToToggle = post.userReaction || 'Like';
+                              handleReaction(post.id, reactionToToggle);
+                            }}
                             className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors relative ${
                               post.userReaction ? 'text-blue-600' : 'text-gray-600'
                             }`}
