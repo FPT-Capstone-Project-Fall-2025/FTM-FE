@@ -788,14 +788,19 @@ const PostPage: React.FC = () => {
             timeAgo: 'Vừa xong'
           },
           content: data.content,
-          images: data.attachments?.map((file: any) => file.url) || [],
+          // Handle multiple possible URL fields for attachments
+          images: data.attachments?.map((file: any) => file.fileUrl || file.url) || [],
           likes: data.totalReactions || 0,
           totalReactions: data.totalReactions || 0,
           reactionsSummary: data.reactionsSummary || {},
           userReaction: null,
+          userReactionId: null,
           isLiked: false,
-          comments: response.data.comments || []
+          comments: data.comments || []
         };
+
+        console.log('New post created with images:', newPost.images);
+        console.log('Attachments from API:', data.attachments);
 
         setPosts(prev => [newPost, ...prev]);
         
@@ -989,7 +994,8 @@ const PostPage: React.FC = () => {
             avatar: data.authorPicture || userData.picture || defaultPicture
           },
           content: data.content || commentText || '',
-          images: data.attachments?.map((file: any) => file.url) || [],
+          // Handle multiple possible URL fields for attachments
+          images: data.attachments?.map((file: any) => file.fileUrl || file.url) || [],
           timeAgo: 'Vừa xong',
           likes: data.totalReactions || 0,
           isLiked: false,
@@ -1115,7 +1121,8 @@ const PostPage: React.FC = () => {
             ...post,
             title: response.data.title,
             content: response.data.content,
-            images: response.data.attachments?.map((file: any) => file.url) || [],
+            // Handle multiple possible URL fields for attachments
+            images: response.data.attachments?.map((file: any) => file.fileUrl || file.url) || [],
             isEdited: true,
             editedAt: 'Vừa xong'
           } : post
@@ -1127,7 +1134,8 @@ const PostPage: React.FC = () => {
             ...prev,
             title: response.data.title,
             content: response.data.content,
-            images: response.data.attachments?.map((file: any) => file.url) || [],
+            // Handle multiple possible URL fields for attachments
+            images: response.data.attachments?.map((file: any) => file.fileUrl || file.url) || [],
             isEdited: true,
             editedAt: 'Vừa xong'
           } : null);
@@ -2740,141 +2748,266 @@ const PostPage: React.FC = () => {
               </div>
 
               {/* Right Sidebar */}
-              <div className="w-80 space-y-6 hidden lg:block">
-                {/* About Section */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-gray-900">Giới thiệu</h3>
-                    <button className="text-gray-400 hover:text-gray-600 p-1">
-                      <Edit className="w-4 h-4" />
-                    </button>
+              <div className="w-80 space-y-4 hidden lg:block">
+                {/* Family Tree Statistics */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-5 py-4">
+                    <div className="flex items-center space-x-2">
+                      <Users className="w-5 h-5 text-white" />
+                      <h3 className="font-semibold text-white">Thống kê</h3>
+                    </div>
                   </div>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    Cộng đồng Xoá mù YT cho người mới, nơi để chia sẻ kinh nghiệm, tài liệu,
-                    hỏi đáp và học tập cho tất cả mọi người!
-                  </p>
-                  <div className="mt-4 space-y-3">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Users className="w-4 h-4 mr-2" />
-                      <span className="font-medium">Công khai</span>
+                  <div className="p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Tổng bài viết</p>
+                          <p className="text-2xl font-bold text-gray-900">{posts.length}</p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 ml-6">
-                      Bất kỳ ai cũng có thể nhìn thấy mọi người trong nhóm và những gì họ đăng.
-                    </p>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Eye className="w-4 h-4 mr-2" />
-                      <span className="font-medium">Hiển thị</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                          <MessageCircle className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Tổng bình luận</p>
+                          <p className="text-2xl font-bold text-gray-900">
+                            {posts.reduce((sum, post) => sum + post.comments.length, 0)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 ml-6">
-                      Ai cũng có thể tìm thấy nhóm này.
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
+                          <ThumbsUp className="w-5 h-5 text-pink-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Tổng phản ứng</p>
+                          <p className="text-2xl font-bold text-gray-900">
+                            {posts.reduce((sum, post) => sum + (post.totalReactions || 0), 0)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Group Information Sections */}
-                <div className="border-b border-gray-200 pb-6 space-y-6">
-
-                  {/* Community Rules Section */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-semibold text-gray-900">Quy tắc cộng đồng</h5>
-                      <button className="text-gray-400 hover:text-gray-600 p-1">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-gray-600 text-sm">
-                      Thêm quy tắc để giúp duy trì môi trường thảo luận tích cực và tôn trọng trong nhóm gia phả.
-                    </p>
+                {/* Most Active Members */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
+                      <span className="text-lg">🏆</span>
+                      <span>Thành viên tích cực</span>
+                    </h3>
                   </div>
-
-                  {/* Recent Activity */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Hoạt động gần đây</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src="https://images.unsplash.com/photo-1494790108755-2616b612b048?w=40&h=40&fit=crop&crop=face"
-                          alt="User"
-                          className="w-8 h-8 rounded-full"
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-800">
-                            <span className="font-medium">Mai Lan</span> đã bình luận về bài viết của bạn
-                          </p>
-                          <p className="text-xs text-gray-500">5 phút trước</p>
+                  <div className="p-4">
+                    {(() => {
+                      // Calculate post counts by author
+                      const authorCounts = posts.reduce((acc: { [key: string]: { name: string, avatar: string, count: number } }, post) => {
+                        const authorId = post.gpMemberId || post.author.name;
+                        if (!acc[authorId]) {
+                          acc[authorId] = {
+                            name: post.author.name,
+                            avatar: post.author.avatar,
+                            count: 0
+                          };
+                        }
+                        acc[authorId].count++;
+                        return acc;
+                      }, {});
+                      
+                      // Get top 5 authors
+                      const topAuthors = Object.values(authorCounts)
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 5);
+                      
+                      const rankColors = [
+                        'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white',
+                        'bg-gradient-to-br from-gray-300 to-gray-500 text-white',
+                        'bg-gradient-to-br from-orange-400 to-orange-600 text-white',
+                        'bg-blue-100 text-blue-600',
+                        'bg-purple-100 text-purple-600'
+                      ];
+                      
+                      return topAuthors.length > 0 ? (
+                        <div className="space-y-2">
+                          {topAuthors.map((author, index) => (
+                            <div key={index} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gray-50 transition-all duration-200 group">
+                              <div className="relative">
+                                <img
+                                  src={author.avatar || defaultPicture}
+                                  alt={author.name}
+                                  className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = defaultPicture;
+                                  }}
+                                />
+                                <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${rankColors[index]}`}>
+                                  {index + 1}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 truncate">{author.name}</p>
+                                <p className="text-xs text-gray-500 flex items-center space-x-1">
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                                  </svg>
+                                  <span>{author.count} bài viết</span>
+                                </p>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"
-                          alt="User"
-                          className="w-8 h-8 rounded-full"
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-800">
-                            <span className="font-medium">Trung Hiếu</span> đã thích bài viết về gia phả
-                          </p>
-                          <p className="text-xs text-gray-500">1 giờ trước</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face"
-                          alt="User"
-                          className="w-8 h-8 rounded-full"
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-800">
-                            <span className="font-medium">Đức Thắng</span> đã chia sẻ ảnh gia đình
-                          </p>
-                          <p className="text-xs text-gray-500">3 giờ trước</p>
-                        </div>
-                      </div>
-                    </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center py-8">Chưa có dữ liệu</p>
+                      );
+                    })()}
                   </div>
-
-                  {/* Popular Topics */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Chủ đề phổ biến</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="text-sm font-medium text-gray-800">#gia-pha-viet-nam</span>
-                        </div>
-                        <span className="text-xs text-gray-500">125 bài viết</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-sm font-medium text-gray-800">#truyen-thong-gia-dinh</span>
-                        </div>
-                        <span className="text-xs text-gray-500">89 bài viết</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                          <span className="text-sm font-medium text-gray-800">#tim-hieu-to-tien</span>
-                        </div>
-                        <span className="text-xs text-gray-500">67 bài viết</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                          <span className="text-sm font-medium text-gray-800">#luu-tru-tai-lieu</span>
-                        </div>
-                        <span className="text-xs text-gray-500">45 bài viết</span>
-                      </div>
-                    </div>
-                  </div>
-
-
                 </div>
+
+                {/* Most Reacted Posts */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
+                      <span className="text-lg">⭐</span>
+                      <span>Bài viết nổi bật</span>
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    {(() => {
+                      const topPosts = [...posts]
+                        .sort((a, b) => (b.totalReactions || 0) - (a.totalReactions || 0))
+                        .slice(0, 3);
+                      
+                      return topPosts.length > 0 ? (
+                        <div className="space-y-3">
+                          {topPosts.map((post, index) => (
+                            <div 
+                              key={post.id}
+                              onClick={() => handleOpenPostDetail(post)}
+                              className="group p-3 bg-gradient-to-br from-gray-50 to-white rounded-xl hover:from-blue-50 hover:to-white border border-gray-100 hover:border-blue-200 cursor-pointer transition-all duration-200 hover:shadow-md"
+                            >
+                              <div className="flex items-start space-x-3 mb-2">
+                                <div className="relative">
+                                  <img
+                                    src={post.author.avatar || defaultPicture}
+                                    alt={post.author.name}
+                                    className="w-8 h-8 rounded-full object-cover ring-2 ring-white"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = defaultPicture;
+                                    }}
+                                  />
+                                  {index < 3 && (
+                                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                                      {index + 1}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-gray-900 truncate">{post.author.name}</p>
+                                  <p className="text-xs text-gray-500">{post.author.timeAgo}</p>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-700 line-clamp-2 mb-3 leading-relaxed">{post.content}</p>
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                                <div className="flex items-center space-x-3 text-xs">
+                                  <span className="flex items-center space-x-1 text-pink-600 font-medium">
+                                    <ThumbsUp className="w-3.5 h-3.5" />
+                                    <span>{post.totalReactions || 0}</span>
+                                  </span>
+                                  <span className="flex items-center space-x-1 text-green-600 font-medium">
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    <span>{post.comments.length}</span>
+                                  </span>
+                                </div>
+                                <span className="text-xs text-blue-600 font-medium group-hover:underline">
+                                  Xem chi tiết →
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center py-8">Chưa có bài viết nào</p>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Reaction Summary */}
+                {(() => {
+                  const totalReactionsByType = posts.reduce((acc: { [key: string]: number }, post) => {
+                    Object.entries(post.reactionsSummary || {}).forEach(([type, count]) => {
+                      acc[type] = (acc[type] || 0) + (count as number);
+                    });
+                    return acc;
+                  }, {});
+                  
+                  const hasReactions = Object.keys(totalReactionsByType).length > 0;
+                  const totalReactions = Object.values(totalReactionsByType).reduce((sum, count) => sum + count, 0);
+                  
+                  return hasReactions ? (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="px-5 py-4 border-b border-gray-100">
+                        <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
+                          <span className="text-lg">😊</span>
+                          <span>Phản ứng phổ biến</span>
+                        </h3>
+                      </div>
+                      <div className="p-4">
+                        <div className="space-y-3">
+                          {Object.entries(totalReactionsByType)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([type, count]) => {
+                              const reaction = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase());
+                              const percentage = ((count / totalReactions) * 100).toFixed(1);
+                              return (
+                                <div key={type} className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-2xl">{reaction?.emoji || '👍'}</span>
+                                      <span className="text-sm font-semibold text-gray-700">{reaction?.label || type}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-xs text-gray-500">{percentage}%</span>
+                                      <span className="text-sm font-bold text-gray-900">{count}</span>
+                                    </div>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                    <div 
+                                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-500"
+                                      style={{ width: `${percentage}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 font-medium">Tổng phản ứng</span>
+                            <span className="text-lg font-bold text-blue-600">{totalReactions}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Search Popup */}
+        {/* Search Popup */}
           {showSearchPopup && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
@@ -3388,19 +3521,18 @@ const PostPage: React.FC = () => {
             </div>
           )}
 
-          {/* Post Detail Modal */}
-          <PostDetailPage
-            isOpen={showPostDetail}
-            post={selectedPost}
-            onClose={() => setShowPostDetail(false)}
-            commentInputs={commentInputs}
-            setCommentInputs={setCommentInputs}
-            onLikePost={handleLike}
-            onCommentSubmit={handleCommentSubmit}
-            onEditPost={handleModalEditPost}
-            CommentItem={CommentItem}
-          />
-        </div>
+        {/* Post Detail Modal */}
+        <PostDetailPage
+          isOpen={showPostDetail}
+          post={selectedPost}
+          onClose={() => setShowPostDetail(false)}
+          commentInputs={commentInputs}
+          setCommentInputs={setCommentInputs}
+          onLikePost={handleLike}
+          onCommentSubmit={handleCommentSubmit}
+          onEditPost={handleModalEditPost}
+          CommentItem={CommentItem}
+        />
       </div>
     </div>
   );
