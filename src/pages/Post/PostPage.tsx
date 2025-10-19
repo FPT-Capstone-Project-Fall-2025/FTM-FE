@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
@@ -131,6 +131,37 @@ const PostPage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<Post[]>([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // Confirm Dialog states
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmDialogData, setConfirmDialogData] = useState<{
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    confirmButtonClass?: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
+  // Emoji picker state
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+
+  // Common emojis list
+  const commonEmojis = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
+    '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
+    '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
+    '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
+    '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮',
+    '🤧', '🥵', '🥶', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐',
+    '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦',
+    '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞',
+    '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '👍', '👎',
+    '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✌️', '🤞', '🤟', '🤘',
+    '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
+    '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '🎉', '🎊'
+  ];
 
   // Reaction types with numeric IDs for API
   const reactionTypes = [
@@ -866,16 +897,40 @@ const PostPage: React.FC = () => {
       if (event.key === 'Escape' && showCreatePostModal) {
         handleCloseCreatePostModal();
       }
+      if (event.key === 'Escape' && showEmojiPicker) {
+        setShowEmojiPicker(null);
+      }
     };
 
-    if (showCreatePostModal) {
+    if (showCreatePostModal || showEmojiPicker) {
       document.addEventListener('keydown', handleEscKey);
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
-  }, [showCreatePostModal]);
+  }, [showCreatePostModal, showEmojiPicker]);
+
+  // Handle click outside emoji picker
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showEmojiPicker) {
+        const target = event.target as HTMLElement;
+        // Check if click is outside emoji picker
+        if (!target.closest('.emoji-picker-container') && !target.closest('.emoji-button')) {
+          setShowEmojiPicker(null);
+        }
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   const handleLike = (id: string, type: 'post' | 'comment', postId?: string) => {
     // Validation
@@ -1255,17 +1310,49 @@ const PostPage: React.FC = () => {
     setEditStatus(prev => prev === 1 ? 0 : 1);
   };
 
+  // Show confirm dialog helper
+  const showConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    options?: {
+      confirmText?: string;
+      cancelText?: string;
+      confirmButtonClass?: string;
+      onCancel?: () => void;
+    }
+  ) => {
+    setConfirmDialogData({
+      title,
+      message,
+      confirmText: options?.confirmText || 'Xác nhận',
+      cancelText: options?.cancelText || 'Hủy',
+      confirmButtonClass: options?.confirmButtonClass || 'bg-blue-600 hover:bg-blue-700',
+      onConfirm: () => {
+        setShowConfirmDialog(false);
+        setConfirmDialogData(null);
+        onConfirm();
+      },
+      onCancel: () => {
+        setShowConfirmDialog(false);
+        setConfirmDialogData(null);
+        options?.onCancel?.();
+      }
+    });
+    setShowConfirmDialog(true);
+  };
+
   // Copy link function
   const handleCopyLink = async () => {
     try {
       const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
       const groupUrl = `${window.location.origin}/group/${currentFamilyTreeId}`;
       await navigator.clipboard.writeText(groupUrl);
-      alert('Đã sao chép link vào clipboard!');
+      toast.success('Đã sao chép link vào clipboard!');
       setShowSharePopup(false);
     } catch (err) {
       console.error('Failed to copy: ', err);
-      alert('Không thể sao chép link. Vui lòng thử lại!');
+      toast.error('Không thể sao chép link. Vui lòng thử lại!');
     }
   };
 
@@ -1278,21 +1365,21 @@ const PostPage: React.FC = () => {
 
     if (!postToEdit) {
       console.error('Post not found:', postId);
-      alert('Bài viết không tồn tại!');
+      toast.error('Bài viết không tồn tại!');
       return;
     }
 
     // Check if user is logged in
     if (!isAuthenticated || !token) {
       console.error('User not authenticated');
-      alert('Bạn cần đăng nhập để thực hiện hành động này!');
+      toast.error('Bạn cần đăng nhập để thực hiện hành động này!');
       return;
     }
 
     // Check if the current user is the author of the post
     if (!isCurrentUserPost(postToEdit.gpMemberId)) {
       console.warn('User attempting to save modal edit for another user\'s post');
-      alert('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
+      toast.error('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
       return;
     }
 
@@ -1330,7 +1417,7 @@ const PostPage: React.FC = () => {
 
     if (!postToDelete) {
       console.error('Post not found:', postId);
-      alert('Bài viết không tồn tại!');
+      toast.error('Bài viết không tồn tại!');
       setShowPostMenu(null);
       return;
     }
@@ -1340,7 +1427,7 @@ const PostPage: React.FC = () => {
     // Check if user is logged in
     if (!isAuthenticated || !token) {
       console.error('User not authenticated');
-      alert('Bạn cần đăng nhập để thực hiện hành động này!');
+      toast.error('Bạn cần đăng nhập để thực hiện hành động này!');
       setShowPostMenu(null);
       return;
     }
@@ -1348,7 +1435,7 @@ const PostPage: React.FC = () => {
     // Check if the current user is the author of the post
     if (!isCurrentUserPost(postToDelete.gpMemberId)) {
       console.warn('User attempting to delete another user\'s post');
-      alert('Bạn chỉ có thể xóa bài viết của chính mình!');
+      toast.error('Bạn chỉ có thể xóa bài viết của chính mình!');
       setShowPostMenu(null);
       return;
     }
@@ -1356,23 +1443,33 @@ const PostPage: React.FC = () => {
     // Confirm deletion
     const confirmMessage = `Bạn có chắc chắn muốn xóa bài viết này?\n\nNội dung: "${postToDelete.content.substring(0, 50)}${postToDelete.content.length > 50 ? '...' : ''}"\n\nHành động này không thể hoàn tác.`;
 
-    if (window.confirm(confirmMessage)) {
-      console.log('User confirmed deletion, removing post:', postId);
+    showConfirm(
+      'Xóa bài viết',
+      confirmMessage,
+      () => {
+        console.log('User confirmed deletion, removing post:', postId);
 
-      // Remove the post from the posts array
-      setPosts(prev => prev.filter(post => post.id !== postId));
+        // Remove the post from the posts array
+        setPosts(prev => prev.filter(post => post.id !== postId));
 
-      // Also close the post detail modal if it's showing the deleted post
-      if (selectedPost?.id === postId) {
-        setShowPostDetail(false);
-        setSelectedPost(null);
+        // Also close the post detail modal if it's showing the deleted post
+        if (selectedPost?.id === postId) {
+          setShowPostDetail(false);
+          setSelectedPost(null);
+        }
+
+        console.log('Post deleted successfully');
+        toast.success('Bài viết đã được xóa thành công!');
+      },
+      {
+        confirmText: 'Xóa',
+        cancelText: 'Hủy',
+        confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+        onCancel: () => {
+          console.log('User cancelled deletion');
+        }
       }
-
-      console.log('Post deleted successfully');
-      alert('Bài viết đã được xóa thành công!');
-    } else {
-      console.log('User cancelled deletion');
-    }
+    );
     setShowPostMenu(null);
   };
 
@@ -1461,61 +1558,69 @@ const PostPage: React.FC = () => {
     // Confirm deletion
     const confirmMessage = 'Bạn có chắc chắn muốn xóa bình luận này?\n\nHành động này không thể hoàn tác.';
 
-    if (!window.confirm(confirmMessage)) {
-      console.log('User cancelled comment deletion');
-      setShowCommentMenu(null);
-      return;
-    }
+    showConfirm(
+      'Xóa bình luận',
+      confirmMessage,
+      async () => {
+        try {
+          console.log('User confirmed deletion, calling API to delete comment:', commentId);
+          
+          const result = await postService.deleteComment(commentId);
+          
+          console.log('Delete comment result:', result);
+          
+          const success = result.success || result.status || (result.statusCode === 200);
+          
+          if (success) {
+            // Remove comment from posts state recursively
+            const removeCommentRecursively = (comments: Comment[]): Comment[] => {
+              return comments
+                .filter(c => c.id !== commentId)
+                .map(comment => {
+                  if (comment.replies && comment.replies.length > 0) {
+                    return {
+                      ...comment,
+                      replies: removeCommentRecursively(comment.replies)
+                    };
+                  }
+                  return comment;
+                });
+            };
 
-    try {
-      console.log('User confirmed deletion, calling API to delete comment:', commentId);
-      
-      const result = await postService.deleteComment(commentId);
-      
-      console.log('Delete comment result:', result);
-      
-      const success = result.success || result.status || (result.statusCode === 200);
-      
-      if (success) {
-        // Remove comment from posts state recursively
-        const removeCommentRecursively = (comments: Comment[]): Comment[] => {
-          return comments
-            .filter(c => c.id !== commentId)
-            .map(comment => {
-              if (comment.replies && comment.replies.length > 0) {
-                return {
-                  ...comment,
-                  replies: removeCommentRecursively(comment.replies)
-                };
-              }
-              return comment;
-            });
-        };
+            setPosts(prev => prev.map(p =>
+              p.id === postId
+                ? { ...p, comments: removeCommentRecursively(p.comments) }
+                : p
+            ));
 
-        setPosts(prev => prev.map(p =>
-          p.id === postId
-            ? { ...p, comments: removeCommentRecursively(p.comments) }
-            : p
-        ));
+            // Also update selectedPost if it's the same post
+            if (selectedPost?.id === postId) {
+              setSelectedPost(prev => prev ? {
+                ...prev,
+                comments: removeCommentRecursively(prev.comments)
+              } : null);
+            }
 
-        // Also update selectedPost if it's the same post
-        if (selectedPost?.id === postId) {
-          setSelectedPost(prev => prev ? {
-            ...prev,
-            comments: removeCommentRecursively(prev.comments)
-          } : null);
+            console.log('Comment deleted successfully');
+            toast.success('Bình luận đã được xóa thành công!');
+          } else {
+            throw new Error(result.message || 'Failed to delete comment');
+          }
+        } catch (error: any) {
+          console.error('Error deleting comment:', error);
+          const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa bình luận';
+          toast.error(errorMessage);
         }
-
-        console.log('Comment deleted successfully');
-        toast.success('Bình luận đã được xóa thành công!');
-      } else {
-        throw new Error(result.message || 'Failed to delete comment');
+      },
+      {
+        confirmText: 'Xóa',
+        cancelText: 'Hủy',
+        confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+        onCancel: () => {
+          console.log('User cancelled comment deletion');
+        }
       }
-    } catch (error: any) {
-      console.error('Error deleting comment:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa bình luận';
-      toast.error(errorMessage);
-    }
+    );
     
     setShowCommentMenu(null);
   };
@@ -1524,7 +1629,7 @@ const PostPage: React.FC = () => {
     if (reportReason.trim()) {
       // TODO: Submit report to backend
       console.log('Reporting comment:', reportingCommentId, 'Reason:', reportReason);
-      alert('Báo cáo đã được gửi thành công!');
+      toast.success('Báo cáo đã được gửi thành công!');
       setShowReportModal(false);
       setReportReason('');
       setReportingCommentId(null);
@@ -1547,7 +1652,7 @@ const PostPage: React.FC = () => {
     if (postReportReason.trim()) {
       // TODO: Submit report to backend
       console.log('Reporting post:', reportingPostId, 'Reason:', postReportReason);
-      alert('Báo cáo bài viết đã được gửi thành công!');
+      toast.success('Báo cáo bài viết đã được gửi thành công!');
       setShowReportPostModal(false);
       setPostReportReason('');
       setReportingPostId(null);
@@ -1588,7 +1693,7 @@ const PostPage: React.FC = () => {
     const currentImages = commentImages[postId] || [];
 
     if (files.length + currentImages.length > 4) {
-      alert('Chỉ có thể tải lên tối đa 4 ảnh cho bình luận');
+      toast.warning('Chỉ có thể tải lên tối đa 4 ảnh cho bình luận');
       return;
     }
 
@@ -1661,7 +1766,7 @@ const PostPage: React.FC = () => {
             avatar: data.authorPicture || userData.picture || defaultPicture
           },
           content: data.content || replyText,
-          timeAgo: 'Vừa xông',
+          timeAgo: 'Vừa xong',
           likes: data.totalReactions || 0,
           isLiked: false,
           replies: []
@@ -1720,13 +1825,30 @@ const PostPage: React.FC = () => {
     return currentUserName && commentAuthorName && currentUserName === commentAuthorName;
   };
 
-  // Recursive Comment Component
+  // Memoized handler for reply input to prevent focus loss
+  const handleReplyInputChange = useCallback((commentId: string, value: string) => {
+    setReplyInputs(prev => ({ ...prev, [commentId]: value }));
+  }, []);
+
+  // Handle emoji insertion for comment
+  const handleEmojiSelect = (postId: string, emoji: string) => {
+    setCommentInputs(prev => ({
+      ...prev,
+      [postId]: (prev[postId] || '') + emoji
+    }));
+    setShowEmojiPicker(null);
+    // Focus back on the input
+    const input = document.querySelector(`#comment-input-${postId}`) as HTMLInputElement;
+    if (input) input.focus();
+  };
+
+  // Recursive Comment Component - Memoized to prevent unnecessary re-renders
   const CommentItem: React.FC<{
     comment: Comment;
     postId: string;
     depth?: number;
     maxDepth?: number
-  }> = ({ comment, postId, depth = 0, maxDepth = 3 }) => {
+  }> = React.memo(({ comment, postId, depth = 0, maxDepth = 3 }) => {
     const canReply = depth < maxDepth;
 
     return (
@@ -1885,7 +2007,7 @@ const PostPage: React.FC = () => {
 
             {/* Reply Input */}
             {replyingToComment === comment.id && canReply && (
-              <div className="mt-3">
+              <div className="mt-3" key={`reply-input-${comment.id}`}>
                 <div className="flex items-center space-x-2">
                   {userData.picture ? (
                     <img
@@ -1902,16 +2024,19 @@ const PostPage: React.FC = () => {
                     </div>
                   )}
                   <input
+                    key={`reply-${comment.id}`}
                     type="text"
                     value={replyInputs[comment.id] || ''}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReplyInputs(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                    onChange={(e) => handleReplyInputChange(comment.id, e.target.value)}
                     placeholder="Viết trả lời..."
                     className="flex-1 px-3 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                    onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === 'Enter') {
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
                         handleReplySubmit(postId, comment.id);
                       }
                     }}
+                    autoFocus
                   />
                   <button
                     onClick={() => handleReplySubmit(postId, comment.id)}
@@ -1942,7 +2067,7 @@ const PostPage: React.FC = () => {
         )}
       </div>
     );
-  };
+  });
 
   return (
     <div className="h-full bg-gray-50">
@@ -1951,61 +2076,174 @@ const PostPage: React.FC = () => {
         <div className="relative">
           {/* Cover Photo */}
           <div className="h-80 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 relative overflow-hidden">
-            <img
-              src={familyTreeData?.picture || "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=1200&h=400&fit=crop"}
-              alt="Group cover"
-              className="w-full h-full object-cover opacity-80"
-            />
+            {familyTreeData?.picture && familyTreeData.picture !== 'string1' ? (
+              <img
+                src={familyTreeData.picture}
+                alt="Group cover"
+                className="w-full h-full object-cover opacity-80"
+                onError={(e) => {
+                  // Fallback to gradient if image fails to load
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="absolute inset-0">
+                <img
+                  src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=1200&h=400&fit=crop"
+                  alt="Family cover"
+                  className="w-full h-full object-cover opacity-70"
+                />
+              </div>
+            )}
             <div className="absolute inset-0 bg-black/30"></div>
+            
+            {/* Decorative Pattern Overlay */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-10 left-10 w-32 h-32 border-2 border-white rounded-full"></div>
+              <div className="absolute bottom-20 right-20 w-24 h-24 border-2 border-white rounded-full"></div>
+              <div className="absolute top-1/2 right-1/3 w-16 h-16 border-2 border-white rounded-full"></div>
+            </div>
           </div>
 
           {/* Group Info */}
-          <div className="bg-white border-b border-gray-200 px-4">
+          <div className="bg-white border-b border-gray-200 px-4 shadow-sm">
             <div className="max-w-7xl mx-auto">
               <div className="flex items-end justify-between pb-6 mt-4">
                 <div className="flex items-end space-x-6">
+                  {/* Group Avatar/Logo */}
+                  {familyTreeData?.picture && familyTreeData.picture !== 'string1' && (
+                    <div className="relative -mt-16 mb-2">
+                      <div className="w-32 h-32 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-white">
+                        <img
+                          src={familyTreeData.picture}
+                          alt={familyTreeData.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = defaultPicture;
+                          }}
+                        />
+                      </div>
+                      {familyTreeData.isActive && (
+                        <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-500 border-4 border-white rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs">✓</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Group Details */}
                   <div>
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                      {familyTreeLoading ? (
-                        <div className="h-10 bg-gray-200 rounded animate-pulse w-64"></div>
-                      ) : (
-                        familyTreeData?.name || 'Gia Phả Gia Đình'
-                      )}
-                    </h1>
-                    <div className="flex items-center space-x-4 text-gray-600 mb-2">
-                      <span className="text-sm font-medium">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h1 className="text-4xl font-bold text-gray-900">
                         {familyTreeLoading ? (
-                          <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+                          <div className="h-10 bg-gray-200 rounded animate-pulse w-64"></div>
                         ) : (
-                          `${familyTreeData?.numberOfMember || 0} thành viên`
+                          familyTreeData?.name || 'Gia Phả Gia Đình'
                         )}
-                      </span>
+                      </h1>
+                      {familyTreeData?.isActive && (
+                        <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <span>Đang hoạt động</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Description */}
+                    {familyTreeData?.description && familyTreeData.description !== 'string1' && (
+                      <p className="text-gray-600 mb-3 max-w-2xl line-clamp-2">
+                        {familyTreeData.description}
+                      </p>
+                    )}
+                    
+                    <div className="flex items-center space-x-6 text-gray-600">
+                      {/* Members Count */}
+                      <div className="flex items-center space-x-2">
+                        {familyTreeLoading ? (
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+                        ) : (
+                          <>
+                            <Users className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm font-semibold text-gray-900">
+                              {familyTreeData?.numberOfMember || 0}
+                            </span>
+                            <span className="text-sm">thành viên</span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Owner Info */}
+                      {familyTreeData?.owner && (
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                          </svg>
+                          <span className="text-sm">
+                            <span className="text-gray-500">Quản lý bởi</span>{' '}
+                            <span className="font-semibold text-gray-900">{familyTreeData.owner}</span>
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Privacy Mode */}
+                      <div className="flex items-center space-x-2">
+                        {familyTreeData?.gpModeCode === 1 ? (
+                          <>
+                            <Globe className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-600">Công khai</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-4 h-4 text-gray-600" />
+                            <span className="text-sm font-medium text-gray-600">Riêng tư</span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Creation Date */}
+                      {familyTreeData?.createdOn && (
+                        <div className="flex items-center space-x-2 text-sm text-gray-500">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                          </svg>
+                          <span>Tạo {new Date(familyTreeData.createdOn).toLocaleDateString('vi-VN')}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Action Buttons */}
                 <div className="flex items-center space-x-3 pb-2">
-                  <button className="flex items-center space-x-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
+                  <button 
+                    className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    title="Mời thành viên mới"
+                  >
                     <Plus className="w-4 h-4" />
                     <span>Mời</span>
                   </button>
                   <button
                     onClick={() => setShowSharePopup(true)}
-                    className="flex items-center space-x-2 px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
+                    className="flex items-center space-x-2 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all duration-200 font-medium"
+                    title="Chia sẻ gia phả"
                   >
                     <Share className="w-4 h-4" />
                     <span>Chia sẻ</span>
                   </button>
-                  <button className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
-                    <Settings className="w-4 h-4" />
+                  <button 
+                    className="flex items-center justify-center p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                    title="Cài đặt"
+                  >
+                    <Settings className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setShowSearchPopup(true)}
-                    className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                    className="flex items-center justify-center p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                    title="Tìm kiếm bài viết"
                   >
-                    <Search className="w-4 h-4" />
+                    <Search className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -2702,24 +2940,6 @@ const PostPage: React.FC = () => {
                               }}
                             />
 
-                            {/* Image Upload Button */}
-                            <div className="relative">
-                              <input
-                                type="file"
-                                id={`comment-image-${post.id}`}
-                                multiple
-                                accept="image/*"
-                                onChange={(e) => handleCommentImageSelect(post.id, e)}
-                                className="hidden"
-                              />
-                              <label
-                                htmlFor={`comment-image-${post.id}`}
-                                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full cursor-pointer transition-colors"
-                              >
-                                <Image className="w-5 h-5" />
-                              </label>
-                            </div>
-
                             <button
                               onClick={() => handleCommentSubmit(post.id)}
                               disabled={!commentInputs[post.id]?.trim() && (commentImagePreviews[post.id]?.length || 0) === 0}
@@ -2730,15 +2950,41 @@ const PostPage: React.FC = () => {
                           </div>
 
                           {/* Comment Actions */}
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                            <button className="hover:underline flex items-center space-x-1">
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500 relative">
+                            <button 
+                              onClick={() => setShowEmojiPicker(showEmojiPicker === post.id ? null : post.id)}
+                              className="emoji-button hover:underline flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                            >
                               <Smile className="w-3 h-3" />
                               <span>Emoji</span>
                             </button>
-                            <button className="hover:underline flex items-center space-x-1">
-                              <Image className="w-3 h-3" />
-                              <span>Ảnh</span>
-                            </button>
+
+                            {/* Emoji Picker Popup */}
+                            {showEmojiPicker === post.id && (
+                              <div className="emoji-picker-container absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-xl p-3 z-50 w-72 max-h-64 overflow-y-auto">
+                                <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
+                                  <h4 className="text-sm font-semibold text-gray-900">Chọn emoji</h4>
+                                  <button
+                                    onClick={() => setShowEmojiPicker(null)}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-8 gap-1">
+                                  {commonEmojis.map((emoji, index) => (
+                                    <button
+                                      key={index}
+                                      onClick={() => handleEmojiSelect(post.id, emoji)}
+                                      className="text-2xl hover:bg-gray-100 rounded p-1 transition-colors hover:scale-110 transform duration-150"
+                                      title={emoji}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -3520,6 +3766,39 @@ const PostPage: React.FC = () => {
               </div>
             </div>
           )}
+
+        {/* Confirm Dialog */}
+        {showConfirmDialog && confirmDialogData && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-900">{confirmDialogData.title}</h3>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-6">
+                <p className="text-gray-700 whitespace-pre-line leading-relaxed">{confirmDialogData.message}</p>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex items-center justify-end space-x-3">
+                <button
+                  onClick={confirmDialogData.onCancel}
+                  className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                >
+                  {confirmDialogData.cancelText}
+                </button>
+                <button
+                  onClick={confirmDialogData.onConfirm}
+                  className={`px-5 py-2.5 text-white rounded-lg font-medium transition-all transform hover:scale-105 ${confirmDialogData.confirmButtonClass}`}
+                >
+                  {confirmDialogData.confirmText}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Post Detail Modal */}
         <PostDetailPage
