@@ -1,11 +1,16 @@
+import { useAppSelector } from "@/hooks/redux";
 import { Edit2 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const BasicInfo = () => {
+const BasicInfo: React.FC = () => {
+
+    const selectedTree = useAppSelector(state => state.familyTree.selectedFamilyTree);
+
     const [formData, setFormData] = useState({
-        familyName: 'Gia phả dòng họ X',
-        founder: 'Nguyễn Văn A',
-        description: ''
+        name: '',
+        owner: '',
+        description: '',
+        picture: ''
     });
     const [originalData, setOriginalData] = useState({
         familyName: 'Gia phả dòng họ X',

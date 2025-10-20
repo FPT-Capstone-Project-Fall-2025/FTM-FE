@@ -26,7 +26,7 @@ import FamilyTreeToolbar from './FamilyTreeToolbar';
 import { addHistory } from '@/stores/slices/historySlice';
 import { useReactFlowZoom } from '@/hooks/useReactFlowZoom';
 import SearchBar from './SearchBar';
-import AddNewNode from './AddNewNode';
+// import AddNewNode from './AddNewNode';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode

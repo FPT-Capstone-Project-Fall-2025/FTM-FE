@@ -5,6 +5,15 @@ export interface ApiResponse<T = any> {
   success: boolean;
 }
 
+// Pagination
+export interface PaginationResponse<T = any> {
+  data: T;
+  pageIndex: number;
+  pageSize: number;
+  totalItem: number;
+  totalPages: number;
+}
+
 // Error response
 export interface ApiError {
   message: string;

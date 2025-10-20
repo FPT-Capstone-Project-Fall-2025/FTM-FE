@@ -82,85 +82,87 @@ const HomePage: React.FC = () => {
   ];
 
   return (
-    <div className="overflow-auto flex flex-col bg-gray-50">
-      {/* Hero Section */}
-      <div 
-        className="relative h-96 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: "linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1544928147-79a2dbc1f389?w=1200&h=400&fit=crop')"
-        }}
-      >
-        <div className="absolute inset-0 flex items-center justify-start px-8 lg:px-16">
-          <div className="text-white max-w-2xl">
-            <h1 className="text-4xl lg:text-5xl font-bold mb-4">
-              Hội nhóm tập luyện thể thao vào 5-6h sáng hàng ngày
-            </h1>
-            <div className="flex items-center text-sm space-x-6 mt-6">
-              <div className="flex items-center space-x-2">
-                <User className="w-4 h-4" />
-                <span>By User.FullName</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4" />
-                <span>October 4, 2025</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <MessageCircle className="w-4 h-4" />
-                <span>No comments</span>
+    <div className="h-full overflow-y-auto">
+      <div className="flex flex-col bg-gray-50">
+        {/* Hero Section */}
+        <div 
+          className="relative h-96 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: "linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1544928147-79a2dbc1f389?w=1200&h=400&fit=crop')"
+          }}
+        >
+          <div className="absolute inset-0 flex items-center justify-start px-8 lg:px-16">
+            <div className="text-white max-w-2xl">
+              <h1 className="text-4xl lg:text-5xl font-bold mb-4">
+                Hội nhóm tập luyện thể thao vào 5-6h sáng hàng ngày
+              </h1>
+              <div className="flex items-center text-sm space-x-6 mt-6">
+                <div className="flex items-center space-x-2">
+                  <User className="w-4 h-4" />
+                  <span>By User.FullName</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>October 4, 2025</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <MessageCircle className="w-4 h-4" />
+                  <span>No comments</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Content Section */}
-      <div className="flex-1 container mx-auto px-4 py-12">
-        {/* Recent Updates Section */}
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">
-            Cập nhật gần đây
-          </h2>
+        {/* Content Section */}
+        <div className="flex-1 container mx-auto px-4 py-12">
+          {/* Recent Updates Section */}
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-8">
+              Cập nhật gần đây
+            </h2>
 
-          {/* Articles Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {articles.map((article) => (
-              <div key={article.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                <div className="relative h-48">
-                  <img
-                    src={article.image}
-                    alt={article.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3 text-sm line-clamp-2">
-                    {article.title}
-                  </h3>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center space-x-2">
-                      <User className="w-3 h-3" />
-                      <span>By {article.author}</span>
+            {/* Articles Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {articles.map((article) => (
+                <div key={article.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                  <div className="relative h-48">
+                    <img
+                      src={article.image}
+                      alt={article.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-900 mb-3 text-sm line-clamp-2">
+                      {article.title}
+                    </h3>
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex items-center space-x-2">
+                        <User className="w-3 h-3" />
+                        <span>By {article.author}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-3 h-3" />
+                        <span>{article.date}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <MessageCircle className="w-3 h-3" />
+                        <span>{article.comments}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-3 h-3" />
-                      <span>{article.date}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <MessageCircle className="w-3 h-3" />
-                      <span>{article.comments}</span>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <Footer />
+        {/* Footer */}
+        <Footer />
+      </div>
     </div>
   );
 };
