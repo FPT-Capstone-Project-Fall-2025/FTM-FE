@@ -1451,20 +1451,35 @@ const PostPage: React.FC = () => {
     showConfirm(
       'Xóa bài viết',
       confirmMessage,
-      () => {
-        console.log('User confirmed deletion, removing post:', postId);
+      async () => {
+        console.log('User confirmed deletion, calling API to delete post:', postId);
 
-        // Remove the post from the posts array
-        setPosts(prev => prev.filter(post => post.id !== postId));
+        try {
+          // Call API to delete the post
+          const result = await postService.deletePost(postId);
 
-        // Also close the post detail modal if it's showing the deleted post
-        if (selectedPost?.id === postId) {
-          setShowPostDetail(false);
-          setSelectedPost(null);
+          console.log('Delete post API response:', result);
+
+          if (result.status && result.data) {
+            // Remove the post from the posts array
+            setPosts(prev => prev.filter(post => post.id !== postId));
+
+            // Also close the post detail modal if it's showing the deleted post
+            if (selectedPost?.id === postId) {
+              setShowPostDetail(false);
+              setSelectedPost(null);
+            }
+
+            console.log('Post deleted successfully');
+            toast.success('Bài viết đã được xóa thành công!');
+          } else {
+            throw new Error(result.message || 'Không thể xóa bài viết');
+          }
+        } catch (error) {
+          console.error('Error deleting post:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa bài viết';
+          toast.error(errorMessage);
         }
-
-        console.log('Post deleted successfully');
-        toast.success('Bài viết đã được xóa thành công!');
       },
       {
         confirmText: 'Xóa',
