@@ -104,9 +104,14 @@ const familyTreeMemberService = {
         `/ftmember/${gpId}/get-by-userid?userId=${userId}`
       );
 
-      if (response.status && response.data?.id) {
+      console.log('GPMember API response:', response);
+
+      // Handle nested data structure
+      const memberData = response.data?.data || response.data;
+
+      if (response.status && memberData?.id) {
         // Cache the result
-        cachedGPMemberId = response.data.id;
+        cachedGPMemberId = memberData.id;
         cacheKey = currentCacheKey;
         
         console.log('GPMemberId cached successfully:', cachedGPMemberId);
@@ -130,8 +135,13 @@ const familyTreeMemberService = {
         `/ftmember/${gpId}/get-by-userid?userId=${userId}`
       );
 
-      if (response.status && response.data) {
-        return response.data;
+      console.log('getGPMemberByUserId API response:', response);
+
+      // Handle nested data structure
+      const memberData = response.data?.data || response.data;
+
+      if (response.status && memberData) {
+        return memberData as GPMember;
       } else {
         console.error('Failed to get GPMember:', response.message);
         return null;

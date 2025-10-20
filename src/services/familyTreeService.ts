@@ -7,19 +7,27 @@ export interface FamilyTree {
   ownerId: string;
   owner: string;
   description: string;
-  picture: string;
+  picture: string | null;
   isActive: boolean;
   gpModeCode: number;
   createdAt: string;
-  lastModifiedAt: string;
+  lastModifiedAt: string | null;
   createdBy: string;
   lastModifiedBy: string;
   memberCount: number;
 }
 
+export interface PaginatedFamilyTreeResponse {
+  pageIndex: number;
+  pageSize: number;
+  totalPages: number;
+  totalItems: number;
+  data: FamilyTree[];
+}
+
 const familyTreeService = {
-  getAllFamilyTrees(): Promise<ApiResponse<FamilyTree[]>> {
-    return api.get('/familytree');
+  getAllFamilyTrees(pageIndex: number = 1, pageSize: number = 10): Promise<ApiResponse<PaginatedFamilyTreeResponse>> {
+    return api.get(`/familytree?pageIndex=${pageIndex}&pageSize=${pageSize}`);
   },
 
   getFamilyTreeById(id: string): Promise<ApiResponse<FamilyTree>> {

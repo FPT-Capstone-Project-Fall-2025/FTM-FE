@@ -283,7 +283,12 @@ const PostPage: React.FC = () => {
       
       // Handle both API response formats
       const success = result.success || result.status || (result.statusCode === 200);
-      const data = result.data;
+      const responseData = result.data;
+      
+      // Handle paginated response or direct array
+      const data = Array.isArray(responseData) 
+        ? responseData 
+        : (responseData?.data || []);
       
       if (success && data) {
         // Transform API data to match Post interface

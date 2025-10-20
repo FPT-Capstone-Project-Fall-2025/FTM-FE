@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Globe, MoreHorizontal } from 'lucide-react';
-import familyTreeService, { type FamilyTree } from '@/services/familyTreeService';
-
-interface ApiResponse {
-  statusCode: number;
-  message: string;
-  status: boolean;
-  data: FamilyTree[];
-  errors: null;
-  hasError: boolean;
-}
+import familyTreeService, { type FamilyTree, type PaginatedFamilyTreeResponse } from '@/services/familyTreeService';
+import type { ApiResponse } from '@/types/api';
 
 const GroupPostPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +11,12 @@ const GroupPostPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    pageIndex: 1,
+    pageSize: 10,
+    totalPages: 0,
+    totalItems: 0
+  });
 
   // Load family trees data
   useEffect(() => {
@@ -26,10 +24,18 @@ const GroupPostPage: React.FC = () => {
       setInitialLoading(true);
       setError(null);
       try {
-        const result = await familyTreeService.getAllFamilyTrees();
+        const result = await familyTreeService.getAllFamilyTrees(pagination.pageIndex, pagination.pageSize);
         
         if (result.status && result.data) {
-          setFamilyTrees(result.data.filter(ft => ft.isActive));
+          // result.data is now PaginatedFamilyTreeResponse
+          const paginatedData = result.data;
+          setFamilyTrees(paginatedData.data.filter(ft => ft.isActive));
+          setPagination({
+            pageIndex: paginatedData.pageIndex,
+            pageSize: paginatedData.pageSize,
+            totalPages: paginatedData.totalPages,
+            totalItems: paginatedData.totalItems
+          });
         } else {
           throw new Error(result.message || 'Không thể tải dữ liệu gia phả');
         }
@@ -42,7 +48,7 @@ const GroupPostPage: React.FC = () => {
     };
 
     loadFamilyTrees();
-  }, []);
+  }, [pagination.pageIndex, pagination.pageSize]);
 
   // Filtered family trees based on search query
   const filteredFamilyTrees = familyTrees.filter(familyTree =>
@@ -298,6 +304,43 @@ const GroupPostPage: React.FC = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {pagination.totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center space-x-2">
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.max(1, prev.pageIndex - 1) }))}
+                  disabled={pagination.pageIndex === 1}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Trang trước
+                </button>
+                
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setPagination(prev => ({ ...prev, pageIndex: page }))}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                        page === pagination.pageIndex
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.min(prev.totalPages, prev.pageIndex + 1) }))}
+                  disabled={pagination.pageIndex === pagination.totalPages}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Trang sau
+                </button>
               </div>
             )}
           </div>
