@@ -1,35 +1,30 @@
 import { useAppSelector } from "@/hooks/redux";
 import { Edit2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { toast } from "react-toastify";
 
 const BasicInfo: React.FC = () => {
 
     const selectedTree = useAppSelector(state => state.familyTree.selectedFamilyTree);
 
     const [formData, setFormData] = useState({
-        name: '',
-        owner: '',
-        description: '',
-        picture: ''
+        name: selectedTree?.name || '',
+        owner: selectedTree?.owner || '',
+        description: selectedTree?.description || '',
+        picture: selectedTree?.picture || ''
     });
-    const [originalData, setOriginalData] = useState({
-        familyName: 'Gia phả dòng họ X',
-        founder: 'Nguyễn Văn A',
-        description: ''
-    });
-    const [currentImage, setCurrentImage] = useState(null);
-    const [originalImage, setOriginalImage] = useState(null);
+
     const [isEditMode, setIsEditMode] = useState(false);
     const [showImagePopup, setShowImagePopup] = useState(false);
-    const [tempImage, setTempImage] = useState(null);
-    const fileInputRef = useRef(null);
+    const [tempImage, setTempImage] = useState<string | ArrayBuffer | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
         
     const hasChanges = () => {
         return (
-            formData.familyName !== originalData.familyName ||
-            formData.founder !== originalData.founder ||
-            formData.description !== originalData.description ||
-            currentImage !== originalImage
+            formData.name !== selectedTree?.name ||
+            formData.owner !== selectedTree.owner ||
+            formData.description !== selectedTree.description ||
+            formData.picture !== tempImage
         );
     };
 
@@ -47,8 +42,10 @@ const BasicInfo: React.FC = () => {
     };
 
     const handleCancel = () => {
-        setFormData(originalData);
-        setCurrentImage(originalImage);
+        setFormData(pre => ({
+            ...pre,
+            ...selectedTree
+        }));
         setIsEditMode(false);
     };
 
@@ -56,14 +53,8 @@ const BasicInfo: React.FC = () => {
         if (!hasChanges()) return;
         
         // TODO: Implement API call here
-        console.log('Saving data:', {
-            formData,
-            image: currentImage
-        });
         
         // After successful API call, update original data
-        setOriginalData(formData);
-        setOriginalImage(currentImage);
         setIsEditMode(false);
         
         // Example API call structure:
@@ -99,14 +90,14 @@ const BasicInfo: React.FC = () => {
             // Validate file type
             const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
             if (!validTypes.includes(file.type)) {
-                alert('Định dạng file không hợp lệ. Vui lòng chọn file JPG, JPEG, PNG hoặc GIF.');
+                toast.error('Định dạng file không hợp lệ. Vui lòng chọn file JPG, JPEG, PNG hoặc GIF.');
                 return;
             }
             
             // Validate file size (25MB)
             const maxSize = 25 * 1024 * 1024; // 25MB in bytes
             if (file.size > maxSize) {
-                alert('Kích thước file vượt quá 25MB. Vui lòng chọn file nhỏ hơn.');
+                toast.error('Kích thước file vượt quá 25MB. Vui lòng chọn file nhỏ hơn.');
                 return;
             }
 
@@ -120,53 +111,22 @@ const BasicInfo: React.FC = () => {
     };
 
     const handleImageSave = () => {
-        if (tempImage) {
-            setCurrentImage(tempImage);
+        if(tempImage) {
+            setFormData(pre => ({
+                ...pre,
+                picture: tempImage.toString()
+            }))
         }
         setShowImagePopup(false);
         setTempImage(null);
-        
-        // TODO: Upload image to server
-        /*
-        const formData = new FormData();
-        formData.append('image', fileInputRef.current.files[0]);
-        
-        try {
-            const response = await fetch('/api/upload-image', {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                setCurrentImage(data.imageUrl);
-            }
-        } catch (error) {
-            console.error('Error uploading image:', error);
-        }
-        */
     };
 
     const handleImageDelete = () => {
         setTempImage(null);
-        if (showImagePopup) {
-            // If in popup, just clear temp image
-            setTempImage(null);
-        } else {
-            // If not in popup, clear current image
-            setCurrentImage(null);
-        }
-        
-        // TODO: Delete image from server
-        /*
-        try {
-            await fetch('/api/delete-image', {
-                method: 'DELETE'
-            });
-        } catch (error) {
-            console.error('Error deleting image:', error);
-        }
-        */
+        setFormData(pre => ({
+            ...pre,
+            picture: ''
+        }))
     };
 
     const handleImagePopupCancel = () => {
@@ -179,7 +139,7 @@ const BasicInfo: React.FC = () => {
     };
 
     return (
-        <>
+        <div className="h-full overflow-y-auto">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Family Tree Image */}
                 <div className="lg:col-span-1">
@@ -189,15 +149,15 @@ const BasicInfo: React.FC = () => {
                             isEditMode ? 'cursor-pointer hover:border-blue-500' : 'cursor-default'
                         }`}
                     >
-                        {currentImage ? (
+                        {formData?.picture ? (
                             <>
                                 <img 
-                                    src={currentImage} 
+                                    src={formData?.picture} 
                                     alt="Family tree" 
                                     className="w-full h-full object-cover"
                                 />
                                 {isEditMode && (
-                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                                    <div className="absolute inset-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
                                         <Edit2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                 )}
@@ -209,7 +169,7 @@ const BasicInfo: React.FC = () => {
                                     <line x1="80" y1="20" x2="20" y2="80" stroke="currentColor" strokeWidth="2" />
                                 </svg>
                                 {isEditMode && (
-                                    <div className="absolute inset-0 bg-gray-900 bg-opacity-0 group-hover:bg-opacity-5 rounded-lg transition-all flex items-center justify-center">
+                                    <div className="absolute inset-0 group-hover:bg-opacity-5 rounded-lg transition-all flex items-center justify-center">
                                         <Edit2 className="w-8 h-8 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                 )}
@@ -221,14 +181,14 @@ const BasicInfo: React.FC = () => {
                 {/* Form Section */}
                 <div className="lg:col-span-2 space-y-6">
                     <div>
-                        <label htmlFor="familyName" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                             Tên Gia Phả
                         </label>
                         <input
                             type="text"
-                            id="familyName"
-                            name="familyName"
-                            value={formData.familyName}
+                            id="name"
+                            name="name"
+                            value={formData.name}
                             onChange={handleChange}
                             disabled={!isEditMode}
                             className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
@@ -239,14 +199,14 @@ const BasicInfo: React.FC = () => {
                     </div>
 
                     <div>
-                        <label htmlFor="founder" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-2">
                             Người sở hữu
                         </label>
                         <input
                             type="text"
-                            id="founder"
-                            name="founder"
-                            value={formData.founder}
+                            id="owner"
+                            name="owner"
+                            value={formData.owner}
                             onChange={handleChange}
                             disabled={!isEditMode}
                             className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
@@ -330,7 +290,7 @@ const BasicInfo: React.FC = () => {
                         {/* Image Preview */}
                         {tempImage && (
                             <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
-                                <img src={tempImage} alt="Preview" className="w-full h-48 object-cover" />
+                                <img src={tempImage.toString()} alt="Preview" className="w-full h-48 object-cover" />
                             </div>
                         )}
 
@@ -354,7 +314,7 @@ const BasicInfo: React.FC = () => {
                                 Chọn ảnh
                             </button>
 
-                            {(tempImage || currentImage) && (
+                            {(tempImage || formData?.picture) && (
                                 <button 
                                     onClick={handleImageDelete}
                                     className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
@@ -384,7 +344,7 @@ const BasicInfo: React.FC = () => {
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 };
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronRight, Users, Calendar, Scroll } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronRight, Users, Calendar, Scroll, X } from 'lucide-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
+import { toast } from 'react-toastify';
 import familytreeService from '@/services/familytreeService';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { setAvailableFamilyTrees, setSelectedFamilyTree } from '@/stores/slices/familyTreeSlice';
@@ -11,6 +12,16 @@ const FamilyTreeSelection: React.FC = () => {
     const availableFamilyTrees = useAppSelector(state => state.familyTree.availableFamilyTrees);
     const [selectedTreeId, setSelectedTreeId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showCreatePopup, setShowCreatePopup] = useState(false);
+
+    const [newTreeData, setNewTreeData] = useState({
+        name: '',
+        owner: '',
+        description: '',
+        picture: ''
+    });
+    const [tempImage, setTempImage] = useState<string | ArrayBuffer | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         const fetchFamilyTrees = async () => {
@@ -29,33 +40,12 @@ const FamilyTreeSelection: React.FC = () => {
     const handleSelectTree = (treeId: string) => {
         setSelectedTreeId(treeId);
         const selectedTree = availableFamilyTrees.find(tree => tree.id === treeId);
-        if (selectedTree) {
-            dispatch(setSelectedFamilyTree(selectedTree));
-
-            // TODO: Fetch family tree data from API
-            try {
-                // const response = await fetch(`/api/family-trees/${treeId}/data`);
-                // const treeData = await response.json();
-
-                // Mock data for now - you would load actual tree data here
-                // dispatch(loadFamilyTreeData({
-                //   treeId: treeId,
-                //   nodes: treeData.nodes,
-                //   edges: treeData.edges,
-                //   members: treeData.members
-                // }));
-            } catch (error) {
-                console.error('Error loading family tree data:', error);
-            }
-        };
-    }
+        if (selectedTree) dispatch(setSelectedFamilyTree(selectedTree));
+    };
 
     const renderSkeletonCard = (count: number) =>
         Array.from({ length: count }).map((_, idx) => (
-            <div
-                key={idx}
-                className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden"
-            >
+            <div key={idx} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
                 <div className="h-48">
                     <Skeleton height="100%" />
                 </div>
@@ -72,17 +62,65 @@ const FamilyTreeSelection: React.FC = () => {
             </div>
         ));
 
+    const openFileSelector = () => fileInputRef.current?.click();
+
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+        if (!validTypes.includes(file.type)) {
+            toast.error('Định dạng file không hợp lệ. Vui lòng chọn JPG, PNG hoặc GIF.');
+            return;
+        }
+
+        const maxSize = 25 * 1024 * 1024;
+        if (file.size > maxSize) {
+            toast.error('Kích thước file vượt quá 25MB.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => setTempImage(reader.result);
+        reader.readAsDataURL(file);
+    };
+
+    const handleSaveNewTree = async () => {
+        if (!newTreeData.name || !newTreeData.owner) {
+            toast.error('Vui lòng nhập đầy đủ tên và chủ sở hữu.');
+            return;
+        }
+
+        // try {
+        //     const payload = {
+        //         ...newTreeData,
+        //         picture: tempImage ? tempImage.toString() : ''
+        //     };
+        //     const response = await familytreeService.createFamilyTree(payload);
+        //     toast.success('Tạo gia phả mới thành công!');
+        //     dispatch(setAvailableFamilyTrees([...availableFamilyTrees, response.data.data]));
+        //     setShowCreatePopup(false);
+        //     setTempImage(null);
+        //     setNewTreeData({ name: '', owner: '', description: '', picture: '' });
+        // } catch (err) {
+        //     console.error(err);
+        //     toast.error('Không thể tạo gia phả mới.');
+        // }
+    };
+
+    const handleCancelCreate = () => {
+        setShowCreatePopup(false);
+        setTempImage(null);
+        setNewTreeData({ name: '', owner: '', description: '', picture: '' });
+    };
+
     return (
         <div className="h-full overflow-y-auto w-full bg-gray-50">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                        GIA PHẢ CỦA TÔI
-                    </h1>
-                    <p className="text-gray-600">
-                        Chọn một gia phả để xem và chỉnh sửa thông tin của bạn
-                    </p>
+                    <h1 className="text-4xl font-bold text-gray-900 mb-2">GIA PHẢ CỦA TÔI</h1>
+                    <p className="text-gray-600">Chọn một gia phả để xem và chỉnh sửa thông tin của bạn</p>
                 </div>
 
                 {/* Family Trees Grid */}
@@ -93,12 +131,12 @@ const FamilyTreeSelection: React.FC = () => {
                             <div
                                 key={tree.id}
                                 onClick={() => handleSelectTree(tree.id)}
-                                className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer border-2 ${selectedTreeId === tree.id
-                                    ? 'border-blue-500 ring-2 ring-blue-200'
-                                    : 'border-transparent hover:border-blue-200'
-                                    }`}
+                                className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer border-2 ${
+                                    selectedTreeId === tree.id
+                                        ? 'border-blue-500 ring-2 ring-blue-200'
+                                        : 'border-transparent hover:border-blue-200'
+                                }`}
                             >
-                                {/* Image/Icon Section */}
                                 <div className="h-48 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-t-lg flex items-center justify-center">
                                     {tree.picture ? (
                                         <img
@@ -110,21 +148,14 @@ const FamilyTreeSelection: React.FC = () => {
                                         <Users className="w-20 h-20 text-blue-400" />
                                     )}
                                 </div>
-
-                                {/* Content Section */}
                                 <div className="p-5">
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex-1">
-                                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                                                {tree.name}
-                                            </h3>
-                                            <p className="text-sm text-gray-600">
-                                                Chủ sở hữu: {tree.owner}
-                                            </p>
+                                            <h3 className="text-lg font-semibold text-gray-900 mb-1">{tree.name}</h3>
+                                            <p className="text-sm text-gray-600">Chủ sở hữu: {tree.owner}</p>
                                         </div>
                                         <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 mt-1" />
                                     </div>
-
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2 text-sm text-gray-600">
                                             <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700">
@@ -133,12 +164,10 @@ const FamilyTreeSelection: React.FC = () => {
                                             <span className="text-gray-400">•</span>
                                             <span>{tree.memberCount} thành viên</span>
                                         </div>
-
                                         <div className="flex items-center gap-2 text-sm text-gray-500">
                                             <Calendar className="w-4 h-4" />
                                             <span>Tạo ngày {tree.createAt}</span>
                                         </div>
-
                                         <div className="flex items-center gap-2 text-sm text-gray-500">
                                             <Scroll className="w-4 h-4" />
                                             <span>{tree.description}</span>
@@ -150,22 +179,109 @@ const FamilyTreeSelection: React.FC = () => {
 
                     {/* Add New Family Tree Card */}
                     {!loading && (
-                        <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer border-2 border-dashed border-gray-300 hover:border-blue-400 flex items-center justify-center min-h-[320px]">
+                        <div
+                            onClick={() => setShowCreatePopup(true)}
+                            className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer border-2 border-dashed border-gray-300 hover:border-blue-400 flex items-center justify-center min-h-[320px]"
+                        >
                             <div className="text-center p-6">
                                 <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <Users className="w-8 h-8 text-blue-500" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                    Tạo gia phả mới
-                                </h3>
-                                <p className="text-sm text-gray-600">
-                                    Bắt đầu xây dựng cây gia đình của bạn
-                                </p>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Tạo gia phả mới</h3>
+                                <p className="text-sm text-gray-600">Bắt đầu xây dựng cây gia đình của bạn</p>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* Create family tree modal */}
+            {showCreatePopup && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-lg w-full relative mx-4">
+                        <button
+                            onClick={handleCancelCreate}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <h2 className="text-2xl font-semibold mb-4 text-gray-900">Tạo gia phả mới</h2>
+                        <p className="text-gray-500 mb-6">Nhập thông tin để khởi tạo cây gia đình của bạn</p>
+
+                        {/* Image Preview */}
+                        <div
+                            onClick={openFileSelector}
+                            className="border-2 border-dashed rounded-lg aspect-video flex items-center justify-center mb-6 cursor-pointer hover:border-blue-400 transition-colors relative"
+                        >
+                            {tempImage ? (
+                                <img
+                                    src={tempImage.toString()}
+                                    alt="Preview"
+                                    className="w-full h-full object-cover rounded-lg"
+                                />
+                            ) : (
+                                <Users className="w-16 h-16 text-gray-400" />
+                            )}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageSelect}
+                                className="hidden"
+                            />
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tên Gia Phả</label>
+                                <input
+                                    type="text"
+                                    value={newTreeData.name}
+                                    onChange={(e) => setNewTreeData({ ...newTreeData, name: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    placeholder="Nhập tên gia phả"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Chủ Sở Hữu</label>
+                                <input
+                                    type="text"
+                                    value={newTreeData.owner}
+                                    onChange={(e) => setNewTreeData({ ...newTreeData, owner: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    placeholder="Nhập tên chủ sở hữu"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Ghi Chú</label>
+                                <textarea
+                                    value={newTreeData.description}
+                                    onChange={(e) => setNewTreeData({ ...newTreeData, description: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                    rows={4}
+                                    placeholder="Nhập mô tả hoặc ghi chú"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={handleCancelCreate}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleSaveNewTree}
+                                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                            >
+                                Lưu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
