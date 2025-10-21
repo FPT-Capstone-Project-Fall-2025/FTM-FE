@@ -350,22 +350,40 @@ const PostPage: React.FC = () => {
       const success = result.success || result.status || (result.statusCode === 200);
       
       if (success && result.data) {
-        console.log('loadPostReactions API response:', result);
+        console.log('✅ loadPostReactions API response:', result);
         
         // Handle paginated response or direct array
         const reactionsData = Array.isArray(result.data) 
           ? result.data 
           : ((result.data as any)?.data || []);
         
-        console.log('Reactions data:', reactionsData);
+        console.log('📊 Reactions data array:', reactionsData);
+        console.log('🔍 Searching for gpMemberId:', gpMemberId);
         
-        // Check if current user has reacted using gpMemberId
-        const userReaction = reactionsData.find((reaction: any) => 
-          reaction.gpMemberId === gpMemberId && reaction.hasReacted === true
-        );
+        // Check if current user has reacted using gpMemberId and hasReacted flag
+        const userReaction = reactionsData.find((reaction: any) => {
+          console.log('  - Checking reaction:', {
+            id: reaction.id,
+            gpMemberId: reaction.gpMemberId,
+            reactionType: reaction.reactionType,
+            hasReacted: reaction.hasReacted,
+            matches: reaction.gpMemberId === gpMemberId && reaction.hasReacted === true
+          });
+          return reaction.gpMemberId === gpMemberId && reaction.hasReacted === true;
+        });
         
-        console.log('User reaction found:', userReaction);
-        console.log('Current gpMemberId:', gpMemberId);
+        console.log('🎯 User reaction found:', userReaction);
+        
+        if (userReaction) {
+          console.log('✅ Setting active reaction:', {
+            postId,
+            reactionType: userReaction.reactionType,
+            reactionId: userReaction.id,
+            emoji: reactionTypes.find(r => r.type === userReaction.reactionType)?.emoji
+          });
+        } else {
+          console.log('ℹ️ No active reaction for this user on post:', postId);
+        }
         
         // Update post with user reaction and reactionId
         setPosts(prev => prev.map(post => 
@@ -380,7 +398,7 @@ const PostPage: React.FC = () => {
         ));
       }
     } catch (error) {
-      console.error(`Error loading reactions for post ${postId}:`, error);
+      console.error('❌ Error loading reactions for post ${postId}:', error);
     }
   };
 
@@ -453,8 +471,12 @@ const PostPage: React.FC = () => {
       console.log('   Clicking on:', reactionType);
 
       // If user already has this reaction, remove it (toggle off)
+      // This handles the case when hasReacted: true and user clicks the same reaction again
       if (post.userReaction === reactionType) {
-        console.log('🔄 User already has this reaction, removing it...');
+        console.log('🔄 User already has this reaction (hasReacted: true), removing it...');
+        console.log('   ReactionType:', reactionType);
+        console.log('   ReactionID to delete:', post.userReactionId);
+        
         // Use the stored reaction ID for deletion
         if (!post.userReactionId) {
           toast.error('Không tìm thấy ID phản ứng. Vui lòng thử lại!');
@@ -462,19 +484,24 @@ const PostPage: React.FC = () => {
           setPosts(prev => prev.map(p => 
             p.id === postId ? { ...p, isProcessingReaction: false } as any : p
           ));
+          pendingReactions.current.delete(operationKey);
           return;
         }
         
-        console.log('Removing reaction with ID:', post.userReactionId);
+        console.log('📤 Calling DELETE /api/post/reactions/' + post.userReactionId);
         const removeResult = await postService.removePostReaction(post.userReactionId);
+        
+        console.log('📥 DELETE response:', removeResult);
         
         if (!removeResult.status) {
           throw new Error(removeResult.message || 'Không thể xóa phản ứng');
         }
         
-        console.log('✅ Reaction removed from API successfully');
+        console.log('✅ Reaction removed from API successfully (hasReacted now false)');
+        console.log('   Status:', removeResult.status);
+        console.log('   Message:', removeResult.message);
         
-        // Update state immediately (frontend calculation)
+        // Update state immediately (frontend calculation) - set userReaction to null
         setPosts(prev => prev.map(p => {
           if (p.id === postId) {
             const newReactionsSummary = { ...p.reactionsSummary };
@@ -488,9 +515,16 @@ const PostPage: React.FC = () => {
               }
             }
             
+            console.log('🔄 Updated post state:', {
+              userReaction: null,
+              userReactionId: null,
+              totalReactions: Math.max(0, p.totalReactions - 1),
+              reactionsSummary: newReactionsSummary
+            });
+            
             return {
               ...p,
-              userReaction: null,
+              userReaction: null,  // hasReacted is now false
               userReactionId: null,
               totalReactions: Math.max(0, p.totalReactions - 1),
               reactionsSummary: newReactionsSummary,
@@ -550,11 +584,17 @@ const PostPage: React.FC = () => {
           throw new Error(response.message || 'Không thể thêm phản ứng');
         }
         
-        // Extract the new reaction ID from response
-        // API returns: { status: true, data: { id: "...", postId: "...", ... } }
+        // Extract the new reaction ID and type from response
+        // API returns: { status: true, data: { id: "...", postId: "...", reactionType: "Haha", hasReacted: true, ... } }
         const newReactionId = response.data?.id || response.data?.data?.id || response.data;
+        const actualReactionType = response.data?.reactionType || reactionType;
+        const hasReacted = response.data?.hasReacted ?? true;
         
-        console.log('New reaction ID:', newReactionId);
+        console.log('New reaction details:', {
+          id: newReactionId,
+          type: actualReactionType,
+          hasReacted: hasReacted
+        });
         
         if (!newReactionId) {
           console.warn('Warning: No reaction ID returned from API');
@@ -576,8 +616,8 @@ const PostPage: React.FC = () => {
               }
             }
             
-            // Increase count for new reaction
-            const newReactionKey = reactionType.toLowerCase();
+            // Increase count for new reaction (use actualReactionType from API response)
+            const newReactionKey = actualReactionType.toLowerCase();
             newReactionsSummary[newReactionKey] = (newReactionsSummary[newReactionKey] || 0) + 1;
             
             // Total reactions: increase only if user had no previous reaction
@@ -585,11 +625,11 @@ const PostPage: React.FC = () => {
             
             return {
               ...p,
-              userReaction: reactionType,
-              userReactionId: newReactionId,
+              userReaction: hasReacted ? actualReactionType : null,
+              userReactionId: hasReacted ? newReactionId : null,
               totalReactions: p.totalReactions + totalChange,
               reactionsSummary: newReactionsSummary,
-              isLiked: reactionType === 'Like',
+              isLiked: actualReactionType === 'Like' && hasReacted,
               isProcessingReaction: false
             } as any;
           }
