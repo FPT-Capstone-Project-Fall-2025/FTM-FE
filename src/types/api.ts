@@ -10,7 +10,14 @@ export interface PaginationResponse<T = any> {
   data: T;
   pageIndex: number;
   pageSize: number;
-  totalItem: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface PaginationProps {
+  pageIndex: number;
+  pageSize: number;
+  totalItems: number;
   totalPages: number;
 }
 

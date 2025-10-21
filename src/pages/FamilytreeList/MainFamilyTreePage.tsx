@@ -4,7 +4,7 @@ import { useAppSelector } from "@/hooks/redux";
 
 const MainFamilyTreePage = () => {
     
-    const selectedFamilyTree = useAppSelector(state => state.familyTree.selectedFamilyTree);
+    const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
 
     return (
         <>

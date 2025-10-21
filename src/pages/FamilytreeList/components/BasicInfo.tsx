@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 
 const BasicInfo: React.FC = () => {
 
-    const selectedTree = useAppSelector(state => state.familyTree.selectedFamilyTree);
+    const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
 
     const [formData, setFormData] = useState({
         name: selectedTree?.name || '',

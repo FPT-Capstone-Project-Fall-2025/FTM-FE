@@ -1,24 +1,15 @@
 import { MarkerType, type Node, type Edge } from 'reactflow';
-import type { FamilyMember } from '@/types/familytree';
+import type { FamilytreeDataResponse } from '@/types/familytree';
 
 interface ChildrenGroup {
   key: string;
   value: string[];
 }
 
-interface BackendFamilyResponse {
-  data: {
-    root: string;
-    datalist: Array<{
-      key: string;
-      value: FamilyMember;
-    }>;
-  };
-}
+export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
 
-export function mapFamilyDataToFlow(response: BackendFamilyResponse) {
   const members = Object.fromEntries(
-    response.data.datalist.map(item => [item.key, item.value])
+    response.datalist.map(item => [item.key, item.value])
   );
 
   // Build relationship maps
@@ -65,7 +56,7 @@ export function mapFamilyDataToFlow(response: BackendFamilyResponse) {
   }
 
   // Calculate generations via BFS
-  const root = response.data.root;
+  const root = response.root;
   const generationMap = new Map<string, number>();
   const queue: Array<[string, number]> = [[root, 0]];
   const visited = new Set<string>();

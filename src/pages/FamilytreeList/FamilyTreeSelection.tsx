@@ -5,42 +5,146 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { toast } from 'react-toastify';
 import familytreeService from '@/services/familytreeService';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { setAvailableFamilyTrees, setSelectedFamilyTree } from '@/stores/slices/familyTreeSlice';
+import { setAvailableFamilyTrees, setSelectedFamilyTree } from '@/stores/slices/familyTreeMetaDataSlice';
+import type { FamilytreeCreationProps } from '@/types/familytree';
+import type { PaginationProps } from '@/types/api';
+import { Pagination } from '@/components/ui/Pagination';
 
 const FamilyTreeSelection: React.FC = () => {
     const dispatch = useAppDispatch();
-    const availableFamilyTrees = useAppSelector(state => state.familyTree.availableFamilyTrees);
+    const availableFamilyTrees = useAppSelector(state => state.familyTreeMetaData.availableFamilyTrees);
     const [selectedTreeId, setSelectedTreeId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [apiLoading, setApiLoading] = useState(false);
     const [showCreatePopup, setShowCreatePopup] = useState(false);
 
-    const [newTreeData, setNewTreeData] = useState({
-        name: '',
-        owner: '',
-        description: '',
-        picture: ''
+    const [paginationData, setPaginationData] = useState<PaginationProps>({
+        pageIndex: 1,
+        pageSize: 7,
+        totalItems: 0,
+        totalPages: 0
     });
-    const [tempImage, setTempImage] = useState<string | ArrayBuffer | null>(null);
+
+    const [newTreeData, setNewTreeData] = useState<FamilytreeCreationProps>({
+        name: '',
+        ownerName: '',
+        ownerId: '',
+        description: '',
+        file: null,
+        gpModecode: 0,
+    });
+    const [tempImage, setTempImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
-        const fetchFamilyTrees = async () => {
-            try {
-                const response = await familytreeService.getFamilytrees();
-                dispatch(setAvailableFamilyTrees(response.data.data));
-            } catch (error) {
-                console.error('Error fetching family trees:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchFamilyTrees();
-    }, []);
+    }, [paginationData.pageIndex, paginationData.pageSize]);
+
+    const fetchFamilyTrees = async () => {
+        try {
+            setLoading(true);
+            const response = await familytreeService.getFamilytrees({
+                pageIndex: paginationData.pageIndex,
+                pageSize: paginationData.pageSize,
+                totalItems: 0,
+                totalPages: 0
+            });
+
+            dispatch(setAvailableFamilyTrees(response.data.data));
+            setPaginationData({
+                pageIndex: response.data.pageIndex,
+                pageSize: response.data.pageSize,
+                totalItems: response.data.totalItems,
+                totalPages: response.data.totalPages
+            });
+        } catch (error) {
+            console.error('Error fetching family trees:', error);
+            toast.error('Không thể tải danh sách gia phả');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePageChange = (page: number) => {
+        setPaginationData(prev => ({
+            ...prev,
+            pageIndex: page
+        }));
+    };
 
     const handleSelectTree = (treeId: string) => {
         setSelectedTreeId(treeId);
         const selectedTree = availableFamilyTrees.find(tree => tree.id === treeId);
         if (selectedTree) dispatch(setSelectedFamilyTree(selectedTree));
+    };
+
+    const openFileSelector = () => fileInputRef.current?.click();
+
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('Kích thước file không được vượt quá 2MB');
+            return;
+        }
+
+        const allowedTypes = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/gif',
+        ];
+        if (!allowedTypes.includes(file.type)) {
+            toast.error('Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF');
+            return;
+        }
+
+        setNewTreeData(pre => ({
+            ...pre,
+            file: file
+        }));
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            setTempImage(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSaveNewTree = async () => {
+        if (!newTreeData.name || !newTreeData.ownerName) {
+            toast.error('Vui lòng nhập đầy đủ tên và chủ sở hữu.');
+            return;
+        }
+        try {
+            setApiLoading(true);
+            const response = await familytreeService.createFamilyTree({
+                name: newTreeData.name,
+                ownerName: newTreeData.ownerName,
+                ownerId: 'ec9eb501-123a-4cef-a2ad-cba7353246c7',
+                description: newTreeData.description,
+                file: newTreeData.file,
+                gpModecode: 0
+            });
+            toast.success(response.message);
+            
+            await fetchFamilyTrees();
+            
+            setShowCreatePopup(false);
+            setTempImage(null);
+            setNewTreeData({ name: '', ownerName: '', ownerId: '', description: '', file: null, gpModecode: 0 });
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi tạo gia phả');
+        } finally {
+            setApiLoading(false);
+        }
+    };
+
+    const handleCancelCreate = () => {
+        setShowCreatePopup(false);
+        setTempImage(null);
+        setNewTreeData({ name: '', ownerName: '', ownerId: '', description: '', file: null, gpModecode: 0 });
     };
 
     const renderSkeletonCard = (count: number) =>
@@ -62,58 +166,6 @@ const FamilyTreeSelection: React.FC = () => {
             </div>
         ));
 
-    const openFileSelector = () => fileInputRef.current?.click();
-
-    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-        if (!validTypes.includes(file.type)) {
-            toast.error('Định dạng file không hợp lệ. Vui lòng chọn JPG, PNG hoặc GIF.');
-            return;
-        }
-
-        const maxSize = 25 * 1024 * 1024;
-        if (file.size > maxSize) {
-            toast.error('Kích thước file vượt quá 25MB.');
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onloadend = () => setTempImage(reader.result);
-        reader.readAsDataURL(file);
-    };
-
-    const handleSaveNewTree = async () => {
-        if (!newTreeData.name || !newTreeData.owner) {
-            toast.error('Vui lòng nhập đầy đủ tên và chủ sở hữu.');
-            return;
-        }
-
-        // try {
-        //     const payload = {
-        //         ...newTreeData,
-        //         picture: tempImage ? tempImage.toString() : ''
-        //     };
-        //     const response = await familytreeService.createFamilyTree(payload);
-        //     toast.success('Tạo gia phả mới thành công!');
-        //     dispatch(setAvailableFamilyTrees([...availableFamilyTrees, response.data.data]));
-        //     setShowCreatePopup(false);
-        //     setTempImage(null);
-        //     setNewTreeData({ name: '', owner: '', description: '', picture: '' });
-        // } catch (err) {
-        //     console.error(err);
-        //     toast.error('Không thể tạo gia phả mới.');
-        // }
-    };
-
-    const handleCancelCreate = () => {
-        setShowCreatePopup(false);
-        setTempImage(null);
-        setNewTreeData({ name: '', owner: '', description: '', picture: '' });
-    };
-
     return (
         <div className="h-full overflow-y-auto w-full bg-gray-50">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -124,18 +176,17 @@ const FamilyTreeSelection: React.FC = () => {
                 </div>
 
                 {/* Family Trees Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     {loading
-                        ? renderSkeletonCard(3)
+                        ? renderSkeletonCard(paginationData.pageSize)
                         : availableFamilyTrees.map((tree) => (
                             <div
                                 key={tree.id}
                                 onClick={() => handleSelectTree(tree.id)}
-                                className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer border-2 ${
-                                    selectedTreeId === tree.id
-                                        ? 'border-blue-500 ring-2 ring-blue-200'
-                                        : 'border-transparent hover:border-blue-200'
-                                }`}
+                                className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer border-2 ${selectedTreeId === tree.id
+                                    ? 'border-blue-500 ring-2 ring-blue-200'
+                                    : 'border-transparent hover:border-blue-200'
+                                    }`}
                             >
                                 <div className="h-48 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-t-lg flex items-center justify-center">
                                     {tree.picture ? (
@@ -193,6 +244,17 @@ const FamilyTreeSelection: React.FC = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Pagination Component */}
+                {!loading && paginationData.totalPages > 1 && (
+                    <Pagination
+                        pageIndex={paginationData.pageIndex}
+                        pageSize={paginationData.pageSize}
+                        totalItems={paginationData.totalItems}
+                        totalPages={paginationData.totalPages}
+                        onPageChange={handlePageChange}
+                    />
+                )}
             </div>
 
             {/* Create family tree modal */}
@@ -247,8 +309,8 @@ const FamilyTreeSelection: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Chủ Sở Hữu</label>
                                 <input
                                     type="text"
-                                    value={newTreeData.owner}
-                                    onChange={(e) => setNewTreeData({ ...newTreeData, owner: e.target.value })}
+                                    value={newTreeData.ownerName}
+                                    onChange={(e) => setNewTreeData({ ...newTreeData, ownerName: e.target.value })}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                     placeholder="Nhập tên chủ sở hữu"
                                 />
@@ -274,9 +336,10 @@ const FamilyTreeSelection: React.FC = () => {
                             </button>
                             <button
                                 onClick={handleSaveNewTree}
-                                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                disabled={apiLoading}
+                                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Lưu
+                                {apiLoading ? 'Đang lưu...' : 'Lưu'}
                             </button>
                         </div>
                     </div>

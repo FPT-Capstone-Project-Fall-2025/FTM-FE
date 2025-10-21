@@ -1,3 +1,5 @@
+import { Pagination } from "@/components/ui/Pagination";
+import type { PaginationResponse } from "@/types/api";
 import { ChevronDown, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -12,8 +14,13 @@ interface FamilyMember {
 
 const Members: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [paginationData, setPaginationData] = useState<PaginationResponse<FamilyMember[]>>({
+        data: [],
+        pageIndex: 1,
+        pageSize: 10,
+        totalItems: 0,
+        totalPages: 0
+    });
 
     const generateMembers = (): FamilyMember[] => {
         const members: FamilyMember[] = [];
@@ -35,77 +42,69 @@ const Members: React.FC = () => {
 
     const allMembers = generateMembers();
 
+    useEffect(() => {
+        const filtered = allMembers.filter(
+            member =>
+                member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                member.description.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        const totalItem = filtered.length;
+        const totalPages = Math.ceil(totalItem / paginationData.pageSize);
+        const startIndex = (paginationData.pageIndex - 1) * paginationData.pageSize;
+        const currentData = filtered.slice(startIndex, startIndex + paginationData.pageSize);
+
+        setPaginationData(prev => ({
+            ...prev,
+            data: currentData,
+            totalItem,
+            totalPages,
+            pageIndex: 1
+        }));
+    }, [searchTerm]);
+
+    useEffect(() => {
+        const filtered = allMembers.filter(
+            member =>
+                member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                member.description.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        const totalItem = filtered.length;
+        const totalPages = Math.ceil(totalItem / paginationData.pageSize);
+        const startIndex = (paginationData.pageIndex - 1) * paginationData.pageSize;
+        const currentData = filtered.slice(startIndex, startIndex + paginationData.pageSize);
+
+        setPaginationData(prev => ({
+            ...prev,
+            data: currentData,
+            totalItem,
+            totalPages
+        }));
+    }, [paginationData.pageIndex, paginationData.pageSize]);
+
+    const handlePageChange = (page: number) => {
+        setPaginationData(prev => ({
+            ...prev,
+            pageIndex: page
+        }));
+    };
+
     const getStatusDot = (status: string) => {
         return status === 'Hoạt động' ? 'bg-green-500' : 'bg-gray-400';
     };
 
-    const filteredMembers = allMembers.filter(member =>
-        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.description.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const totalItems = filteredMembers.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const currentMembers = filteredMembers.slice(startIndex, endIndex);
-
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm]);
-
-    const handlePageChange = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-        }
-    };
-
-    const getVisiblePageNumbers = () => {
-        const visiblePages: (number | string)[] = [];
-        const maxVisiblePages = 5;
-
-        if (totalPages <= maxVisiblePages) {
-            for (let i = 1; i <= totalPages; i++) {
-                visiblePages.push(i);
-            }
-        } else {
-            if (currentPage <= 3) {
-                for (let i = 1; i <= 4; i++) {
-                    visiblePages.push(i);
-                }
-                visiblePages.push('...');
-                visiblePages.push(totalPages);
-            } else if (currentPage >= totalPages - 2) {
-                visiblePages.push(1);
-                visiblePages.push('...');
-                for (let i = totalPages - 3; i <= totalPages; i++) {
-                    visiblePages.push(i);
-                }
-            } else {
-                visiblePages.push(1);
-                visiblePages.push('...');
-                for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-                    visiblePages.push(i);
-                }
-                visiblePages.push('...');
-                visiblePages.push(totalPages);
-            }
-        }
-
-        return visiblePages;
-    };
-
     return (
-        <div className="space-y-6 flex flex-col">
+        <div className="h-full overflow-hidden space-y-6 flex flex-col p-6 bg-gray-50">
             {/* Header with Search and Action Buttons */}
-            <div className="shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                         type="text"
                         placeholder="Tìm kiếm..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={e => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                 </div>
@@ -121,20 +120,32 @@ const Members: React.FC = () => {
             </div>
 
             {/* Table */}
-            <div className="overflow-y-auto bg-white rounded-lg overflow-hidden border border-gray-200">
+            <div className="flex-1 overflow-y-auto bg-white rounded-lg border border-gray-200">
                 <table className="w-full">
                     <thead className="sticky top-0">
                         <tr className="border-b border-gray-200 bg-gray-50">
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Họ Tên</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Mô Tả</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Năm Sinh</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ngày Cập Nhật</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Mối Quan Hệ Trực Tiếp</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Trạng Thái</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                Họ Tên
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                Mô Tả
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                Năm Sinh
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                Ngày Cập Nhật
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                Mối Quan Hệ Trực Tiếp
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                                Trạng Thái
+                            </th>
                         </tr>
                     </thead>
-                    <tbody className="">
-                        {currentMembers.map((member) => (
+                    <tbody>
+                        {paginationData.data.map(member => (
                             <tr key={member.id} className="border-b border-gray-200 hover:bg-gray-50">
                                 <td className="px-6 py-4 text-sm">
                                     <div className="flex items-center gap-3">
@@ -166,48 +177,14 @@ const Members: React.FC = () => {
                 </table>
             </div>
 
-            {/* Pagination - Centered */}
-            <div className="shrink-0 flex flex-col items-center gap-4">
-                <p className="text-sm text-gray-600">
-                    Hiển thị <span className="font-medium">{startIndex + 1}</span>-<span className="font-medium">{Math.min(endIndex, totalItems)}</span> bản ghi trên tổng số <span className="font-medium">{totalItems}</span> ghi nó
-                </p>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Prev
-                    </button>
-
-                    {getVisiblePageNumbers().map((pageNum, index) => (
-                        pageNum === '...' ? (
-                            <span key={`ellipsis-${index}`} className="px-2 text-gray-500">
-                                ...
-                            </span>
-                        ) : (
-                            <button
-                                key={pageNum}
-                                onClick={() => handlePageChange(pageNum as number)}
-                                className={`px-3 py-1 border rounded text-sm font-medium transition-colors ${currentPage === pageNum
-                                        ? 'bg-gray-900 text-white border-gray-900'
-                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                                    }`}
-                            >
-                                {pageNum}
-                            </button>
-                        )
-                    ))}
-
-                    <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
+            {/* Pagination Component */}
+            <Pagination
+                pageIndex={paginationData.pageIndex}
+                pageSize={paginationData.pageSize}
+                totalItems={paginationData.totalItems}
+                totalPages={paginationData.totalPages}
+                onPageChange={handlePageChange}
+            />
         </div>
     );
 };

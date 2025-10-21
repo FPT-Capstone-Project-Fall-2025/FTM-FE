@@ -9,7 +9,6 @@ import ReactFlow, {
   type OnConnect,
   addEdge as addReactFlowEdge,
   ReactFlowProvider,
-  // MiniMap,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import type { FamilyMember } from '@/types/familytree';
@@ -17,6 +16,7 @@ import MemberDetailPanel from './MemberDetailPanel';
 import FamilyMemberNode from './FamilyMemberNode';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import {
+  fetchFamilyTree,
   setEdges,
   setHighlightedNode,
   setSelectedMember, updateNodePosition
@@ -26,10 +26,23 @@ import FamilyTreeToolbar from './FamilyTreeToolbar';
 import { addHistory } from '@/stores/slices/historySlice';
 import { useReactFlowZoom } from '@/hooks/useReactFlowZoom';
 import SearchBar from './SearchBar';
+import AddNewNodeButton from './AddNewNodeButton';
 // import AddNewNode from './AddNewNode';
 
 const nodeTypes = {
-  familyMember: FamilyMemberNode
+  familyMember: FamilyMemberNode,
+  // addNodeButton: AddNewNodeButton
+};
+
+const PLACEHOLDER_NODE = {
+  id: "add-member-placeholder",
+  type: "addNodeButton",
+  position: { x: 250, y: 200 },
+  data: {
+    onAddMember: () => {
+      console.log("Add member clicked");
+    },
+  },
 };
 
 const FamilyTreeContent = () => {
@@ -38,15 +51,14 @@ const FamilyTreeContent = () => {
   const { focusNode } = useReactFlowZoom();
   useKeyboardShortcuts();
 
-  const reduxNodes = useAppSelector(state => state.familyTree.nodes);
-  const reduxEdges = useAppSelector(state => state.familyTree.edges);
+  const { edges: reduxEdges, nodes: reduxNodes, loading } = useAppSelector(state => state.familyTree);
   const members = useAppSelector(state => state.familyTree.members);
   const selectedMemberId = useAppSelector(state => state.familyTree.selectedMemberId);
+  const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
 
-  // Get selected member from members object
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
 
-  const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
+  const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes.length ? reduxNodes : []);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
@@ -57,6 +69,12 @@ const FamilyTreeContent = () => {
   useEffect(() => {
     setLocalEdges(reduxEdges);
   }, [reduxEdges, setLocalEdges]);
+
+  useEffect(() => {
+    if (selectedFamilyTree?.id) {
+      dispatch(fetchFamilyTree(selectedFamilyTree.id));
+    }
+  }, [selectedFamilyTree?.id, dispatch]);
 
   // Handle search selection - Focus and highlight node
   const handleSearchSelect = useCallback((memberId: string) => {
@@ -120,19 +138,45 @@ const FamilyTreeContent = () => {
   }, [dispatch]);
 
   // Create nodes with click handler
-  const enhancedNodes = useMemo(() =>
-    nodes.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        onMemberClick: handleMemberClick,
-      },
-    })),
-    [nodes, handleMemberClick]
-  );
+  const enhancedNodes = useMemo(() => {
+    if (nodes && nodes.length > 0) {
+      return nodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          onMemberClick: handleMemberClick,
+        },
+      }));
+    }
+    // Return memoized placeholder
+    return [PLACEHOLDER_NODE];
+  }, [nodes, handleMemberClick]);
+
+  console.log("render");
+
+  if (loading) {
+    return (
+      <div className="relative w-full h-full overflow-hidden bg-gray-50 animate-pulse">
+        <div className="flex h-full">
+          <div className="flex-1 relative">
+            <div className="absolute inset-0 bg-gray-100" />
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-10 w-10 rounded-full bg-gray-300"
+                />
+              ))}
+            </div>
+            <div className="absolute top-4 right-4 h-10 w-64 rounded-lg bg-gray-300" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative w-full h-full bg-gray-50">
+    <div className="relative w-full h-full overflow-hidden bg-gray-50">
       {/* Main Content */}
       <div className="flex h-full">
         {/* ReactFlow Canvas */}
@@ -149,13 +193,6 @@ const FamilyTreeContent = () => {
           >
             <Background />
             <Controls />
-            {/* <MiniMap
-              nodeColor={(node) => {
-                return node.data.gender === 'female' ? '#fbcfe8' : '#bfdbfe';
-              }}
-              maskColor="rgba(0, 0, 0, 0.1)"
-              position='top-right'
-            /> */}
           </ReactFlow>
           {/* Toolbar */}
           <FamilyTreeToolbar />

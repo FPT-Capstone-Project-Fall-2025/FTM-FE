@@ -13,8 +13,11 @@ export interface FamilyMember {
 
 export interface FamilytreeCreationProps {
   name: string;
+  ownerName: string;
+  ownerId: string;
   description: string;
-  file: string;
+  file: File | null;
+  gpModecode: number;
 }
 
 export interface Familytree {
@@ -31,4 +34,12 @@ export interface Familytree {
   createdAt: string;
   lastModifiedBy: string;
   memberCount: number;
+}
+
+export interface FamilytreeDataResponse {
+  root: string;
+  datalist: Array<{
+    key: string;
+    value: FamilyMember;
+  }>;
 }
