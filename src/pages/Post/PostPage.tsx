@@ -2,13 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, User, Eye, Settings, Share, Plus, Lock, Globe, Save, Camera, XCircle } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, User, Settings, Share, Plus, Lock, Globe, Save, Camera, XCircle } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
 import postService, { type PostData, type CreatePostData } from '@/services/postService';
 import familyTreeService from '@/services/familyTreeService';
 import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
 import userService from '@/services/userService';
-import { useGPMember, useGPMemberId } from '@/hooks/useGPMember';
+import { useGPMember } from '@/hooks/useGPMember';
 import { toast } from 'react-toastify';
 
 interface Post {
@@ -123,9 +123,7 @@ const PostPage: React.FC = () => {
   // Reaction states
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const [hoveredPost, setHoveredPost] = useState<string | null>(null);
-  const [postReactions, setPostReactions] = useState<{ [postId: string]: any[] }>({});
   const [showReactionPopup, setShowReactionPopup] = useState<string | null>(null);
-  const [reactionSummaryData, setReactionSummaryData] = useState<{ [postId: string]: { [key: string]: number } }>({});
   
   // Ref to track pending reaction operations
   const pendingReactions = useRef<Set<string>>(new Set());
@@ -184,7 +182,7 @@ const PostPage: React.FC = () => {
 
   // Function to transform API comment to Comment interface
   const transformApiComment = (apiComment: any): Comment => {
-    return {
+    const comment: Comment = {
       id: apiComment.id || `comment-${Date.now()}-${Math.random()}`,
       gpMemberId: apiComment.gpMemberId,
       author: {
@@ -197,9 +195,14 @@ const PostPage: React.FC = () => {
       likes: apiComment.totalReactions || 0,
       isLiked: apiComment.isLiked || false,
       isEdited: apiComment.isEdited || false,
-      editedAt: apiComment.lastModifiedOn ? formatTimeAgo(apiComment.lastModifiedOn) : undefined,
       replies: apiComment.childComments ? apiComment.childComments.map(transformApiComment) : []
     };
+    
+    if (apiComment.lastModifiedOn) {
+      comment.editedAt = formatTimeAgo(apiComment.lastModifiedOn);
+    }
+    
+    return comment;
   };
 
   // Function to load comments for a specific post
@@ -222,57 +225,6 @@ const PostPage: React.FC = () => {
     }
   };
 
-  // Function to refresh comments for a specific post
-  const refreshCommentsForPost = async (postId: string) => {
-    try {
-      const comments = await loadCommentsForPost(postId);
-      setPosts(prev => prev.map(post =>
-        post.id === postId
-          ? { ...post, comments }
-          : post
-      ));
-    } catch (error) {
-      console.error(`Error refreshing comments for post ${postId}:`, error);
-    }
-  };
-
-  // Function to load replies for a specific comment
-  const loadRepliesForComment = async (commentId: string): Promise<Comment[]> => {
-    try {
-      const result = await postService.getCommentReplies(commentId);
-      if (result.success && result.data) {
-        return result.data.map(transformApiComment);
-      }
-      return [];
-    } catch (error) {
-      console.error(`Error loading replies for comment ${commentId}:`, error);
-      return [];
-    }
-  };
-
-  // Function to refresh replies for a specific comment (useful for "Load more replies" functionality)
-  const refreshRepliesForComment = async (postId: string, commentId: string) => {
-    try {
-      const replies = await loadRepliesForComment(commentId);
-      setPosts(prev => prev.map(post => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            comments: post.comments.map(comment => {
-              if (comment.id === commentId) {
-                return { ...comment, replies };
-              }
-              return comment;
-            })
-          };
-        }
-        return post;
-      }));
-    } catch (error) {
-      console.error(`Error refreshing replies for comment ${commentId}:`, error);
-    }
-  };
-
   // Load posts from API
   const loadPosts = async () => {
     // Use familyTreeId from params or fallback to a default one for testing
@@ -292,7 +244,7 @@ const PostPage: React.FC = () => {
       
       // Handle both API response formats
       const success = result.success || result.status || (result.statusCode === 200);
-      const responseData = result.data;
+      const responseData = result.data as any;
       
       // Handle paginated response or direct array
       const data = Array.isArray(responseData) 
@@ -403,11 +355,9 @@ const PostPage: React.FC = () => {
         // Handle paginated response or direct array
         const reactionsData = Array.isArray(result.data) 
           ? result.data 
-          : (result.data?.data || []);
+          : ((result.data as any)?.data || []);
         
         console.log('Reactions data:', reactionsData);
-        
-        setPostReactions(prev => ({ ...prev, [postId]: reactionsData }));
         
         // Check if current user has reacted using gpMemberId
         const userReaction = reactionsData.find((reaction: any) => 
@@ -712,8 +662,6 @@ const PostPage: React.FC = () => {
       
       if (success && result.data) {
         console.log('📊 Reaction summary loaded:', result.data);
-        
-        setReactionSummaryData(prev => ({ ...prev, [postId]: result.data }));
         
         // Calculate total reactions from summary
         const totalReactions = Object.values(result.data).reduce((sum: number, count: any) => sum + (Number(count) || 0), 0);
@@ -1135,15 +1083,6 @@ const PostPage: React.FC = () => {
     }
   };
 
-  // Legacy functions for backward compatibility
-  const handleLikePost = (postId: string) => {
-    handleLike(postId, 'post');
-  };
-
-  const handleLikeComment = (postId: string, commentId: string) => {
-    handleLike(commentId, 'comment', postId);
-  };
-
   const handleCommentSubmit = async (postId: string) => {
     const commentText = commentInputs[postId]?.trim();
     const images = commentImages[postId] || [];
@@ -1164,7 +1103,6 @@ const PostPage: React.FC = () => {
         postId: postId,
         gpMemberId: gpMemberId,
         content: commentText || '',
-        parentCommentId: undefined, // This is a root comment (not a reply)
       });
       
       console.log('Comment result:', result);
@@ -1287,17 +1225,22 @@ const PostPage: React.FC = () => {
       const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
       
       // Prepare update data - ensure Content is never empty for API validation
-      const updateData = {
+      const updateData: any = {
         Title: editTitle.trim(),
         Content: editContent.trim() || ' ', // Ensure content is never empty string
         Status: editStatus,
         GPId: currentFamilyTreeId, // Include Family Tree ID
         GPMemberId: gpMemberId, // Include GPMemberId for ownership verification
-        Files: editImages.length > 0 ? editImages : undefined,
-        Captions: editImages.length > 0 ? editCaptions : undefined,
-        // Skip FileTypes to avoid validation errors - let API auto-detect
-        RemoveImageIds: imagesToRemove.length > 0 ? imagesToRemove : undefined
       };
+      
+      if (editImages.length > 0) {
+        updateData.Files = editImages;
+        updateData.Captions = editCaptions;
+      }
+      
+      if (imagesToRemove.length > 0) {
+        updateData.RemoveImageIds = imagesToRemove;
+      }
 
       console.log('Updating post with data:', updateData);
       const response = await postService.updatePostWithFiles(postId, updateData);
@@ -1437,11 +1380,6 @@ const PostPage: React.FC = () => {
     setEditCaptions([]);
     setExistingImages([]);
     setImagesToRemove([]);
-  };
-
-  // Toggle post privacy
-  const togglePostPrivacy = (postId: string) => {
-    setEditStatus(prev => prev === 1 ? 0 : 1);
   };
 
   // Show confirm dialog helper
@@ -1837,36 +1775,6 @@ const PostPage: React.FC = () => {
     setSearchQuery('');
   };
 
-  const handleCommentImageSelect = (postId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    const currentImages = commentImages[postId] || [];
-
-    if (files.length + currentImages.length > 4) {
-      toast.warning('Chỉ có thể tải lên tối đa 4 ảnh cho bình luận');
-      return;
-    }
-
-    const newFiles = [...currentImages, ...files];
-    setCommentImages(prev => ({ ...prev, [postId]: newFiles }));
-
-    // Create previews
-    const newPreviews: string[] = [];
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        newPreviews.push(reader.result as string);
-        if (newPreviews.length === files.length) {
-          const currentPreviews = commentImagePreviews[postId] || [];
-          setCommentImagePreviews(prev => ({
-            ...prev,
-            [postId]: [...currentPreviews, ...newPreviews]
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleRemoveCommentImage = (postId: string, index: number) => {
     const currentImages = commentImages[postId] || [];
     const currentPreviews = commentImagePreviews[postId] || [];
@@ -1967,11 +1875,6 @@ const PostPage: React.FC = () => {
 
   const isCurrentUserPost = (postGpMemberId: string) => {
     return gpMemberId === postGpMemberId;
-  };
-
-  const isCurrentUserComment = (commentAuthorName?: string) => {
-    const currentUserName = userData.name || user?.name;
-    return currentUserName && commentAuthorName && currentUserName === commentAuthorName;
   };
 
   // Memoized handler for reply input to prevent focus loss
@@ -2735,7 +2638,7 @@ const PostPage: React.FC = () => {
                             <h4 className="font-semibold text-gray-900">Chỉnh sửa bài viết</h4>
                             <div className="flex items-center space-x-2">
                               <button
-                                onClick={() => togglePostPrivacy(post.id)}
+                                onClick={() => setEditStatus(prev => prev === 1 ? 0 : 1)}
                                 className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
                               >
                                 {editStatus === 1 ? (
@@ -4061,7 +3964,7 @@ const PostPage: React.FC = () => {
         {/* Post Detail Modal */}
         <PostDetailPage
           isOpen={showPostDetail}
-          post={selectedPost}
+          post={selectedPost as any}
           onClose={() => setShowPostDetail(false)}
           commentInputs={commentInputs}
           setCommentInputs={setCommentInputs}
