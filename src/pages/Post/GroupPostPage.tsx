@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Globe, MoreHorizontal } from 'lucide-react';
-import familyTreeService, { type FamilyTree, type PaginatedFamilyTreeResponse } from '@/services/familyTreeService';
-import type { ApiResponse } from '@/types/api';
+import familyTreeService, { type FamilyTree } from '@/services/familyTreeService';
 
 const GroupPostPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [familyTrees, setFamilyTrees] = useState<FamilyTree[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
@@ -204,7 +202,7 @@ const GroupPostPage: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{familyTree.name}</p>
-                        <p className="text-xs text-gray-500">Cập nhật: {formatDate(familyTree.lastModifiedAt)}</p>
+                        <p className="text-xs text-gray-500">Cập nhật: {familyTree.lastModifiedAt ? formatDate(familyTree.lastModifiedAt) : 'N/A'}</p>
                       </div>
                     </div>
                   ))}

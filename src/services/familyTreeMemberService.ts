@@ -107,7 +107,7 @@ const familyTreeMemberService = {
       console.log('GPMember API response:', response);
 
       // Handle nested data structure
-      const memberData = response.data?.data || response.data;
+      const memberData = (response.data as any)?.data || response.data;
 
       if (response.status && memberData?.id) {
         // Cache the result
@@ -138,7 +138,7 @@ const familyTreeMemberService = {
       console.log('getGPMemberByUserId API response:', response);
 
       // Handle nested data structure
-      const memberData = response.data?.data || response.data;
+      const memberData = (response.data as any)?.data || response.data;
 
       if (response.status && memberData) {
         return memberData as GPMember;

@@ -72,6 +72,9 @@ export const getEmailFromToken = (token: string): string | null => {
 
     // Decode the payload (base64)
     const payload = parts[1];
+    if (!payload) {
+      return null;
+    }
     const decodedPayload = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
     const parsedPayload = JSON.parse(decodedPayload);
 
@@ -96,6 +99,9 @@ export const isTokenExpired = (token: string): boolean => {
 
     // Decode the payload (base64)
     const payload = parts[1];
+    if (!payload) {
+      return true;
+    }
     const decodedPayload = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
     const parsedPayload = JSON.parse(decodedPayload);
 
