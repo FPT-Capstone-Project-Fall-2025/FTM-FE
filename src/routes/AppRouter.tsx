@@ -13,6 +13,10 @@ import MainLayout from '@/components/layout/MainLayout'
 import MyAccountPage from '@/pages/MyAccount/MyAccountPage'
 import ForgotPassword from '@/pages/Auth/ForgotPassword'
 import ResetPassword from '@/pages/Auth/ResetPassword'
+import GroupPostPage from '@/pages/Post/GroupPostPage'
+import PostPage from '@/pages/Post/PostPage'
+// PostDetailPage is used as a modal in PostPage, not a standalone route
+// import PostDetailPage from '@/pages/Post/PostDetailPage'
 
 const router = createBrowserRouter([
   // Public routes
@@ -73,6 +77,37 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
+  {
+    path: '/group',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <GroupPostPage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/group/:id',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <PostPage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  // PostDetailPage is used as a modal, not a standalone route
+  // {
+  //   path: '/post/:id',
+  //   element: (
+  //     <ProtectedRoute>
+  //       <MainLayout>
+  //         <PostDetailPage />
+  //       </MainLayout>
+  //     </ProtectedRoute>
+  //   ),
+  // },
   {
     path: '/admin',
     element: (
