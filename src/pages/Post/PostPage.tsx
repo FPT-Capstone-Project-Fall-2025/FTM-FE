@@ -126,6 +126,15 @@ const PostPage: React.FC = () => {
   const [postReactions, setPostReactions] = useState<{ [postId: string]: any[] }>({});
   const [showReactionPopup, setShowReactionPopup] = useState<string | null>(null);
   const [reactionSummaryData, setReactionSummaryData] = useState<{ [postId: string]: { [key: string]: number } }>({});
+  
+  // Ref to track pending reaction operations
+  const pendingReactions = useRef<Set<string>>(new Set());
+  
+  // Ref to track tooltip hover timestamps (minimum 2s display)
+  const tooltipShowTime = useRef<{ [postId: string]: number }>({});
+  
+  // Ref to track if hovering over reaction picker (prevent tooltip close)
+  const isHoveringReactionPicker = useRef<{ [postId: string]: boolean }>({});
 
   // Search states
   const [searchResults, setSearchResults] = useState<Post[]>([]);
@@ -389,10 +398,24 @@ const PostPage: React.FC = () => {
       const success = result.success || result.status || (result.statusCode === 200);
       
       if (success && result.data) {
-        setPostReactions(prev => ({ ...prev, [postId]: result.data }));
+        console.log('loadPostReactions API response:', result);
+        
+        // Handle paginated response or direct array
+        const reactionsData = Array.isArray(result.data) 
+          ? result.data 
+          : (result.data?.data || []);
+        
+        console.log('Reactions data:', reactionsData);
+        
+        setPostReactions(prev => ({ ...prev, [postId]: reactionsData }));
         
         // Check if current user has reacted using gpMemberId
-        const userReaction = result.data.find((reaction: any) => reaction.gpMemberId === gpMemberId);
+        const userReaction = reactionsData.find((reaction: any) => 
+          reaction.gpMemberId === gpMemberId && reaction.hasReacted === true
+        );
+        
+        console.log('User reaction found:', userReaction);
+        console.log('Current gpMemberId:', gpMemberId);
         
         // Update post with user reaction and reactionId
         setPosts(prev => prev.map(post => 
@@ -400,7 +423,8 @@ const PostPage: React.FC = () => {
             ? { 
                 ...post, 
                 userReaction: userReaction?.reactionType || null,
-                userReactionId: userReaction?.id || null // Store reaction ID for deletion
+                userReactionId: userReaction?.id || null, // Store reaction ID for deletion
+                isLiked: userReaction?.reactionType === 'Like'
               }
             : post
         ));
@@ -412,7 +436,20 @@ const PostPage: React.FC = () => {
 
   // Function to handle reaction click
   const handleReaction = async (postId: string, reactionType: string) => {
+    // Create unique key for this operation
+    const operationKey = `${postId}-${reactionType}`;
+    
+    // Check if this exact operation is already pending
+    if (pendingReactions.current.has(operationKey)) {
+      console.log('⚠️ Duplicate operation detected, ignoring:', operationKey);
+      return;
+    }
+    
     try {
+      // Mark operation as pending
+      pendingReactions.current.add(operationKey);
+      console.log('🔒 Operation locked:', operationKey);
+      
       if (!gpMemberId) {
         toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
         return;
@@ -429,10 +466,17 @@ const PostPage: React.FC = () => {
         return;
       }
 
+      // Check if this post is already being processed (prevent rapid clicks)
+      if ((post as any).isProcessingReaction) {
+        console.log('Reaction already in progress, ignoring click');
+        return;
+      }
+
       // Find the numeric reaction ID from reactionType string
       const reactionConfig = reactionTypes.find(r => r.type === reactionType);
       if (!reactionConfig) {
         console.error('Invalid reaction type:', reactionType);
+        console.error('Available reaction types:', reactionTypes.map(r => r.type));
         toast.error('Loại phản ứng không hợp lệ!');
         return;
       }
@@ -440,28 +484,53 @@ const PostPage: React.FC = () => {
       console.log('=== Reaction Action ===');
       console.log('PostID:', postId);
       console.log('GPMemberID:', gpMemberId);
-      console.log('Reaction Type:', reactionType);
-      console.log('Reaction ID:', reactionConfig.id);
+      console.log('Reaction Type (string):', reactionType);
+      console.log('Reaction ID (numeric):', reactionConfig.id);
+      console.log('Reaction Config:', reactionConfig);
       console.log('Current User Reaction:', post.userReaction);
       console.log('Current User Reaction ID:', post.userReactionId);
       console.log('=====================');
 
+      // Set processing flag to prevent rapid clicks
+      setPosts(prev => prev.map(p => 
+        p.id === postId ? { ...p, isProcessingReaction: true } as any : p
+      ));
+
+      // Check if user already has any reaction to prevent duplicate
+      console.log('� Checking existing reaction...');
+      console.log('   Current userReaction:', post.userReaction);
+      console.log('   Current userReactionId:', post.userReactionId);
+      console.log('   Clicking on:', reactionType);
+
       // If user already has this reaction, remove it (toggle off)
       if (post.userReaction === reactionType) {
+        console.log('🔄 User already has this reaction, removing it...');
         // Use the stored reaction ID for deletion
         if (!post.userReactionId) {
           toast.error('Không tìm thấy ID phản ứng. Vui lòng thử lại!');
+          // Clear processing flag
+          setPosts(prev => prev.map(p => 
+            p.id === postId ? { ...p, isProcessingReaction: false } as any : p
+          ));
           return;
         }
         
         console.log('Removing reaction with ID:', post.userReactionId);
-        await postService.removePostReaction(post.userReactionId);
+        const removeResult = await postService.removePostReaction(post.userReactionId);
         
-        // Update local state
+        if (!removeResult.status) {
+          throw new Error(removeResult.message || 'Không thể xóa phản ứng');
+        }
+        
+        console.log('✅ Reaction removed from API successfully');
+        
+        // Update state immediately (frontend calculation)
         setPosts(prev => prev.map(p => {
           if (p.id === postId) {
             const newReactionsSummary = { ...p.reactionsSummary };
             const reactionKey = reactionType.toLowerCase();
+            
+            // Decrease count for removed reaction
             if (newReactionsSummary[reactionKey]) {
               newReactionsSummary[reactionKey]--;
               if (newReactionsSummary[reactionKey] === 0) {
@@ -475,46 +544,78 @@ const PostPage: React.FC = () => {
               userReactionId: null,
               totalReactions: Math.max(0, p.totalReactions - 1),
               reactionsSummary: newReactionsSummary,
-              isLiked: false
-            };
+              isLiked: false,
+              isProcessingReaction: false
+            } as any;
           }
           return p;
         }));
       } else {
-        // If user has a different reaction, remove it first
+        // If user has a different reaction, remove it first and WAIT (REQUIRED)
         if (post.userReaction && post.userReactionId) {
-          console.log('Removing old reaction:', post.userReaction, 'with ID:', post.userReactionId);
-          await postService.removePostReaction(post.userReactionId);
+          console.log('🔄 Removing old reaction (REQUIRED):', post.userReaction, 'with ID:', post.userReactionId);
+          
+          const removeResult = await postService.removePostReaction(post.userReactionId);
+          
+          if (!removeResult.status) {
+            // Clear processing flag
+            setPosts(prev => prev.map(p => 
+              p.id === postId ? { ...p, isProcessingReaction: false } as any : p
+            ));
+            throw new Error(removeResult.message || 'Phải xóa phản ứng cũ trước khi thêm phản ứng mới');
+          }
+          
+          console.log('✅ Old reaction deleted from API, brief wait for backend sync...');
+          // Brief wait to ensure backend processes deletion before adding new reaction
+          await new Promise(resolve => setTimeout(resolve, 300));
+          console.log('✅ Backend sync complete, safe to add new reaction');
+        } else {
+          console.log('ℹ️ No existing reaction, adding new reaction directly');
         }
         
         // Add new reaction using new API format
-        console.log('Adding reaction:', {
-          postId,
-          gpMemberId,
-          reactionType: reactionConfig.id,
-          reactionTypeName: reactionType
-        });
-        
-        const response = await postService.addPostReaction({
+        const reactionPayload = {
           postId: postId,
           gpMemberId: gpMemberId,
           reactionType: reactionConfig.id // Use numeric ID (1-6)
+        };
+        
+        console.log('📤 Sending reaction to API:', {
+          ...reactionPayload,
+          reactionTypeName: reactionType,
+          emoji: reactionConfig.emoji
         });
         
-        console.log('Reaction response:', response);
+        const response = await postService.addPostReaction(reactionPayload);
+        
+        console.log('📥 Reaction API response:', {
+          status: response.status,
+          statusCode: response.statusCode,
+          data: response.data,
+          message: response.message
+        });
+        
+        // Check if response is successful
+        if (!response.status) {
+          throw new Error(response.message || 'Không thể thêm phản ứng');
+        }
         
         // Extract the new reaction ID from response
-        const newReactionId = response.data?.id || response.data;
+        // API returns: { status: true, data: { id: "...", postId: "...", ... } }
+        const newReactionId = response.data?.id || response.data?.data?.id || response.data;
         
         console.log('New reaction ID:', newReactionId);
         
-        // Update local state
+        if (!newReactionId) {
+          console.warn('Warning: No reaction ID returned from API');
+        }
+        
+        // Update state immediately (frontend calculation)
         setPosts(prev => prev.map(p => {
           if (p.id === postId) {
             const newReactionsSummary = { ...p.reactionsSummary };
             
-            // If changing from one reaction to another, adjust counts
-            // (The old reaction was already deleted via API)
+            // If changing from one reaction to another, decrease old count
             if (p.userReaction) {
               const oldReactionKey = p.userReaction.toLowerCase();
               if (newReactionsSummary[oldReactionKey]) {
@@ -525,21 +626,22 @@ const PostPage: React.FC = () => {
               }
             }
             
-            // Add new reaction
+            // Increase count for new reaction
             const newReactionKey = reactionType.toLowerCase();
             newReactionsSummary[newReactionKey] = (newReactionsSummary[newReactionKey] || 0) + 1;
             
-            // Total reactions: only increase if user had no previous reaction
+            // Total reactions: increase only if user had no previous reaction
             const totalChange = p.userReaction ? 0 : 1;
             
             return {
               ...p,
               userReaction: reactionType,
-              userReactionId: newReactionId, // Store the new reaction ID
+              userReactionId: newReactionId,
               totalReactions: p.totalReactions + totalChange,
               reactionsSummary: newReactionsSummary,
-              isLiked: reactionType === 'Like'
-            };
+              isLiked: reactionType === 'Like',
+              isProcessingReaction: false
+            } as any;
           }
           return p;
         }));
@@ -547,18 +649,34 @@ const PostPage: React.FC = () => {
       
       setShowReactionPicker(null);
       
-      // Reload reaction summary to get updated data
-      loadReactionSummary(postId);
+      // Unlock operation immediately (frontend calculation is already done)
+      pendingReactions.current.delete(operationKey);
+      console.log('✅ Operation unlocked (success):', operationKey);
+      console.log('✅ Reaction updated successfully with frontend calculation');
+      
     } catch (error: any) {
-      console.error('Error handling reaction:', error);
+      console.error('❌ Error handling reaction:', error);
       console.error('Error response:', error.response);
       console.error('Error data:', error.response?.data);
+      
+      // Clear processing flag on error
+      setPosts(prev => prev.map(p => 
+        p.id === postId ? { ...p, isProcessingReaction: false } as any : p
+      ));
       
       const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi thả cảm xúc';
       toast.error(`Lỗi phản ứng: ${errorMessage}`);
       
-      // Reload reactions to sync state with server
-      loadPostReactions(postId);
+      // Reload reactions AND summary from server to sync state after error
+      console.log('🔄 Reloading from server due to error...');
+      await Promise.all([
+        loadPostReactions(postId),
+        loadReactionSummary(postId)
+      ]);
+      
+      // Unlock operation after error
+      pendingReactions.current.delete(operationKey);
+      console.log('🔓 Operation unlocked (error):', operationKey);
     }
   };
 
@@ -593,12 +711,23 @@ const PostPage: React.FC = () => {
       const success = result.success || result.status || (result.statusCode === 200);
       
       if (success && result.data) {
+        console.log('📊 Reaction summary loaded:', result.data);
+        
         setReactionSummaryData(prev => ({ ...prev, [postId]: result.data }));
         
-        // Update post with reaction summary
+        // Calculate total reactions from summary
+        const totalReactions = Object.values(result.data).reduce((sum: number, count: any) => sum + (Number(count) || 0), 0);
+        
+        console.log('📊 Total reactions calculated:', totalReactions);
+        
+        // Update post with reaction summary AND total count
         setPosts(prev => prev.map(post => 
           post.id === postId 
-            ? { ...post, reactionsSummary: result.data }
+            ? { 
+                ...post, 
+                reactionsSummary: result.data,
+                totalReactions: totalReactions
+              }
             : post
         ));
       }
@@ -2771,23 +2900,79 @@ const PostPage: React.FC = () => {
                     {/* Post Stats */}
                     <div className="px-6 py-3 border-t border-gray-200">
                       <div className="flex items-center justify-between text-sm text-gray-500">
-                        <div className="flex items-center space-x-1 relative">
+                        <div className="flex items-center space-x-1">
                           {post.totalReactions > 0 ? (
-                            <>
-                              <div className="flex items-center space-x-1 cursor-pointer hover:underline"
-                                   onClick={() => handleReactionSummaryClick(post.id)}
-                                   onMouseEnter={() => setHoveredPost(post.id)}
-                                   onMouseLeave={() => setHoveredPost(null)}>
+                            <div 
+                              className="flex items-center space-x-1 cursor-pointer hover:underline relative"
+                              onMouseEnter={() => {
+                                setHoveredPost(post.id);
+                                tooltipShowTime.current[post.id] = Date.now();
+                              }}
+                              onMouseLeave={() => {
+                                // Don't close if hovering over reaction picker
+                                if (isHoveringReactionPicker.current[post.id]) {
+                                  return;
+                                }
+                                
+                                const showTime = tooltipShowTime.current[post.id];
+                                if (!showTime) {
+                                  setHoveredPost(null);
+                                  return;
+                                }
+                                
+                                const elapsed = Date.now() - showTime;
+                                const minDisplayTime = 2000; // 2 seconds minimum
+                                const remainingTime = Math.max(0, minDisplayTime - elapsed);
+                                
+                                setTimeout(() => {
+                                  // Double check not hovering reaction picker
+                                  if (!isHoveringReactionPicker.current[post.id]) {
+                                    setHoveredPost(null);
+                                    delete tooltipShowTime.current[post.id];
+                                  }
+                                }, remainingTime);
+                              }}
+                            >
+                              <div onClick={() => handleReactionSummaryClick(post.id)}>
                                 <span className="text-lg">{getReactionSummaryText(post)}</span>
-                                <span>{post.totalReactions}</span>
+                                <span className="ml-1">{post.totalReactions}</span>
                               </div>
                               
-                              {/* Reaction tooltip on hover */}
+                              {/* Reaction tooltip dropdown - clickable */}
                               {hoveredPost === post.id && (
                                 <div 
-                                  className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 mt-8 min-w-48"
-                                  onMouseEnter={() => setHoveredPost(post.id)}
-                                  onMouseLeave={() => setHoveredPost(null)}
+                                  className="absolute left-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl p-3 min-w-[200px] z-[9999]"
+                                  style={{ pointerEvents: 'auto' }}
+                                  onMouseEnter={() => {
+                                    setHoveredPost(post.id);
+                                    if (!tooltipShowTime.current[post.id]) {
+                                      tooltipShowTime.current[post.id] = Date.now();
+                                    }
+                                  }}
+                                  onMouseLeave={() => {
+                                    // Don't close if hovering over reaction picker
+                                    if (isHoveringReactionPicker.current[post.id]) {
+                                      return;
+                                    }
+                                    
+                                    const showTime = tooltipShowTime.current[post.id];
+                                    if (!showTime) {
+                                      setHoveredPost(null);
+                                      return;
+                                    }
+                                    
+                                    const elapsed = Date.now() - showTime;
+                                    const minDisplayTime = 2000; // 2 seconds minimum
+                                    const remainingTime = Math.max(0, minDisplayTime - elapsed);
+                                    
+                                    setTimeout(() => {
+                                      // Double check not hovering reaction picker
+                                      if (!isHoveringReactionPicker.current[post.id]) {
+                                        setHoveredPost(null);
+                                        delete tooltipShowTime.current[post.id];
+                                      }
+                                    }, remainingTime);
+                                  }}
                                 >
                                   <div className="space-y-1 text-sm">
                                     {Object.entries(post.reactionsSummary)
@@ -2796,19 +2981,37 @@ const PostPage: React.FC = () => {
                                       const reactionEmoji = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase())?.emoji || '👍';
                                       const reactionLabel = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase())?.label || type;
                                       return (
-                                        <div key={type} className="flex items-center justify-between">
+                                        <button
+                                          key={type}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleReactionSummaryClick(post.id);
+                                          }}
+                                          className="w-full flex items-center justify-between hover:bg-gray-50 px-3 py-2 rounded transition-colors cursor-pointer"
+                                        >
                                           <span className="flex items-center space-x-2">
-                                            <span className="text-base">{reactionEmoji}</span>
-                                            <span>{reactionLabel}</span>
+                                            <span className="text-lg">{reactionEmoji}</span>
+                                            <span className="text-gray-700">{reactionLabel}</span>
                                           </span>
-                                          <span className="font-medium">{count}</span>
-                                        </div>
+                                          <span className="font-semibold text-blue-600">{count}</span>
+                                        </button>
                                       );
                                     })}
                                   </div>
+                                  <div className="mt-2 pt-2 border-t border-gray-100">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleReactionSummaryClick(post.id);
+                                      }}
+                                      className="w-full text-center text-xs text-blue-600 hover:text-blue-700 font-medium py-1"
+                                    >
+                                      Xem tất cả →
+                                    </button>
+                                  </div>
                                 </div>
                               )}
-                            </>
+                            </div>
                           ) : (
                             <span>0 phản ứng</span>
                           )}
@@ -2826,20 +3029,25 @@ const PostPage: React.FC = () => {
                       <div className="flex items-center justify-around">
                         <div className="relative">
                           <button
-                            onMouseEnter={() => setShowReactionPicker(post.id)}
+                            onMouseEnter={() => {
+                              setShowReactionPicker(post.id);
+                              isHoveringReactionPicker.current[post.id] = true;
+                            }}
                             onMouseLeave={() => {
-                              // Delay hiding to allow hovering over picker
+                              // Delay hiding to allow hovering over picker (like Facebook)
                               setTimeout(() => {
-                                if (showReactionPicker === post.id) {
+                                if (showReactionPicker === post.id && !isHoveringReactionPicker.current[post.id]) {
                                   setShowReactionPicker(null);
                                 }
-                              }, 300);
+                              }, 500);
                             }}
                             onClick={() => {
-                              // If user already has a reaction, clicking toggles it off
+                              // Quick click: if user already has a reaction, toggle it off
                               // If no reaction, add Like by default
-                              const reactionToToggle = post.userReaction || 'Like';
-                              handleReaction(post.id, reactionToToggle);
+                              if (!showReactionPicker) {
+                                const reactionToToggle = post.userReaction || 'Like';
+                                handleReaction(post.id, reactionToToggle);
+                              }
                             }}
                             className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors relative ${
                               post.userReaction ? 'text-blue-600' : 'text-gray-600'
@@ -2861,13 +3069,43 @@ const PostPage: React.FC = () => {
                           {showReactionPicker === post.id && (
                             <div 
                               className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-full shadow-lg p-2 flex space-x-2 z-50"
-                              onMouseEnter={() => setShowReactionPicker(post.id)}
-                              onMouseLeave={() => setShowReactionPicker(null)}
+                              onMouseEnter={() => {
+                                setShowReactionPicker(post.id);
+                                isHoveringReactionPicker.current[post.id] = true;
+                              }}
+                              onMouseLeave={() => {
+                                // Delay closing to allow smooth transition
+                                setTimeout(() => {
+                                  setShowReactionPicker(null);
+                                  isHoveringReactionPicker.current[post.id] = false;
+                                }, 300);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
                             >
                               {reactionTypes.map((reaction) => (
                                 <button
                                   key={reaction.type}
-                                  onClick={() => handleReaction(post.id, reaction.type)}
+                                  onMouseEnter={(e) => {
+                                    // Hover to select reaction (like Facebook)
+                                    e.stopPropagation();
+                                    console.log('🎯 Hovered reaction:', reaction.type, 'ID:', reaction.id, 'Emoji:', reaction.emoji);
+                                    handleReaction(post.id, reaction.type);
+                                    // Close picker after selection with delay
+                                    setTimeout(() => {
+                                      setShowReactionPicker(null);
+                                      isHoveringReactionPicker.current[post.id] = false;
+                                    }, 200);
+                                  }}
+                                  onClick={(e) => {
+                                    // Also allow click for mobile/accessibility
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    console.log('🎯 Clicked reaction:', reaction.type, 'ID:', reaction.id, 'Emoji:', reaction.emoji);
+                                    handleReaction(post.id, reaction.type);
+                                    // Close picker immediately on click
+                                    setShowReactionPicker(null);
+                                    isHoveringReactionPicker.current[post.id] = false;
+                                  }}
                                   className="text-2xl hover:scale-125 transition-transform duration-200 p-1 rounded-full hover:bg-gray-100"
                                   title={reaction.label}
                                 >
