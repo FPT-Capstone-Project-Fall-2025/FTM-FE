@@ -3,7 +3,7 @@ import { ChevronDown, Search } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import type { PaginationProps } from "@/types/api";
 import type { FamilyMemberList } from "@/types/familytree";
-import { fetchFamilyMembers } from "@/services/familytreeService";
+import { fetchFamilyMembers } from "@/services/familyTreeService";
 
 const Members: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState("");

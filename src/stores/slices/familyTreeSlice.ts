@@ -2,7 +2,7 @@ import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/tool
 import { type Node, type Edge } from 'reactflow';
 import type { FamilyMember } from '@/types/familytree';
 import { mapFamilyDataToFlow } from '@/utils/familyTreeMapper';
-import familytreeService from '@/services/familytreeService';
+import familytreeService from '@/services/familyTreeService';
 
 interface FamilyTreeState {
   nodes: Node[];

@@ -3,7 +3,7 @@ import { ChevronRight, Users, Calendar, Scroll, X } from 'lucide-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { toast } from 'react-toastify';
-import familytreeService from '@/services/familytreeService';
+import familytreeService from '@/services/familyTreeService';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { setAvailableFamilyTrees, setSelectedFamilyTree } from '@/stores/slices/familyTreeMetaDataSlice';
 import type { FamilytreeCreationProps } from '@/types/familytree';
