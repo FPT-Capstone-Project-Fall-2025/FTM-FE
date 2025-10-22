@@ -3,7 +3,6 @@ import storage from 'redux-persist/lib/storage';
 import { FLUSH, PAUSE, PERSIST, persistReducer, persistStore, PURGE, REGISTER, REHYDRATE } from "redux-persist";
 import authReducer from "./slices/authSlice";
 import familyTreeReducer from "./slices/familyTreeSlice";
-import historyReducer from "./slices/historySlice";
 import familyTreeMetaReducer from "./slices/familyTreeMetaDataSlice";
 
 const rootReducer = combineReducers({
@@ -11,7 +10,6 @@ const rootReducer = combineReducers({
     auth: authReducer,
     familyTree: familyTreeReducer,
     familyTreeMetaData: familyTreeMetaReducer,
-    history: historyReducer
 });
 
 const persistConfig = {
@@ -24,7 +22,6 @@ const persistConfig = {
     ],
     blacklist: [
         // reducers not to persist
-        'history'
     ]
 }
 

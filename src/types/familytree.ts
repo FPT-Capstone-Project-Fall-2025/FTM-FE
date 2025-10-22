@@ -1,14 +1,17 @@
 export interface FamilyMember {
   id: string;
   name: string;
-  birthDate?: string;
+  birthday?: string;
   gender: number;
   avatar?: string;
   bio?: string;
   images?: string[];
   gpMemberFiles?: string[];
   partners?: string[];
-  children?: any[],
+  children?: any[];
+  isRoot: boolean,
+  isCurrentMember: boolean,
+  isPartner: boolean;
 }
 
 export interface FamilytreeCreationProps {
@@ -26,7 +29,7 @@ export interface Familytree {
   ownerId: string;
   owner: string;
   description: string;
-  picture: string;
+  filePath: string;
   isActive: string;
   gpModeCode: number;
   createAt: string;
@@ -42,4 +45,13 @@ export interface FamilytreeDataResponse {
     key: string;
     value: FamilyMember;
   }>;
+}
+
+export interface FamilyMemberList {
+  id: string;
+  ftId: string;
+  fullname: string;
+  gender: number;
+  birthday: string | null;
+  filePath: string | null;
 }

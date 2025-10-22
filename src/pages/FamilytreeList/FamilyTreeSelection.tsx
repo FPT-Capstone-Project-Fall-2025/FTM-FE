@@ -189,9 +189,9 @@ const FamilyTreeSelection: React.FC = () => {
                                     }`}
                             >
                                 <div className="h-48 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-t-lg flex items-center justify-center">
-                                    {tree.picture ? (
+                                    {tree.filePath ? (
                                         <img
-                                            src={tree.picture}
+                                            src={tree.filePath}
                                             alt={tree.name}
                                             className="w-full h-full object-cover rounded-t-lg"
                                         />

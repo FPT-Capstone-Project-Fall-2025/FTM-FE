@@ -1,6 +1,7 @@
-import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse } from '@/types/familytree';
+import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList } from '@/types/familytree';
 import type { ApiResponse, PaginationProps, PaginationResponse } from './../types/api';
 import api from './apiService';
+import axios from 'axios';
 
 const familytreeService = {
 
@@ -39,6 +40,18 @@ const familytreeService = {
       }
     });
   },
+
+  getFamilyTreeMembers(props: PaginationProps): Promise<ApiResponse<FamilytreeDataResponse>> {
+    return api.get('/ftmember/list', {
+      params: props
+    });
+  },
+
+  // [{"name":"name","operation":"EQUAL","value":"a8ab2642-8fb3-4496-8444-2d704011f938"}]
 };
+
+export async function fetchFamilyMembers(props: PaginationProps): Promise<PaginationResponse<FamilyMemberList[]>> {
+  return (await axios.get(`https://be.dev.familytree.io.vn/list`, { params: props })).data;
+}
 
 export default familytreeService;

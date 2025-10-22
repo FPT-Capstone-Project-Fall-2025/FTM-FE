@@ -2,8 +2,6 @@ import { useRef } from 'react';
 import {
     Download,
     Upload,
-    Undo,
-    Redo,
     Grid3x3,
     ArrowDown,
     ArrowRight,
@@ -14,9 +12,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import {
     applyLayout,
     importFamilyTree as importFamilyTreeAction,
-    setNodes
 } from '@/stores/slices/familyTreeSlice';
-import { addHistory, undo as undoAction, redo as redoAction } from '@/stores/slices/historySlice';
 import { getLayoutedElements, type LayoutDirection } from '@/utils/layoutUtils';
 import { exportFamilyTree, importFamilyTree } from '@/utils/exportUtils';
 
@@ -27,14 +23,9 @@ const FamilyTreeToolbar = () => {
     const nodes = useAppSelector(state => state.familyTree.nodes);
     const edges = useAppSelector(state => state.familyTree.edges);
     const members = useAppSelector(state => state.familyTree.members);
-    const canUndo = useAppSelector(state => state.history.canUndo);
-    const canRedo = useAppSelector(state => state.history.canRedo);
 
     // Auto Layout Handler
     const handleAutoLayout = (direction: LayoutDirection = 'TB') => {
-        // Save current state to history
-        dispatch(addHistory({ nodes, edges }));
-
         const { nodes: layoutedNodes,
             // edges: layoutedEdges 
         } = getLayoutedElements(
@@ -70,9 +61,6 @@ const FamilyTreeToolbar = () => {
         try {
             const data = await importFamilyTree(file);
 
-            // Save current state to history before importing
-            dispatch(addHistory({ nodes, edges }));
-
             dispatch(importFamilyTreeAction({
                 nodes: data.nodes,
                 edges: data.edges,
@@ -88,24 +76,6 @@ const FamilyTreeToolbar = () => {
         // Reset file input
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
-        }
-    };
-
-    // Undo Handler
-    const handleUndo = () => {
-        const previousState = useAppSelector(state => state.history.past[state.history.past.length - 1]);
-        if (previousState) {
-            dispatch(undoAction());
-            dispatch(setNodes(previousState.nodes));
-        }
-    };
-
-    // Redo Handler
-    const handleRedo = () => {
-        const nextState = useAppSelector(state => state.history.future[0]);
-        if (nextState) {
-            dispatch(redoAction());
-            dispatch(setNodes(nextState.nodes));
         }
     };
 
@@ -154,29 +124,6 @@ const FamilyTreeToolbar = () => {
                 </div>
             </div>
             <div className="w-px bg-gray-300" />
-
-            {/* Undo */}
-            <button
-                onClick={handleUndo}
-                disabled={!canUndo}
-                className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Undo (Ctrl+Z)"
-            >
-                <Undo className="w-5 h-5" />
-            </button>
-
-            {/* Redo */}
-            <button
-                onClick={handleRedo}
-                disabled={!canRedo}
-                className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Redo (Ctrl+Y)"
-            >
-                <Redo className="w-5 h-5" />
-            </button>
-
-            <div className="w-px bg-gray-300" />
-
             {/* Export */}
             <button
                 onClick={handleExport}

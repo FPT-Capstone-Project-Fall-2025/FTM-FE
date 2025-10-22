@@ -11,7 +11,7 @@ const BasicInfo: React.FC = () => {
         name: selectedTree?.name || '',
         owner: selectedTree?.owner || '',
         description: selectedTree?.description || '',
-        picture: selectedTree?.picture || ''
+        filePath: selectedTree?.filePath || ''
     });
 
     const [isEditMode, setIsEditMode] = useState(false);
@@ -24,7 +24,7 @@ const BasicInfo: React.FC = () => {
             formData.name !== selectedTree?.name ||
             formData.owner !== selectedTree.owner ||
             formData.description !== selectedTree.description ||
-            formData.picture !== tempImage
+            formData.filePath !== tempImage
         );
     };
 
@@ -149,10 +149,10 @@ const BasicInfo: React.FC = () => {
                             isEditMode ? 'cursor-pointer hover:border-blue-500' : 'cursor-default'
                         }`}
                     >
-                        {formData?.picture ? (
+                        {formData?.filePath ? (
                             <>
                                 <img 
-                                    src={formData?.picture} 
+                                    src={formData?.filePath} 
                                     alt="Family tree" 
                                     className="w-full h-full object-cover"
                                 />
@@ -314,7 +314,7 @@ const BasicInfo: React.FC = () => {
                                 Chọn ảnh
                             </button>
 
-                            {(tempImage || formData?.picture) && (
+                            {(tempImage || formData?.filePath) && (
                                 <button 
                                     onClick={handleImageDelete}
                                     className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"

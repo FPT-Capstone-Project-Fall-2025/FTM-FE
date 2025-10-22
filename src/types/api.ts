@@ -17,6 +17,10 @@ export interface PaginationResponse<T = any> {
 export interface PaginationProps {
   pageIndex: number;
   pageSize: number;
+  propertyFilters?: Array<{
+    key: string,
+    value: string
+  }>;
   totalItems: number;
   totalPages: number;
 }
