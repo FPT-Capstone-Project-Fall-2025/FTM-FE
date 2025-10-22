@@ -14,7 +14,7 @@ const sidebarItems = [
   { to: '/dashboard', icon: User, text: 'Tài khoản của tôi' },
   { to: '/family-trees', icon: LayoutGrid, text: 'Quản lí gia phả' },
   { to: '/events', icon: BarChart2, text: 'Sự Kiện' },
-  { to: '/news', icon: Newspaper, text: 'Tin tức' },
+  { to: '/group', icon: Newspaper, text: 'Tin tức' },
   { to: '/contact', icon: MessageSquare, text: 'Liên hệ' },
   { to: '/settings', icon: Settings, text: 'Cài đặt' },
 ];
