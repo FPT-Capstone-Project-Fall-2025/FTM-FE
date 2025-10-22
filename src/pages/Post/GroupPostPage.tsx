@@ -145,7 +145,7 @@ const GroupPostPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="h-full overflow-y-auto bg-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Error Display */}
         {error && (

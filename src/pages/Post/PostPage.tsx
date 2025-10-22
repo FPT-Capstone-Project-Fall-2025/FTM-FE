@@ -2162,7 +2162,7 @@ const PostPage: React.FC = () => {
   });
 
   return (
-    <div className="h-full bg-gray-50">
+    <div className="h-full overflow-y-auto bg-gray-50">
       <div className="h-full">
         {/* Group Banner */}
         <div className="relative">
