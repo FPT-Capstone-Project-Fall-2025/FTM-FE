@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DetailInformation from './DetailInformation';
-import FamilyTree from './FamilyTree/FamilyTree';
 import Biography from './Biography';
 import Occupation from './Occupation';
 
@@ -33,7 +32,7 @@ const MyAccountPage: React.FC = () => {
     }, [location.search]);
 
     return (
-        <div className="h-full w-full bg-gray-50">
+        <div className="h-full overflow-y-auto w-full bg-gray-50">
             <div className="h-full flex flex-col px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
@@ -72,22 +71,12 @@ const MyAccountPage: React.FC = () => {
                         >
                             CÔNG VIỆC/HỌC VẤN
                         </button>
-                        <button
-                            onClick={() => handleTabChange('family')}
-                            className={`py-3 px-1 border-b-2 font-semibold text-base transition-colors ${activeTab === 'family'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                        >
-                            GIA PHẢ
-                        </button>
                     </nav>
                 </div>
 
                 {/* Tab Content */}
                 {activeTab === 'personal' && <DetailInformation />}
                 {activeTab === 'biography' && <Biography />}
-                {activeTab === 'family' && <FamilyTree />}
                 {activeTab === 'occupation' && <Occupation />}
             </div>
         </div>

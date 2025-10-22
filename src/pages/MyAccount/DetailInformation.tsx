@@ -285,7 +285,7 @@ const DetailInformation: React.FC = () => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('Kích thước file không được vượt quá 2MB');
+        toast.error('Kích thước file không được vượt quá 2MB');
         return;
       }
 
@@ -296,7 +296,7 @@ const DetailInformation: React.FC = () => {
         'image/gif',
       ];
       if (!allowedTypes.includes(file.type)) {
-        alert('Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF');
+        toast.error('Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF');
         return;
       }
 

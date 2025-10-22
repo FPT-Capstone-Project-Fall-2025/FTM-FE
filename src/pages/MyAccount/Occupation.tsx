@@ -417,10 +417,10 @@ const Occupation: React.FC = () => {
             toast.error('Vui lòng nhập tên trường');
             return;
         }
-        if (!newEducation.major.trim()) {
-            toast.error('Vui lòng nhập chuyên ngành');
-            return;
-        }
+        // if (!newEducation.major.trim()) {
+        //     toast.error('Vui lòng nhập chuyên ngành');
+        //     return;
+        // }
         if (!newEducation.startDate) {
             toast.error('Vui lòng chọn ngày bắt đầu');
             return;
@@ -915,7 +915,7 @@ const Occupation: React.FC = () => {
 
                                     <div>
                                         <label className="block text-sm font-medium mb-1">
-                                            Chuyên ngành <span className="text-red-500">*</span>
+                                            Chuyên ngành
                                         </label>
                                         <input
                                             type="text"
@@ -1237,7 +1237,7 @@ const Occupation: React.FC = () => {
 
                             <div>
                                 <label className="block text-sm font-medium mb-2">
-                                    Chuyên ngành <span className="text-red-500">*</span>
+                                    Chuyên ngành
                                 </label>
                                 <input
                                     type="text"
