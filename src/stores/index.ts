@@ -3,13 +3,13 @@ import storage from 'redux-persist/lib/storage';
 import { FLUSH, PAUSE, PERSIST, persistReducer, persistStore, PURGE, REGISTER, REHYDRATE } from "redux-persist";
 import authReducer from "./slices/authSlice";
 import familyTreeReducer from "./slices/familyTreeSlice";
-import historyReducer from "./slices/historySlice";
+import familyTreeMetaReducer from "./slices/familyTreeMetaDataSlice";
 
 const rootReducer = combineReducers({
     // more reducers go here
     auth: authReducer,
     familyTree: familyTreeReducer,
-    history: historyReducer
+    familyTreeMetaData: familyTreeMetaReducer,
 });
 
 const persistConfig = {
@@ -17,10 +17,11 @@ const persistConfig = {
     storage,
     whitelist: [
         // reducers to persist
-        'auth'
+        'auth',
+        'familyTreeMetaData'
     ],
     blacklist: [
-        'history'
+        // reducers not to persist
     ]
 }
 
@@ -29,13 +30,13 @@ const persistedReducer = persistReducer(persistConfig, rootReducer);
 // Store configuration
 export const store = configureStore({
     reducer: persistedReducer,
-    middleware: (getDefaultMiddleWare) => 
+    middleware: (getDefaultMiddleWare) =>
         getDefaultMiddleWare({
             serializableCheck: {
                 ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
             },
         }),
-        devTools: process.env.NODE_ENV !== 'production'
+    devTools: process.env.NODE_ENV !== 'production'
 })
 
 export const persistor = persistStore(store)

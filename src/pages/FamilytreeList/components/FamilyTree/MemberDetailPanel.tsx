@@ -40,7 +40,7 @@ const MemberDetailPanel = ({
                   <h2 className="text-xl font-bold text-gray-800">{member.name}</h2>
                   <div className="flex items-center gap-1 text-sm text-gray-600">
                     <Calendar className="w-4 h-4" />
-                    <span>Sinh: {member.birthDate}</span>
+                    <span>Sinh: {member.birthday}</span>
                   </div>
                   <div className="text-sm text-gray-600">Mất: -</div>
                 </div>

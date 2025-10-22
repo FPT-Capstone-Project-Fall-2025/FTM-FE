@@ -6,13 +6,13 @@ import RegisterPage from '@/pages/Auth/RegisterPage'
 import UnauthorizedPage from '@/components/shared/UnauthorizedPage'
 import NotFoundPage from '@/components/shared/NotFoundPage'
 import HomePage from '@/pages/HomePage'
-import FamilyTreePage from '@/pages/FamilytreeList/FamilyTreePage'
 import AdminPage from '@/pages/Admin/AdminPage'
 import AuthLayout from '@/components/layout/AuthLayout'
 import MainLayout from '@/components/layout/MainLayout'
 import MyAccountPage from '@/pages/MyAccount/MyAccountPage'
 import ForgotPassword from '@/pages/Auth/ForgotPassword'
 import ResetPassword from '@/pages/Auth/ResetPassword'
+import MainFamilyTreePage from '@/pages/FamilytreeList/MainFamilyTreePage'
 
 const router = createBrowserRouter([
   // Public routes
@@ -68,7 +68,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MainLayout>
-          <FamilyTreePage />
+          <MainFamilyTreePage />
         </MainLayout>
       </ProtectedRoute>
     ),

@@ -37,7 +37,7 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
 
         <div className="text-center">
           <div className="font-semibold text-sm text-gray-800">{data.name}</div>
-          <div className="text-xs text-gray-600">{data.birthDate}</div>
+          {/* <div className="text-xs text-gray-600">{data.birthday}</div> */}
         </div>
       </div>
 

@@ -5,6 +5,26 @@ export interface ApiResponse<T = any> {
   success: boolean;
 }
 
+// Pagination
+export interface PaginationResponse<T = any> {
+  data: T;
+  pageIndex: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface PaginationProps {
+  pageIndex: number;
+  pageSize: number;
+  propertyFilters?: Array<{
+    key: string,
+    value: string
+  }>;
+  totalItems: number;
+  totalPages: number;
+}
+
 // Error response
 export interface ApiError {
   message: string;

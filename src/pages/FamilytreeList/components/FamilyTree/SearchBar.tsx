@@ -29,7 +29,7 @@ const SearchBar = ({ onSelectMember }: SearchBarProps) => {
         const lowercaseQuery = value.toLowerCase();
         const results = Object.values(members).filter(member =>
             member.name.toLowerCase().includes(lowercaseQuery) ||
-            member.birthDate?.includes(value) ||
+            member.birthday?.includes(value) ||
             member.bio?.toLowerCase().includes(lowercaseQuery)
         );
 
@@ -133,7 +133,7 @@ const SearchBar = ({ onSelectMember }: SearchBarProps) => {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="font-medium text-gray-900">{member.name}</div>
-                                <div className="text-sm text-gray-500">Sinh: {member.birthDate}</div>
+                                <div className="text-sm text-gray-500">Sinh: {member.birthday}</div>
                             </div>
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${member.gender === 1 ? 'bg-pink-400' : 'bg-blue-400'
                                 }`} />
