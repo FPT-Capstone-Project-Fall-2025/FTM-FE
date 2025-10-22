@@ -1,29 +1,33 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
-import type { PaginationResponse } from "@/types/api";
+import type { PaginationProps } from "@/types/api";
 import type { FamilyMemberList } from "@/types/familytree";
 import { fetchFamilyMembers } from "@/services/familytreeService";
 
 const Members: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(false);
-    const [paginationData, setPaginationData] = useState<PaginationResponse<FamilyMemberList[]>>({
-        data: [],
+    const [paginationData, setPaginationData] = useState<PaginationProps>({
         pageIndex: 1,
         pageSize: 10,
         totalItems: 0,
         totalPages: 0,
     });
+    const [familyMemberList, setFamilyMemberList] = useState<FamilyMemberList[]>([]);
 
-    const loadMembers = async (pageIndex = paginationData.pageIndex, search = searchTerm) => {
+    const loadMembers = async () => {
         setLoading(true);
         try {
             const res = await fetchFamilyMembers({ pageIndex: 1,
                 pageSize: 10,
                 totalItems: 0,
                 totalPages: 0, });
-            setPaginationData(res.data);
+            setPaginationData(pre => ({
+                ...pre,
+                ...res.data
+            }));
+            setFamilyMemberList(res.data);
         } catch (error) {
             console.error("Failed to fetch members:", error);
         } finally {
@@ -32,11 +36,11 @@ const Members: React.FC = () => {
     };
 
     useEffect(() => {
-        loadMembers(1, searchTerm);
+        loadMembers();
     }, [searchTerm]);
 
     useEffect(() => {
-        loadMembers(paginationData.pageIndex);
+        loadMembers();
     }, [paginationData.pageIndex]);
 
     const handlePageChange = (page: number) => {
@@ -95,8 +99,8 @@ const Members: React.FC = () => {
                                     Đang tải dữ liệu...
                                 </td>
                             </tr>
-                        ) : paginationData.data.length > 0 ? (
-                            paginationData.data.map(member => (
+                        ) : familyMemberList.length > 0 ? (
+                            familyMemberList.map(member => (
                                 <tr key={member.id} className="border-b border-gray-200 hover:bg-gray-50">
                                     <td className="px-6 py-4 text-sm font-medium text-blue-600">{member.fullname}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{getGenderLabel(member.gender)}</td>

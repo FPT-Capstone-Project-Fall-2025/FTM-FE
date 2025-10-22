@@ -51,7 +51,7 @@ const familytreeService = {
 };
 
 export async function fetchFamilyMembers(props: PaginationProps): Promise<PaginationResponse<FamilyMemberList[]>> {
-  return (await axios.get(`https://be.dev.familytree.io.vn/list`, { params: props })).data;
+  return (await axios.get(`https://be.dev.familytree.io.vn/list`, { params: props })).data.data;
 }
 
 export default familytreeService;
