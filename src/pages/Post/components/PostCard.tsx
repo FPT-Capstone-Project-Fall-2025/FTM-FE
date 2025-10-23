@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   MoreHorizontal,
   ThumbsUp,
@@ -21,12 +21,73 @@ import {
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import type { Post, ReactionType, Comment } from '../../../types/post';
 
+// Video component with thumbnail generation
+const VideoWithThumbnail: React.FC<{
+  src: string;
+  className?: string;
+  onClick?: () => void;
+  controls?: boolean;
+  preload?: string;
+  playsInline?: boolean;
+}> = ({ src, className, onClick, controls = true, preload = "metadata", playsInline = true }) => {
+  const [poster, setPoster] = useState<string>('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const generatePoster = () => {
+      // Wait for metadata to load
+      if (video.readyState >= 2) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 360;
+        const ctx = canvas.getContext('2d');
+        
+        if (ctx && video.videoWidth > 0) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const posterUrl = canvas.toDataURL('image/jpeg', 0.7);
+          setPoster(posterUrl);
+        }
+      }
+    };
+
+    video.addEventListener('loadeddata', generatePoster);
+    
+    // Also try to generate immediately if already loaded
+    if (video.readyState >= 2) {
+      generatePoster();
+    }
+
+    return () => {
+      video.removeEventListener('loadeddata', generatePoster);
+    };
+  }, [src]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      poster={poster}
+      controls={controls}
+      preload={preload}
+      playsInline={playsInline}
+      className={className}
+      onClick={onClick}
+    >
+      Your browser does not support the video tag.
+    </video>
+  );
+};
+
 
 interface PostCardProps {
   post: Post;
   currentUserGPMemberId?: string;
   userData: { name: string; picture: string };
   reactionTypes: ReactionType[];
+  isInModal?: boolean; // NEW: Flag to indicate if rendered in modal
 
   // Edit mode state
   editingPostId: string | null;
@@ -419,6 +480,7 @@ const PostCard: React.FC<PostCardProps> = ({
   currentUserGPMemberId,
   userData,
   reactionTypes,
+  isInModal = false,
 
   editingPostId,
   editContent,
@@ -495,6 +557,11 @@ const PostCard: React.FC<PostCardProps> = ({
 
   // Toggle comments visibility
   const handleToggleComments = () => {
+    // If in modal, do nothing (disabled)
+    if (isInModal) {
+      return;
+    }
+    
     if (showComments) {
       setLocalShowComments(!localShowComments);
     } else {
@@ -795,22 +862,17 @@ const PostCard: React.FC<PostCardProps> = ({
         if (mediaCount === 0) return null;
 
         return (
-          <div className="px-6 pb-4">
+          <div className="px-6 pb-4 cursor-pointer"  onClick={() => onOpenPostDetail(post)}>
             {isSingleMedia ? (
               // Single media - Display with 1:1 aspect ratio (square)
               <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black">
                 {mediaList[0]!.fileType === 1 ? (
                   // Single Video
-                  <video
+                  <VideoWithThumbnail
                     src={mediaList[0]!.fileUrl}
-                    controls
-                    preload="metadata"
-                    playsInline
                     className="w-full h-full object-contain cursor-pointer"
                     onClick={() => onOpenPostDetail(post)}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+                  />
                 ) : (
                   // Single Image
                   <img
@@ -834,16 +896,11 @@ const PostCard: React.FC<PostCardProps> = ({
                 <div className="w-full h-full">
                   {mediaList[currentMediaIndex]!.fileType === 1 ? (
                     // Video
-                    <video
+                    <VideoWithThumbnail
                       key={mediaList[currentMediaIndex]!.id}
                       src={mediaList[currentMediaIndex]!.fileUrl}
-                      controls
-                      preload="metadata"
-                      playsInline
                       className="w-full h-full object-contain"
-                    >
-                      Your browser does not support the video tag.
-                    </video>
+                    />
                   ) : (
                     // Image
                     <img
@@ -1138,7 +1195,12 @@ const PostCard: React.FC<PostCardProps> = ({
 
           <button
             onClick={handleToggleComments}
-            className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
+            disabled={isInModal}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+              isInModal 
+                ? 'cursor-not-allowed opacity-50 text-gray-400' 
+                : 'hover:bg-gray-100 text-gray-600 cursor-pointer'
+            }`}
           >
             <MessageCircle className="w-5 h-5" />
             <span className="font-medium">Bình luận ({post.totalComments ?? post.comments.length})</span>

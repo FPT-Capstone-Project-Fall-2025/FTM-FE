@@ -1,10 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import { MessageCircle, Send, X, ThumbsUp, Edit, Save, XCircle, Smile, ChevronLeft, ChevronRight } from 'lucide-react';
 import postService from '@/services/postService';
 import type { Post as PostType, Comment as CommentType } from '@/types/post';
+
+// Video component with thumbnail generation
+const VideoWithThumbnail: React.FC<{
+  src: string;
+  className?: string;
+  controls?: boolean;
+  preload?: string;
+  playsInline?: boolean;
+}> = ({ src, className, controls = true, preload = "metadata", playsInline = true }) => {
+  const [poster, setPoster] = useState<string>('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const generatePoster = () => {
+      if (video.readyState >= 2) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 360;
+        const ctx = canvas.getContext('2d');
+        
+        if (ctx && video.videoWidth > 0) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const posterUrl = canvas.toDataURL('image/jpeg', 0.7);
+          setPoster(posterUrl);
+        }
+      }
+    };
+
+    video.addEventListener('loadeddata', generatePoster);
+    
+    if (video.readyState >= 2) {
+      generatePoster();
+    }
+
+    return () => {
+      video.removeEventListener('loadeddata', generatePoster);
+    };
+  }, [src]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      poster={poster}
+      controls={controls}
+      preload={preload}
+      playsInline={playsInline}
+      className={className}
+    >
+      Your browser does not support the video tag.
+    </video>
+  );
+};
 
 interface PostDetailPageProps {
   isOpen: boolean;
@@ -204,16 +260,11 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
               {mediaList[currentMediaIndex] && (
                 <>
                   {mediaList[currentMediaIndex].fileType === 1 ? (
-                    <video
+                    <VideoWithThumbnail
                       key={mediaList[currentMediaIndex].id}
                       src={mediaList[currentMediaIndex].fileUrl}
-                      controls
-                      preload="metadata"
-                      playsInline
                       className="max-w-full max-h-full object-contain"
-                    >
-                      Your browser does not support the video tag.
-                    </video>
+                    />
                   ) : (
                     <img
                       key={mediaList[currentMediaIndex].id}
