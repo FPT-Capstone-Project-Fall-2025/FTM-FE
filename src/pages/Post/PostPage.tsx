@@ -1094,7 +1094,7 @@ const PostPage: React.FC = () => {
         // Clear comment input and images
         setCommentInputs(prev => ({ ...prev, [postId]: '' }));
         setCommentImages(prev => ({ ...prev, [postId]: [] }));
-        setCommentImagePreviews(prev => ({ ...prev, [postId]: [] }));
+        _setCommentImagePreviews(prev => ({ ...prev, [postId]: [] }));
         
         toast.success('Đã gửi bình luận');
       } else {
