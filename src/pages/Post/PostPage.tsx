@@ -15,44 +15,6 @@ import type { Post, Comment } from '../../types/post';
 
 // Remove duplicate interfaces - now using shared types from './types'
 
-// Utility function to generate video thumbnail - not used but kept for reference
-const _generateVideoThumbnail = (videoUrl: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.crossOrigin = 'anonymous';
-    video.preload = 'metadata';
-    video.src = videoUrl;
-    
-    video.onloadedmetadata = () => {
-      // Seek to 1 second or 10% of video duration
-      video.currentTime = Math.min(1, video.duration * 0.1);
-    };
-    
-    video.onseeked = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8);
-          resolve(thumbnailUrl);
-        } else {
-          reject(new Error('Could not get canvas context'));
-        }
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    video.onerror = () => {
-      reject(new Error('Failed to load video'));
-    };
-  });
-};
-
 const PostPage: React.FC = () => {
   const { user, token, isAuthenticated } = useAppSelector(state => state.auth);
   const { id: familyTreeId } = useParams<{ id: string }>();
@@ -71,7 +33,7 @@ const PostPage: React.FC = () => {
   const [isPosting, setIsPosting] = useState(false);
   const [commentInputs, setCommentInputs] = useState<{ [key: string]: string }>({});
   const [commentImages, setCommentImages] = useState<{ [key: string]: File[] }>({});
-  const [commentImagePreviews, setCommentImagePreviews] = useState<{ [key: string]: string[] }>({});
+  const [_commentImagePreviews, _setCommentImagePreviews] = useState<{ [key: string]: string[] }>({});
   const [showSearchPopup, setShowSearchPopup] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
   
@@ -188,26 +150,6 @@ const PostPage: React.FC = () => {
     }
     
     return comment;
-  };
-
-  // Function to load comments for a specific post - currently not used but kept for future
-  /* const _loadCommentsForPost = async (postId: string): Promise<Comment[]> => {
-    try {
-      const result = await postService.getComments(postId);
-      
-      // Handle both API response formats
-      const success = result.success || result.status || (result.statusCode === 200);
-      const data = result.data;
-      
-      if (success && data) {
-        // Transform API comment data to match Comment interface
-        return data.map(transformApiComment);
-      }
-      return [];
-    } catch (error) {
-      console.error(`Error loading comments for post ${postId}:`, error);
-      return [];
-    }
   };
 
   // Load posts from API
@@ -1847,13 +1789,6 @@ const PostPage: React.FC = () => {
     setShowPostMenu(null);
   };
 
-  // Duplicate function - not used
-  const _handlePostActions = (postId: string) => {
-    setReportingPostId(postId);
-    setShowReportPostModal(true);
-    setShowPostMenu(null);
-  };
-
   const handleSubmitPostReport = () => {
     if (postReportReason.trim()) {
       // TODO: Submit report to backend
@@ -1893,20 +1828,6 @@ const PostPage: React.FC = () => {
     setIsSearchActive(false);
     setSearchQuery('');
   };
-
-  // Function to remove comment images - not currently used
-  const _handleRemoveCommentImage = (postId: string, index: number) => {
-    const currentImages = commentImages[postId] || [];
-    const currentPreviews = commentImagePreviews[postId] || [];
-
-    const newImages = currentImages.filter((_, i) => i !== index);
-    const newPreviews = currentPreviews.filter((_, i) => i !== index);
-
-    setCommentImages(prev => ({ ...prev, [postId]: newImages }));
-    setCommentImagePreviews(prev => ({ ...prev, [postId]: newPreviews }));
-  };
-
-
 
   const handleOpenPostDetail = (post: Post) => {
     setSelectedPost(post);
