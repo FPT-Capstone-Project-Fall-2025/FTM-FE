@@ -1,22 +1,22 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, MoreHorizontal, Send, Image, Smile, X, ThumbsUp, Search, Edit, Trash2, Flag, Users, User, Settings, Share, Plus, Lock, Globe, Save, Camera, XCircle } from 'lucide-react';
+import { MessageCircle, Image, X, ThumbsUp, Search, Edit, Trash2, Users, User, Share } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
 import PostCard, { CommentItem } from './components/PostCard';
-import postService, { type PostData, type CreatePostData } from '@/services/postService';
+import postService, { type CreatePostData } from '@/services/postService';
 import familyTreeService from '@/services/familyTreeService';
 import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
 import userService from '@/services/userService';
 import { useGPMember } from '@/hooks/useGPMember';
 import { toast } from 'react-toastify';
-import type { Post, Comment, ReactionType } from '../../types/post';
+import type { Post, Comment } from '../../types/post';
 
 // Remove duplicate interfaces - now using shared types from './types'
 
-// Utility function to generate video thumbnail
-const generateVideoThumbnail = (videoUrl: string): Promise<string> => {
+// Utility function to generate video thumbnail - not used but kept for reference
+const _generateVideoThumbnail = (videoUrl: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
@@ -89,7 +89,7 @@ const PostPage: React.FC = () => {
   
   const { 
     gpMemberId, 
-    gpMember, 
+    gpMember: _gpMember, 
     loading: gpMemberLoading, 
     error: gpMemberError 
   } = useGPMember(currentFamilyTreeId, currentUserId || null);
@@ -190,8 +190,8 @@ const PostPage: React.FC = () => {
     return comment;
   };
 
-  // Function to load comments for a specific post
-  const loadCommentsForPost = async (postId: string): Promise<Comment[]> => {
+  // Function to load comments for a specific post - currently not used but kept for future
+  /* const _loadCommentsForPost = async (postId: string): Promise<Comment[]> => {
     try {
       const result = await postService.getComments(postId);
       
@@ -1847,7 +1847,8 @@ const PostPage: React.FC = () => {
     setShowPostMenu(null);
   };
 
-  const handlePostActions = (postId: string) => {
+  // Duplicate function - not used
+  const _handlePostActions = (postId: string) => {
     setReportingPostId(postId);
     setShowReportPostModal(true);
     setShowPostMenu(null);
@@ -1893,7 +1894,8 @@ const PostPage: React.FC = () => {
     setSearchQuery('');
   };
 
-  const handleRemoveCommentImage = (postId: string, index: number) => {
+  // Function to remove comment images - not currently used
+  const _handleRemoveCommentImage = (postId: string, index: number) => {
     const currentImages = commentImages[postId] || [];
     const currentPreviews = commentImagePreviews[postId] || [];
 

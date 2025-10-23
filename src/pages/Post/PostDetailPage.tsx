@@ -92,7 +92,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
   onUpdateComments,
   CommentItem
 }) => {
-  const { id: groupId } = useParams<{ id: string }>();
+  const { id: _groupId } = useParams<{ id: string }>();
   const { user } = useAppSelector(state => state.auth);
   const [isEditingPost, setIsEditingPost] = useState(false);
   const [editContent, setEditContent] = useState('');

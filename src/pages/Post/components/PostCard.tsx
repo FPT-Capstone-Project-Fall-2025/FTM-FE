@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MoreHorizontal,
   ThumbsUp,
@@ -12,9 +12,6 @@ import {
   Flag,
   Send,
   User,
-  Edit,
-  Trash2,
-  Smile,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -80,7 +77,6 @@ const VideoWithThumbnail: React.FC<{
     </video>
   );
 };
-
 
 interface PostCardProps {
   post: Post;
@@ -168,22 +164,6 @@ interface PostCardProps {
   collapsedReplies?: { [key: string]: boolean };
   setCollapsedReplies?: React.Dispatch<React.SetStateAction<{ [key: string]: boolean }>>;
 }
-
-// Common emojis list for emoji picker
-const commonEmojis = [
-  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
-  '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
-  '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
-  '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
-  '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮',
-  '🤧', '🥵', '🥶', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐',
-  '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦',
-  '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞',
-  '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '👍', '👎',
-  '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✌️', '🤞', '🤟', '🤘',
-  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
-  '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '🎉', '🎊'
-];
 
 // Recursive Comment Component - Memoized to prevent unnecessary re-renders
 // This component is now defined inside the PostCard so it has access to props
@@ -477,8 +457,8 @@ export const CommentItem: React.FC<{
 
 const PostCard: React.FC<PostCardProps> = ({
   post,
-  currentUserGPMemberId,
-  userData,
+  currentUserGPMemberId: _currentUserGPMemberId,
+  userData: _userData,
   reactionTypes,
   isInModal = false,
 
@@ -523,36 +503,36 @@ const PostCard: React.FC<PostCardProps> = ({
   isCurrentUserPost,
 
 
-  // Comment features (optional)
+  // Comment features (optional - unused in this simplified PostCard)
   showComments = false,
-  commentInputs = {},
-  setCommentInputs,
-  onCommentSubmit,
-  onLikeComment,
-  onEditComment,
-  onDeleteComment,
-  onReportComment,
-  onReplySubmit,
-  CommentItem,
+  commentInputs: _commentInputs = {},
+  setCommentInputs: _setCommentInputs,
+  onCommentSubmit: _onCommentSubmit,
+  onLikeComment: _onLikeComment,
+  onEditComment: _onEditComment,
+  onDeleteComment: _onDeleteComment,
+  onReportComment: _onReportComment,
+  onReplySubmit: _onReplySubmit,
+  CommentItem: _CommentItem,
 
-  // Comment states (optional)
-  showCommentMenu,
-  setShowCommentMenu,
-  editingCommentId,
-  setEditingCommentId,
-  editCommentContent,
-  setEditCommentContent,
-  replyingToComment,
-  setReplyingToComment,
-  replyInputs,
-  setReplyInputs,
-  collapsedReplies,
-  setCollapsedReplies,
+  // Comment states (optional - unused)
+  showCommentMenu: _showCommentMenu,
+  setShowCommentMenu: _setShowCommentMenu,
+  editingCommentId: _editingCommentId,
+  setEditingCommentId: _setEditingCommentId,
+  editCommentContent: _editCommentContent,
+  setEditCommentContent: _setEditCommentContent,
+  replyingToComment: _replyingToComment,
+  setReplyingToComment: _setReplyingToComment,
+  replyInputs: _replyInputs,
+  setReplyInputs: _setReplyInputs,
+  collapsedReplies: _collapsedReplies,
+  setCollapsedReplies: _setCollapsedReplies,
 }) => {
 
   
   const [localShowComments, setLocalShowComments] = useState(showComments);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [_showEmojiPicker, _setShowEmojiPicker] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
   // Toggle comments visibility
@@ -569,23 +549,6 @@ const PostCard: React.FC<PostCardProps> = ({
       onOpenPostDetail(post);
     }
   };
-
-  // Handle emoji insertion for comment
-  const handleEmojiSelect = (postId: string, emoji: string) => {
-    if (setCommentInputs && commentInputs) {
-      setCommentInputs(prev => ({
-        ...prev,
-        [postId]: (prev[postId] || '') + emoji
-      }));
-      setShowEmojiPicker(false);
-      // Focus back on the input
-      const input = document.querySelector(`#comment-input-${postId}`) as HTMLInputElement;
-      if (input) input.focus();
-    }
-  };
-
-  // Check if this post belongs to current user
-  const isOwnPost = post.gpMemberId && currentUserGPMemberId && post.gpMemberId === currentUserGPMemberId;
 
   // Get display name and avatar with proper fallback
   const displayName = post.author.name;
