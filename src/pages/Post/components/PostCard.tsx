@@ -850,10 +850,16 @@ const PostCard: React.FC<PostCardProps> = ({
 
       {/* Post Media (Images/Videos) */}
       {((post.attachments && post.attachments.length > 0) || (post.images && post.images.length > 0)) && (() => {
+        // Helper function to detect if URL is a video
+        const isVideoUrl = (url: string): boolean => {
+          const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+          return videoExtensions.some(ext => url.toLowerCase().includes(ext));
+        };
+
         const mediaList = post.attachments || (post.images?.map((url, idx) => ({
           id: `img-${idx}`,
           fileUrl: url,
-          fileType: 0,
+          fileType: isVideoUrl(url) ? 1 : 0, // 1 for video, 0 for image
           caption: undefined
         })) || []);
         const mediaCount = mediaList.length;
