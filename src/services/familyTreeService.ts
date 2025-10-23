@@ -29,7 +29,7 @@ export interface PaginatedFamilyTreeResponse {
 
 const familyTreeService = {
   getAllFamilyTrees(pageIndex: number = 1, pageSize: number = 10): Promise<ApiResponse<PaginatedFamilyTreeResponse>> {
-    return api.get(`/familytree?pageIndex=${pageIndex}&pageSize=${pageSize}`);
+    return api.get(`/familytree/my-family-trees?pageIndex=${pageIndex}&pageSize=${pageSize}`);
   },
 
   getFamilyTreeById(id: string): Promise<ApiResponse<FamilyTree>> {

@@ -265,11 +265,6 @@ const GroupPostPage: React.FC = () => {
                   <div key={familyTree.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                     {/* Cover/Header */}
                     <div className="relative h-32 bg-gradient-to-r from-blue-500 to-purple-600">
-                      <div className="absolute top-2 right-2">
-                        <button className="p-1 bg-white/80 hover:bg-white rounded-full">
-                          <MoreHorizontal className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
                       <div className="absolute bottom-4 left-4">
                         <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-blue-600 text-xl font-bold shadow-lg">
                           {familyTree.name.charAt(0).toUpperCase()}

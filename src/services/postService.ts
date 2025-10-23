@@ -283,6 +283,24 @@ const postService = {
     console.log('Removing post reaction with reactionId:', reactionId);
     return api.delete(`/post/reactions/${reactionId}`);
   },
+
+  // Update a comment
+  updateComment(commentId: string, data: { content: string }): Promise<ApiResponse<any>> {
+    return api.put(`/post/comments/${commentId}`, data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  },
+
+  // Report a comment
+  reportComment(commentId: string, reason: string): Promise<ApiResponse<any>> {
+    return api.post(`/post/comments/${commentId}/report`, { reason }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  },
 };
 
 export default postService;
