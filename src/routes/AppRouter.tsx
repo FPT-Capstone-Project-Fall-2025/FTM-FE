@@ -15,6 +15,7 @@ import ResetPassword from '@/pages/Auth/ResetPassword'
 import MainFamilyTreePage from '@/pages/FamilytreeList/MainFamilyTreePage'
 import GroupPostPage from '@/pages/Post/GroupPostPage'
 import PostPage from '@/pages/Post/PostPage'
+import EventPage from '@/pages/Event/EventPage'
 // PostDetailPage is used as a modal in PostPage, not a standalone route
 // import PostDetailPage from '@/pages/Post/PostDetailPage'
 
@@ -73,6 +74,16 @@ const router = createBrowserRouter([
       <ProtectedRoute>
         <MainLayout>
           <MainFamilyTreePage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/events',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <EventPage />
         </MainLayout>
       </ProtectedRoute>
     ),
