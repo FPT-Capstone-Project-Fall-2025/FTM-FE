@@ -55,3 +55,31 @@ export interface FamilyMemberList {
   birthday: string | null;
   filePath: string | null;
 }
+
+export interface AddingNodeProps {
+  Fullname: string;
+  Gender: 0 | 1;
+  Birthday: string;
+  IsDeath: boolean;
+  DeathDescription?: string;
+  DeathDate?: string
+  BurialAddress?: string;
+  BurialWardId?: number;
+  BurialProvinceId?: number;
+  IdentificationType: string;
+  IdentificationNumber?: number;
+  EthnicId?: number;
+  ReligionId?: number;
+  CategoryCode?: number;
+  Address?: string;
+  WardId?: number;
+  ProvinceId?: number;
+  Email?: string;
+  PhoneNumber?: string
+  Content?: string;
+  StoryDescription?: string;
+  FTId: string;
+  RootId: string;
+  FromFTMemberId?: string;
+  FromFTMemberPartnerId?: string;
+}

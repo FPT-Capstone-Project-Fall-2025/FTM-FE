@@ -1,7 +1,6 @@
-import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList } from '@/types/familytree';
+import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps } from '@/types/familytree';
 import type { ApiResponse, PaginationProps, PaginationResponse } from './../types/api';
 import api from './apiService';
-import axios from 'axios';
 
 export interface FamilyTree {
   id: string;
@@ -54,7 +53,7 @@ const familyTreeService = {
     return api.get(`/familytree/${id}`);
   },
     
-  getMyFamilytrees(): Promise<ApiResponse<Familytree[]>> {
+  getMyFamilytrees(): Promise<ApiResponse<PaginationResponse<Familytree[]>>> {
     return api.get('/familytree/my-family-trees');
   },
 
@@ -80,17 +79,15 @@ const familyTreeService = {
     });
   },
 
-  getFamilyTreeMembers(props: PaginationProps): Promise<ApiResponse<FamilytreeDataResponse>> {
+  getFamilyTreeMembers(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyMemberList[]>>> {
     return api.get('/ftmember/list', {
       params: props
     });
   },
 
-  // [{"name":"name","operation":"EQUAL","value":"a8ab2642-8fb3-4496-8444-2d704011f938"}]
+  createFamilyNode(props: AddingNodeProps): Promise<ApiResponse<string>> {
+    return api.post('/ftmember/add', props);
+  },
 };
-
-export async function fetchFamilyMembers(props: PaginationProps): Promise<PaginationResponse<FamilyMemberList[]>> {
-  return (await axios.get(`https://be.dev.familytree.io.vn/list`, { params: props })).data.data;
-}
 
 export default familyTreeService;

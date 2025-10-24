@@ -52,7 +52,7 @@ const FamilyTreePage: React.FC = () => {
         <div className="flex items-center gap-3 mb-2">
           <Users className="w-8 h-8 text-blue-500" />
           <div>
-            <h1 className="text-4xl font-bold text-gray-900">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               Gia phả: {selectedTree?.name}
             </h1>
           </div>

@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect, memo } from 'react';
+import { useMemo, useCallback, useEffect, memo, useState } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -26,6 +26,7 @@ import FamilyTreeToolbar from './FamilyTreeToolbar';
 import { useReactFlowZoom } from '@/hooks/useReactFlowZoom';
 import SearchBar from './SearchBar';
 import AddNewNodeButton from './AddNewNodeButton';
+import AddNewNode from './AddNewNode';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -67,7 +68,7 @@ const FamilyTreeContent = () => {
   const members = useAppSelector(state => state.familyTree.members);
   const selectedMemberId = useAppSelector(state => state.familyTree.selectedMemberId);
   const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
-
+  const [isAddingNewNode, setIsAddingNewNode] = useState(false);
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
 
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
@@ -154,6 +155,8 @@ const FamilyTreeContent = () => {
       data: {
         ...node.data,
         onMemberClick: handleMemberClick,
+        onAdd: () => setIsAddingNewNode(true)
+        // onDelete:
       },
     }));
   }, [nodes, handleMemberClick]);
@@ -189,7 +192,7 @@ const FamilyTreeContent = () => {
         {/* Add New Node - Outside ReactFlow to prevent re-renders */}
         {nodes.length === 0 ? 
           <div className="h-full flex-1 flex items-center justify-center">
-            <AddNewNodeButton />
+            <AddNewNodeButton onOpen={() => setIsAddingNewNode(true)} />
           </div>
           : 
           <>
@@ -211,8 +214,6 @@ const FamilyTreeContent = () => {
               <div className="absolute top-4 right-4 z-10">
                 <SearchBar onSelectMember={handleSearchSelect} />
               </div>
-    
-              
             </div>
     
             {/* Side Panel */}
@@ -221,6 +222,16 @@ const FamilyTreeContent = () => {
               onClose={handleClosePanel}
             />
           </>
+        }
+        {
+          isAddingNewNode && 
+          <AddNewNode 
+            isFirstNode={nodes.length === 0}
+            parentMember={{ id: "1", name: "Nguyễn Văn A", birthYear: "1966" }}
+            // existingRelationships={[]}
+            onSelectType={(type, formData) => console.log(type, formData)}
+            onClose={() => setIsAddingNewNode(false)}
+          />
         }
       </div>
     </div>
