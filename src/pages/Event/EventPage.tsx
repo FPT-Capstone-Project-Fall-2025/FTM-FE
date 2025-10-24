@@ -53,6 +53,11 @@ const EventPage: React.FC = () => {
   const [isOpenGPEventDetailsModal, setIsOpenGPEventDetailsModal] = useState<boolean>(false);
   const [eventSelected, setEventSelected] = useState<FamilyEvent | null>(null);
 
+  // Debug: Log modal state changes
+  useEffect(() => {
+    console.log('GPEventDetailsModal state changed:', isOpenGPEventDetailsModal);
+  }, [isOpenGPEventDetailsModal]);
+
   // Initialize loading
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -438,14 +443,14 @@ const EventPage: React.FC = () => {
               </div>
 
               {/* Calendar View Content */}
-              <div style={{ marginTop: '20px' }}>
+              <div style={{ marginTop: '24px', minHeight: '500px' }}>
                 {initialLoading ? (
                   <div style={{ 
                     display: 'flex', 
                     justifyContent: 'center', 
                     alignItems: 'center', 
-                    padding: '60px 20px',
-                    minHeight: '400px'
+                    padding: '80px 20px',
+                    minHeight: '500px'
                   }}>
                     <div className="spinner-border text-primary" role="status">
                       <span className="visually-hidden">Đang tải...</span>
@@ -454,8 +459,8 @@ const EventPage: React.FC = () => {
                 ) : error ? (
                   <div style={{ 
                     textAlign: 'center', 
-                    padding: '60px 20px',
-                    minHeight: '400px'
+                    padding: '80px 20px',
+                    minHeight: '500px'
                   }}>
                     <p style={{ color: '#ff4d4f', marginBottom: '20px' }}>{error}</p>
                     <Button 
@@ -467,7 +472,7 @@ const EventPage: React.FC = () => {
                     </Button>
                   </div>
                 ) : (
-                  <div>
+                  <div style={{ padding: '0' }}>
                     {renderCalendar()}
                   </div>
                 )}

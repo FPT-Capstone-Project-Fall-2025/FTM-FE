@@ -144,8 +144,10 @@ export default function EventSidebar({
         block
         size="large"
         onClick={() => {
+          console.log('Create Event button clicked');
           setEventSelected(null);
           setIsOpenGPEventDetailsModal(true);
+          console.log('Modal should open now');
         }}
         style={{
           backgroundColor: '#1677ff',

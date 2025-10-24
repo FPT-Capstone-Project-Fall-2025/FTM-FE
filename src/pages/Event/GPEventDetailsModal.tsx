@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
-import { Modal } from "react-bootstrap";
-import { Button, Col, Dropdown, Image, Row, Space, Switch, Typography, Upload, Input, Select, DatePicker, message } from "antd";
+import { Form, Input, DatePicker, Select, Button, Modal, Row, Col, Space, Typography, Upload, Image, Switch, Dropdown } from "antd";
 import moment from "moment";
 import { FormProvider, useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
@@ -139,7 +138,7 @@ const GPEventDetailsModal = ({
       imageUrl: previewImage,
       isLunar: isLunar
     };
-  
+
     try {
       setIsSubmit(true);
       if (eventSelected) {
@@ -158,7 +157,7 @@ const GPEventDetailsModal = ({
       setIsSubmit(false);
     }
   };
-  
+
 
   const getCity = async () => {
     // TODO: Implement ProfileService
@@ -206,13 +205,13 @@ const GPEventDetailsModal = ({
     handleSubmit((data) => {
       data = {
         ...eventSelected,
-        ...data, 
-        isUpdateAll: updateAll 
+        ...data,
+        isUpdateAll: updateAll
       };
       handleSave(data);
     })();
   };
-  
+
   const items = [
     {
       label: 'Cập nhật sự kiện này',
@@ -238,41 +237,91 @@ const GPEventDetailsModal = ({
 
   return (
     <Modal
-      show={isOpenModal}
-      size="lg"
-      onHide={() => setIsOpenModal(false)}
+      open={isOpenModal}
+      title={eventSelected ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}
+      onCancel={() => setIsOpenModal(false)}
+      width={900}
+      footer={[
+        <Button key="cancel" onClick={() => setIsOpenModal(false)}>
+          Hủy
+        </Button>,
+        ...(!eventSelected || eventSelected.recurrence === "ONCE"
+          ? [
+            <Button
+              key="save"
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={handleSubmit(handleSave)}
+              disabled={isSubmit}
+            >
+              Lưu
+            </Button>,
+          ]
+          : []),
+        ...(eventSelected &&
+          eventSelected.id &&
+          eventSelected.recurrence !== "ONCE"
+          ? [
+            <Dropdown
+              key="dropdown"
+              menu={{
+                items: [
+                  { label: "Cập nhật sự kiện này", key: "1" },
+                  { label: "Cập nhật chuỗi sự kiện", key: "2" },
+                ],
+                onClick: (e) => {
+                  const updateAll = e.key === "2";
+                  handleSubmit((data) => {
+                    data = { ...eventSelected, ...data, isUpdateAll: updateAll };
+                    handleSave(data);
+                  })();
+                },
+              }}
+            >
+              <Button type="primary" icon={<EditOutlined />} disabled={isSubmit}>
+                <Space>
+                  Lưu
+                  <DownOutlined />
+                </Space>
+              </Button>
+            </Dropdown>,
+          ]
+          : []),
+      ]}
       className="gp-event-details-modal"
+      styles={{
+        body: { maxHeight: "70vh", overflowY: "auto", paddingBottom: 16 },
+      }}
     >
-      <Modal.Header closeButton>
-        <Modal.Title>{eventSelected ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <FormProvider {...methods}>
-          <form>
-            {/* Tên sự kiện */}
-            <div className="form-group">
-              <Controller
-                name="name"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <div>
-                    <label className="form-label">
-                      Tên sự kiện <span className="text-danger">*</span>
-                    </label>
-                    <Input
-                      {...field}
-                      placeholder="Nhập tên sự kiện"
-                      status={fieldState.error ? 'error' : ''}
-                    />
-                    {fieldState.error && (
-                      <div className="text-danger mt-1">{fieldState.error.message}</div>
-                    )}
-                  </div>
-                )}
-              />
-            </div>
-            {/* Loại sự kiện */}
-            <div className="form-group">
+      <FormProvider {...methods}>
+        <form style={{ padding: "8px 0" }}>
+          {/* ============ THÔNG TIN CƠ BẢN ============ */}
+          <div style={{ marginBottom: 16 }}>
+            <Controller
+              name="name"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Form layout="vertical">
+                  <Form.Item
+                    label={
+                      <>
+                        Tên sự kiện <span style={{ color: "red" }}>*</span>
+                      </>
+                    }
+                    validateStatus={fieldState.error ? "error" : ""}
+                    help={fieldState.error?.message}
+                  >
+                    <Input {...field} placeholder="Nhập tên sự kiện" />
+                  </Form.Item>
+                </Form>
+              )}
+            />
+          </div>
+
+          {/* ============ THỜI GIAN ============ */}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+
+            <Col xs={24} md={9}>
               <Controller
                 name="eventType"
                 control={control}
@@ -288,181 +337,177 @@ const GPEventDetailsModal = ({
                   />
                 )}
               />
-            </div>
-            {/* Thời gian */}
-            <div className="form-group">
-              <Row className="mt-2" gutter={16}>
-                <Col xs={9} md={9}>
+            </Col>
+            <Col xs={24} md={9}>
+
+              <Controller
+                name="startTime"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <DatePicker
+                    field={field}
+                    fieldState={fieldState}
+                    label="Thời gian bắt đầu"
+                    placeholder="Chọn ngày giờ bắt đầu"
+                    showTime={!isAllDay}
+                    format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
+                    value={field.value ? moment(field.value) : moment()}
+                    onChange={(date) =>
+                      field.onChange(date ? date.toISOString() : null)
+                    }
+                    required
+                    onSelectedLunar={setIsLunar}
+                    isLunar={isLunar}
+                  />
+                )}
+              />
+            </Col>
+
+            <Col xs={24} md={9}>
+              <Controller
+                name="endTime"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <DatePicker
+                    field={field}
+                    fieldState={fieldState}
+                    label="Thời gian kết thúc"
+                    placeholder="Chọn ngày giờ kết thúc"
+                    showTime={!isAllDay}
+                    format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
+                    value={field.value ? moment(field.value) : null}
+                    onChange={(date) =>
+                      field.onChange(date ? date.toISOString() : null)
+                    }
+                    disabledDate={(current) =>
+                      current && startTimeValue
+                        ? current < moment(startTimeValue)
+                        : false
+                    }
+                    required
+                    prefix={<CalendarOutlined />}
+                    onSelectedLunar={setIsLunar}
+                    isLunar={isLunar}
+                  />
+                )}
+              />
+            </Col>
+
+            <Col xs={24} md={6} className="center-content">
+              <Form layout="vertical">
+                <Form.Item label="Cả ngày">
                   <Controller
-                    name="startTime"
+                    name="isAllDay"
                     control={control}
-                    render={({ field, fieldState }) => (
-                      <DatePicker
-                        field={field}
-                        fieldState={fieldState}
-                        label="Thời gian bắt đầu"
-                        placeholder="Chọn ngày giờ bắt đầu"
-                        showTime={!isAllDay}
-                        format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
-                        value={field.value ? moment(field.value) : moment()}
-                        onChange={(date) =>
-                          field.onChange(date ? date.toISOString() : null)
-                        }
-                        required
-                        onSelectedLunar={setIsLunar}
-                        isLunar={isLunar}
+                    render={({ field }) => (
+                      <Switch
+                        checked={field.value}
+                        onChange={(checked) => {
+                          field.onChange(checked);
+                          setIsAllDay(checked);
+                        }}
                       />
                     )}
                   />
-                </Col>
-                <Col xs={9} md={9}>
+                </Form.Item>
+              </Form>
+            </Col>
+          </Row>
+
+          {/* ============ LẶP LẠI ============ */}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col xs={24} md={12}>
+              <Controller
+                name="recurrence"
+                control={control}
+                defaultValue="ONCE"
+                render={({ field, fieldState }) => (
+                  <Select
+                    label="Lặp lại"
+                    field={field}
+                    fieldState={fieldState}
+                    sort={false}
+                    options={[
+                      { label: "Không lặp lại", value: "ONCE" },
+                      { label: "Mỗi ngày", value: "DAILY" },
+                      { label: "Mỗi tuần", value: "WEEKLY" },
+                      { label: "Mỗi tháng", value: "MONTHLY" },
+                      { label: "Mỗi năm", value: "YEARLY" },
+                    ]}
+                    placeholder="Không lặp lại"
+                    required
+                  />
+                )}
+              />
+            </Col>
+
+            <Col xs={24} md={12}>
+              {(recurrenceValue === "DAILY" ||
+                recurrenceValue === "WEEKLY" ||
+                recurrenceValue === "MONTHLY" ||
+                recurrenceValue === "YEARLY") && (
                   <Controller
-                    name="endTime"
+                    name="recurrenceEndTime"
                     control={control}
                     render={({ field, fieldState }) => (
                       <DatePicker
                         field={field}
                         fieldState={fieldState}
-                        label="Thời gian kết thúc"
-                        placeholder="Chọn ngày giờ kết thúc"
-                        showTime={!isAllDay}
-                        format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
+                        label="Thời gian kết thúc lặp lại"
+                        placeholder="Chọn ngày kết thúc lặp lại"
+                        showTime={false}
+                        format={"DD/MM/YYYY"}
                         value={field.value ? moment(field.value) : null}
                         onChange={(date) =>
                           field.onChange(date ? date.toISOString() : null)
                         }
-                        disabledDate={(current) =>
-                          current &&
-                            startTimeValue
-                            ? current < moment(startTimeValue)
-                            : false
-                        }
-                        required
+                        disabledDate={(current) => {
+                          const yearsFromNow = moment().add(
+                            recurrenceValue === "YEARLY"
+                              ? 100
+                              : recurrenceValue === "DAILY"
+                                ? 1
+                                : 5,
+                            "years"
+                          );
+                          return (
+                            (current && startTimeValue
+                              ? current < moment(startTimeValue)
+                              : false) || current > yearsFromNow.endOf("day")
+                          );
+                        }}
                         prefix={<CalendarOutlined />}
                         onSelectedLunar={setIsLunar}
                         isLunar={isLunar}
                       />
                     )}
                   />
-                </Col>
-                <Col xs={6} md={6} className="center-content">
-                  <div className="d-flex align-items-center">
-                    <label className="mb-0 mr-2">Cả ngày</label>
-                    <Controller
-                      name="isAllDay"
-                      control={control}
-                      render={({ field }) => (
-                        <Switch
-                          checked={field.value}
-                          onChange={(checked) => {
-                            field.onChange(checked);
-                            setIsAllDay(checked);
-                          }}
-                        />
-                      )}
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </div>
-            <Row className="mt-2" gutter={16}>
-              <Col xs={12} md={12}>
-                {/* Lặp lại */}
-                <div className="form-group">
-                  <Controller
-                    name="recurrence"
-                    control={control}
-                    defaultValue="ONCE"
-                    render={({ field, fieldState }) => (
-                      <Select
-                        label="Lặp lại"
-                        field={field}
-                        fieldState={fieldState}
-                        sort={false}
-                        options={[
-                          { label: "Không lặp lại", value: "ONCE" },
-                          { label: "Mỗi ngày", value: "DAILY" },
-                          { label: "Mỗi tuần", value: "WEEKLY" },
-                          { label: "Mỗi tháng", value: "MONTHLY" },
-                          { label: "Mỗi năm", value: "YEARLY" },
-                        ]}
-                        placeholder="Không lặp lại"
-                        required
-                      />
-                    )}
-                  />
-                </div>
-              </Col>
-              <Col xs={12} md={12}>
-                {/* Kết thúc lặp lại */}
-                {(recurrenceValue === "DAILY" ||
-                  recurrenceValue === "WEEKLY" ||
-                  recurrenceValue === "MONTHLY" ||
-                  recurrenceValue === "YEARLY") && (
-                    <div className="form-group">
-                      <Controller
-                        name="recurrenceEndTime"
-                        control={control}
-                        render={({ field, fieldState }) => (
-                          <DatePicker
-                            field={field}
-                            fieldState={fieldState}
-                            label="Thời gian kết thúc lặp lại"
-                            placeholder="Chọn ngày kết thúc lặp lại"
-                            showTime={false}
-                            format={"DD/MM/YYYY"}
-                            value={field.value ? moment(field.value) : null}
-                            onChange={(date) =>
-                              field.onChange(date ? date.toISOString() : null)
-                            }
-                            disabledDate={(current) => {
-                              const yearsFromNow = moment().add(
-                                recurrenceValue === "YEARLY" ? 100 : recurrenceValue === "DAILY" ? 1 : 5,
-                                "years"
-                              );
-                              return (
-                                (current && startTimeValue
-                                  ? current < moment(startTimeValue)
-                                  : false) ||
-                                current > yearsFromNow.endOf("day")
-                              );
-                            }}
-                            prefix={<CalendarOutlined />}
-                            onSelectedLunar={setIsLunar}
-                            isLunar={isLunar}
-                          />
-                        )}
-                      />
-                    </div>
-                  )}
-              </Col>
-            </Row>
-            <Row className="mt-2" gutter={16}>
-              <Col xs={24} md={24}>
-                {/* Địa chỉ */}
-                <div className="form-group">
-                <Controller
-                  name="address"
-                  control={control}
-                  render={({ field, fieldState }) => (
-                    <div>
-                      <label className="form-label">Nơi diễn ra</label>
-                      <Input
-                        {...field}
-                        placeholder="Nhập địa chỉ"
-                        status={fieldState.error ? 'error' : ''}
-                      />
-                      {fieldState.error && (
-                        <div className="text-danger mt-1">{fieldState.error.message}</div>
-                      )}
-                    </div>
-                  )}
-                />
-                </div>
-              </Col>
-            </Row>
-            {/* Gia phả */}
-            <div className="form-group">
+                )}
+            </Col>
+          </Row>
+
+          {/* ============ ĐỊA CHỈ ============ */}
+          <div style={{ marginBottom: 16 }}>
+            <Controller
+              name="address"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Form layout="vertical">
+                  <Form.Item
+                    label="Nơi diễn ra"
+                    validateStatus={fieldState.error ? "error" : ""}
+                    help={fieldState.error?.message}
+                  >
+                    <Input {...field} placeholder="Nhập địa chỉ" />
+                  </Form.Item>
+                </Form>
+              )}
+            />
+          </div>
+
+          {/* ============ GIA PHẢ & THÀNH VIÊN ============ */}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col xs={24} md={12}>
               <Controller
                 name="gpIds"
                 control={control}
@@ -472,7 +517,7 @@ const GPEventDetailsModal = ({
                     label="Gia phả"
                     field={field}
                     fieldState={fieldState}
-                    sourceUrl={"/api/lookup/gps-by-user"}
+                    sourceUrl="/api/lookup/gps-by-user"
                     placeholder="Chọn gia phả"
                     mapOptions={(data) =>
                       data.map((item) => ({
@@ -484,14 +529,13 @@ const GPEventDetailsModal = ({
                       field.onChange(value);
                       setGPIdSelected(value);
                       methods.setValue("members", []);
-
                     }}
                   />
                 )}
               />
-            </div>
-            {/* Thành viên */}
-            <div className="form-group">
+            </Col>
+
+            <Col xs={24} md={12}>
               <Controller
                 name="members"
                 control={control}
@@ -509,99 +553,74 @@ const GPEventDetailsModal = ({
                         value: item.value,
                       }))
                     }
-                    onChange={(value) => {
-                      field.onChange(value);
-                    }}
+                    onChange={(value) => field.onChange(value)}
                   />
                 )}
               />
-            </div>
-            {/* Mô tả */}
-            <div className="form-group">
-              <Controller
-                name="description"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <div>
-                    <label className="form-label">Mô tả</label>
+            </Col>
+          </Row>
+
+          {/* ============ MÔ TẢ ============ */}
+          <div style={{ marginBottom: 16 }}>
+            <Controller
+              name="description"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Form layout="vertical">
+                  <Form.Item
+                    label="Mô tả"
+                    validateStatus={fieldState.error ? "error" : ""}
+                    help={fieldState.error?.message}
+                  >
                     <Input.TextArea
                       {...field}
                       placeholder="Nhập mô tả"
                       rows={4}
-                      status={fieldState.error ? 'error' : ''}
                     />
-                    {fieldState.error && (
-                      <div className="text-danger mt-1">{fieldState.error.message}</div>
-                    )}
-                  </div>
-                )}
-              />
-            </div>
-            {/* Hình ảnh */}
-            <div className="form-group">
-              <Typography.Text strong className="mb-1">Hình ảnh</Typography.Text>
-              {!previewImage && (
-                <Upload
-                  showUploadList={false}
-                  beforeUpload={() => false}
-                  listType="picture-card"
-                  onChange={handleChange}
-                  multiple={false}
-                  accept="IMAGE/JFIF,IMAGE/PJPEG,IMAGE/JPEG,IMAGE/PJP,IMAGE/JPG,IMAGE/PNG"
-                >
-                  {uploadButton}
-                </Upload>
+                  </Form.Item>
+                </Form>
               )}
-              {previewImage && (
-                <div
-                  className="image-container text-center"
-                  style={{ position: "relative", width: "100%", height: 300 }}
-                >
-                  <Image src={previewImage} preview={false} />
-                  <Button
-                    type="primary"
-                    shape="circle"
-                    icon={<CloseCircleOutlined />}
-                    onClick={onRemoveImage}
-                    style={{
-                      position: "absolute",
-                      top: "10px",
-                      transform: "translateX(343px)",
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </form>
-        </FormProvider>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button onClick={() => setIsOpenModal(false)}>Hủy</Button>
-        {
-          (!eventSelected || eventSelected.recurrence === "ONCE") && (
-            <Button type="primary"  icon={<EditOutlined />} onClick={handleSubmit(handleSave)} disabled={isSubmit}>
-              Lưu
-            </Button>)
-        }
-        {
-          eventSelected && eventSelected.id && (
-            <>
-              {
-                eventSelected.recurrence !== "ONCE" && (
-                  <Dropdown menu={menuProps} danger>
-                    <Button type="primary" icon={<EditOutlined /> }  disabled={isSubmit}>
-                      <Space>
-                        Lưu
-                        <DownOutlined />
-                      </Space>
-                    </Button>
-                  </Dropdown>)
-              }
-            </>
-          )
-        }
-      </Modal.Footer>
+            />
+          </div>
+
+          {/* ============ HÌNH ẢNH ============ */}
+          <div style={{ marginBottom: 16 }}>
+            <Typography.Text strong>Hình ảnh</Typography.Text>
+            {!previewImage ? (
+              <Upload
+                showUploadList={false}
+                beforeUpload={() => false}
+                listType="picture-card"
+                onChange={handleChange}
+                multiple={false}
+                accept="image/*"
+              >
+                {uploadButton}
+              </Upload>
+            ) : (
+              <div
+                className="image-container text-center"
+                style={{ position: "relative", width: "100%", height: 300 }}
+              >
+                <Image src={previewImage} preview={false} />
+                <Button
+                  type="primary"
+                  shape="circle"
+                  icon={<CloseCircleOutlined />}
+                  onClick={onRemoveImage}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </form>
+      </FormProvider>
     </Modal>
+
   );
 };
 

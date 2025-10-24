@@ -5,7 +5,6 @@ import { get } from "lodash";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent } from "@/types/event";
-import "./InfiniteYearCalendar.scss";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 
 // Add lunar stub to moment
@@ -172,9 +171,24 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
   };
 
   return (
-    <div className="infinite-year-calendar" ref={containerRef}>
+    <div 
+      ref={containerRef}
+      style={{
+        width: '100%',
+        maxHeight: '80vh',
+        overflowY: 'auto',
+        padding: 0,
+        background: 'transparent',
+      }}
+    >
       {loading && years.length === 0 && (
-        <div className="loading-container">
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '3rem',
+          minHeight: '200px',
+        }}>
           <div className="spinner-border text-primary" role="status">
             <span className="visually-hidden">Đang tải...</span>
           </div>
@@ -187,26 +201,93 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
         const sortedDates = Object.keys(groupedEvents).sort();
 
         return (
-          <div key={year} className="year-section" data-year={year}>
-            <h2 className="year-title">{year}</h2>
+          <div 
+            key={year} 
+            data-year={year}
+            style={{
+              marginBottom: '2rem',
+              padding: '24px',
+              background: '#ffffff',
+              borderRadius: '12px',
+              border: '1px solid #e8e8e8',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+            }}
+          >
+            <h2 style={{
+              fontSize: '1.75rem',
+              fontWeight: 600,
+              color: '#1a1a1a',
+              marginBottom: '1.5rem',
+              paddingBottom: '0.75rem',
+              borderBottom: '2px solid #f0f0f0',
+              margin: '0 0 1.5rem 0',
+            }}>
+              {year}
+            </h2>
             
             {sortedDates.length === 0 ? (
-              <div className="no-events">
-                <p>Không có sự kiện nào trong năm này</p>
+              <div style={{
+                padding: '3rem',
+                textAlign: 'center',
+                color: '#999',
+                fontStyle: 'italic',
+                background: '#fafafa',
+                borderRadius: '8px',
+                border: '1px dashed #e0e0e0',
+              }}>
+                <p style={{ margin: 0 }}>Không có sự kiện nào trong năm này</p>
               </div>
             ) : (
-              <div className="events-list">
+              <div>
                 {sortedDates.map((date) => (
-                  <div key={date} className="date-group">
-                    <div className="date-header">
-                      <span className="date-label">{getLunarDateString(date)}</span>
+                  <div 
+                    key={date}
+                    style={{
+                      marginBottom: '1.5rem',
+                    }}
+                  >
+                    <div style={{
+                      background: '#f8f9fa',
+                      padding: '0.875rem 1.25rem',
+                      borderRadius: '8px',
+                      marginBottom: '0.75rem',
+                      border: '1px solid #e8e8e8',
+                    }}>
+                      <span style={{
+                        fontWeight: 600,
+                        color: '#1a1a1a',
+                        fontSize: '0.95rem',
+                      }}>
+                        {getLunarDateString(date)}
+                      </span>
                     </div>
-                    <div className="events-for-date">
+                    <div>
                       {(groupedEvents[date] || []).map((event: any) => (
                         <div
                           key={event.id}
-                          className="event-item"
                           onClick={() => handleEventClick(event)}
+                          style={{
+                            padding: '1rem 1.25rem',
+                            marginBottom: '0.75rem',
+                            background: '#ffffff',
+                            border: '1px solid #e8e8e8',
+                            borderLeft: '4px solid #1677ff',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#f8f9fa';
+                            e.currentTarget.style.borderLeftColor = '#40a9ff';
+                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
+                            e.currentTarget.style.transform = 'translateX(2px)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#ffffff';
+                            e.currentTarget.style.borderLeftColor = '#1677ff';
+                            e.currentTarget.style.boxShadow = 'none';
+                            e.currentTarget.style.transform = 'translateX(0)';
+                          }}
                         >
                           {/* @ts-ignore - EventTypeLabel component type conversion in progress */}
                           <EventTypeLabel
