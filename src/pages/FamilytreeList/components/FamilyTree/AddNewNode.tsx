@@ -1,6 +1,7 @@
-import { CategoryCode, type AddingNodeProps, type FamilyMember } from "@/types/familytree";
+import familyTreeService from "@/services/familyTreeService";
+import { CategoryCode, type AddingNodeProps, type FamilyNode } from "@/types/familytree";
 import { X, Users, User, Baby } from "lucide-react";
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import ReactFlow, {
   type Node,
   type Edge,
@@ -13,6 +14,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 
 interface AddNewNodeProps {
+  ftId: string;
   parentMember?: FamilyMember | null;
   existingRelationships?: string[];
   isFirstNode?: boolean;
@@ -104,6 +106,7 @@ const selectOptions = {
 };
 
 const AddNewNode = ({
+  ftId,
   parentMember = null,
   existingRelationships = [],
   isFirstNode = false,
@@ -111,7 +114,10 @@ const AddNewNode = ({
   onSelectType,
 }: AddNewNodeProps) => {
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [showPartnerSelection, setShowPartnerSelection] = useState(false);
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [showExtendedForm, setShowExtendedForm] = useState(false);
+  const [partnerMembers, setPartnerMembers] = useState<FamilyNode[]>([]);
   const [formData, setFormData] = useState<AddingNodeProps>({
     fullname: "",
     gender: 0 as 0 | 1,
@@ -127,7 +133,7 @@ const AddNewNode = ({
     identificationNumber: undefined,
     ethnicId: undefined,
     religionId: undefined,
-    categoryCode: isFirstNode && CategoryCode.FirstNode || undefined,
+    categoryCode: isFirstNode ? CategoryCode.FirstNode : undefined,
     address: "",
     wardId: undefined,
     provinceId: undefined,
@@ -257,11 +263,52 @@ const AddNewNode = ({
   const [nodes] = useNodesState(initialNodes);
   const [edges] = useEdgesState(initialEdges);
 
+  const fetchPartnerMembers = async () => {
+    if(parentMember?.partners && parentMember.partners.length > 1) {
+      for (const partnerId of parentMember.partners) {
+        try {
+          const response = await familyTreeService.getFamilyTreeMemberById(ftId, partnerId);
+          const data = response.data;
+          if(partnerMembers.findIndex(item => item.id === data.id) === -1) {
+            partnerMembers.push(response.data);
+          }
+        } catch (error) {
+          console.error(`Error fetching partner ${partnerId}:`, error);
+        }
+      }
+    }
+  }
+
+  useEffect(() => {
+    fetchPartnerMembers();
+  }, []);
+
   const handleRelationshipSelect = useCallback((type: string) => {
     setSelectedType(type);
-    const seletectedElement = allRelationships.find(item => item.id === type);
-    formData.categoryCode = seletectedElement?.code;
-  }, []);
+    const selectedElement = allRelationships.find((item) => item.id === type);
+    setFormData((prev) => ({
+      ...prev,
+      categoryCode: selectedElement?.code,
+    }));
+
+    // Trigger partner selection for child types if parent has partners
+    if (selectedElement?.code === CategoryCode.Child && parentMember?.partners) {
+      if (parentMember.partners.length > 1) {
+        setShowPartnerSelection(true);
+      } else if (parentMember.partners.length === 1) {
+        setSelectedPartnerId(parentMember.partners[0] || null);
+        setShowPartnerSelection(false);
+      } else {
+        setSelectedPartnerId(null);
+        setShowPartnerSelection(false);
+      }
+    }
+  }, [parentMember]);
+
+  const handlePartnerSelect = (partnerId: string) => {
+    setSelectedPartnerId(partnerId);
+    setShowPartnerSelection(false);
+  };
 
   const handleFormChange = (
     e: React.ChangeEvent<
@@ -277,13 +324,19 @@ const AddNewNode = ({
 
   const handleSave = async () => {
     if (onSelectType) {
-      await onSelectType(formData);
+      const updatedFormData = {
+        ...formData,
+        fromFTMemberPartnerId: selectedPartnerId || undefined,
+      };
+      await onSelectType(updatedFormData);
     }
     onClose?.();
   };
 
   const handleCancel = () => {
     setSelectedType(null);
+    setShowPartnerSelection(false);
+    setSelectedPartnerId(null);
     setShowExtendedForm(false);
     setFormData({
       fullname: "",
@@ -327,6 +380,63 @@ const AddNewNode = ({
       })),
     [nodes, parentMember?.id, handleRelationshipSelect]
   );
+
+  // If selected type and partner selection is needed
+  if (selectedType && showPartnerSelection && parentMember?.partners) {
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-0 animate-in fade-in zoom-in">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-500 to-cyan-400 px-6 py-4 flex justify-between items-center">
+            <h2 className="text-lg font-bold text-white uppercase">
+              CHỌN VỢ/CHỒNG
+            </h2>
+            <button
+              onClick={handleCancel}
+              className="text-white hover:bg-white hover:bg-opacity-20 rounded transition-colors p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Partner Selection */}
+          <div className="p-6 space-y-4">
+            <p className="text-gray-800">Chọn vợ/chồng mà con cái thuộc về:</p>
+            {partnerMembers.length > 0 ? (
+              partnerMembers.map((partner) => (
+                <button
+                  key={partner.id}
+                  onClick={() => handlePartnerSelect(partner.id)}
+                  className="w-full px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-left"
+                >
+                  {partner.fullname}
+                </button>
+              ))
+            ) : (
+              <p className="text-gray-600">Không có đối tác nào để chọn.</p>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex gap-3 px-6 py-4 border-t border-gray-200">
+            <button
+              onClick={handleCancel}
+              className="flex-1 px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={() => setShowPartnerSelection(false)}
+              disabled={partnerMembers.length === 0}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              Tiếp tục
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If first node or selected type, show the form
   if (isFirstNode || selectedType) {
@@ -425,7 +535,7 @@ const AddNewNode = ({
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      IsDeath: !e.target.checked,
+                      isDeath: !e.target.checked,
                     }))
                   }
                   className="w-4 h-4"
@@ -499,7 +609,7 @@ const AddNewNode = ({
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
-                            // BurialWardId: e.target.value ? parseInt(e.target.value) : undefined,
+                            burialWardId: e.target.value ? parseInt(e.target.value) : undefined,
                           }))
                         }
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -522,7 +632,7 @@ const AddNewNode = ({
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
-                            // BurialProvinceId: e.target.value ? parseInt(e.target.value) : undefined,
+                            burialProvinceId: e.target.value ? parseInt(e.target.value) : undefined,
                           }))
                         }
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -569,7 +679,7 @@ const AddNewNode = ({
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          // IdentificationNumber: e.target.value ? parseInt(e.target.value) : undefined,
+                          identificationNumber: e.target.value ? parseInt(e.target.value) : undefined,
                         }))
                       }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -589,7 +699,7 @@ const AddNewNode = ({
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          // EthnicId: e.target.value ? parseInt(e.target.value) : undefined,
+                          ethnicId: e.target.value ? parseInt(e.target.value) : undefined,
                         }))
                       }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -612,7 +722,7 @@ const AddNewNode = ({
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          // ReligionId: e.target.value ? parseInt(e.target.value) : undefined,
+                          religionId: e.target.value ? parseInt(e.target.value) : undefined,
                         }))
                       }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -651,7 +761,7 @@ const AddNewNode = ({
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          // WardId: e.target.value ? parseInt(e.target.value) : undefined,
+                          wardId: e.target.value ? parseInt(e.target.value) : undefined,
                         }))
                       }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -674,7 +784,7 @@ const AddNewNode = ({
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          // ProvinceId: e.target.value ? parseInt(e.target.value) : undefined,
+                          provinceId: e.target.value ? parseInt(e.target.value) : undefined,
                         }))
                       }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -830,3 +940,18 @@ const AddNewNode = ({
 };
 
 export default AddNewNode;
+export interface FamilyMember {
+  id: string;
+  name: string;
+  birthday?: string;
+  gender: number;
+  avatar?: string;
+  bio?: string;
+  images?: string[];
+  gpMemberFiles?: string[];
+  partners?: string[];
+  children?: any[];
+  isRoot: boolean;
+  isCurrentMember: boolean;
+  isPartner: boolean;
+}

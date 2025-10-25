@@ -93,3 +93,34 @@ export interface AddingNodeProps {
   fromFTMemberPartnerId?: string | undefined;
 }
 
+export interface FamilyNode {
+  id: string;
+  ftId: string;
+  ftRole: string;
+  fullname: string;
+  gender: 0 | 1;
+  isDeath: boolean;
+  birthday: string;
+  deathDescription: string;
+  deathDate: string;
+  burialAddress: string;
+  burialWardId: number;
+  burialProvinceId: number;
+  identificationType: string;
+  identificationNumber: number;
+  ethnicId: number;
+  religionId: number;
+  address: string;
+  wardId: number;
+  provinceId: number;
+  email: string;
+  phoneNumber: string;
+  content: string;
+  storyDescription: string;
+  privacyData: null;
+  picture: string;
+  ftMemberFiles: string[]
+}
+
+
+

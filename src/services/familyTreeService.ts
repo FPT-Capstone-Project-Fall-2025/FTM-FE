@@ -1,4 +1,4 @@
-import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps } from '@/types/familytree';
+import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps, FamilyNode } from '@/types/familytree';
 import type { ApiResponse, PaginationProps, PaginationResponse } from './../types/api';
 import api from './apiService';
 
@@ -84,6 +84,15 @@ const familyTreeService = {
       params: {
         ...props,
         propertyFilters: JSON.stringify(props.propertyFilters)
+      }
+    });
+  },
+
+  getFamilyTreeMemberById(ftId: string, memberId: string): Promise<ApiResponse<FamilyNode>> {
+    return api.get(`/ftmember/${ftId}/get-by-memberid`, {
+      params: {
+        ftid: ftId,
+        memberId
       }
     });
   },

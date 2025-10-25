@@ -73,7 +73,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     const children = childrenOf.get(memberId) || [];
     children.forEach(childId => {
       if (!visited.has(childId)) {
-        queue.push([childId, gen - 1]);
+        queue.push([childId, gen + 1]);
       }
     });
 
@@ -98,7 +98,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       const children = childrenOf.get(memberId) || [];
       for (const childId of children) {
         if (generationMap.has(childId)) {
-          assignedGen = generationMap.get(childId)! + 1;
+          assignedGen = generationMap.get(childId)! - 1;
           break;
         }
       }
@@ -132,18 +132,19 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
   });
 
   // Sort generations (highest to lowest)
-  const sortedGenerations = Array.from(generationGroups.keys()).sort((a, b) => b - a);
+  const sortedGenerations = Array.from(generationGroups.keys()).sort((a, b) => a - b);
 
   // Layout configuration
   const verticalSpacing = 300;
-  const horizontalSpacing = 280;
-  const partnerSpacing = 200; // More spacing between partners
+  const horizontalSpacing = 300;
+  const partnerSpacing = 120; // Tighter spacing between partners
+  const siblingSpacing = 200; // Spacing between sibling groups
   const positionMap = new Map<string, { x: number; y: number }>();
 
   // Position nodes generation by generation
   sortedGenerations.forEach(generation => {
     const memberIds = generationGroups.get(generation)!;
-    const y = -generation * verticalSpacing;
+    const y = generation * verticalSpacing;
 
     // Group partners together
     const positioned = new Set<string>();
@@ -169,31 +170,44 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       groups.push(group);
     });
 
-    // Calculate total width needed
+    // Calculate total width needed for this generation
     let totalWidth = 0;
-    groups.forEach(group => {
+    groups.forEach((group, index) => {
       if (group.length === 1) {
         totalWidth += horizontalSpacing;
       } else {
-        totalWidth += (group.length - 1) * partnerSpacing + horizontalSpacing;
+        // Partners: tight spacing between them
+        totalWidth += (group.length - 1) * partnerSpacing;
+      }
+      // Add spacing between groups (except for last group)
+      if (index < groups.length - 1) {
+        totalWidth += siblingSpacing;
       }
     });
 
-    // Position groups
+    // Position groups centered
     let currentX = -totalWidth / 2;
-    groups.forEach(group => {
+    groups.forEach((group, groupIndex) => {
       if (group.length === 1) {
-        positionMap.set(group[0]!, { x: currentX + horizontalSpacing / 2, y });
+        positionMap.set(group[0]!, { x: currentX, y });
         currentX += horizontalSpacing;
       } else {
-        // Position partners with more spacing
+        // Position partners tightly together
+        const groupWidth = (group.length - 1) * partnerSpacing;
+        const groupStartX = currentX;
+        
         group.forEach((memberId, index) => {
           positionMap.set(memberId, { 
-            x: currentX + index * partnerSpacing, 
+            x: groupStartX + index * partnerSpacing, 
             y 
           });
         });
-        currentX += (group.length - 1) * partnerSpacing + horizontalSpacing;
+        currentX += groupWidth;
+      }
+      
+      // Add spacing to next group
+      if (groupIndex < groups.length - 1) {
+        currentX += siblingSpacing;
       }
     });
   });

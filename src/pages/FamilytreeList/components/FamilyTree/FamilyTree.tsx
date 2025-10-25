@@ -158,7 +158,6 @@ const FamilyTreeContent = () => {
       const response = await familyTreeService.createFamilyNode({
         ...formData,
         ftId: selectedFamilyTree?.id || "",
-        
       });
       console.log("API Response:", response);
       // Re-fetch the family tree to sync with the new node
@@ -253,6 +252,7 @@ const FamilyTreeContent = () => {
         )}
         {isAddingNewNode && (
           <AddNewNode
+            ftId={selectedFamilyTree?.id || ""}
             isFirstNode={nodes.length === 0}
             parentMember={selectedParent}
             existingRelationships={[]}
