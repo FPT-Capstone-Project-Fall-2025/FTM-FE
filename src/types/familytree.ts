@@ -102,6 +102,7 @@ export interface AddingNodeProps {
   ftMemberFiles?: FileProps[]
 }
 
+<<<<<<< HEAD
 export interface FamilyNode {
   id: string;
   userId: string;
@@ -172,3 +173,5 @@ export interface FileProps {
 }
 
 
+=======
+>>>>>>> 41dcd28 (implementing v2)

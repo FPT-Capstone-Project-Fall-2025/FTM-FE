@@ -73,6 +73,7 @@ const familyTreeService = {
         ...props,
         propertyFilters: JSON.stringify(props.propertyFilters)
       }
+<<<<<<< HEAD
     });
   },
 
@@ -90,6 +91,8 @@ const familyTreeService = {
       params: {
         memberId
       }
+=======
+>>>>>>> 41dcd28 (implementing v2)
     });
   },
 
@@ -120,6 +123,7 @@ const familyTreeService = {
           "Content-Type": "multipart/form-data"
         }
     });
+<<<<<<< HEAD
   },
   
   updateFamilyNode(ftId: string, props: FamilyNode): Promise<ApiResponse<string>> {
@@ -128,6 +132,8 @@ const familyTreeService = {
 
   deleteFamilyNode(ftMemberId: string): Promise<ApiResponse<string>> {
     return api.delete(`/ftmember/${ftMemberId}`);
+=======
+>>>>>>> 41dcd28 (implementing v2)
   },
 };
 
