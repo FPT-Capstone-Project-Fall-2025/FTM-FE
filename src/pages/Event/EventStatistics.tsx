@@ -12,11 +12,8 @@ const unitMap = {
 
 const EventStatistics = () => {
   const PREFIX_URL = window.env ? window.env.BLOB_STORAGE_DOMAIN : "";
-  // @ts-ignore - Type definitions needed for event statistics
   const [selectedEvent, setSelectedEvent] = useState(null);
-  // @ts-ignore - Type definitions needed for event statistics
   const [events, setEvents] = useState([]);
-  // @ts-ignore - Type definitions needed for event statistics
   const [totalEvent, setTotalEvent] = useState();
   const [segmentOrder, setSegmentOrder] = useState(["days", "weeks", "months"]);
 

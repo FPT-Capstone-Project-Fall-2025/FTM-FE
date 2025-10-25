@@ -5,6 +5,7 @@ import moment from 'moment';
 import debounce from 'lodash/debounce';
 import dayjs from 'dayjs';
 import 'moment/locale/vi';
+import './Calendar.css';
 
 // Components
 import EventSidebar from './EventSidebar';
@@ -14,6 +15,7 @@ import DayCalendar from './DayCalendar';
 import InfiniteYearCalendar from './InfiniteYearCalendar';
 import GPEventInfoModal from './GPEventInfoModal';
 import GPEventDetailsModal from './GPEventDetailsModal';
+import YearCalendar from './YearCalendar';
 
 // Assets
 import weatherSwitch from '@/assets/img/icon/event/weather-switch.svg';
@@ -278,7 +280,7 @@ const EventPage: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', paddingBottom: '40px' }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
         <Row gutter={[20, 20]}>
           {/* Sidebar - Filters and Statistics */}
@@ -289,7 +291,9 @@ const EventPage: React.FC = () => {
               padding: '0',
               boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
               position: 'sticky',
-              top: '20px'
+              top: '20px',
+              maxHeight: 'calc(100vh - 40px)',
+              overflowY: 'auto'
             }}>
               <EventSidebar
                 handleFilter={handleFilter}
@@ -306,7 +310,7 @@ const EventPage: React.FC = () => {
               background: 'white', 
               borderRadius: '8px', 
               padding: '20px',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
             }}>
               {/* Header Section */}
               <div style={{ marginBottom: '20px' }}>
@@ -443,7 +447,12 @@ const EventPage: React.FC = () => {
               </div>
 
               {/* Calendar View Content */}
-              <div style={{ marginTop: '24px', minHeight: '500px' }}>
+              <div style={{ 
+                marginTop: '24px', 
+                minHeight: '500px',
+                overflowX: 'auto',
+                overflowY: 'visible'
+              }}>
                 {initialLoading ? (
                   <div style={{ 
                     display: 'flex', 
@@ -472,7 +481,10 @@ const EventPage: React.FC = () => {
                     </Button>
                   </div>
                 ) : (
-                  <div style={{ padding: '0' }}>
+                  <div style={{ 
+                    padding: '0',
+                    width: '100%'
+                  }}>
                     {renderCalendar()}
                   </div>
                 )}

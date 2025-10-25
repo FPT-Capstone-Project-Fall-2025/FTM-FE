@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { useEffect, useState } from "react";
-import { Button, Checkbox, Input, Card, Space, Divider } from "antd";
-import { PlusOutlined, UpOutlined, DownOutlined, CloseOutlined, EnvironmentOutlined } from "@ant-design/icons";
+import { Button, Checkbox, Input } from "antd";
+import { PlusOutlined, CloseOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { useCombobox } from "downshift";
 import { EVENT_TYPE_CONFIG, EVENT_TYPE } from "./EventTypeLabel";
 import type { EventType } from "./EventTypeLabel";
@@ -32,6 +31,18 @@ interface EventSidebarProps {
   setEventSelected: (value: any) => void;
 }
 
+interface GPItem {
+  label: string;
+  value: string;
+}
+
+interface CityItem {
+  name: string;
+  code: string;
+  lat: number;
+  lon: number;
+}
+
 // Mock data for demonstration
 const MOCK_FAMILY_GROUPS = [
   { label: 'Gia phả họ Nguyễn', value: 'nguyen-family' },
@@ -45,24 +56,24 @@ const MOCK_CITIES = [
   { name: 'Đà Nẵng', code: 'dn', lat: 16.0544, lon: 108.2022 },
 ];
 
-export default function EventSidebar({ 
+const EventSidebar: React.FC<EventSidebarProps> = ({ 
   handleFilter, 
   setIsShowLunarDay, 
   setIsOpenGPEventDetailsModal, 
   setEventSelected 
-}: EventSidebarProps) {
+}) => {
   // State management
   const [eventTypes, setEventTypes] = useState<EventType[]>([...Object.values(EVENT_TYPE)]);
   const [eventGroups, setEventGroups] = useState<string[]>([]);
-  const [showLunar, setShowLunar] = useState(true);
+  const [showLunar, setShowLunar] = useState<boolean>(true);
   const [eventLocation, setEventLocation] = useState<string>("");
   const [openSections, setOpenSections] = useState({
     eventType: true,
     familyGroups: true,
   });
-  const [listCity, setListCity] = useState<any[]>([]);
+  const [listCity, setListCity] = useState<CityItem[]>([]);
   const [inputValue, setInputValue] = useState<string>("");
-  const [eventGp, setEventGp] = useState<any[]>([]);
+  const [eventGp, setEventGp] = useState<GPItem[]>([]);
 
   // Toggle checkbox selection
   const toggleCheckbox = <T,>(list: T[], setList: (value: T[]) => void, value: T) => {
@@ -131,12 +142,7 @@ export default function EventSidebar({
   });
 
   return (
-    <div style={{ 
-      width: '100%', 
-      padding: '20px',
-      backgroundColor: '#fff',
-      borderRadius: '8px',
-    }}>
+    <div className="w-full p-5 bg-white rounded-lg">
       {/* Create Event Button */}
       <Button
         type="primary"
@@ -149,57 +155,38 @@ export default function EventSidebar({
           setIsOpenGPEventDetailsModal(true);
           console.log('Modal should open now');
         }}
-        style={{
-          backgroundColor: '#1677ff',
-          borderRadius: '8px',
-          height: '48px',
-          fontSize: '15px',
-          fontWeight: 500,
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        className="!bg-blue-500 !rounded-lg !h-12 !text-[15px] !font-medium mb-5 flex items-center justify-center hover:!bg-blue-600"
       >
         Thêm sự kiện mới
       </Button>
 
       {/* Event Type Section */}
-      <div style={{ marginBottom: '16px' }}>
+      <div className="mb-4">
         <div
           onClick={() => toggleSection("eventType")}
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '8px 0',
-            cursor: 'pointer',
-            fontWeight: 500,
-            fontSize: '14px',
-            borderBottom: '1px solid #f0f0f0',
-          }}
+          className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100"
         >
           <span>Loại sự kiện {openSections.eventType ? '∧' : '∨'}</span>
         </div>
         {openSections.eventType && (
-          <div style={{ padding: '16px 0' }}>
+          <div className="py-4">
             {Object.values(EVENT_TYPE).map((type) => (
-              <div key={type} style={{ marginBottom: '10px' }}>
+              <div key={type} className="mb-2.5">
                 <Checkbox
                   checked={eventTypes.includes(type)}
                   onChange={() => toggleCheckbox(eventTypes, setEventTypes, type)}
-                  style={{ width: '100%' }}
+                  className="w-full"
                 >
-                  <Space size={8}>
+                  <div className="flex items-center gap-2">
                     <img 
                       src={EVENT_TYPE_CONFIG[type].icon} 
                       alt={EVENT_TYPE_CONFIG[type].label}
-                      style={{ width: '20px', height: '20px' }}
+                      className="w-5 h-5"
                     />
-                    <span style={{ fontSize: '14px' }}>
+                    <span className="text-sm">
                       {EVENT_TYPE_CONFIG[type].label}
                     </span>
-                  </Space>
+                  </div>
                 </Checkbox>
               </div>
             ))}
@@ -208,70 +195,61 @@ export default function EventSidebar({
       </div>
 
       {/* Family Groups Section */}
-      <div style={{ marginBottom: '16px' }}>
+      <div className="mb-4">
         <div
           onClick={() => toggleSection("familyGroups")}
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '8px 0',
-            cursor: 'pointer',
-            fontWeight: 500,
-            fontSize: '14px',
-            borderBottom: '1px solid #f0f0f0',
-          }}
+          className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100"
         >
           <span>Sự kiện gia phả {openSections.familyGroups ? '∧' : '∨'}</span>
         </div>
         {openSections.familyGroups && (
-          <div style={{ padding: '16px 0', maxHeight: '150px', overflowY: 'auto' }}>
-            {eventGp.map((group) => (
-              <div key={group.value} style={{ marginBottom: '10px' }}>
-                <Checkbox
-                  checked={eventGroups.includes(group.value)}
-                  onChange={() => toggleCheckbox(eventGroups, setEventGroups, group.value)}
-                  style={{ width: '100%' }}
-                >
-                  <span style={{ fontSize: '14px' }}>{group.label}</span>
-                </Checkbox>
+          <div className="py-4 max-h-[150px] overflow-y-auto">
+            {eventGp.length === 0 ? (
+              <div className="text-sm text-gray-400 italic py-2">
+                Không có gia phả nào
               </div>
-            ))}
+            ) : (
+              eventGp.map((group) => (
+                <div key={group.value} className="mb-2.5">
+                  <Checkbox
+                    checked={eventGroups.includes(group.value)}
+                    onChange={() => toggleCheckbox(eventGroups, setEventGroups, group.value)}
+                    className="w-full"
+                  >
+                    <span className="text-sm">{group.label}</span>
+                  </Checkbox>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
 
       {/* Lunar Calendar Toggle */}
-      <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #f0f0f0' }}>
+      <div className="mb-4 pb-4 border-b border-gray-100">
         <Checkbox
           checked={showLunar}
           onChange={(e) => {
             setIsShowLunarDay(e.target.checked);
             setShowLunar(e.target.checked);
           }}
-          style={{ width: '100%' }}
+          className="w-full"
         >
-          <span style={{ fontSize: '14px' }}>Hiển thị lịch âm</span>
+          <span className="text-sm">Hiển thị lịch âm</span>
         </Checkbox>
       </div>
 
       {/* Location Filter */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ 
-          fontSize: '14px', 
-          fontWeight: 500, 
-          marginBottom: '12px',
-          paddingBottom: '8px',
-          borderBottom: '1px solid #f0f0f0'
-        }}>
+      <div className="mb-5">
+        <div className="text-sm font-medium mb-3 pb-2 border-b border-gray-100">
           Xem thời tiết theo vị trí địa lí
         </div>
-        <div style={{ position: 'relative' }}>
+        <div className="relative">
           <Input
             {...getInputProps()}
             value={inputValue}
             placeholder="Nhập địa điểm..."
-            prefix={<EnvironmentOutlined style={{ color: '#999' }} />}
+            prefix={<EnvironmentOutlined className="text-gray-400" />}
             suffix={
               inputValue ? (
                 <CloseOutlined 
@@ -279,42 +257,24 @@ export default function EventSidebar({
                     setInputValue(""); 
                     setEventLocation("") 
                   }}
-                  style={{ cursor: 'pointer', color: '#999' }}
+                  className="cursor-pointer text-gray-400 hover:text-gray-600"
                 />
               ) : null
             }
-            style={{ borderRadius: '8px' }}
+            className="!rounded-lg"
           />
           {inputValue && isOpen && locationFilteredItems.length > 0 && (
             <ul 
               {...getMenuProps()}
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                backgroundColor: 'white',
-                border: '1px solid #d9d9d9',
-                borderRadius: '8px',
-                marginTop: '4px',
-                maxHeight: '200px',
-                overflowY: 'auto',
-                listStyle: 'none',
-                padding: '4px 0',
-                zIndex: 1000,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              }}
+              className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg mt-1 max-h-[200px] overflow-y-auto list-none p-1 z-[1000] shadow-md"
             >
               {locationFilteredItems.map((item, index) => (
                 <li
                   key={item.code}
                   {...getItemProps({ item, index })}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    backgroundColor: highlightedIndex === index ? '#f5f5f5' : 'white',
-                    fontSize: '14px',
-                  }}
+                  className={`px-3 py-2 cursor-pointer text-sm rounded transition-colors ${
+                    highlightedIndex === index ? 'bg-gray-100' : 'bg-white hover:bg-gray-50'
+                  }`}
                 >
                   {item.name}
                 </li>
@@ -325,9 +285,11 @@ export default function EventSidebar({
       </div>
 
       {/* Statistics Section */}
-      <div style={{ marginTop: '24px' }}>
+      <div className="mt-6">
         <EventStatistics />
       </div>
     </div>
   );
-}
+};
+
+export default EventSidebar;

@@ -4,13 +4,13 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from '@fullcalendar/interaction';
 import moment from "moment";
 import "moment/locale/vi";
-// import "moment-lunar"; // Removed due to compatibility issues
 import viLocale from "@fullcalendar/core/locales/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
-import type { EventFilters } from "../../types/event";
+import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { forEach } from "lodash";
 import { addLunarToMoment } from "../../utils/lunarUtils";
+import type { EventClickArg, EventContentArg, DayCellContentArg } from '@fullcalendar/core';
 
 // Add lunar stub to moment
 addLunarToMoment(moment);
@@ -24,14 +24,19 @@ interface MonthCalendarProps {
   reload?: boolean;
   eventFilters?: EventFilters;
   isShowLunarDay?: boolean;
-  setIsOpenGPEventInfoModal: any;
-  setEventSelected: any;
-  onMoreClick?: any;
+  setIsOpenGPEventInfoModal: (open: boolean) => void;
+  setEventSelected: (event: FamilyEvent) => void;
+  onMoreClick?: (date: Date) => void;
   viewWeather?: boolean;
-  handleSelect: any;
+  handleSelect: (selectInfo: any) => void;
 }
 
-const MonthCalendar = ({
+interface WeatherInfo {
+  icon: string;
+  temp: string;
+}
+
+const MonthCalendar: React.FC<MonthCalendarProps> = ({
   year,
   month,
   reload = false,
@@ -40,72 +45,78 @@ const MonthCalendar = ({
   setIsOpenGPEventInfoModal,
   setEventSelected,
   onMoreClick,
-  viewWeather,
+  viewWeather = true,
   handleSelect,
-}: MonthCalendarProps) => {
-  const calendarRef = useRef<any>(null);
+}) => {
+  const calendarRef = useRef<FullCalendar>(null);
   const [initialDate, setInitialDate] = useState(
     `${year}-${month.toString().padStart(2, "0")}-01`
   );
-  const [events, setEvents] = useState<any[]>([]);
-  const [weatherData, setWeatherData] = useState<any>({});
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [weatherData, setWeatherData] = useState<Record<string, WeatherInfo>>({});
 
-  // Ghép các giá trị filter vào 1 đối tượng duy nhất
+  // Combine filters
   const combinedFilters = useMemo(() => ({ ...eventFilters, year, month }), [eventFilters, year, month]);
 
-  // Cập nhật kích thước lịch sau khi mount
+  // Update calendar size after mount
   useEffect(() => {
     const timer = setTimeout(() => {
       if (calendarRef.current) {
-        calendarRef.current.getApi().updateSize();
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.updateSize();
         window.dispatchEvent(new Event("resize"));
       }
     }, 200);
     return () => clearTimeout(timer);
   }, []);
 
-  // Cập nhật initialDate và chuyển lịch về ngày đầu tháng khi year hoặc month thay đổi
+  // Update initialDate when year or month changes
   useEffect(() => {
     const newDate = `${year}-${month.toString().padStart(2, "0")}-01`;
     setInitialDate(newDate);
     if (calendarRef.current) {
-      calendarRef.current.getApi().gotoDate(newDate);
+      const calendarApi = calendarRef.current.getApi();
+      calendarApi.gotoDate(newDate);
     }
   }, [year, month]);
 
-  // Hàm fetch dữ liệu sự kiện và dự báo thời tiết cho tháng
+  // Fetch events and weather data
   const fetchEventsAndForecasts = useCallback(async () => {
     if (!combinedFilters.year || !combinedFilters.month) return;
     try {
-      // @ts-ignore - API response needs proper type definition
-      const response = await eventService.getMonthEvents(year, month, combinedFilters);
-      // @ts-ignore - API response needs proper type definition
-      const mappedEvents = response?.value?.gpFamilyEvents?.map((event: any) => ({
+      const response: any = await eventService.getMonthEvents(year, month, combinedFilters);
+      
+      const mappedEvents: CalendarEvent[] = ((response?.value?.gpFamilyEvents || []) as FamilyEvent[]).map((event: FamilyEvent) => ({
         ...event,
         id: event.id,
         title: event.name,
         start: event.startTime,
         end: event.endTime,
         type: event.eventType,
+        allDay: event.isAllDay,
         description: event.description,
         imageUrl: event.imageUrl,
         gpIds: event.gpIds,
         location: event.location,
         isOwner: event.isOwner,
-        isAllDay: event.isAllDay,
         recurrence: event.recurrence,
         memberNames: event.memberNames,
         gpNames: event.gpNames,
         address: event.address,
         locationName: event.locationName,
         isLunar: event.isLunar,
+        extendedProps: {
+          type: event.eventType,
+          description: event.description,
+          location: event.location,
+        }
       }));
+      
       setEvents(mappedEvents);
 
-      // @ts-ignore - API response needs proper type definition
-      let forecastData: any = {};
-      // @ts-ignore - API response needs proper type definition
-      forEach(response?.value?.dailyForecasts, (forecast: any) => {
+      // Process weather data
+      const forecastData: Record<string, WeatherInfo> = {};
+      forEach((response?.value?.dailyForecasts || []) as any[], (forecast: any) => {
         const key = moment(forecast.forecastDate).format("YYYY-MM-DD");
         forecastData[key] = {
           icon: forecast.weatherIcon,
@@ -118,16 +129,15 @@ const MonthCalendar = ({
     }
   }, [year, month, combinedFilters]);
 
-  // Gọi API chỉ 1 lần khi component mount (và reload nếu cần)
   useEffect(() => {
     fetchEventsAndForecasts();
   }, [fetchEventsAndForecasts, reload]);
 
   const handleEventClick = useCallback(
-    (arg: any) => {
+    (arg: EventClickArg) => {
       arg.jsEvent.preventDefault();
       const clickedEvent = events.find((x) => x.id === arg.event.id);
-      if (clickedEvent && setEventSelected && setIsOpenGPEventInfoModal) {
+      if (clickedEvent) {
         setEventSelected(clickedEvent);
         setIsOpenGPEventInfoModal(true);
       }
@@ -135,27 +145,43 @@ const MonthCalendar = ({
     [events, setEventSelected, setIsOpenGPEventInfoModal]
   );
 
-  const renderEventContent = useCallback((arg: any) => (
+  const renderEventContent = useCallback((arg: EventContentArg) => (
     <div className="custom-event">
-      <EventTypeLabel type={arg.event.extendedProps.type} title={arg.event.title} />
+      <EventTypeLabel 
+        type={arg.event.extendedProps.type} 
+        title={arg.event.title} 
+      />
     </div>
   ), []);
 
   const renderDayCellContent = useCallback(
-    (args: any) => {
+    (args: DayCellContentArg) => {
       const dateObj = moment(args.date);
       const gregorianDay = dateObj.date();
-      const lunarDay = (dateObj as any).lunar().date();
+      const lunarDay = (dateObj as any).lunar()?.date() || 0;
       const dayKey = moment(args.date).format("YYYY-MM-DD");
       const weather = weatherData[dayKey];
+      
       return (
-        <div className="custom-day-cell-content">
-          <div className="custom-day-gregorian">{gregorianDay}</div>
-          <div className="custom-day-lunar">{isShowLunarDay && lunarDay ? lunarDay : ""}</div>
+        <div className="flex flex-col items-center p-1 w-full">
+          <div className="text-base font-semibold text-gray-900 mb-0.5">
+            {gregorianDay}
+          </div>
+          {isShowLunarDay && lunarDay > 0 && (
+            <div className="text-xs text-gray-400 mb-1">
+              {lunarDay}
+            </div>
+          )}
           {weather && viewWeather && (
-            <div className="custom-day-weather">
-              <span className="temp">{weather.temp}</span>
-              <img className="weather-icon" src={weather.icon} alt="weather icon" />
+            <div className="flex items-center gap-1 text-xs">
+              <img 
+                src={weather.icon} 
+                alt="weather" 
+                className="w-4 h-4"
+              />
+              <span className="text-gray-600 text-[0.7rem]">
+                {weather.temp}
+              </span>
             </div>
           )}
         </div>
@@ -165,25 +191,80 @@ const MonthCalendar = ({
   );
 
   const handleMoreLinkClick = useCallback(
-    (arg: any) => {
+    (arg: { date: Date; allDay: boolean }) => {
       setTimeout(() => {
         const popover = document.querySelector(".fc-popover") as HTMLElement;
         if (popover) {
-          popover.style.maxHeight = "300px";
+          popover.style.maxHeight = "400px";
           popover.style.overflowY = "auto";
+          popover.style.borderRadius = "8px";
+          popover.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)";
         }
       }, 0);
       if (onMoreClick) {
         onMoreClick(arg.date);
       }
-      return false;
+      return 'popover';
     },
     [onMoreClick]
   );
 
   return (
-    <div className="month-calendar-container">
-      {/* @ts-ignore - FullCalendar type definitions need updating */}
+    <div className="w-full min-h-[600px] bg-white rounded-lg p-4">
+      <style>{`
+        .fc {
+          font-family: inherit;
+        }
+        .fc-theme-standard td, .fc-theme-standard th {
+          border-color: #e8e8e8;
+        }
+        .fc-daygrid-day-frame {
+          min-height: 100px;
+        }
+        .fc-daygrid-day-top {
+          flex-direction: column;
+          align-items: center;
+        }
+        .fc-col-header-cell {
+          background: #fafafa;
+          padding: 12px 8px;
+          font-weight: 600;
+          color: #1a1a1a;
+        }
+        .fc-day-today {
+          background: #e6f4ff !important;
+        }
+        .fc-daygrid-day-number {
+          padding: 8px;
+          font-size: 1rem;
+        }
+        .fc-event {
+          border: none;
+          margin: 2px 4px;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .fc-event:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .fc-more-link {
+          color: #1677ff;
+          font-weight: 500;
+          padding: 4px 8px;
+          border-radius: 4px;
+          transition: all 0.2s;
+        }
+        .fc-more-link:hover {
+          background: #e6f4ff;
+        }
+        .custom-event {
+          width: 100%;
+          overflow: hidden;
+        }
+      `}</style>
+      
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, interactionPlugin]}
@@ -192,23 +273,25 @@ const MonthCalendar = ({
         locale={viLocale}
         firstDay={1}
         headerToolbar={false}
-        dayHeaderFormat={(arg: any) => {
-          const dayOfWeek = moment(arg.date).isoWeekday();
-          const dayNames = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"];
-          return dayNames[dayOfWeek - 1];
+        dayHeaderFormat={{
+          weekday: 'short'
         }}
         events={events}
-        dayMaxEvents={2}
+        dayMaxEvents={3}
         moreLinkClick={handleMoreLinkClick}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
         dayCellContent={renderDayCellContent}
-        height={'100%'}
-        selectable={true} // Bật tính năng chọn
-        select={handleSelect} // Xử lý sự kiện chọn
+        height="auto"
+        selectable={true}
+        select={handleSelect}
+        selectMirror={true}
+        unselectAuto={true}
+        editable={false}
       />
     </div>
   );
 };
 
 export default MonthCalendar;
+
