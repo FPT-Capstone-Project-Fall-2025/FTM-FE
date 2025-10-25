@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Form, Input, DatePicker as AntDatePicker, Select as AntSelect, Button, Modal, Row, Col, Space, Typography, Upload, Image, Switch, Dropdown, message } from "antd";
 import type { UploadFile, UploadChangeParam } from "antd/es/upload/interface";
 import moment from "moment";
-import type { Moment } from "moment";
+// import type { Moment } from "moment";
 import { FormProvider, useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -26,6 +26,8 @@ interface EventFormData {
   recurrenceEndTime: string | null;
   address: string | null;
 }
+
+const { Dragger } = Upload;
 
 const eventSchema = yup.object().shape({
   name: yup.string().required("Vui lòng nhập tên sự kiện"),
@@ -134,19 +136,24 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   useEffect(() => {
     getCity();
-    setEventType(Object.values(EVENT_TYPE).map((type) => (
-      {
-        label: (<label key={type} className={`${type}`}>
-          <span>
-            <img className="px-1" src={EVENT_TYPE_CONFIG[type].icon} alt={EVENT_TYPE_CONFIG[type].icon} />
-            <span className={`event-type-text  ${type}`}>
-              {EVENT_TYPE_CONFIG[type].label}
-            </span>
-          </span>
-        </label>),
-        value: type
-      }
-    )));
+    setEventType(
+  Object.values(EVENT_TYPE).map((type) => ({
+    label: (
+      <label key={type} className={`flex items-center gap-1 ${type}`}>
+        <img
+          className="w-4 h-4"
+          src={EVENT_TYPE_CONFIG[type].icon}
+          alt={EVENT_TYPE_CONFIG[type].label}
+        />
+        <span className={`event-type-text ${type}`}>
+          {EVENT_TYPE_CONFIG[type].label}
+        </span>
+      </label>
+    ),
+    value: type,
+  }))
+);
+
   }, []);
 
   useEffect(() => {
@@ -330,209 +337,242 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       <FormProvider {...methods}>
         <form className="py-2">
           {/* ============ THÔNG TIN CƠ BẢN ============ */}
-          <div className="mb-4">
-            <Controller
-              name="name"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Form layout="vertical">
-                  <Form.Item
-                    label={
-                      <>
-                        Tên sự kiện <span className="text-red-500">*</span>
-                      </>
-                    }
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <Input {...field} placeholder="Nhập tên sự kiện" />
-                  </Form.Item>
-                </Form>
-              )}
-            />
-          </div>
 
-          {/* ============ THỜI GIAN ============ */}
-          <Row gutter={16} className="mb-4">
+          <Controller
+            name="name"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Form layout="vertical">
+                <Form.Item
+                  label={
+                    <>
+                      Tên sự kiện <span className="text-red-500">*</span>
+                    </>
+                  }
+                  validateStatus={fieldState.error ? "error" : ""}
+                  help={fieldState.error?.message}
+                >
+                  <Input {...field} placeholder="Nhập tên sự kiện" />
+                </Form.Item>
+              </Form>
+            )}
+          />
 
-            <Col xs={24} md={9}>
+          {/* ============ THỜI GIAN + LẶP LẠI ============ */}
+          <Row gutter={16}>
+            {/* Loại sự kiện */}
+            <Col xs={24} md={12}>
               <Controller
                 name="eventType"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <Form.Item
-                    label={<>Loại sự kiện <span className="text-red-500">*</span></>}
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <AntSelect
-                      {...field}
-                      placeholder="Chọn loại sự kiện"
-                      options={eventTypes}
-                      className="w-full"
-                    />
-                  </Form.Item>
-                )}
-              />
-            </Col>
-            <Col xs={24} md={9}>
-
-              <Controller
-                name="startTime"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Form.Item
-                    label={<>Thời gian bắt đầu <span className="text-red-500">*</span></>}
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <AntDatePicker
-                      {...field}
-                      placeholder="Chọn ngày giờ bắt đầu"
-                      showTime={!isAllDay}
-                      format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
-                      value={field.value ? moment(field.value) : moment()}
-                      onChange={(date) =>
-                        field.onChange(date ? date.toISOString() : null)
+                  <Form layout="vertical">
+                    <Form.Item
+                      label={
+                        <>
+                          Loại sự kiện <span className="text-red-500">*</span>
+                        </>
                       }
-                      className="w-full"
-                    />
-                  </Form.Item>
+                      validateStatus={fieldState.error ? "error" : ""}
+                      help={fieldState.error?.message}
+                    >
+                      <AntSelect
+                        {...field}
+                        placeholder="Chọn loại sự kiện"
+                        options={eventTypes}
+                        className="w-full"
+                      />
+                    </Form.Item>
+                  </Form>
                 )}
               />
             </Col>
 
-            <Col xs={24} md={9}>
-              <Controller
-                name="endTime"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Form.Item
-                    label={<>Thời gian kết thúc <span className="text-red-500">*</span></>}
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <AntDatePicker
-                      {...field}
-                      placeholder="Chọn ngày giờ kết thúc"
-                      showTime={!isAllDay}
-                      format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
-                      value={field.value ? moment(field.value) : null}
-                      onChange={(date) =>
-                        field.onChange(date ? date.toISOString() : null)
-                      }
-                      disabledDate={(current) =>
-                        current && startTimeValue
-                          ? current < moment(startTimeValue)
-                          : false
-                      }
-                      prefix={<CalendarOutlined />}
-                      className="w-full"
-                    />
-                  </Form.Item>
-                )}
-              />
-            </Col>
-
-            <Col xs={24} md={6} className="flex items-end">
-              <Form.Item label="Cả ngày" className="mb-0">
-                <Controller
-                  name="isAllDay"
-                  control={control}
-                  render={({ field }) => (
-                    <Switch
-                      checked={field.value}
-                      onChange={(checked) => {
-                        field.onChange(checked);
-                        setIsAllDay(checked);
-                      }}
-                    />
-                  )}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* ============ LẶP LẠI ============ */}
-          <Row gutter={16} className="mb-4">
+            {/* Lặp lại */}
             <Col xs={24} md={12}>
               <Controller
                 name="recurrence"
                 control={control}
                 defaultValue="ONCE"
                 render={({ field, fieldState }) => (
-                  <Form.Item
-                    label="Không lặp lại"
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <AntSelect
-                      {...field}
-                      placeholder="Không lặp lại"
-                      options={[
-                        { label: "Không lặp lại", value: "ONCE" },
-                        { label: "Mỗi ngày", value: "DAILY" },
-                        { label: "Mỗi tuần", value: "WEEKLY" },
-                        { label: "Mỗi tháng", value: "MONTHLY" },
-                        { label: "Mỗi năm", value: "YEARLY" },
-                      ]}
-                      className="w-full"
-                    />
-                  </Form.Item>
+                  <Form layout="vertical">
+                    <Form.Item
+                      label="Lặp lại"
+                      validateStatus={fieldState.error ? "error" : ""}
+                      help={fieldState.error?.message}
+                    >
+                      <AntSelect
+                        {...field}
+                        placeholder="Không lặp lại"
+                        options={[
+                          { label: "Không lặp lại", value: "ONCE" },
+                          { label: "Mỗi ngày", value: "DAILY" },
+                          { label: "Mỗi tuần", value: "WEEKLY" },
+                          { label: "Mỗi tháng", value: "MONTHLY" },
+                          { label: "Mỗi năm", value: "YEARLY" },
+                        ]}
+                        className="w-full"
+                      />
+                    </Form.Item>
+                  </Form>
                 )}
               />
             </Col>
+          </Row>
 
-            <Col xs={24} md={12}>
-              {(recurrenceValue === "DAILY" ||
-                recurrenceValue === "WEEKLY" ||
-                recurrenceValue === "MONTHLY" ||
-                recurrenceValue === "YEARLY") && (
+          {/* ============ THỜI GIAN KẾT THÚC LẶP LẠI (hiện khi có lặp lại) ============ */}
+          {(recurrenceValue === "DAILY" ||
+            recurrenceValue === "WEEKLY" ||
+            recurrenceValue === "MONTHLY" ||
+            recurrenceValue === "YEARLY") && (
+              <Row gutter={24}>
+                <Col xs={24}>
                   <Controller
                     name="recurrenceEndTime"
                     control={control}
                     render={({ field, fieldState }) => (
-                      <Form.Item
-                        label="Thời gian kết thúc lặp lại"
-                        validateStatus={fieldState.error ? "error" : ""}
-                        help={fieldState.error?.message}
-                      >
-                        <AntDatePicker
-                          {...field}
-                          placeholder="Chọn ngày kết thúc lặp lại"
-                          showTime={false}
-                          format="DD/MM/YYYY"
-                          value={field.value ? moment(field.value) : null}
-                          onChange={(date) =>
-                            field.onChange(date ? date.toISOString() : null)
-                          }
-                          disabledDate={(current) => {
-                            const yearsFromNow = moment().add(
-                              recurrenceValue === "YEARLY"
-                                ? 100
-                                : recurrenceValue === "DAILY"
-                                  ? 1
-                                  : 5,
-                              "years"
-                            );
-                            return (
-                              (current && startTimeValue
-                                ? current < moment(startTimeValue)
-                                : false) || current > yearsFromNow.endOf("day")
-                            );
-                          }}
-                          prefix={<CalendarOutlined />}
-                          className="w-full"
-                        />
-                      </Form.Item>
+                      <Form layout="vertical">
+                        <Form.Item
+                          label="Thời gian kết thúc lặp lại"
+                          validateStatus={fieldState.error ? "error" : ""}
+                          help={fieldState.error?.message}
+                        >
+                          <AntDatePicker
+                            {...field}
+                            placeholder="Chọn ngày kết thúc lặp lại"
+                            showTime={false}
+                            format="DD/MM/YYYY"
+                            value={field.value ? moment(field.value) : null}
+                            onChange={(date) =>
+                              field.onChange(date ? date.toISOString() : null)
+                            }
+                            disabledDate={(current) => {
+                              const yearsFromNow = moment().add(
+                                recurrenceValue === "YEARLY"
+                                  ? 100
+                                  : recurrenceValue === "DAILY"
+                                    ? 1
+                                    : 5,
+                                "years"
+                              );
+                              return (
+                                (current && startTimeValue
+                                  ? current < moment(startTimeValue)
+                                  : false) || current > yearsFromNow.endOf("day")
+                              );
+                            }}
+                            prefix={<CalendarOutlined />}
+                            className="w-full"
+                          />
+                        </Form.Item>
+                      </Form>
                     )}
                   />
-                )}
-            </Col>
-          </Row>
+                </Col>
+              </Row>
+            )}
+
+        {/* ============ THỜI GIAN BẮT ĐẦU / KẾT THÚC / CẢ NGÀY ============ */}
+<Row gutter={16} align="bottom">
+  {/* Thời gian bắt đầu */}
+  <Col xs={24} md={9}>
+    <Controller
+      name="startTime"
+      control={control}
+      render={({ field, fieldState }) => (
+        <Form layout="vertical" className="h-full">
+          <Form.Item
+            label={
+              <>
+                Thời gian bắt đầu <span className="text-red-500">*</span>
+              </>
+            }
+            validateStatus={fieldState.error ? "error" : ""}
+            help={fieldState.error?.message}
+            className="mb-0"
+          >
+            <AntDatePicker
+              {...field}
+              placeholder="Chọn ngày giờ bắt đầu"
+              showTime={!isAllDay}
+              format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
+              value={field.value ? moment(field.value) : moment()}
+              onChange={(date) =>
+                field.onChange(date ? date.toISOString() : null)
+              }
+              className="w-full"
+            />
+          </Form.Item>
+        </Form>
+      )}
+    />
+  </Col>
+
+  {/* Thời gian kết thúc */}
+  <Col xs={24} md={9}>
+    <Controller
+      name="endTime"
+      control={control}
+      render={({ field, fieldState }) => (
+        <Form layout="vertical" className="h-full">
+          <Form.Item
+            label={
+              <>
+                Thời gian kết thúc <span className="text-red-500">*</span>
+              </>
+            }
+            validateStatus={fieldState.error ? "error" : ""}
+            help={fieldState.error?.message}
+            className="mb-0"
+          >
+            <AntDatePicker
+              {...field}
+              placeholder="Chọn ngày giờ kết thúc"
+              showTime={!isAllDay}
+              format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
+              value={field.value ? moment(field.value) : null}
+              onChange={(date) =>
+                field.onChange(date ? date.toISOString() : null)
+              }
+              disabledDate={(current) =>
+                current && startTimeValue
+                  ? current < moment(startTimeValue)
+                  : false
+              }
+              prefix={<CalendarOutlined />}
+              className="w-full"
+            />
+          </Form.Item>
+        </Form>
+      )}
+    />
+  </Col>
+
+  {/* Cả ngày */}
+  <Col xs={24} md={6}>
+    <Form layout="vertical" className="h-full flex flex-col justify-end">
+      <Form.Item label="Cả ngày" className="mb-0">
+        <Controller
+          name="isAllDay"
+          control={control}
+          render={({ field }) => (
+            <Switch
+              checked={field.value}
+              onChange={(checked) => {
+                field.onChange(checked);
+                setIsAllDay(checked);
+              }}
+            />
+          )}
+        />
+      </Form.Item>
+    </Form>
+  </Col>
+</Row>
+
 
           {/* ============ ĐỊA CHỈ ============ */}
-          <div className="mb-4">
+          <div>
             <Controller
               name="address"
               control={control}
@@ -551,29 +591,31 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           </div>
 
           {/* ============ GIA PHẢ & THÀNH VIÊN ============ */}
-          <Row gutter={16} className="mb-4">
+          <Row gutter={16}>
             <Col xs={24} md={12}>
               <Controller
                 name="gpIds"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <Form.Item
-                    label="Gia phả"
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <AntSelect
-                      {...field}
-                      mode="multiple"
-                      placeholder="Chọn gia phả"
-                      onChange={(value) => {
-                        field.onChange(value);
-                        setGPIdSelected(value);
-                        methods.setValue("members", []);
-                      }}
-                      className="w-full"
-                    />
-                  </Form.Item>
+                  <Form layout="vertical">
+                    <Form.Item
+                      label="Gia phả"
+                      validateStatus={fieldState.error ? "error" : ""}
+                      help={fieldState.error?.message}
+                    >
+                      <AntSelect
+                        {...field}
+                        mode="multiple"
+                        placeholder="Chọn gia phả"
+                        onChange={(value) => {
+                          field.onChange(value);
+                          setGPIdSelected(value);
+                          methods.setValue("members", []);
+                        }}
+                        className="w-full"
+                      />
+                    </Form.Item>
+                  </Form>
                 )}
               />
             </Col>
@@ -583,26 +625,28 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 name="members"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <Form.Item
-                    label="Thành viên"
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <AntSelect
-                      {...field}
-                      mode="multiple"
-                      placeholder="Chọn thành viên"
-                      options={gpMembersSrc}
-                      className="w-full"
-                    />
-                  </Form.Item>
+                  <Form layout="vertical">
+                    <Form.Item
+                      label="Thành viên"
+                      validateStatus={fieldState.error ? "error" : ""}
+                      help={fieldState.error?.message}
+                    >
+                      <AntSelect
+                        {...field}
+                        mode="multiple"
+                        placeholder="Chọn thành viên"
+                        options={gpMembersSrc}
+                        className="w-full"
+                      />
+                    </Form.Item>
+                  </Form>
                 )}
               />
             </Col>
           </Row>
 
           {/* ============ MÔ TẢ ============ */}
-          <div className="mb-4">
+          <div>
             <Controller
               name="description"
               control={control}
@@ -625,10 +669,10 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           </div>
 
           {/* ============ HÌNH ẢNH ============ */}
-          <div className="mb-4">
+          <div>
             <Typography.Text strong>Kéo thả ảnh vào đây hoặc <span className="text-blue-500 cursor-pointer">tải lên</span></Typography.Text>
             {!previewImage ? (
-              <Upload
+              <Dragger
                 showUploadList={false}
                 beforeUpload={() => false}
                 listType="picture-card"
@@ -637,7 +681,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 accept="image/*"
               >
                 {uploadButton}
-              </Upload>
+              </Dragger>
             ) : (
               <div className="relative w-full h-[300px] text-center">
                 <Image src={previewImage} preview={false} />

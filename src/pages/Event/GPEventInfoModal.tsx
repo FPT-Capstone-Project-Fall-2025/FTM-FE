@@ -1,8 +1,6 @@
 // @ts-nocheck
 import { useEffect } from "react";
-import { Modal } from "react-bootstrap";
-import { Button, Dropdown, Image, Space } from "antd";
-import moment from "moment";
+import { Input, Select } from "antd";
 import {
   CalendarOutlined,
   EnvironmentOutlined,
@@ -10,10 +8,21 @@ import {
   UserOutlined,
   ApartmentOutlined,
   FileTextOutlined,
-  DownOutlined,
   DeleteOutlined,
+  DownOutlined,
 } from "@ant-design/icons";
-import EventTitle from "./EventTitle";
+import { X } from "lucide-react";
+import "moment/locale/vi";
+import moment from "moment";
+
+/**
+ * Giải mã các ký tự HTML entities như &lt; &gt; &amp; &quot;
+ */
+function decodeHTML(html: string = ""): string {
+  const txt = document.createElement("textarea");
+  txt.innerHTML = html;
+  return txt.value;
+}
 
 const GPEventInfoModal = ({
   isOpenModal,
@@ -36,16 +45,11 @@ const GPEventInfoModal = ({
     isOwner,
     type,
     address,
-    isLunar
+    isLunar,
   } = defaultValues;
 
-  const startTimeText = start
-    ? moment(start).format("dddd, DD/MM/YYYY - HH:mm")
-    : "";
-  const endTimeText = end
-    ? moment(end).format("dddd, DD/MM/YYYY - HH:mm")
-    : "";
-  // const endTimeText = end ? moment(end).format("HH:mm") : "";
+  const startTimeText = start ? moment(start).format("dddd, DD/MM/YYYY - HH:mm") : "";
+  const endTimeText = end ? moment(end).format("dddd, DD/MM/YYYY - HH:mm") : "";
   const memberNamesJoin = Array.isArray(memberNames) ? memberNames.join(", ") : "";
   const gpNamesJoin = Array.isArray(gpNames) ? gpNames.join(", ") : "";
 
@@ -73,151 +77,143 @@ const GPEventInfoModal = ({
   };
 
   const items = [
-    {
-      label: 'Xóa lần này',
-      key: '1'
-    },
-    {
-      label: 'Xóa chuỗi sự kiện',
-      key: '2',
-    },
+    { label: "Xóa lần này", key: "1" },
+    { label: "Xóa chuỗi sự kiện", key: "2" },
   ];
 
-  const menuProps = {
-    items,
-    onClick: handleMenuClick,
-  };
+  const menuProps = { items, onClick: handleMenuClick };
+
+  if (!isOpenModal) return null;
 
   return (
-    <Modal
-      show={isOpenModal}
-      size="lg"
-      onHide={() => setIsOpenModal(false)}
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={() => setIsOpenModal(false)}
     >
-      <Modal.Header closeButton>
-        <EventTitle
-          type={type}
-          title={name}
-        />
-      </Modal.Header>
-      <Modal.Body>
-        <div className="gp-event-info">
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <h2 className="text-xl font-bold text-gray-900">{name}</h2>
+          </div>
+          <button
+            onClick={() => setIsOpenModal(false)}
+            className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            type="button"
+            aria-label="Đóng"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 space-y-4">
           {imageUrl && (
-            <div style={{ position: "relative", width: "100%" }}>
-              <Image
+            <div className="relative w-full">
+              <img
                 src={`${PREFIX_URL}/${imageUrl}`}
-                preview={false}
-                className="responsive-img"
                 alt="Event"
+                className="w-full h-64 object-cover rounded-lg"
               />
             </div>
           )}
 
-          <p className="d-flex align-items-center mb-3 mt-4">
-            <CalendarOutlined width={24} height={24} style={{ marginRight: 8 }} />
-            <span className="text-uppercase">{startTimeText} - {endTimeText}</span>
-            {
-              isLunar && (
-                <>
-                  <span className="text-uppercase" style={{ marginLeft: 8 }}>
-                    </span>
-                  <span className="text-uppercase">
-                  {`Âm lịch - 
-                  ${moment(start).lunar().date()}/${moment(start).lunar().month() + 1}/${moment(start).lunar().year()} ${moment(start).format("HH:mm")}
-                  - 
-                  ${moment(end).lunar().date()}/${moment(end).lunar().month() + 1}/${moment(end).lunar().year()} ${moment(end).format("HH:mm")}`}
-                </span>
-                
-                </>
-              )
-            }
-          </p>
-
-          {address && (
-            <p className="d-flex align-items-center mb-4">
-              <EnvironmentOutlined style={{ marginRight: 8 }} />
-              {address ? `${address}` : ""}
-            </p>
-          )}
-
-          {recurrence && (
-            <p className="d-flex align-items-center mb-4">
-              <RetweetOutlined style={{ marginRight: 8 }} />
-              {recurrence === "ONCE"
+          {/* Thông tin sự kiện dạng inline input */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+            {/* Thời gian */}
+            <div className="flex items-center gap-2">
+              <CalendarOutlined className="text-blue-500" />
+              <Input value={`${startTimeText} - ${endTimeText}`} readOnly className="font-medium uppercase" />
+            </div>
+            {/* Địa chỉ */}
+            <div className="flex items-center gap-2">
+              <EnvironmentOutlined className="text-green-500" />
+              <Input value={address || ""} readOnly placeholder="Địa chỉ" />
+            </div>
+            {/* Lặp lại */}
+            <div className="flex items-center gap-2">
+              <RetweetOutlined className="text-orange-500" />
+              <Input value={recurrence === "ONCE"
                 ? "Không lặp lại"
                 : recurrence === "DAILY"
-                  ? "Mỗi ngày"
-                  : recurrence === "WEEKLY"
-                    ? "Mỗi tuần"
-                    : recurrence === "MONTHLY"
-                      ? "Mỗi tháng"
-                      : recurrence === "YEARLY"
-                        ? "Mỗi năm"
-                        : "Khác"}
-            </p>
-          )}
-
-          {memberNamesJoin && (
-            <p className="d-flex align-items-center mb-4">
-              <UserOutlined style={{ marginRight: 8 }} />
-              {memberNamesJoin}
-            </p>
-          )}
-
-          {gpNamesJoin && (
-            <p className="d-flex align-items-center mb-4">
-              <ApartmentOutlined style={{ marginRight: 8 }} />
-              {gpNamesJoin}
-            </p>
-          )}
-
-          {description && (
-            <div className="d-flex align-items-start">
-              <FileTextOutlined style={{ marginRight: 8, marginTop: 4 }} />
-              <div
-                style={{ whiteSpace: "normal" }}
-                dangerouslySetInnerHTML={{ __html: decode(description) }}
-              />
+                ? "Mỗi ngày"
+                : recurrence === "WEEKLY"
+                ? "Mỗi tuần"
+                : recurrence === "MONTHLY"
+                ? "Mỗi tháng"
+                : recurrence === "YEARLY"
+                ? "Mỗi năm"
+                : "Khác"} readOnly />
             </div>
+            {/* Thành viên */}
+            <div className="flex items-center gap-2">
+              <UserOutlined className="text-gray-500" />
+              <Input value={memberNamesJoin} readOnly placeholder="Thành viên" />
+            </div>
+            {/* Gia phả */}
+            <div className="flex items-center gap-2">
+              <ApartmentOutlined className="text-purple-500" />
+              <Input value={gpNamesJoin} readOnly placeholder="Gia phả" />
+            </div>
+            {/* Mô tả */}
+            <div className="flex items-center gap-2 col-span-1 md:col-span-2">
+              <FileTextOutlined className="text-gray-400" />
+              <Input.TextArea value={decodeHTML(description)} readOnly autoSize placeholder="Mô tả" />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+          {isOwner ? (
+            <>
+              <button
+                onClick={handleOnCancel}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                Hủy
+              </button>
+
+              {recurrence === "ONCE" ? (
+                <button
+                  onClick={() => setConfirmDeleteModal(true)}
+                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2"
+                >
+                  <DeleteOutlined />
+                  <span>Xóa</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setConfirmDeleteModal(true)}
+                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2"
+                >
+                  <DeleteOutlined />
+                  <DownOutlined />
+                  <span>Xóa</span>
+                </button>
+              )}
+
+              <button
+                onClick={handelOnUpdate}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+              >
+                Chỉnh sửa
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setIsOpenModal(false)}
+              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              Đóng
+            </button>
           )}
         </div>
-      </Modal.Body>
-      <Modal.Footer>
-        {
-          isOwner && (
-            <>
-              <Button onClick={() => handleOnCancel()}>Hủy</Button>
-              {
-                recurrence === "ONCE" && (
-                  <Button icon={<DeleteOutlined />} onClick={() => {setConfirmDeleteModal(true);}}>
-                    <Space>
-                      Xóa
-                    </Space>
-                  </Button>)
-              }
-              {
-                recurrence !== "ONCE" && (
-                  <Dropdown menu={menuProps} danger>
-                    <Button icon={<DeleteOutlined />}>
-                      <Space>
-                        Xóa
-                        <DownOutlined />
-                      </Space>
-                    </Button>
-                  </Dropdown>)
-              }
-              <Button type="primary" onClick={() => handelOnUpdate()}>
-                Chỉnh sửa
-              </Button>
-            </>
-          )
-        }
-        {
-          !isOwner && (<Button onClick={() => setIsOpenModal(false)}>Đóng</Button>)
-        }
-
-      </Modal.Footer>
-    </Modal>
+      </div>
+    </div>
   );
 };
 

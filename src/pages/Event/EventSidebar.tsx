@@ -3,11 +3,12 @@ import { useParams } from 'react-router-dom';
 import { Button, Checkbox, Input } from "antd";
 import { useAppSelector } from '../../hooks/redux';
 import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
-import { PlusOutlined, CloseOutlined, EnvironmentOutlined } from "@ant-design/icons";
+import { PlusOutlined, CloseOutlined, EnvironmentOutlined, DownOutlined, UpOutlined } from "@ant-design/icons";
 import { useCombobox } from "downshift";
 import { EVENT_TYPE_CONFIG, EVENT_TYPE } from "./EventTypeLabel";
 import type { EventType } from "./EventTypeLabel";
 import EventStatistics from "./EventStatistics";
+import api from "../../services/apiService";
 
 /**
  * EventSidebar Component
@@ -59,16 +60,12 @@ const MOCK_CITIES = [
   { name: 'Đà Nẵng', code: 'dn', lat: 16.0544, lon: 108.2022 },
 ];
 
-const EventSidebar: React.FC<EventSidebarProps> = ({ 
-  handleFilter, 
-  setIsShowLunarDay, 
-  setIsOpenGPEventDetailsModal, 
-  setEventSelected 
+const EventSidebar: React.FC<EventSidebarProps> = ({
+  handleFilter,
+  setIsShowLunarDay,
+  setIsOpenGPEventDetailsModal,
+  setEventSelected
 }) => {
-
-  // ✅ Correct: useAppSelector must be called INSIDE the component
-  const { user, token, isAuthenticated } = useAppSelector(state => state.auth);
-
   // --- States ---
   const [eventTypes, setEventTypes] = useState<EventType[]>([...Object.values(EVENT_TYPE)]);
   const [eventGroups, setEventGroups] = useState<string[]>([]);
@@ -109,59 +106,12 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        let validToken: string | null = token;
-
-        if (!validToken) {
-          const persisted = localStorage.getItem('persist:root');
-          if (persisted) {
-            const parsed = JSON.parse(persisted);
-            const authState = parsed?.auth ? JSON.parse(parsed.auth) : null;
-            validToken = authState?.token || null;
-          }
-        }
-
-        if (!validToken) {
-          validToken =
-            localStorage.getItem('access_token') ||
-            localStorage.getItem('auth_token') ||
-            localStorage.getItem('token') ||
-            null;
-        }
-
-        if (!validToken) {
-          console.warn("⚠️ Không tìm thấy token hợp lệ, bỏ qua fetch provinces");
-          return;
-        }
-
-        const provincesApiUrl = "https://be.dev.familytree.io.vn/api/account/provinces";
-        const headers: Record<string, string> = {
-          Accept: "application/json",
-          Authorization: `Bearer ${validToken}`,
-        };
-
-        const res = await fetch(provincesApiUrl, { headers });
-
-        if (res.status === 401) {
-          console.warn("❌ Token hết hạn hoặc không hợp lệ.");
-          localStorage.removeItem("token");
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("auth_token");
-          return;
-        }
-
-        if (!res.ok) {
-          console.warn("Failed to fetch provinces:", res.status);
-          return;
-        }
-
-        const json = await res.json();
-        const provinces = Array.isArray(json.data) ? json.data : [];
-
+        const res = await api.get("/account/provinces");
+        const provinces = Array.isArray(res.data) ? res.data : [];
         const listCityMapped: CityItem[] = provinces.map((p: any) => ({
           name: p.nameWithType || p.name,
           code: p.code || p.slug || p.id,
         }));
-
         const fallback = MOCK_CITIES;
         setListCity(listCityMapped.length > 0 ? listCityMapped : fallback);
         setInputValue("");
@@ -170,7 +120,6 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         console.error("Error preparing sidebar data:", error);
       }
     };
-
     fetchData();
     setIsShowLunarDay(showLunar);
   }, []);
@@ -180,13 +129,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
     item.name.toLowerCase().includes(inputValue.toLowerCase())
   );
 
-  const {
-    isOpen,
-    getInputProps,
-    getMenuProps,
-    getItemProps,
-    highlightedIndex,
-  } = useCombobox({
+  const { } = useCombobox({
     items: locationFilteredItems,
     onInputValueChange: ({ inputValue }) => {
       setInputValue(inputValue || "");
@@ -219,8 +162,9 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
       let lat = city.lat;
       let lon = city.lon;
 
+      // Fallback: use province name + ',Vietnam' for geocoding
       if ((typeof lat !== 'number' || typeof lon !== 'number') && city.name) {
-        const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city.name + ',VN')}&limit=1&appid=${apiKey}`;
+        const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city.name + ',Vietnam')}&limit=1&appid=${apiKey}`;
         const geoRes = await fetch(geoUrl);
         if (geoRes.ok) {
           const geoData = await geoRes.json();
@@ -232,7 +176,9 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
       }
 
       if (typeof lat !== 'number' || typeof lon !== 'number') {
-        throw new Error('Không thể xác định tọa độ cho địa điểm này');
+        setWeatherError('Không thể xác định tọa độ cho địa điểm này');
+        setWeatherLoading(false);
+        return;
       }
 
       const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}&lang=vi`;
@@ -281,8 +227,13 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
           onClick={() => toggleSection("eventType")}
           className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100"
         >
-          <span>Loại sự kiện {openSections.eventType ? '∧' : '∨'}</span>
+          <span>Loại sự kiện</span>
+          <DownOutlined
+            className={`text-gray-500 text-xs transition-transform duration-300 ${openSections.eventType ? "rotate-180" : "rotate-0"
+              }`}
+          />
         </div>
+
         {openSections.eventType && (
           <div className="py-2">
             {Object.values(EVENT_TYPE).map((type) => (
@@ -293,8 +244,8 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
                   className="w-full"
                 >
                   <div className="flex items-center gap-2">
-                    <img 
-                      src={EVENT_TYPE_CONFIG[type].icon} 
+                    <img
+                      src={EVENT_TYPE_CONFIG[type].icon}
                       alt={EVENT_TYPE_CONFIG[type].label}
                       className="w-5 h-5"
                     />
@@ -311,9 +262,13 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
       <div className="mb-4">
         <div
           onClick={() => toggleSection("familyGroups")}
-          className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100"
+          className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100 select-none"
         >
-          <span>Sự kiện gia phả {openSections.familyGroups ? '∧' : '∨'}</span>
+          <span>Sự kiện gia phả</span>
+          <DownOutlined
+            className={`text-gray-500 text-xs transition-transform duration-300 ${openSections.familyGroups ? "rotate-180" : "rotate-0"
+              }`}
+          />
         </div>
         {openSections.familyGroups && (
           <div className=" overflow-y-auto">
@@ -363,7 +318,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
           ) : weatherError ? (
             <div className="text-sm text-red-500">{weatherError}</div>
           ) : weather ? (
-            <div className="inline-flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-full px-3 py-1">
+            <div className="inline-flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-full px-3 py-1 w-full">
               {weather.icon ? (
                 <img src={weather.icon} alt="icon" className="w-8 h-8" />
               ) : (
@@ -380,45 +335,23 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
             <div className="text-sm text-gray-500">Chọn địa điểm để xem thời tiết</div>
           )}
         </div>
-
-        {/* City input */}
+        {/* Province dropdown */}
         <div className="relative">
-          <Input
-            {...getInputProps()}
-            value={inputValue}
-            placeholder="Nhập địa điểm..."
-            prefix={<EnvironmentOutlined className="text-gray-400" />}
-            suffix={
-              inputValue ? (
-                <CloseOutlined 
-                  onClick={() => { 
-                    setInputValue(""); 
-                    setEventLocation(""); 
-                  }}
-                  className="cursor-pointer text-gray-400 hover:text-gray-600"
-                />
-              ) : null
-            }
-            className="!rounded-lg"
-          />
-          {inputValue && isOpen && locationFilteredItems.length > 0 && (
-            <ul 
-              {...getMenuProps()}
-              className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg mt-1 max-h-[200px] overflow-y-auto list-none p-1 z-[1000] shadow-md"
-            >
-              {locationFilteredItems.map((item, index) => (
-                <li
-                  key={item.code}
-                  {...getItemProps({ item, index })}
-                  className={`px-3 py-2 cursor-pointer text-sm rounded transition-colors ${
-                    highlightedIndex === index ? 'bg-gray-100' : 'bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  {item.name}
-                </li>
-              ))}
-            </ul>
-          )}
+          <select
+            value={eventLocation}
+            onChange={e => {
+              const code = e.target.value;
+              setEventLocation(code);
+              const found = listCity.find(x => x.code === code);
+              if (found) fetchWeatherForCity(found);
+            }}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="">Chọn địa điểm...</option>
+            {listCity.map(city => (
+              <option key={city.code} value={city.code}>{city.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 

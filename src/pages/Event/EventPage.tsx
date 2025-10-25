@@ -9,7 +9,7 @@ import './Calendar.css';
 
 // Components
 import EventSidebar from './EventSidebar';
-import YearCalendar from './YearCalendar';
+// import YearCalendar from './YearCalendar';
 import MonthCalendar from './MonthCalendar';
 import WeekCalendar from './WeekCalendar';
 import DayCalendar from './DayCalendar';
@@ -514,7 +514,7 @@ const EventPage: React.FC = () => {
           isOpenModal={isOpenGPEventDetailsModal}
           setIsOpenModal={setIsOpenGPEventDetailsModal}
           eventSelected={eventSelected}
-          defaultValues={eventSelected}
+          // defaultValues={eventSelected}
           handleCreatedEvent={handleCreatedEvent}
         />
       )}
