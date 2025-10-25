@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Row, Col, Input, DatePicker, Radio, Button } from 'antd';
+import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
 import { SearchOutlined, CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import debounce from 'lodash/debounce';
@@ -34,6 +35,7 @@ moment.locale('vi');
 moment.updateLocale('vi', { week: { dow: 1, doy: 1 } });
 
 const EventPage: React.FC = () => {
+  const { user, token, isAuthenticated } = useAppSelector(state => state.auth);
   const now = new Date();
 
   // State Management
