@@ -56,30 +56,40 @@ export interface FamilyMemberList {
   filePath: string | null;
 }
 
-export interface AddingNodeProps {
-  Fullname: string;
-  Gender: 0 | 1;
-  Birthday: string;
-  IsDeath: boolean;
-  DeathDescription?: string;
-  DeathDate?: string
-  BurialAddress?: string;
-  BurialWardId?: number;
-  BurialProvinceId?: number;
-  IdentificationType: string;
-  IdentificationNumber?: number;
-  EthnicId?: number;
-  ReligionId?: number;
-  CategoryCode?: number;
-  Address?: string;
-  WardId?: number;
-  ProvinceId?: number;
-  Email?: string;
-  PhoneNumber?: string
-  Content?: string;
-  StoryDescription?: string;
-  FTId: string;
-  RootId: string;
-  FromFTMemberId?: string;
-  FromFTMemberPartnerId?: string;
+export enum CategoryCode {
+  FirstNode = 504,
+  Parent = 5001,
+  Sibling = 5003,
+  Spouse = 5002,
+  Child = 5004,
 }
+
+export interface AddingNodeProps {
+  fullname: string;
+  gender: 0 | 1;
+  isDeath: boolean;
+  categoryCode: CategoryCode | undefined;
+  ftId: string;
+  birthday?: string;
+  birthplace: string;
+  deathDescription?: string | undefined;
+  deathDate?: string | undefined;
+  burialAddress?: string | undefined;
+  burialWardId?: number | undefined;
+  burialProvinceId?: number | undefined;
+  identificationType: string | undefined;
+  identificationNumber?: number | undefined;
+  ethnicId?: number | undefined;
+  religionId?: number | undefined;
+  address?: string | undefined;
+  wardId?: number | undefined;
+  provinceId?: number | undefined;
+  email?: string | undefined;
+  phoneNumber?: string | undefined;
+  content?: string | undefined;
+  storyDescription?: string | undefined;
+  rootId?: string;
+  fromFTMemberId?: string | undefined;
+  fromFTMemberPartnerId?: string | undefined;
+}
+

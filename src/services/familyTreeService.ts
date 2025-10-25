@@ -81,12 +81,19 @@ const familyTreeService = {
 
   getFamilyTreeMembers(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyMemberList[]>>> {
     return api.get('/ftmember/list', {
-      params: props
+      params: {
+        ...props,
+        propertyFilters: JSON.stringify(props.propertyFilters)
+      }
     });
   },
 
   createFamilyNode(props: AddingNodeProps): Promise<ApiResponse<string>> {
-    return api.post('/ftmember/add', props);
+    return api.post(`/ftmember/${props.ftId}`, props, {
+      headers: {
+          "Content-Type": "multipart/form-data"
+        }
+    });
   },
 };
 

@@ -16,7 +16,7 @@ const Members: React.FC = () => {
         pageSize: 10,
         propertyFilters: [
             {
-                name: "name",
+                name: "FTId",
                 operation: "EQUAL",
                 value: selectedFamilyTree ? selectedFamilyTree.id : ''
             }

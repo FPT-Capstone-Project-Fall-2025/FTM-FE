@@ -1,3 +1,4 @@
+import { CategoryCode, type AddingNodeProps, type FamilyMember } from "@/types/familytree";
 import { X, Users, User, Baby } from "lucide-react";
 import React, { useMemo, useState, useCallback } from "react";
 import ReactFlow, {
@@ -7,27 +8,23 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   MarkerType,
+  ReactFlowProvider,
 } from "reactflow";
 import "reactflow/dist/style.css";
-
-interface FamilyMember {
-  id: string;
-  name: string;
-  birthYear: string;
-}
 
 interface AddNewNodeProps {
   parentMember?: FamilyMember | null;
   existingRelationships?: string[];
   isFirstNode?: boolean;
   onClose?: () => void;
-  onSelectType?: (type: string, formData?: any) => void;
+  onSelectType?: (formData?: any) => Promise<void>;
 }
 
 // Define all possible relationships with icons and details
 const allRelationships = [
   {
     id: "father",
+    code: CategoryCode.Parent,
     label: "THÊM CHA",
     icon: Users,
     row: 0,
@@ -37,6 +34,7 @@ const allRelationships = [
   },
   {
     id: "mother",
+    code: CategoryCode.Parent,
     label: "THÊM MẸ",
     icon: Users,
     row: 0,
@@ -46,6 +44,7 @@ const allRelationships = [
   },
   {
     id: "spouse",
+    code: CategoryCode.Spouse,
     label: "THÊM VỢ/CHỒNG",
     icon: Users,
     row: 1,
@@ -55,6 +54,7 @@ const allRelationships = [
   },
   {
     id: "sibling-brother",
+    code: CategoryCode.Sibling,
     label: "THÊM ANH/EM TRAI",
     icon: User,
     row: 1,
@@ -64,6 +64,7 @@ const allRelationships = [
   },
   {
     id: "sibling-sister",
+    code: CategoryCode.Sibling,
     label: "THÊM CHỊ/EM GÁI",
     icon: User,
     row: 1,
@@ -73,6 +74,7 @@ const allRelationships = [
   },
   {
     id: "child-son",
+    code: CategoryCode.Child,
     label: "THÊM CON TRAI",
     icon: Baby,
     row: 2,
@@ -82,6 +84,7 @@ const allRelationships = [
   },
   {
     id: "child-daughter",
+    code: CategoryCode.Child,
     label: "THÊM CON GÁI",
     icon: Baby,
     row: 2,
@@ -109,33 +112,33 @@ const AddNewNode = ({
 }: AddNewNodeProps) => {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showExtendedForm, setShowExtendedForm] = useState(false);
-  const [formData, setFormData] = useState({
-    Fullname: "",
-    Gender: 0 as 0 | 1,
-    Birthday: "",
+  const [formData, setFormData] = useState<AddingNodeProps>({
+    fullname: "",
+    gender: 0 as 0 | 1,
+    birthday: "",
     birthplace: "",
-    IsDeath: false,
-    DeathDescription: "",
-    DeathDate: "",
-    BurialAddress: "",
-    BurialWardId: undefined,
-    BurialProvinceId: undefined,
-    IdentificationType: "",
-    IdentificationNumber: undefined,
-    EthnicId: undefined,
-    ReligionId: undefined,
-    CategoryCode: undefined,
-    Address: "",
-    WardId: undefined,
-    ProvinceId: undefined,
-    Email: "",
-    PhoneNumber: "",
-    Content: "",
-    StoryDescription: "",
-    FTId: "",
-    RootId: "",
-    FromFTMemberId: undefined,
-    FromFTMemberPartnerId: undefined,
+    isDeath: false,
+    deathDescription: "",
+    deathDate: "",
+    burialAddress: "",
+    burialWardId: undefined,
+    burialProvinceId: undefined,
+    identificationType: "",
+    identificationNumber: undefined,
+    ethnicId: undefined,
+    religionId: undefined,
+    categoryCode: isFirstNode && CategoryCode.FirstNode || undefined,
+    address: "",
+    wardId: undefined,
+    provinceId: undefined,
+    email: "",
+    phoneNumber: "",
+    content: "",
+    storyDescription: "",
+    ftId: "",
+    rootId: parentMember?.id || "",
+    fromFTMemberId: parentMember?.id,
+    fromFTMemberPartnerId: undefined,
   });
 
   // Filter out existing relationships
@@ -184,7 +187,7 @@ const AddNewNode = ({
               <div className="text-sm font-semibold text-gray-900">
                 {parentMember.name}
               </div>
-              <div className="text-xs text-gray-600">{parentMember.birthYear}</div>
+              <div className="text-xs text-gray-600">{parentMember.birthday}</div>
             </div>
           ),
         },
@@ -256,6 +259,8 @@ const AddNewNode = ({
 
   const handleRelationshipSelect = useCallback((type: string) => {
     setSelectedType(type);
+    const seletectedElement = allRelationships.find(item => item.id === type);
+    formData.categoryCode = seletectedElement?.code;
   }, []);
 
   const handleFormChange = (
@@ -270,17 +275,9 @@ const AddNewNode = ({
     }));
   };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: checked,
-    }));
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (onSelectType) {
-      onSelectType(selectedType || 'me', formData);
+      await onSelectType(formData);
     }
     onClose?.();
   };
@@ -289,32 +286,32 @@ const AddNewNode = ({
     setSelectedType(null);
     setShowExtendedForm(false);
     setFormData({
-      Fullname: "",
-      Gender: 0,
-      Birthday: "",
+      fullname: "",
+      gender: 0,
+      birthday: "",
       birthplace: "",
-      IsDeath: false,
-      DeathDescription: "",
-      DeathDate: "",
-      BurialAddress: "",
-      BurialWardId: undefined,
-      BurialProvinceId: undefined,
-      IdentificationType: "",
-      IdentificationNumber: undefined,
-      EthnicId: undefined,
-      ReligionId: undefined,
-      CategoryCode: undefined,
-      Address: "",
-      WardId: undefined,
-      ProvinceId: undefined,
-      Email: "",
-      PhoneNumber: "",
-      Content: "",
-      StoryDescription: "",
-      FTId: "",
-      RootId: "",
-      FromFTMemberId: undefined,
-      FromFTMemberPartnerId: undefined,
+      isDeath: false,
+      deathDescription: "",
+      deathDate: "",
+      burialAddress: "",
+      burialWardId: undefined,
+      burialProvinceId: undefined,
+      identificationType: "",
+      identificationNumber: undefined,
+      ethnicId: undefined,
+      religionId: undefined,
+      categoryCode: undefined,
+      address: "",
+      wardId: undefined,
+      provinceId: undefined,
+      email: "",
+      phoneNumber: "",
+      content: "",
+      storyDescription: "",
+      ftId: "",
+      rootId: "",
+      fromFTMemberId: undefined,
+      fromFTMemberPartnerId: undefined,
     });
   };
 
@@ -360,8 +357,8 @@ const AddNewNode = ({
               </label>
               <input
                 type="text"
-                name="Fullname"
-                value={formData.Fullname}
+                name="fullname"
+                value={formData.fullname}
                 onChange={handleFormChange}
                 placeholder={parentMember?.name || "Nhập họ tên"}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -375,12 +372,12 @@ const AddNewNode = ({
                   Giới tính
                 </label>
                 <select
-                  name="Gender"
-                  value={formData.Gender}
+                  name="gender"
+                  value={formData.gender}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      Gender: e.target.value === "1" ? 1 : 0,
+                      gender: e.target.value === "1" ? 1 : 0,
                     }))
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -395,8 +392,8 @@ const AddNewNode = ({
                 </label>
                 <input
                   type="date"
-                  name="Birthday"
-                  value={formData.Birthday}
+                  name="birthday"
+                  value={formData.birthday}
                   onChange={handleFormChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                 />
@@ -423,8 +420,8 @@ const AddNewNode = ({
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  name="IsDeath"
-                  checked={!formData.IsDeath}
+                  name="isDeath"
+                  checked={!formData.isDeath}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
@@ -454,7 +451,7 @@ const AddNewNode = ({
             {showExtendedForm && (
               <div className="space-y-4 mt-4 border-t pt-4">
                 {/* Extended Fields */}
-                {formData.IsDeath && (
+                {formData.isDeath && (
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -462,8 +459,8 @@ const AddNewNode = ({
                       </label>
                       <input
                         type="text"
-                        name="DeathDescription"
-                        value={formData.DeathDescription}
+                        name="deathDescription"
+                        value={formData.deathDescription}
                         onChange={handleFormChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                       />
@@ -474,8 +471,8 @@ const AddNewNode = ({
                       </label>
                       <input
                         type="date"
-                        name="DeathDate"
-                        value={formData.DeathDate}
+                        name="deathDate"
+                        value={formData.deathDate}
                         onChange={handleFormChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                       />
@@ -486,8 +483,8 @@ const AddNewNode = ({
                       </label>
                       <input
                         type="text"
-                        name="BurialAddress"
-                        value={formData.BurialAddress}
+                        name="burialAddress"
+                        value={formData.burialAddress}
                         onChange={handleFormChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                       />
@@ -497,8 +494,8 @@ const AddNewNode = ({
                         Phường chôn cất
                       </label>
                       <select
-                        name="BurialWardId"
-                        value={formData.BurialWardId || ""}
+                        name="burialWardId"
+                        value={formData.burialWardId || ""}
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
@@ -520,8 +517,8 @@ const AddNewNode = ({
                         Tỉnh chôn cất
                       </label>
                       <select
-                        name="BurialProvinceId"
-                        value={formData.BurialProvinceId || ""}
+                        name="burialProvinceId"
+                        value={formData.burialProvinceId || ""}
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
@@ -548,8 +545,8 @@ const AddNewNode = ({
                       Loại giấy tờ
                     </label>
                     <select
-                      name="IdentificationType"
-                      value={formData.IdentificationType}
+                      name="identificationType"
+                      value={formData.identificationType}
                       onChange={handleFormChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     >
@@ -567,8 +564,8 @@ const AddNewNode = ({
                     </label>
                     <input
                       type="number"
-                      name="IdentificationNumber"
-                      value={formData.IdentificationNumber || ""}
+                      name="identificationNumber"
+                      value={formData.identificationNumber || ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -587,8 +584,8 @@ const AddNewNode = ({
                       Dân tộc
                     </label>
                     <select
-                      name="EthnicId"
-                      value={formData.EthnicId || ""}
+                      name="ethnicId"
+                      value={formData.ethnicId || ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -610,8 +607,8 @@ const AddNewNode = ({
                       Tôn giáo
                     </label>
                     <select
-                      name="ReligionId"
-                      value={formData.ReligionId || ""}
+                      name="religionId"
+                      value={formData.religionId || ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -637,8 +634,8 @@ const AddNewNode = ({
                   </label>
                   <input
                     type="text"
-                    name="Address"
-                    value={formData.Address}
+                    name="address"
+                    value={formData.address}
                     onChange={handleFormChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                   />
@@ -649,8 +646,8 @@ const AddNewNode = ({
                       Phường
                     </label>
                     <select
-                      name="WardId"
-                      value={formData.WardId || ""}
+                      name="wardId"
+                      value={formData.wardId || ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -672,8 +669,8 @@ const AddNewNode = ({
                       Tỉnh
                     </label>
                     <select
-                      name="ProvinceId"
-                      value={formData.ProvinceId || ""}
+                      name="provinceId"
+                      value={formData.provinceId || ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -699,8 +696,8 @@ const AddNewNode = ({
                   </label>
                   <input
                     type="email"
-                    name="Email"
-                    value={formData.Email}
+                    name="email"
+                    value={formData.email}
                     onChange={handleFormChange}
                     placeholder="SampleEmail123@Example.com"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -712,8 +709,8 @@ const AddNewNode = ({
                   </label>
                   <input
                     type="tel"
-                    name="PhoneNumber"
-                    value={formData.PhoneNumber}
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
                     onChange={handleFormChange}
                     placeholder="012345678"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -726,8 +723,8 @@ const AddNewNode = ({
                     Nội dung
                   </label>
                   <textarea
-                    name="Content"
-                    value={formData.Content}
+                    name="content"
+                    value={formData.content}
                     onChange={handleFormChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     rows={3}
@@ -738,8 +735,8 @@ const AddNewNode = ({
                     Mô tả câu chuyện
                   </label>
                   <textarea
-                    name="StoryDescription"
-                    value={formData.StoryDescription}
+                    name="storyDescription"
+                    value={formData.storyDescription}
                     onChange={handleFormChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     rows={3}
@@ -794,26 +791,28 @@ const AddNewNode = ({
           className="bg-gray-800 rounded-lg border border-gray-700 mb-6"
           style={{ height: "450px" }}
         >
-          <ReactFlow
-            nodes={memoizedNodes}
-            edges={edges}
-            fitView
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={true}
-            onNodeClick={(_, node) => {
-              if (node.id !== parentMember?.id) {
-                handleRelationshipSelect(node.id);
-              }
-            }}
-            proOptions={{ hideAttribution: true }}
-            panOnDrag={false}
-            zoomOnScroll={false}
-            zoomOnPinch={false}
-            zoomOnDoubleClick={false}
-          >
-            <Background color="#6b7280" gap={16} />
-          </ReactFlow>
+          <ReactFlowProvider>
+            <ReactFlow
+              nodes={memoizedNodes}
+              edges={edges}
+              fitView
+              nodesDraggable={false}
+              nodesConnectable={false}
+              elementsSelectable={true}
+              onNodeClick={(_, node) => {
+                if (node.id !== parentMember?.id) {
+                  handleRelationshipSelect(node.id);
+                }
+              }}
+              proOptions={{ hideAttribution: true }}
+              panOnDrag={false}
+              zoomOnScroll={false}
+              zoomOnPinch={false}
+              zoomOnDoubleClick={false}
+            >
+              <Background color="#6b7280" gap={16} />
+            </ReactFlow>
+          </ReactFlowProvider>
         </div>
 
         {/* Cancel Button */}
