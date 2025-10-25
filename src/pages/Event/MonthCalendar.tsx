@@ -11,6 +11,7 @@ import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event
 import { forEach } from "lodash";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import type { EventClickArg, EventContentArg, DayCellContentArg } from '@fullcalendar/core';
+import './Calendar.css';
 
 // Add lunar stub to moment
 addLunarToMoment(moment);
@@ -211,60 +212,6 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
 
   return (
     <div className="w-full min-h-[600px] bg-white rounded-lg p-4">
-      <style>{`
-        .fc {
-          font-family: inherit;
-        }
-        .fc-theme-standard td, .fc-theme-standard th {
-          border-color: #e8e8e8;
-        }
-        .fc-daygrid-day-frame {
-          min-height: 100px;
-        }
-        .fc-daygrid-day-top {
-          flex-direction: column;
-          align-items: center;
-        }
-        .fc-col-header-cell {
-          background: #fafafa;
-          padding: 12px 8px;
-          font-weight: 600;
-          color: #1a1a1a;
-        }
-        .fc-day-today {
-          background: #e6f4ff !important;
-        }
-        .fc-daygrid-day-number {
-          padding: 8px;
-          font-size: 1rem;
-        }
-        .fc-event {
-          border: none;
-          margin: 2px 4px;
-          border-radius: 4px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .fc-event:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-        .fc-more-link {
-          color: #1677ff;
-          font-weight: 500;
-          padding: 4px 8px;
-          border-radius: 4px;
-          transition: all 0.2s;
-        }
-        .fc-more-link:hover {
-          background: #e6f4ff;
-        }
-        .custom-event {
-          width: 100%;
-          overflow: hidden;
-        }
-      `}</style>
-      
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, interactionPlugin]}

@@ -9,7 +9,7 @@ export const EVENT_TYPE = {
   WEDDING: "WEDDING",
   BIRTHDAY: "BIRTHDAY",
   HOLIDAY: "HOLIDAY",
-  OTHER: "OTHER"
+  OTHER: "OTHER",
 } as const;
 
 export type EventType = typeof EVENT_TYPE[keyof typeof EVENT_TYPE];
@@ -18,28 +18,28 @@ export const EVENT_TYPE_CONFIG: Record<EventType, { label: string; icon: string;
   FUNERAL: {
     label: "Ma chay, giỗ",
     icon: mapIcon,
-    color: "#9B51E0"
+    color: "#9B51E0",
   },
   WEDDING: {
     label: "Cưới hỏi",
     icon: heartHandshakeIcon,
-    color: "#52c41a"
+    color: "#52c41a",
   },
   BIRTHDAY: {
     label: "Sinh nhật",
     icon: NonCategorizedIcon,
-    color: "#1677FF"
+    color: "#1677FF",
   },
   HOLIDAY: {
     label: "Ngày lễ",
     icon: celebrationIcon,
-    color: "#fa8c16"
+    color: "#fa8c16",
   },
   OTHER: {
     label: "Khác",
     icon: mapOtherIcon,
-    color: "#FAAD14"
-  }
+    color: "#FAAD14",
+  },
 };
 
 interface EventTypeLabelProps {
@@ -51,36 +51,43 @@ interface EventTypeLabelProps {
   durationDays?: number;
 }
 
-export default function EventTypeLabel({ type, title, timeStart = null, timeEnd = null, allDay = false, durationDays = 1 }: EventTypeLabelProps) {
+export default function EventTypeLabel({
+  type,
+  title,
+  timeStart = null,
+  timeEnd = null,
+  allDay = false,
+  durationDays = 1,
+}: EventTypeLabelProps) {
   const { icon, color } = EVENT_TYPE_CONFIG[type as EventType] || EVENT_TYPE_CONFIG.OTHER;
-
-  // Tính toán width dựa trên số ngày diễn ra sự kiện
-  const widthStyle = {
-    maxWidth: `${durationDays * 100}%`,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
 
   return (
     <div
-      className={`event-type-label ${type}`}
-      style={{ borderLeft: `5px solid ${color}` }}
+      className="flex items-start gap-2 p-2 rounded-lg shadow-sm border-l-4 bg-white"
+      style={{ borderColor: color, maxWidth: `${durationDays * 100}%` }}
     >
-      <img className="event-type-icon" src={icon} alt={type} />
-      <span className="event-type-text" style={{ color, ...widthStyle }}>
-        {title}
-        {
-          !allDay 
-          && timeStart 
-          && timeEnd
-          && (<><br /><span className="event-time">{timeStart}</span> - <span className="event-time">{timeEnd}</span></>)
-        }
-        {
-          allDay 
-          && (<><br /><span className="event-time">Cả ngày</span></>)
-        }
-      </span>
+      <img src={icon} alt={type} className="w-5 h-5 flex-shrink-0 mt-0.5" />
+
+      <div className="flex flex-col text-sm leading-tight truncate">
+        <span
+          className="font-medium truncate"
+          style={{ color }}
+          title={title}
+        >
+          {title}
+        </span>
+
+        {allDay ? (
+          <span className="text-gray-500 text-xs mt-0.5">Cả ngày</span>
+        ) : (
+          timeStart &&
+          timeEnd && (
+            <span className="text-gray-500 text-xs mt-0.5">
+              {timeStart} – {timeEnd}
+            </span>
+          )
+        )}
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import moment from "moment";
 import "moment/locale/vi";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import type { FamilyEvent } from "../../types/event";
+import './Calendar.css';
 
 // Add lunar stub to moment
 addLunarToMoment(moment);

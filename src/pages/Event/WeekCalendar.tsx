@@ -11,6 +11,7 @@ import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import type { EventClickArg, EventContentArg, DayHeaderContentArg } from '@fullcalendar/core';
+import './Calendar.css';
 
 // Add lunar stub to moment
 addLunarToMoment(moment);
@@ -223,51 +224,6 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
 
   return (
     <div className="w-full min-h-[600px] bg-white rounded-lg p-4">
-      <style>{`
-        .fc {
-          font-family: inherit;
-        }
-        .fc-theme-standard td, .fc-theme-standard th {
-          border-color: #e8e8e8;
-        }
-        .fc-timegrid-slot {
-          height: 3em;
-        }
-        .fc-col-header-cell {
-          background: #fafafa;
-          padding: 12px 8px;
-          border: 1px solid #e8e8e8;
-        }
-        .fc-timegrid-axis {
-          background: #fafafa;
-        }
-        .fc-timegrid-slot-label {
-          color: #666;
-          font-size: 0.85rem;
-        }
-        .fc-event {
-          border: none;
-          border-radius: 6px;
-          padding: 4px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .fc-event:hover {
-          transform: translateX(2px);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-        .fc-timegrid-event {
-          border-left-width: 4px !important;
-        }
-        .fc-day-today {
-          background: #e6f4ff !important;
-        }
-        .custom-event {
-          width: 100%;
-          overflow: hidden;
-        }
-      `}</style>
-      
       <FullCalendar
         ref={calendarRef}
         plugins={[timeGridPlugin, interactionPlugin]}
