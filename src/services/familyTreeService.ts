@@ -96,6 +96,15 @@ const familyTreeService = {
     });
   },
 
+  getFamilyTreeMemberById(ftId: string, memberId: string): Promise<ApiResponse<FamilyNode>> {
+    return api.get(`/ftmember/${ftId}/get-by-memberid`, {
+      params: {
+        ftid: ftId,
+        memberId
+      }
+    });
+  },
+
   createFamilyNode(props: AddingNodeProps): Promise<ApiResponse<string>> {
 
     const formData = new FormData();

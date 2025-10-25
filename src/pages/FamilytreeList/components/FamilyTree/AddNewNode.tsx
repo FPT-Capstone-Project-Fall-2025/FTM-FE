@@ -121,7 +121,6 @@ const AddNewNode = ({
   const [partnerMembers] = useState<FamilyNode[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const [formData, setFormData] = useState<AddingNodeProps>({
     fullname: "",
     gender: 0 as 0 | 1,
