@@ -10,12 +10,93 @@ import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
+import './Calendar.css';
 
 // Add lunar stub to moment
 addLunarToMoment(moment);
 
 moment.locale("vi");
 moment.updateLocale("vi", { week: { dow: 1, doy: 4 } });
+
+// MOCK DATA for demonstration
+const generateMockEventsForDay = (date: string) => {
+  const baseDate = moment(date);
+  
+  return [
+    {
+      id: "mock-1",
+      title: "Họp Gia Đình",
+      start: baseDate.clone().hour(9).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
+      end: baseDate.clone().hour(10).minute(30).format("YYYY-MM-DDTHH:mm:ss"),
+      allDay: false,
+      type: "MEETING",
+      description: "Họp bàn về kế hoạch gia đình",
+      isOwner: true,
+      location: "Nhà",
+      gpNames: ["Gia đình Nguyễn"],
+      memberNames: ["Nguyễn Văn A", "Nguyễn Thị B"],
+      extendedProps: {
+        type: "MEETING",
+        description: "Họp bàn về kế hoạch gia đình",
+        location: "Nhà",
+      }
+    },
+    {
+      id: "mock-2",
+      title: "Sinh Nhật Bà Nội",
+      start: baseDate.clone().hour(11).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
+      end: baseDate.clone().hour(14).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
+      allDay: false,
+      type: "BIRTHDAY",
+      description: "Chúc mừng sinh nhật bà nội 80 tuổi",
+      isOwner: true,
+      location: "Nhà Hàng Đông Phương",
+      gpNames: ["Gia đình Nguyễn"],
+      memberNames: ["Nguyễn Văn A", "Nguyễn Thị B", "Nguyễn Văn C"],
+      extendedProps: {
+        type: "BIRTHDAY",
+        description: "Chúc mừng sinh nhật bà nội 80 tuổi",
+        location: "Nhà Hàng Đông Phương",
+      }
+    },
+    {
+      id: "mock-3",
+      title: "Đi Thăm Mộ Tổ Tiên",
+      start: baseDate.clone().hour(15).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
+      end: baseDate.clone().hour(17).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
+      allDay: false,
+      type: "MEMORIAL",
+      description: "Thăm viếng và dọn dẹp mộ tổ tiên",
+      isOwner: false,
+      location: "Nghĩa trang Bình Hưng Hòa",
+      gpNames: ["Gia đình Nguyễn"],
+      memberNames: ["Nguyễn Văn A", "Nguyễn Văn D"],
+      extendedProps: {
+        type: "MEMORIAL",
+        description: "Thăm viếng và dọn dẹp mộ tổ tiên",
+        location: "Nghĩa trang Bình Hưng Hòa",
+      }
+    },
+    {
+      id: "mock-4",
+      title: "Tiệc Tối Gia Đình",
+      start: baseDate.clone().hour(18).minute(30).format("YYYY-MM-DDTHH:mm:ss"),
+      end: baseDate.clone().hour(21).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
+      allDay: false,
+      type: "GATHERING",
+      description: "Bữa tiệc sum họp cả nhà",
+      isOwner: true,
+      location: "Nhà",
+      gpNames: ["Gia đình Nguyễn"],
+      memberNames: ["Nguyễn Văn A", "Nguyễn Thị B", "Nguyễn Văn C", "Nguyễn Thị E"],
+      extendedProps: {
+        type: "GATHERING",
+        description: "Bữa tiệc sum họp cả nhà",
+        location: "Nhà",
+      }
+    },
+  ];
+};
 
 interface DayCalendarProps {
   date: Date | string;
@@ -44,7 +125,17 @@ const DayCalendar = ({
   const [filterEvents, setFilterEvents] = useState<any>({});
 
   const fetchEventsAndForecasts = useCallback(async (filters: any) => {
-    if (!filters.date) return;
+    if (!filters.date) {
+      // If no date, use mock data for today
+      const mockEvents = generateMockEventsForDay(moment().format("YYYY-MM-DD"));
+      setEvents(mockEvents);
+      return;
+    }
+    
+    // Always load mock data first for immediate display
+    const mockEvents = generateMockEventsForDay(filters.date);
+    setEvents(mockEvents);
+    
     try {
       // @ts-ignore - API response needs proper type definition
       const response = await eventService.getDayEvents(filters.date, filters);
@@ -85,10 +176,18 @@ const DayCalendar = ({
           address: event.address,
           locationName: event.locationName,
           isLunar: event.isLunar,
+          extendedProps: {
+            type: event.eventType,
+            description: event.description,
+            location: event.location,
+          }
         };
       }) || [];
 
-      setEvents(mappedEvents);
+      // Only use API data if it has events, otherwise keep mock data
+      if (mappedEvents.length > 0) {
+        setEvents(mappedEvents);
+      }
 
       // @ts-ignore - API response needs proper type definition
       if (response?.value?.dailyForecasts?.length > 0) {
@@ -101,6 +200,7 @@ const DayCalendar = ({
       }
     } catch (error) {
       console.error("Error fetching events:", error);
+      // Keep mock data already set above
     }
   }, []);
 
@@ -167,7 +267,7 @@ const DayCalendar = ({
   }, [weatherData, viewWeather, isShowLunarDay]);
 
   return (
-    <div className="fullcalendar-container">
+    <div className="w-full h-full min-h-[600px]">
       <FullCalendar
         ref={calendarRef}
         plugins={[timeGridPlugin, interactionPlugin]}
@@ -175,10 +275,13 @@ const DayCalendar = ({
         locale={viLocale}
         headerToolbar={false}
         events={events}
-        height="100%"
+        height="auto"
+        contentHeight="auto"
         slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
-        scrollTime="00:00:00"
+        scrollTime="08:00:00"
+        slotDuration="01:00:00"
+        slotLabelInterval="01:00"
         slotLabelFormat={{
           hour: "2-digit",
           minute: "2-digit",
@@ -188,8 +291,12 @@ const DayCalendar = ({
         eventContent={renderEventContent}
         eventClick={handleEventClick}
         dayHeaderContent={renderDayHeaderContent}
-        selectable={true} // Bật tính năng chọn
-        select={handleSelect} // Xử lý sự kiện chọn
+        selectable={true}
+        select={handleSelect}
+        nowIndicator={true}
+        allDaySlot={true}
+        allDayText="Cả ngày"
+        editable={false}
       />
     </div>
   );

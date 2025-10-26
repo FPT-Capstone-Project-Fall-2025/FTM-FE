@@ -19,6 +19,99 @@ addLunarToMoment(moment);
 moment.locale("vi");
 moment.updateLocale("vi", { week: { dow: 1, doy: 4 } });
 
+// MOCK DATA for demonstration
+const generateMockEventsForWeek = (year: number, month: number, week: number) => {
+  const weekStart = moment().year(year).month(month - 1).isoWeek(week).startOf("isoWeek");
+  
+  const mockEvents: CalendarEvent[] = [];
+  
+  // Generate events across the week
+  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+    const currentDay = weekStart.clone().add(dayOffset, 'days');
+    const dayStr = currentDay.format("YYYY-MM-DD");
+    
+    // Morning event
+    if (dayOffset % 2 === 0) {
+      mockEvents.push({
+        id: `mock-week-${dayOffset}-1`,
+        title: "Họp Gia Đình",
+        start: `${dayStr}T09:00:00`,
+        end: `${dayStr}T10:30:00`,
+        allDay: false,
+        type: "MEETING",
+        description: "Họp bàn về kế hoạch gia đình",
+        isOwner: true,
+        location: "Nhà",
+        gpNames: ["Gia đình Nguyễn"],
+        memberNames: ["Nguyễn Văn A", "Nguyễn Thị B"],
+        name: "Họp Gia Đình",
+        eventType: "MEETING",
+        startTime: `${dayStr}T09:00:00`,
+        endTime: `${dayStr}T10:30:00`,
+        extendedProps: {
+          type: "MEETING",
+          description: "Họp bàn về kế hoạch gia đình",
+          location: "Nhà",
+        }
+      });
+    }
+    
+    // Afternoon event
+    if (dayOffset % 3 === 0) {
+      mockEvents.push({
+        id: `mock-week-${dayOffset}-2`,
+        title: "Sinh Nhật",
+        start: `${dayStr}T14:00:00`,
+        end: `${dayStr}T17:00:00`,
+        allDay: false,
+        type: "BIRTHDAY",
+        description: "Chúc mừng sinh nhật",
+        isOwner: true,
+        location: "Nhà Hàng",
+        gpNames: ["Gia đình Nguyễn"],
+        memberNames: ["Nguyễn Văn A", "Nguyễn Thị B"],
+        name: "Sinh Nhật",
+        eventType: "BIRTHDAY",
+        startTime: `${dayStr}T14:00:00`,
+        endTime: `${dayStr}T17:00:00`,
+        extendedProps: {
+          type: "BIRTHDAY",
+          description: "Chúc mừng sinh nhật",
+          location: "Nhà Hàng",
+        }
+      });
+    }
+    
+    // Evening event
+    if (dayOffset === 2 || dayOffset === 5) {
+      mockEvents.push({
+        id: `mock-week-${dayOffset}-3`,
+        title: "Tiệc Tối",
+        start: `${dayStr}T19:00:00`,
+        end: `${dayStr}T21:30:00`,
+        allDay: false,
+        type: "GATHERING",
+        description: "Bữa tiệc sum họp",
+        isOwner: false,
+        location: "Nhà",
+        gpNames: ["Gia đình Nguyễn"],
+        memberNames: ["Nguyễn Văn C", "Nguyễn Thị D"],
+        name: "Tiệc Tối",
+        eventType: "GATHERING",
+        startTime: `${dayStr}T19:00:00`,
+        endTime: `${dayStr}T21:30:00`,
+        extendedProps: {
+          type: "GATHERING",
+          description: "Bữa tiệc sum họp",
+          location: "Nhà",
+        }
+      });
+    }
+  }
+  
+  return mockEvents;
+};
+
 interface WeekCalendarProps {
   year: number;
   month: number;
@@ -110,7 +203,17 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
         };
       });
 
-      setEvents(mappedEvents);
+      // Use MOCK data if no events returned from API
+      if (mappedEvents.length === 0) {
+        const mockEvents = generateMockEventsForWeek(
+          filterEvents.year,
+          filterEvents.month,
+          filterEvents.week
+        );
+        setEvents(mockEvents);
+      } else {
+        setEvents(mappedEvents);
+      }
 
       // Process weather data
       if (response?.value?.dailyForecasts) {
@@ -126,6 +229,13 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       }
     } catch (error) {
       console.error("Error fetching week events:", error);
+      // Use MOCK data on error
+      const mockEvents = generateMockEventsForWeek(
+        filterEvents.year || moment().year(),
+        filterEvents.month || moment().month() + 1,
+        filterEvents.week || moment().isoWeek()
+      );
+      setEvents(mockEvents);
     }
   }, [filterEvents]);
 
@@ -222,8 +332,18 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
     [weatherData, viewWeather, isShowLunarDay]
   );
 
+  const dayCellClassNames = useCallback((arg: any) => {
+    const isPast = moment(arg.date).isBefore(moment(), 'day');
+    return isPast ? 'fc-day-past' : 'fc-day-future';
+  }, []);
+
+  const selectAllow = useCallback((selectInfo: any) => {
+    // Only allow selection for future dates/times
+    return moment(selectInfo.start).isSameOrAfter(moment());
+  }, []);
+
   return (
-    <div className="w-full min-h-[600px] bg-white rounded-lg p-4">
+    <div className="w-full bg-white rounded-lg p-4 overflow-auto">
       <FullCalendar
         ref={calendarRef}
         plugins={[timeGridPlugin, interactionPlugin]}
@@ -247,8 +367,10 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
         eventContent={renderEventContent}
         eventClick={handleEventClick}
         dayHeaderContent={renderDayHeaderContent}
+        dayCellClassNames={dayCellClassNames}
         selectable={true}
         select={handleSelect}
+        selectAllow={selectAllow}
         selectMirror={true}
         unselectAuto={true}
         allDaySlot={true}

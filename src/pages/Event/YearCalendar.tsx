@@ -37,6 +37,11 @@ const YearCalendar: React.FC<YearCalendarProps> = ({
   };
 
   const handleDayClick = (date: moment.Moment, day: number, month: number, year: number) => {
+    // Only allow clicking on future dates
+    if (date.isBefore(moment(), 'day')) {
+      return;
+    }
+    
     setEventSelected({
       startTime: date.toDate(),
       endTime: date.toDate(),
@@ -89,25 +94,38 @@ const YearCalendar: React.FC<YearCalendarProps> = ({
                   const lunarDay = getLunarDay(day, month, year);
                   const isSunday = date.isoWeekday() === 7;
                   const isToday = today.isSame(date, "day");
+                  const isPast = date.isBefore(moment(), 'day');
 
                   return (
                     <div
                       key={day}
                       onClick={() => handleDayClick(date, day, month, year)}
-                      className={`aspect-square flex flex-col items-center justify-center cursor-pointer rounded-lg transition-all duration-200 relative p-1 ${
-                        isToday 
-                          ? 'bg-blue-500 border-2 border-blue-500' 
-                          : 'bg-transparent border border-transparent hover:bg-blue-50 hover:border-blue-200'
+                      className={`aspect-square flex flex-col items-center justify-center rounded-lg transition-all duration-200 relative p-1 ${
+                        isPast
+                          ? 'bg-gray-100 cursor-not-allowed opacity-50'
+                          : isToday 
+                            ? 'bg-blue-500 border-2 border-blue-500 cursor-pointer' 
+                            : 'bg-transparent border border-transparent hover:bg-blue-50 hover:border-blue-200 cursor-pointer'
                       }`}
                     >
                       <div className={`text-sm mb-0.5 ${
-                        isToday ? 'font-bold text-white' : isSunday ? 'font-medium text-red-500' : 'font-medium text-gray-900'
+                        isPast
+                          ? 'font-medium text-gray-400'
+                          : isToday 
+                            ? 'font-bold text-white' 
+                            : isSunday 
+                              ? 'font-medium text-red-500' 
+                              : 'font-medium text-gray-900'
                       }`}>
                         {day}
                       </div>
                       {isShowLunarDay && lunarDay > 0 && (
                         <div className={`text-[0.625rem] ${
-                          isToday ? 'text-white/85' : 'text-gray-400'
+                          isPast
+                            ? 'text-gray-300'
+                            : isToday 
+                              ? 'text-white/85' 
+                              : 'text-gray-400'
                         }`}>
                           {lunarDay}
                         </div>

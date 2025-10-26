@@ -277,7 +277,7 @@ const EventPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-10">
+    <div className="min-h-screen bg-gray-100 pb-10 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 py-5">
         <div className="flex gap-5 flex-wrap lg:flex-nowrap">
           {/* Sidebar - Filters and Statistics */}
@@ -293,17 +293,17 @@ const EventPage: React.FC = () => {
           </div>
 
           {/* Main Content - Calendar */}
-          <div className="flex-1 w-full">
-            <div className="bg-white rounded-lg p-5 shadow-sm">
+          <div className="flex-1 w-full min-w-0">
+            <div className="bg-white rounded-lg p-5 shadow-sm max-h-[calc(100vh-60px)] overflow-hidden flex flex-col">
               {/* Header Section */}
-              <div className="mb-5">
+              <div className="mb-3 flex-shrink-0">
                 {/* Title */}
-                <h2 className="text-2xl font-semibold mb-4 text-gray-900">
+                <h2 className="text-2xl font-semibold mb-3 text-gray-900">
                   Lịch Sự Kiện Gia Phả
                 </h2>
 
                 {/* Search Bar */}
-                <div className="relative mb-4">
+                <div className="relative mb-3">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="text"
@@ -323,8 +323,8 @@ const EventPage: React.FC = () => {
                 </div>
 
                 {/* Calendar Controls */}
-                <div className="pb-4 border-b border-gray-200 mb-5">
-                  <div className="flex justify-between items-center flex-wrap gap-3">
+                <div className="pb-2 border-b border-gray-200">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
                     {/* Navigation Controls */}
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="flex gap-2">
@@ -404,13 +404,13 @@ const EventPage: React.FC = () => {
               </div>
 
               {/* Calendar View Content */}
-              <div className="mt-6 min-h-[500px] overflow-x-auto overflow-y-visible">
+              <div className="mt-2 min-h-[400px] max-h-[calc(100vh-280px)] overflow-auto">
                 {initialLoading ? (
-                  <div className="flex justify-center items-center py-20 min-h-[500px]">
+                  <div className="flex justify-center items-center py-20 min-h-[400px]">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
                   </div>
                 ) : error ? (
-                  <div className="text-center py-20 min-h-[500px]">
+                  <div className="text-center py-20 min-h-[400px]">
                     <p className="text-red-500 mb-5">{error}</p>
                     <button 
                       onClick={() => setReload(!reload)}

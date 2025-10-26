@@ -199,33 +199,47 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
                 <p>📅 Không có sự kiện nào trong năm này</p>
               </div>
             ) : (
-              sortedDates.map((date) => (
-                <div key={date} className="mb-5">
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg mb-2 border border-blue-200 flex items-center gap-2">
-                    <span className="text-lg">📆</span>
-                    <span className="font-semibold text-blue-500 text-[0.95rem]">
-                      {getLunarDateString(date)}
-                    </span>
+              sortedDates.map((date) => {
+                const isPastDate = moment(date).isBefore(moment(), 'day');
+                
+                return (
+                  <div key={date} className="mb-5">
+                    <div className={`p-3 rounded-lg mb-2 border flex items-center gap-2 ${
+                      isPastDate 
+                        ? 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200' 
+                        : 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200'
+                    }`}>
+                      <span className="text-lg">{isPastDate ? '🗓️' : '📆'}</span>
+                      <span className={`font-semibold text-[0.95rem] ${
+                        isPastDate ? 'text-gray-500' : 'text-blue-500'
+                      }`}>
+                        {getLunarDateString(date)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {groupedEvents[date].map((event) => (
+                        <div
+                          key={event.id}
+                          onClick={() => handleEventClick(event)}
+                          className={`p-3.5 bg-white border rounded-lg transition-all duration-200 ${
+                            isPastDate
+                              ? 'border-gray-200 border-l-4 border-l-gray-400 opacity-60 cursor-default'
+                              : 'border-gray-200 border-l-4 border-l-blue-500 cursor-pointer hover:bg-gray-50 hover:border-l-blue-400 hover:shadow-[0_2px_12px_rgba(22,119,255,0.15)] hover:translate-x-1'
+                          }`}
+                        >
+                          <EventTypeLabel
+                            type={event.eventType}
+                            title={event.name}
+                            timeStart={event.isAllDay ? null : moment(event.startTime).format("HH:mm")}
+                            timeEnd={event.isAllDay ? null : moment(event.endTime).format("HH:mm")}
+                            allDay={event.isAllDay}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    {groupedEvents[date].map((event) => (
-                      <div
-                        key={event.id}
-                        onClick={() => handleEventClick(event)}
-                        className="p-3.5 bg-white border border-gray-200 border-l-4 border-l-blue-500 rounded-lg cursor-pointer transition-all duration-200 hover:bg-gray-50 hover:border-l-blue-400 hover:shadow-[0_2px_12px_rgba(22,119,255,0.15)] hover:translate-x-1"
-                      >
-                        <EventTypeLabel
-                          type={event.eventType}
-                          title={event.name}
-                          timeStart={event.isAllDay ? null : moment(event.startTime).format("HH:mm")}
-                          timeEnd={event.isAllDay ? null : moment(event.endTime).format("HH:mm")}
-                          allDay={event.isAllDay}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         );
