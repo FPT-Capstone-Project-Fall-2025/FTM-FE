@@ -28,6 +28,9 @@ import SearchBar from './SearchBar';
 import AddNewNodeButton from './AddNewNodeButton';
 import AddNewNode from './AddNewNode';
 import familyTreeService from '@/services/familyTreeService';
+import MemberDetailPage from '../../FamilyMemberDetail';
+import DeleteConfirmModal from './DeleteConfirmModal';
+import { toast } from 'react-toastify';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -70,8 +73,11 @@ const FamilyTreeContent = () => {
   const selectedMemberId = useAppSelector(state => state.familyTree.selectedMemberId);
   const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   const [isAddingNewNode, setIsAddingNewNode] = useState(false);
+  const [isDeletingNode, setIsDeletingNode] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
   const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
+  const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
 
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
@@ -170,6 +176,41 @@ const FamilyTreeContent = () => {
     }
   }, [dispatch, selectedFamilyTree?.id]);
 
+  // Handle delete node confirmation
+  const handleDeleteNodeConfirm = useCallback(async () => {
+    if (!memberToDelete?.id) return;
+    
+    setIsDeletingNode(true);
+    try {
+      const response = await familyTreeService.deleteFamilyNode(memberToDelete.id);
+      console.log("Delete API Response:", response);
+      
+      // Close the detail panel if the deleted member was selected
+      if (selectedMemberId === memberToDelete.id) {
+        dispatch(setSelectedMember(null));
+      }
+      
+      // Re-fetch the family tree to sync with the deleted node
+      if (selectedFamilyTree?.id) {
+        await dispatch(fetchFamilyTree(selectedFamilyTree.id));
+      }
+      
+      // Close the modal
+      setMemberToDelete(null);
+    } catch (error: any) {
+      console.error("Error deleting node:", error);
+      toast.error(error?.response?.data?.Message);
+    } finally {
+      setIsDeletingNode(false);
+    }
+  }, [memberToDelete, selectedFamilyTree?.id, selectedMemberId, dispatch]);
+
+  // Handle delete node cancel
+  const handleDeleteNodeCancel = useCallback(() => {
+    setMemberToDelete(null);
+    setIsDeletingNode(false);
+  }, []);
+
   // Memoize enhanced nodes - only recreate when nodes or handler changes
   const enhancedNodes = useMemo(() => {
     return nodes.map(node => ({
@@ -184,6 +225,12 @@ const FamilyTreeContent = () => {
             setIsAddingNewNode(true);
           }
         },
+        onDelete: () => {
+          const member = members[node.id];
+          if (member) {
+            setMemberToDelete(member);
+          }
+        }
       },
     }));
   }, [nodes, handleMemberClick, members]);
@@ -241,6 +288,7 @@ const FamilyTreeContent = () => {
           <MemberDetailPanel
             member={selectedMember}
             onClose={handleClosePanel}
+            onShowMemberDetail={() => setShowMemberDetailModal(true)}
           />
         </>
 
@@ -250,6 +298,8 @@ const FamilyTreeContent = () => {
             <AddNewNodeButton onOpen={() => setIsAddingNewNode(true)} />
           </div>
         )}
+        
+        {/* Add New Node Modal */}
         {isAddingNewNode && (
           <AddNewNode
             ftId={selectedFamilyTree?.id || ""}
@@ -261,6 +311,25 @@ const FamilyTreeContent = () => {
               setIsAddingNewNode(false);
               setSelectedParent(null);
             }}
+          />
+        )}
+        
+        {/* Member Detail Modal */}
+        {showMemberDetailModal && (
+          <MemberDetailPage
+            ftId={selectedFamilyTree?.id}
+            memberId={selectedMember?.id}
+            onClose={() => setShowMemberDetailModal(false)}
+          />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {memberToDelete && (
+          <DeleteConfirmModal
+            member={memberToDelete}
+            onConfirm={handleDeleteNodeConfirm}
+            onCancel={handleDeleteNodeCancel}
+            isDeleting={isDeletingNode}
           />
         )}
       </div>

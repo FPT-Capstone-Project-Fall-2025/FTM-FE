@@ -95,6 +95,7 @@ export interface AddingNodeProps {
 
 export interface FamilyNode {
   id: string;
+  userId: string;
   ftId: string;
   ftRole: string;
   fullname: string;
@@ -119,8 +120,16 @@ export interface FamilyNode {
   storyDescription: string;
   privacyData: null;
   picture: string;
-  ftMemberFiles: string[]
+  ftMemberFiles: FileProps[]
 }
 
+export interface FileProps {
+  file?: string;
+  title?: string;
+  fileType?: string;
+  description?: string;
+  content?: string;
+  thumbnail?: string;
+}
 
 
