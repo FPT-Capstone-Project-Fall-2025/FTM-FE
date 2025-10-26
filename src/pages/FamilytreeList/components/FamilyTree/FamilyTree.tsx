@@ -28,9 +28,9 @@ import SearchBar from './SearchBar';
 import AddNewNodeButton from './AddNewNodeButton';
 import AddNewNode from './AddNewNode';
 import familyTreeService from '@/services/familyTreeService';
-import MemberDetailPage from '../../FamilyMemberDetail';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import { toast } from 'react-toastify';
+import MemberDetailPage from '../../FamilyMemberDetail';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
