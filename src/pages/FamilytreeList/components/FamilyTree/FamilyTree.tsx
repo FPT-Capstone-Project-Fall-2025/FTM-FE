@@ -28,7 +28,7 @@ import SearchBar from './SearchBar';
 import AddNewNodeButton from './AddNewNodeButton';
 import AddNewNode from './AddNewNode';
 import familyTreeService from '@/services/familyTreeService';
-import MemberDetailPage from '../../FamilyMemberDetail';
+// import MemberDetailPage from '../../FamilyMemberDetail';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import { toast } from 'react-toastify';
 
@@ -77,7 +77,7 @@ const FamilyTreeContent = () => {
   const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
   const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
-  const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
+  // const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
 
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
@@ -288,7 +288,7 @@ const FamilyTreeContent = () => {
           <MemberDetailPanel
             member={selectedMember}
             onClose={handleClosePanel}
-            onShowMemberDetail={() => setShowMemberDetailModal(true)}
+            // onShowMemberDetail={() => setShowMemberDetailModal(true)}
           />
         </>
 
@@ -315,13 +315,13 @@ const FamilyTreeContent = () => {
         )}
         
         {/* Member Detail Modal */}
-        {showMemberDetailModal && (
+        {/* {showMemberDetailModal && (
           <MemberDetailPage
             ftId={selectedFamilyTree?.id}
             memberId={selectedMember?.id}
             onClose={() => setShowMemberDetailModal(false)}
           />
-        )}
+        )} */}
 
         {/* Delete Confirmation Modal */}
         {memberToDelete && (

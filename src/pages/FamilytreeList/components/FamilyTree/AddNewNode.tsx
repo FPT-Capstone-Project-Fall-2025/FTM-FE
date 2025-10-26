@@ -117,7 +117,7 @@ const AddNewNode = ({
   const [showPartnerSelection, setShowPartnerSelection] = useState(false);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [showExtendedForm, setShowExtendedForm] = useState(false);
-  const [partnerMembers, setPartnerMembers] = useState<FamilyNode[]>([]);
+  const [partnerMembers] = useState<FamilyNode[]>([]);
   const [formData, setFormData] = useState<AddingNodeProps>({
     fullname: "",
     gender: 0 as 0 | 1,
