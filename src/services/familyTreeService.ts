@@ -99,7 +99,6 @@ const familyTreeService = {
   getFamilyTreeMemberById(ftId: string, memberId: string): Promise<ApiResponse<FamilyNode>> {
     return api.get(`/ftmember/${ftId}/get-by-memberid`, {
       params: {
-        ftid: ftId,
         memberId
       }
     });
@@ -143,6 +142,14 @@ const familyTreeService = {
     return api.delete(`/ftmember/${ftMemberId}`);
 =======
 >>>>>>> 41dcd28 (implementing v2)
+  },
+  
+  updateFamilyNode(ftId: string, props: FamilyNode): Promise<ApiResponse<string>> {
+    return api.put(`/ftmember/${ftId}`, props);
+  },
+
+  deleteFamilyNode(ftMemberId: string): Promise<ApiResponse<string>> {
+    return api.delete(`/ftmember/${ftMemberId}`);
   },
 };
 

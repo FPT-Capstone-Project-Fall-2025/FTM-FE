@@ -8,7 +8,11 @@ const MemberDetailPanel = ({
 }: {
   member: FamilyMember | null | undefined;
   onClose: () => void;
+<<<<<<< HEAD
   onShowMemberDetail?: () => void;
+=======
+  onShowMemberDetail: () => void;
+>>>>>>> 46b8863 (implment v+)
 }) => {
   const bgColor = member?.gender === 1 ? 'bg-pink-200' : 'bg-blue-200';
 
