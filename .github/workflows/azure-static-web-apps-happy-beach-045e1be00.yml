@@ -34,10 +34,10 @@ jobs:
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "/dist" # App source code path
           config_file_location: "./dist/"
-
           api_location: "" # Api source code path - optional
           # output_location: "build" # Built app content directory - optional
           output_location: "dist" # Change for Investigating google token id
+          # config_file_location: "./dist/"
           # skip_app_build: true
           ###### End of Repository/Build Configurations ######
 
