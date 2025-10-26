@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { Form, Input, DatePicker as AntDatePicker, Select as AntSelect, Button, Modal, Row, Col, Space, Typography, Upload, Image, Switch, Dropdown, message } from "antd";
-import type { UploadFile, UploadChangeParam } from "antd/es/upload/interface";
-import moment from "moment";
-// import type { Moment } from "moment";
-import { FormProvider, useForm, Controller } from "react-hook-form";
+import { Modal, Input, Select, Upload, Checkbox, Switch } from "antd";
+import type { UploadFile } from "antd/es/upload/interface";
+import type { UploadChangeParam } from "antd/es/upload";
+import { useParams, useNavigate } from "react-router-dom";
+import { format, isBefore, endOfDay } from 'date-fns';
 import * as yup from "yup";
+import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import eventService from "../../services/eventService";
-import { Calendar, X, ChevronDown, Edit2, Image as ImageIcon } from "lucide-react";
+import provinceService from "../../services/provinceService";
+import familyTreeService from "../../services/familyTreeService";
+import familyTreeMemberService from "../../services/familyTreeMemberService";
+import userService from "../../services/userService";
+import { Calendar, X, Image as ImageIcon } from "lucide-react";
 import { EVENT_TYPE, EVENT_TYPE_CONFIG } from "./EventTypeLabel";
+import type { ApiCreateEventPayload } from "../../types/event";
+import { toast } from 'react-toastify';
 
 // Types
 interface EventFormData {
@@ -16,73 +23,121 @@ interface EventFormData {
   eventType: string;
   isAllDay: boolean;
   startTime: string;
-  endTime: string | null;
-  location: string | null;
+  endTime: string;
+  location?: string | null;
+  locationName?: string | null;
   recurrence: string;
-  members: string[];
-  gpIds: string[];
-  description: string | null;
-  imageUrl: string | null;
-  recurrenceEndTime: string | null;
-  address: string | null;
+  members?: string[];
+  gpIds?: string[];
+  description?: string | null;
+  imageUrl?: string | null;
+  recurrenceEndTime?: string | null;
+  address?: string | null;
+  targetMemberId?: string | null;
+  isPublic: boolean;
+  isLunar: boolean;
 }
 
-const { Dragger } = Upload;
+interface FamilyTreeOption {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+interface MemberOption {
+  id: string;
+  fullname: string;
+  ftId: string;
+}
+
 
 const eventSchema = yup.object().shape({
   name: yup.string().required("Vui lòng nhập tên sự kiện"),
   eventType: yup.string().required("Vui lòng chọn loại sự kiện"),
-  startTime: yup.date().nullable().required("Vui lòng chọn thời gian bắt đầu"),
-  endTime: yup
-    .date()
-    .nullable()
-    .required("Vui lòng chọn thời gian kết thúc")
-    .test(
-      "endTime-after-startTime",
-      "Thời gian kết thúc phải muộn hơn thời gian bắt đầu ít nhất 1 giờ",
-      function (value) {
-        const { startTime } = this.parent;
-        if (!startTime || !value) return true;
-        return moment(value).isAfter(moment(startTime).add(0, "hour"));
-      }
-    ),
+  startTime: yup.string().required("Vui lòng chọn thời gian bắt đầu"),
+  endTime: yup.string().required("Vui lòng chọn thời gian kết thúc"),
+  location: yup.string().nullable(),
+  locationName: yup.string().nullable(),
+  recurrence: yup.string().required("Vui lòng chọn loại lặp lại"),
+  members: yup.array().of(yup.string()).default([]),
+  gpIds: yup.array().of(yup.string()).default([]),
+  description: yup.string().nullable(),
+  imageUrl: yup.string().nullable(),
+  recurrenceEndTime: yup.string().nullable(),
+  address: yup.string().nullable(),
+  targetMemberId: yup.string().nullable(),
+  isPublic: yup.boolean().default(true),
+  isLunar: yup.boolean().default(false),
 });
-
-interface GPEventDetailsModalProps {
-  isOpenModal: boolean;
-  setIsOpenModal: (value: boolean) => void;
-  defaultValues?: EventFormData;
-  handleCreatedEvent?: (event?: any) => void;
-  eventSelected?: any;
-}
 
 interface CityOption {
   label: string;
   value: string;
+  name?: string;
+  code?: string;
 }
 
-interface MemberOption {
-  label: string;
-  value: string;
+
+interface GPEventDetailsModalProps {
+  isOpenModal: boolean;
+  setIsOpenModal: (open: boolean) => void;
+  eventSelected?: any;
+  defaultValues?: any;
+  handleCreatedEvent?: () => void;
 }
+
+// Helper function to convert event type string to number
+const convertEventTypeToNumber = (eventType: string): number => {
+  const typeMap: Record<string, number> = {
+    'FUNERAL': 0,
+    'WEDDING': 1,
+    'BIRTHDAY': 2,
+    'HOLIDAY': 3,
+    'MEMORIAL': 4,
+    'MEETING': 5,
+    'GATHERING': 6,
+    'OTHER': 7,
+  };
+  return typeMap[eventType] ?? 7;
+};
+
+// Helper function to convert recurrence string to number
+const convertRecurrenceToNumber = (recurrence: string): number => {
+  const recurrenceMap: Record<string, number> = {
+    'ONCE': 0,
+    'DAILY': 1,
+    'WEEKLY': 2,
+    'MONTHLY': 3,
+    'YEARLY': 4,
+  };
+  return recurrenceMap[recurrence] ?? 0;
+};
 
 const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   isOpenModal,
   setIsOpenModal,
+  eventSelected,
   defaultValues,
   handleCreatedEvent,
-  eventSelected,
 }) => {
+  const { id: familyTreeId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
   const [isAllDay, setIsAllDay] = useState<boolean>(false);
-  const [, setListCity] = useState<CityOption[]>([]);
-  const [gpIdSelected, setGPIdSelected] = useState<string[]>([]);
-  const [previewImage, setPreviewImage] = useState<string>("");
-  const [, setFileList] = useState<UploadFile[]>([]);
+  const [listCity, setListCity] = useState<CityOption[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [eventTypes, setEventType] = useState<Array<{ label: React.ReactNode; value: string }>>([]);
-  const [gpMembersSrc, setGPMembersSrc] = useState<MemberOption[]>([]);
   const [isSubmit, setIsSubmit] = useState<boolean>(false);
   const [isLunar, setIsLunar] = useState<boolean>(false);
-  const [event, setEvent] = useState<any>({});
+  const [isPublic, setIsPublic] = useState<boolean>(true);
+  const [targetMemberId, setTargetMemberId] = useState<string>("");
+  const [familyTrees, setFamilyTrees] = useState<FamilyTreeOption[]>([]);
+  const [selectedFamilyTreeId, setSelectedFamilyTreeId] = useState<string>("");
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<MemberOption[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [currentUserGPMemberId, setCurrentUserGPMemberId] = useState<string>("");
 
   const methods = useForm<EventFormData>({
     defaultValues: defaultValues || {
@@ -90,8 +145,9 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       eventType: '',
       isAllDay: false,
       startTime: new Date().toISOString(),
-      endTime: null,
+      endTime: new Date().toISOString(),
       location: null,
+      locationName: null,
       recurrence: "ONCE",
       members: [],
       gpIds: [],
@@ -99,604 +155,864 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       imageUrl: null,
       recurrenceEndTime: null,
       address: null,
+      targetMemberId: "",
+      isPublic: true,
+      isLunar: false,
     },
-    resolver: yupResolver(eventSchema),
+    resolver: yupResolver(eventSchema) as any,
   });
 
-  const { handleSubmit, control, formState: { errors }, watch } = methods;
-  const startTimeValue = watch("startTime");
-  const recurrenceValue = watch("recurrence");
+  const { control, handleSubmit, formState: { errors }, reset, setValue, watch } = methods;
 
-  // Nếu eventSelected có giá trị thì nạp dữ liệu vào form (cho trường hợp update)
+  // Watch recurrence to show/hide recurrenceEndTime
+  const recurrenceValue = watch('recurrence');
+  const showRecurrenceEndTime = recurrenceValue && recurrenceValue !== 'ONCE';
+
+  // Watch startTime for validation
+  const startTime = watch('startTime');
+
+  // Auto-update endTime when isAllDay is checked or startTime changes
   useEffect(() => {
-    if (eventSelected) {
-      const PREFIX_URL = import.meta.env.VITE_API_URL || '';
-      methods.reset({
-        name: eventSelected.name || '',
-        eventType: eventSelected.eventType || '',
-        isAllDay: eventSelected.isAllDay || false,
-        startTime: eventSelected.startTime ? moment(eventSelected.startTime).toISOString() : new Date().toISOString(),
-        endTime: eventSelected.endTime ? moment(eventSelected.endTime).toISOString() : null,
-        location: eventSelected.location || null,
-        recurrence: eventSelected.recurrence || "ONCE",
-        members: eventSelected.members || [],
-        gpIds: eventSelected.gpIds || [],
-        description: eventSelected.description || null,
-        imageUrl: eventSelected.imageUrl ? `${PREFIX_URL}/${eventSelected.imageUrl}` : null,
-        recurrenceEndTime: eventSelected.recurrenceEndTime || null,
-        address: eventSelected.address || null,
-      });
-      setGPIdSelected(eventSelected.gpIds || []);
-      setIsAllDay(eventSelected.isAllDay);
-      setPreviewImage(eventSelected.imageUrl ? `${PREFIX_URL}/${eventSelected.imageUrl}` : '');
-      setIsLunar(eventSelected.isLunar || false);
-      setEvent(eventSelected);
+    if (isAllDay && startTime) {
+      // When "All Day" is checked, set endTime to end of the same day
+      const startDate = new Date(startTime);
+      const newEndTime = endOfDay(startDate).toISOString();
+      setValue('endTime', newEndTime);
     }
-  }, [eventSelected, methods]);
+  }, [isAllDay, startTime, setValue]);
 
+  // Fetch provinces for locationName dropdown
   useEffect(() => {
-    getCity();
-    setEventType(
-  Object.values(EVENT_TYPE).map((type) => ({
-    label: (
-      <label key={type} className={`flex items-center gap-1 ${type}`}>
-        <img
-          className="w-4 h-4"
-          src={EVENT_TYPE_CONFIG[type].icon}
-          alt={EVENT_TYPE_CONFIG[type].label}
-        />
-        <span className={`event-type-text ${type}`}>
-          {EVENT_TYPE_CONFIG[type].label}
-        </span>
-      </label>
-    ),
-    value: type,
-  }))
-);
-
+    const fetchProvinces = async () => {
+      try {
+        const res = await provinceService.getAllProvinces();
+        const provinces = res?.data?.data || res?.data || [];
+        const cityOptions: CityOption[] = provinces.map((p: any) => ({
+          label: p.nameWithType || p.name,
+          value: p.code || p.slug || p.id,
+          name: p.nameWithType || p.name,
+          code: p.code || p.slug || p.id,
+        }));
+        setListCity(cityOptions);
+      } catch (error) {
+        console.error("Error fetching provinces:", error);
+      }
+    };
+    fetchProvinces();
   }, []);
 
+  // Fetch current user profile
   useEffect(() => {
-    if (gpIdSelected.length > 0) {
-      getMembersSrc();
-    } else {
-      setGPMembersSrc([]);
-    }
-  }, [gpIdSelected]);
-
-  const handleSave = async (data: EventFormData) => {
-    const payload = {
-      ...event,
-      ...data,
-      startTime: moment(data.startTime).format("MM/DD/YYYY HH:mm"),
-      endTime: moment(data.endTime).format("MM/DD/YYYY HH:mm"),
-      recurrenceEndTime: data.recurrenceEndTime ? moment(data.recurrenceEndTime).format("MM/DD/YYYY HH:mm") : null,
-      imageUrl: previewImage,
-      isLunar: isLunar
+    const fetchUserProfile = async () => {
+      try {
+        const response: any = await userService.getProfileData();
+        if (response?.data?.userId) {
+          setCurrentUserId(response.data.userId);
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+      }
     };
+    fetchUserProfile();
+  }, []);
 
-    try {
-      setIsSubmit(true);
-      if (eventSelected) {
-        await eventService.updateEvent({ ...payload, id: eventSelected.id });
-        message.success("Cập nhật sự kiện thành công");
+  // Fetch family trees
+  useEffect(() => {
+    const fetchFamilyTrees = async () => {
+      try {
+        const res: any = await familyTreeService.getAllFamilyTrees(1, 100);
+        const trees = res?.data?.data?.data || res?.data?.data || [];
+        const treeOptions: FamilyTreeOption[] = trees.map((tree: any) => ({
+          id: tree.id,
+          name: tree.name,
+          description: tree.description,
+        }));
+        setFamilyTrees(treeOptions);
+        
+        // Auto-select the first family tree if available or use URL param
+        if (familyTreeId) {
+          setSelectedFamilyTreeId(familyTreeId);
+        } else if (treeOptions && treeOptions.length > 0) {
+          setSelectedFamilyTreeId(treeOptions[0]?.id || "");
+        }
+      } catch (error) {
+        console.error("Error fetching family trees:", error);
+      }
+    };
+    fetchFamilyTrees();
+  }, [familyTreeId]);
+
+  // Fetch members when family tree is selected
+  useEffect(() => {
+    if (!selectedFamilyTreeId) {
+      setMembers([]);
+      return;
+    }
+
+    const fetchMembers = async () => {
+      try {
+        const res: any = await familyTreeService.getFamilyTreeMembers({
+          pageIndex: 1,
+          pageSize: 100,
+          filters: `[{"name":"ftId","operation":"EQUAL","value":"${selectedFamilyTreeId}"}]`
+        } as any);
+        const memberData = res?.data?.data?.data || res?.data?.data || [];
+        const memberOptions: MemberOption[] = memberData.map((member: any) => ({
+          id: member.id,
+          fullname: member.fullname,
+          ftId: member.ftId,
+        }));
+        setMembers(memberOptions);
+      } catch (error) {
+        console.error("Error fetching members:", error);
+      }
+    };
+    fetchMembers();
+  }, [selectedFamilyTreeId]);
+
+  // Auto-select all members when "All members" is selected and members are loaded
+  useEffect(() => {
+    if (targetMemberId === '' && members.length > 0) {
+      setSelectedMembers(members);
+    }
+  }, [members, targetMemberId]);
+
+  // Fetch current user's GPMember ID when family tree and userId are ready
+  useEffect(() => {
+    if (!selectedFamilyTreeId || !currentUserId) {
+      setCurrentUserGPMemberId("");
+      return;
+    }
+
+    const fetchCurrentUserGPMember = async () => {
+      try {
+        const gpMember = await familyTreeMemberService.getGPMemberByUserId(
+          selectedFamilyTreeId,
+          currentUserId
+        );
+        if (gpMember && gpMember.id) {
+          setCurrentUserGPMemberId(gpMember.id);
+        }
+      } catch (error) {
+        console.error("Error fetching current user's GPMember:", error);
+      }
+    };
+    fetchCurrentUserGPMember();
+  }, [selectedFamilyTreeId, currentUserId]);
+
+  // Setup event types
+  useEffect(() => {
+    const types = Object.values(EVENT_TYPE).map((type) => ({
+      label: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src={EVENT_TYPE_CONFIG[type].icon} alt={type} style={{ width: '20px', height: '20px' }} />
+          <span>{EVENT_TYPE_CONFIG[type].label}</span>
+        </div>
+      ),
+      value: type,
+    }));
+    setEventType(types);
+  }, []);
+
+  // Populate form when editing an existing event
+  useEffect(() => {
+    if (isOpenModal && eventSelected && (eventSelected as any).id) {
+      // This is edit mode - populate form with existing data
+      const event = eventSelected as any;
+      
+      // Set basic form fields
+      reset({
+        name: event.name || '',
+        eventType: event.eventType || 'OTHER',
+        startTime: event.startTime || '',
+        endTime: event.endTime || '',
+        location: event.location || null,
+        locationName: event.locationName || null,
+        recurrence: event.recurrenceType || 'ONCE',
+        description: event.description || null,
+        imageUrl: event.imageUrl || null,
+        recurrenceEndTime: event.recurrenceEndTime || null,
+        address: event.address || null,
+        isAllDay: event.isAllDay || false,
+        isPublic: event.isPublic !== undefined ? event.isPublic : true,
+        isLunar: event.isLunar || false,
+      });
+
+      // Set state fields
+      setIsAllDay(event.isAllDay || false);
+      setIsPublic(event.isPublic !== undefined ? event.isPublic : true);
+      setIsLunar(event.isLunar || false);
+
+      // Set family tree ID
+      if (event.ftId) {
+        setSelectedFamilyTreeId(event.ftId);
+      }
+
+      // Set target member ID
+      if (event.targetMemberId) {
+        setTargetMemberId(event.targetMemberId);
       } else {
-        // Nếu tạo mới
-        await eventService.createEvent(payload);
-        message.success("Tạo sự kiện thành công");
+        setTargetMemberId(''); // All members
       }
-      if (handleCreatedEvent) {
-        handleCreatedEvent();
+
+      // Set selected members from eventMembers
+      if (event.eventMembers && Array.isArray(event.eventMembers)) {
+        const eventMemberOptions: MemberOption[] = event.eventMembers.map((em: any) => ({
+          id: em.ftMemberId,
+          fullname: em.memberName,
+          ftId: event.ftId,
+        }));
+        setSelectedMembers(eventMemberOptions);
       }
-      setIsOpenModal(false);
-      setIsSubmit(false);
-    } catch (error) {
-      message.error(eventSelected ? "Cập nhật sự kiện không thành công" : "Tạo sự kiện không thành công");
-      setIsSubmit(false);
+
+      // Set image if available
+      if (event.imageUrl) {
+        setPreviewImage(event.imageUrl);
+      }
+    } else if (isOpenModal && !eventSelected) {
+      // This is create mode - reset form
+      reset({
+        name: '',
+        eventType: 'OTHER',
+        startTime: '',
+        endTime: '',
+        location: null,
+        locationName: null,
+        recurrence: 'ONCE',
+        description: null,
+        imageUrl: null,
+        recurrenceEndTime: null,
+        address: null,
+        isAllDay: false,
+        isPublic: true,
+        isLunar: false,
+      });
+      setIsAllDay(false);
+      setIsPublic(true);
+      setIsLunar(false);
+      setTargetMemberId('');
+      setSelectedMembers([]);
+      setPreviewImage(null);
+      setFileList([]);
     }
-  };
+  }, [isOpenModal, eventSelected, reset]);
 
+  // Handle form submission
+  const onSubmit = async (data: EventFormData) => {
+    setIsSubmit(true);
+    try {
+      console.log('Form data:', data);
+      console.log('ImageUrl from form:', data.imageUrl ? `${data.imageUrl.substring(0, 50)}...` : 'null');
 
-  const getCity = async () => {
-    // TODO: Implement ProfileService
-    // await ProfileService.getCity().then((response) => {
-    //   // Use response here if needed
-    // });
-  };
+      // Validate start time is before end time
+      if (!isBefore(new Date(data.startTime), new Date(data.endTime))) {
+        toast.error("Thời gian bắt đầu phải trước thời gian kết thúc");
+        setIsSubmit(false);
+        return;
+      }
 
-  const getMembersSrc = async () => {
-    // TODO: Implement GPMemberService
-    // await GPMemberService.getMemberByGpIds(gpIdSelected).then((response) => {
-    //   setGPMembersSrc(response.value);
-    // });
-    setGPMembersSrc([]);
-  };
+      // Get the ftId (Family Tree ID)
+      // Priority: selectedFamilyTreeId -> eventSelected.ftId -> URL params -> fallback
+      const isEditMode = eventSelected && (eventSelected as any).id;
+      const ftId = selectedFamilyTreeId || 
+                   (isEditMode ? (eventSelected as any).ftId : null) ||
+                   familyTreeId || 
+                   "822994d5-7acd-41f8-b12b-e0a634d74440";
+      
+      if (!ftId) {
+        toast.error("Không tìm thấy ID gia phả");
+        setIsSubmit(false);
+        return;
+      }
 
-  const handlePreview = async (file: UploadFile) => {
-    if (!file?.url && !file?.preview) {
-      file.preview = await getBase64(file.originFileObj as File);
-    }
-    setPreviewImage(file.url || file.preview || '');
-  };
+      // Get current user's GPMember ID if "Only me" is selected
+      const actualTargetMemberId = targetMemberId === "self" ? currentUserGPMemberId : targetMemberId;
 
-  const getBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-
-  const handleChange = async (info: UploadChangeParam) => {
-    const newFileList = info.fileList;
-    setFileList(newFileList);
-    if (newFileList[0]) {
-      await handlePreview(newFileList[0]);
-    }
-  };
-
-  const onRemoveImage = () => {
-    setFileList([]);
-    setPreviewImage("");
-  };
-
-  const handleMenuClick = (e: { key: string }) => {
-    const updateAll = e.key === "2";
-    handleSubmit((data) => {
-      const updatedData = {
-        ...eventSelected,
-        ...data,
-        isUpdateAll: updateAll
+      // Convert form data to API payload
+      // NOTE: imageUrl is set to null because base64 is too long for varchar(500)
+      // TODO: Implement proper image upload to cloud storage (S3, Azure Blob, etc.)
+      // and then send the cloud URL instead of base64
+      const payload: ApiCreateEventPayload = {
+        name: data.name,
+        eventType: convertEventTypeToNumber(data.eventType),
+        startTime: data.startTime,
+        endTime: data.endTime || data.startTime,
+        location: data.location || null,
+        locationName: data.locationName || null,
+        recurrenceType: convertRecurrenceToNumber(data.recurrence),
+        ftId: ftId,
+        description: data.description || null,
+        imageUrl: null, // TODO: Upload to cloud storage first
+        referenceEventId: null,
+        address: data.address || null,
+        isAllDay: isAllDay,
+        recurrenceEndTime: data.recurrenceEndTime || null,
+        isLunar: isLunar,
+        targetMemberId: actualTargetMemberId || null,
+        isPublic: isPublic,
+        memberIds: selectedMembers.map(m => m.id),
       };
-      handleSave(updatedData);
-    })();
+
+      console.log('API Payload:', payload);
+      
+      // Call the appropriate API
+      const response = isEditMode
+        ? await eventService.updateEventById((eventSelected as any).id, payload)
+        : await eventService.createEvent(payload);
+      
+      console.log('API Response:', response);
+
+      if (response.data && response.data.id) {
+        const successMessage = isEditMode ? "Cập nhật sự kiện thành công!" : "Tạo sự kiện thành công!";
+        toast.success(successMessage);
+        
+        // Notify user if image was selected but not uploaded
+        if (previewImage && !isEditMode) {
+          toast.info("Lưu ý: Hình ảnh chưa được lưu. Tính năng upload ảnh đang được phát triển.", {
+            autoClose: 5000,
+          });
+        }
+        
+        setIsOpenModal(false);
+        if (handleCreatedEvent) {
+          handleCreatedEvent();
+        }
+        reset();
+        
+        // Navigate to "My Events" tab after creating/editing an event
+        setTimeout(() => {
+          if (!isEditMode) {
+            // For new events, navigate to my-events tab
+            navigate(`/events?tab=my-events&refresh=${Date.now()}`);
+          } else {
+            // For edited events, check if we're already on my-events tab
+            const currentTab = new URLSearchParams(window.location.search).get('tab');
+            if (currentTab === 'my-events') {
+              // Refresh the my-events list by adding a timestamp
+              navigate(`/events?tab=my-events&refresh=${Date.now()}`);
+            }
+          }
+        }, 500);
+      } else {
+        toast.error(response.message || `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sự kiện`);
+      }
+    } catch (error: any) {
+      console.error(`Error ${eventSelected && (eventSelected as any).id ? 'updating' : 'creating'} event:`, error);
+      toast.error(error?.message || `Có lỗi xảy ra khi ${eventSelected && (eventSelected as any).id ? 'cập nhật' : 'tạo'} sự kiện`);
+    } finally {
+      setIsSubmit(false);
+    }
   };
 
-  const items = [
-    {
-      label: 'Cập nhật sự kiện này',
-      key: '1'
-    },
-    {
-      label: 'Cập nhật chuỗi sự kiện',
-      key: '2',
-    },
-  ];
+  const handleCancel = () => {
+    reset();
+    setIsOpenModal(false);
+  };
 
-  const menuProps = {
-    items,
-    onClick: handleMenuClick,
+  // Handle image upload
+  const handleUploadChange = (info: UploadChangeParam<UploadFile>, onChange?: (value: string | null) => void) => {
+    console.log('Upload onChange triggered, fileList length:', info.fileList.length);
+    setFileList(info.fileList);
+    
+    // Get the latest file
+    const file = info.fileList[info.fileList.length - 1];
+    
+    if (file && file.originFileObj) {
+      console.log('Processing file:', file.name, 'type:', file.type);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const url = e.target?.result as string;
+        setPreviewImage(url);
+        setValue('imageUrl', url, { shouldValidate: true, shouldDirty: true });
+        if (onChange) {
+          onChange(url);
+        }
+        console.log('✅ Image uploaded successfully! URL length:', url?.length);
+      };
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        toast.error('Lỗi khi đọc file ảnh');
+      };
+      reader.readAsDataURL(file.originFileObj);
+    } else if (info.fileList.length === 0) {
+      // Image removed
+      console.log('No files, clearing image');
+      setPreviewImage(null);
+      setValue('imageUrl', null, { shouldValidate: true, shouldDirty: true });
+      if (onChange) {
+        onChange(null);
+      }
+    }
   };
 
   const uploadButton = (
-    <div className="text-center">
-      <ImageIcon className="w-6 h-6 text-gray-400 mx-auto" />
-      <div className="mt-2 text-sm text-gray-500">Bấm chọn hoặc kéo thả hình ảnh</div>
+    <div className="flex flex-col items-center gap-2 p-4">
+      <ImageIcon className="w-8 h-8 text-gray-400" />
+      <div className="text-sm text-gray-600">Tải ảnh lên</div>
     </div>
   );
 
   return (
     <Modal
+      title={
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-blue-500" />
+          <span>{eventSelected ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}</span>
+        </div>
+      }
       open={isOpenModal}
-      title={eventSelected ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}
-      onCancel={() => setIsOpenModal(false)}
-      width={900}
-      footer={[
-        <Button key="cancel" onClick={() => setIsOpenModal(false)}>
-          Hủy
-        </Button>,
-        ...(!eventSelected || eventSelected.recurrence === "ONCE"
-          ? [
-            <Button
-              key="save"
-              type="primary"
-              icon={<Edit2 className="w-4 h-4" />}
-              onClick={handleSubmit(handleSave)}
-              disabled={isSubmit}
-            >
-              Lưu
-            </Button>,
-          ]
-          : []),
-        ...(eventSelected &&
-          eventSelected.id &&
-          eventSelected.recurrence !== "ONCE"
-          ? [
-            <Dropdown
-              key="dropdown"
-              menu={{
-                items: [
-                  { label: "Cập nhật sự kiện này", key: "1" },
-                  { label: "Cập nhật chuỗi sự kiện", key: "2" },
-                ],
-                onClick: (e) => {
-                  const updateAll = e.key === "2";
-                  handleSubmit((data) => {
-                    data = { ...eventSelected, ...data, isUpdateAll: updateAll };
-                    handleSave(data);
-                  })();
-                },
-              }}
-            >
-              <Button type="primary" icon={<Edit2 className="w-4 h-4" />} disabled={isSubmit}>
-                <Space>
-                  Lưu
-                  <ChevronDown className="w-4 h-4" />
-                </Space>
-              </Button>
-            </Dropdown>,
-          ]
-          : []),
-      ]}
-      className="gp-event-details-modal"
-      styles={{
-        body: { maxHeight: "70vh", overflowY: "auto", paddingBottom: 16 },
-      }}
+      onCancel={handleCancel}
+      footer={null}
+      width={700}
+      closeIcon={<X className="w-5 h-5" />}
     >
-      <FormProvider {...methods}>
-        <form className="py-2">
-          {/* ============ THÔNG TIN CƠ BẢN ============ */}
-
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
+        {/* Event Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tên sự kiện <span className="text-red-500">*</span>
+          </label>
           <Controller
             name="name"
             control={control}
-            render={({ field, fieldState }) => (
-              <Form layout="vertical">
-                <Form.Item
-                  label={
-                    <>
-                      Tên sự kiện <span className="text-red-500">*</span>
-                    </>
-                  }
-                  validateStatus={fieldState.error ? "error" : ""}
-                  help={fieldState.error?.message}
-                >
-                  <Input {...field} placeholder="Nhập tên sự kiện" />
-                </Form.Item>
-              </Form>
+            render={({ field }) => (
+              <Input
+                {...field}
+                placeholder="Nhập tên sự kiện"
+                size="large"
+                status={errors.name ? 'error' : ''}
+              />
             )}
           />
+          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
+        </div>
 
-          {/* ============ THỜI GIAN + LẶP LẠI ============ */}
-          <Row gutter={16}>
-            {/* Loại sự kiện */}
-            <Col xs={24} md={12}>
-              <Controller
-                name="eventType"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Form layout="vertical">
-                    <Form.Item
-                      label={
-                        <>
-                          Loại sự kiện <span className="text-red-500">*</span>
-                        </>
-                      }
-                      validateStatus={fieldState.error ? "error" : ""}
-                      help={fieldState.error?.message}
-                    >
-                      <AntSelect
-                        {...field}
-                        placeholder="Chọn loại sự kiện"
-                        options={eventTypes}
-                        className="w-full"
-                      />
-                    </Form.Item>
-                  </Form>
-                )}
+        {/* Event Type */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Loại sự kiện <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="eventType"
+            control={control}
+            render={({ field }) => (
+              <Select
+                {...field}
+                placeholder="Chọn loại sự kiện"
+                size="large"
+                style={{ width: '100%' }}
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                options={eventTypes}
+                status={errors.eventType ? 'error' : ''}
               />
-            </Col>
-
-            {/* Lặp lại */}
-            <Col xs={24} md={12}>
-              <Controller
-                name="recurrence"
-                control={control}
-                defaultValue="ONCE"
-                render={({ field, fieldState }) => (
-                  <Form layout="vertical">
-                    <Form.Item
-                      label="Lặp lại"
-                      validateStatus={fieldState.error ? "error" : ""}
-                      help={fieldState.error?.message}
-                    >
-                      <AntSelect
-                        {...field}
-                        placeholder="Không lặp lại"
-                        options={[
-                          { label: "Không lặp lại", value: "ONCE" },
-                          { label: "Mỗi ngày", value: "DAILY" },
-                          { label: "Mỗi tuần", value: "WEEKLY" },
-                          { label: "Mỗi tháng", value: "MONTHLY" },
-                          { label: "Mỗi năm", value: "YEARLY" },
-                        ]}
-                        className="w-full"
-                      />
-                    </Form.Item>
-                  </Form>
-                )}
-              />
-            </Col>
-          </Row>
-
-          {/* ============ THỜI GIAN KẾT THÚC LẶP LẠI (hiện khi có lặp lại) ============ */}
-          {(recurrenceValue === "DAILY" ||
-            recurrenceValue === "WEEKLY" ||
-            recurrenceValue === "MONTHLY" ||
-            recurrenceValue === "YEARLY") && (
-              <Row gutter={24}>
-                <Col xs={24}>
-                  <Controller
-                    name="recurrenceEndTime"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <Form layout="vertical">
-                        <Form.Item
-                          label="Thời gian kết thúc lặp lại"
-                          validateStatus={fieldState.error ? "error" : ""}
-                          help={fieldState.error?.message}
-                        >
-                          <AntDatePicker
-                            {...field}
-                            placeholder="Chọn ngày kết thúc lặp lại"
-                            showTime={false}
-                            format="DD/MM/YYYY"
-                            value={field.value ? moment(field.value) : null}
-                            onChange={(date) =>
-                              field.onChange(date ? date.toISOString() : null)
-                            }
-                            disabledDate={(current) => {
-                              const yearsFromNow = moment().add(
-                                recurrenceValue === "YEARLY"
-                                  ? 100
-                                  : recurrenceValue === "DAILY"
-                                    ? 1
-                                    : 5,
-                                "years"
-                              );
-                              return (
-                                (current && startTimeValue
-                                  ? current < moment(startTimeValue)
-                                  : false) || current > yearsFromNow.endOf("day")
-                              );
-                            }}
-                            prefix={<Calendar className="w-4 h-4" />}
-                            className="w-full"
-                          />
-                        </Form.Item>
-                      </Form>
-                    )}
-                  />
-                </Col>
-              </Row>
             )}
+          />
+          {errors.eventType && <p className="text-red-500 text-sm mt-1">{errors.eventType.message}</p>}
+        </div>
 
-        {/* ============ THỜI GIAN BẮT ĐẦU / KẾT THÚC / CẢ NGÀY ============ */}
-<Row gutter={16} align="bottom">
-  {/* Thời gian bắt đầu */}
-  <Col xs={24} md={9}>
-    <Controller
-      name="startTime"
-      control={control}
-      render={({ field, fieldState }) => (
-        <Form layout="vertical" className="h-full">
-          <Form.Item
-            label={
-              <>
-                Thời gian bắt đầu <span className="text-red-500">*</span>
-              </>
-            }
-            validateStatus={fieldState.error ? "error" : ""}
-            help={fieldState.error?.message}
-            className="mb-0"
+        {/* All Day Checkbox */}
+        <div>
+          <Checkbox
+            checked={isAllDay}
+            onChange={(e) => setIsAllDay(e.target.checked)}
           >
-            <AntDatePicker
-              {...field}
-              placeholder="Chọn ngày giờ bắt đầu"
-              showTime={!isAllDay}
-              format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
-              value={field.value ? moment(field.value) : moment()}
-              onChange={(date) =>
-                field.onChange(date ? date.toISOString() : null)
-              }
-              className="w-full"
-            />
-          </Form.Item>
-        </Form>
-      )}
-    />
-  </Col>
+            Sự kiện cả ngày
+          </Checkbox>
+        </div>
 
-  {/* Thời gian kết thúc */}
-  <Col xs={24} md={9}>
-    <Controller
-      name="endTime"
-      control={control}
-      render={({ field, fieldState }) => (
-        <Form layout="vertical" className="h-full">
-          <Form.Item
-            label={
-              <>
-                Thời gian kết thúc <span className="text-red-500">*</span>
-              </>
-            }
-            validateStatus={fieldState.error ? "error" : ""}
-            help={fieldState.error?.message}
-            className="mb-0"
-          >
-            <AntDatePicker
-              {...field}
-              placeholder="Chọn ngày giờ kết thúc"
-              showTime={!isAllDay}
-              format={isAllDay ? "DD/MM/YYYY" : "DD/MM/YYYY HH:mm"}
-              value={field.value ? moment(field.value) : null}
-              onChange={(date) =>
-                field.onChange(date ? date.toISOString() : null)
-              }
-              disabledDate={(current) =>
-                current && startTimeValue
-                  ? current < moment(startTimeValue)
-                  : false
-              }
-              className="w-full"
-            />
-          </Form.Item>
-        </Form>
-      )}
-    />
-  </Col>
-
-  {/* Cả ngày */}
-  <Col xs={24} md={6}>
-    <Form layout="vertical" className="h-full flex flex-col justify-end">
-      <Form.Item label="Cả ngày" className="mb-0">
-        <Controller
-          name="isAllDay"
-          control={control}
-          render={({ field }) => (
-            <Switch
-              checked={field.value}
-              onChange={(checked) => {
-                field.onChange(checked);
-                setIsAllDay(checked);
-              }}
-            />
-          )}
-        />
-      </Form.Item>
-    </Form>
-  </Col>
-</Row>
-
-
-          {/* ============ ĐỊA CHỈ ============ */}
-          <div>
-            <Controller
-              name="address"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Form layout="vertical">
-                  <Form.Item
-                    label="Địa điểm"
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <Input {...field} placeholder="Nhập địa chỉ" />
-                  </Form.Item>
-                </Form>
-              )}
-            />
-          </div>
-
-          {/* ============ GIA PHẢ & THÀNH VIÊN ============ */}
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Controller
-                name="gpIds"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Form layout="vertical">
-                    <Form.Item
-                      label="Gia phả"
-                      validateStatus={fieldState.error ? "error" : ""}
-                      help={fieldState.error?.message}
-                    >
-                      <AntSelect
-                        {...field}
-                        mode="multiple"
-                        placeholder="Chọn gia phả"
-                        onChange={(value) => {
-                          field.onChange(value);
-                          setGPIdSelected(value);
-                          methods.setValue("members", []);
-                        }}
-                        className="w-full"
-                      />
-                    </Form.Item>
-                  </Form>
-                )}
-              />
-            </Col>
-
-            <Col xs={24} md={12}>
-              <Controller
-                name="members"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Form layout="vertical">
-                    <Form.Item
-                      label="Thành viên"
-                      validateStatus={fieldState.error ? "error" : ""}
-                      help={fieldState.error?.message}
-                    >
-                      <AntSelect
-                        {...field}
-                        mode="multiple"
-                        placeholder="Chọn thành viên"
-                        options={gpMembersSrc}
-                        className="w-full"
-                      />
-                    </Form.Item>
-                  </Form>
-                )}
-              />
-            </Col>
-          </Row>
-
-          {/* ============ MÔ TẢ ============ */}
-          <div>
-            <Controller
-              name="description"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Form layout="vertical">
-                  <Form.Item
-                    label="Mô tả thành viên"
-                    validateStatus={fieldState.error ? "error" : ""}
-                    help={fieldState.error?.message}
-                  >
-                    <Input.TextArea
-                      {...field}
-                      placeholder="Nhập mô tả"
-                      rows={4}
-                    />
-                  </Form.Item>
-                </Form>
-              )}
-            />
-          </div>
-
-          {/* ============ HÌNH ẢNH ============ */}
-          <div>
-            <Typography.Text strong>Kéo thả ảnh vào đây hoặc <span className="text-blue-500 cursor-pointer">tải lên</span></Typography.Text>
-            {!previewImage ? (
-              <Dragger
-                showUploadList={false}
-                beforeUpload={() => false}
-                listType="picture-card"
-                onChange={handleChange}
-                multiple={false}
-                accept="image/*"
-              >
-                {uploadButton}
-              </Dragger>
-            ) : (
-              <div className="relative w-full h-[300px] text-center">
-                <Image src={previewImage} preview={false} />
-                <Button
-                  type="primary"
-                  shape="circle"
-                  icon={<X className="w-4 h-4" />}
-                  onClick={onRemoveImage}
-                  className="!absolute top-2.5 right-2.5"
+        {/* Start Date Time */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Ngày bắt đầu <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="startTime"
+            control={control}
+            render={({ field }) => (
+              <div className="flex gap-2">
+                <input
+                  type="datetime-local"
+                  value={
+                    field.value 
+                      ? format(new Date(field.value), "yyyy-MM-dd'T'HH:mm")
+                      : ''
+                  }
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const date = new Date(e.target.value);
+                    field.onChange(date.toISOString());
+                  }}
+                  min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+                  className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                    errors.startTime ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
               </div>
             )}
-          </div>
-        </form>
-      </FormProvider>
-    </Modal>
+          />
+          {errors.startTime && <p className="text-red-500 text-sm mt-1">{errors.startTime.message}</p>}
+        </div>
 
+        {/* End Date Time - Hidden when All Day is selected */}
+        {!isAllDay && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày kết thúc <span className="text-red-500">*</span>
+            </label>
+            <Controller
+              name="endTime"
+              control={control}
+              render={({ field }) => (
+                <div className="flex gap-2">
+                  <input
+                    type="datetime-local"
+                    value={
+                      field.value 
+                        ? format(new Date(field.value), "yyyy-MM-dd'T'HH:mm")
+                        : ''
+                    }
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const date = new Date(e.target.value);
+                      field.onChange(date.toISOString());
+                    }}
+                    min={startTime ? format(new Date(startTime), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+                    className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                      errors.endTime ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                </div>
+              )}
+            />
+            {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime.message}</p>}
+          </div>
+        )}
+
+        {/* Helper text for All Day events */}
+        {isAllDay && (
+          <p className="text-xs text-gray-500 -mt-2">
+            Sự kiện cả ngày sẽ tự động kết thúc vào cuối ngày đã chọn
+          </p>
+        )}
+
+       
+
+        {/* Recurrence */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Lặp lại
+          </label>
+          <Controller
+            name="recurrence"
+            control={control}
+            render={({ field }) => (
+              <Select
+                {...field}
+                size="large"
+                style={{ width: '100%' }}
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                options={[
+                  { label: 'Một lần', value: 'ONCE' },
+                  { label: 'Hàng ngày', value: 'DAILY' },
+                  { label: 'Hàng tuần', value: 'WEEKLY' },
+                  { label: 'Hàng tháng', value: 'MONTHLY' },
+                  { label: 'Hàng năm', value: 'YEARLY' },
+                ]}
+              />
+            )}
+          />
+        </div>
+
+        {/* Recurrence End Time (only show if recurrence is not ONCE) */}
+        {showRecurrenceEndTime && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày kết thúc lặp lại
+            </label>
+            <Controller
+              name="recurrenceEndTime"
+              control={control}
+              render={({ field }) => (
+                <input
+                  type="date"
+                  value={field.value ? format(new Date(field.value), 'yyyy-MM-dd') : ''}
+                  onChange={(e) => {
+                    const date = e.target.value ? new Date(e.target.value) : null;
+                    field.onChange(date ? date.toISOString() : null);
+                  }}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              )}
+            />
+          </div>
+        )}
+
+        {/* Location Name (Province) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tỉnh/Thành phố
+          </label>
+          <Controller
+            name="locationName"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value || undefined}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                placeholder="Chọn tỉnh/thành phố"
+                size="large"
+                style={{ width: '100%' }}
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                options={listCity}
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.label?.toString() ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+              />
+            )}
+          />
+        </div>
+
+        {/* Address */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Địa chỉ cụ thể
+          </label>
+          <Controller
+            name="address"
+            control={control}
+            render={({ field }) => (
+              <Input
+                {...field}
+                value={field.value || ''}
+                placeholder="Nhập địa chỉ cụ thể"
+                size="large"
+              />
+            )}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Mô tả
+          </label>
+          <Controller
+            name="description"
+            control={control}
+            render={({ field }) => (
+              <Input.TextArea
+                {...field}
+                value={field.value || ''}
+                placeholder="Nhập mô tả sự kiện"
+                rows={4}
+              />
+            )}
+          />
+        </div>
+
+        {/* Image Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Hình ảnh
+            <span className="ml-2 text-xs text-orange-500 font-normal">(Tính năng đang phát triển)</span>
+          </label>
+          <Controller
+            name="imageUrl"
+            control={control}
+            render={({ field }) => (
+              <>
+                <input type="hidden" {...field} value={field.value || ''} />
+                <Upload
+                  listType="picture-card"
+                  fileList={fileList}
+                  onChange={(info) => handleUploadChange(info, field.onChange)}
+                  beforeUpload={(file) => {
+                    console.log('Before upload:', file.name, 'size:', file.size, 'bytes');
+                    return false; // Prevent auto upload
+                  }}
+                  onRemove={() => {
+                    setFileList([]);
+                    setPreviewImage(null);
+                    field.onChange(null);
+                    console.log('Image removed from form');
+                    return true;
+                  }}
+                  accept="image/*"
+                  maxCount={1}
+                >
+                  {fileList.length === 0 && uploadButton}
+                </Upload>
+                {previewImage && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-gray-500">Xem trước:</p>
+                    <img src={previewImage} alt="Preview" className="w-32 h-32 object-cover rounded border" />
+                    <p className="text-xs text-orange-500 flex items-center gap-1">
+                      <span>⚠️</span>
+                      <span>Ảnh chỉ hiển thị xem trước, chưa được lưu lên server</span>
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          />
+        </div>
+
+        {/* Family Tree Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Chọn Gia phả <span className="text-red-500">*</span>
+          </label>
+          <Select
+            value={selectedFamilyTreeId}
+            onChange={(value) => {
+              setSelectedFamilyTreeId(value);
+              setSelectedMembers([]); // Reset selected members when changing family tree
+            }}
+            size="large"
+            style={{ width: '100%' }}
+            placeholder="Chọn gia phả"
+            getPopupContainer={(trigger) => trigger.parentElement || document.body}
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label?.toString() || '').toLowerCase().includes(input.toLowerCase())
+            }
+            options={familyTrees.map(tree => ({
+              label: tree.name,
+              value: tree.id,
+            }))}
+          />
+        </div>
+
+        {/* Target Member (Event visibility) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Đối tượng xem sự kiện
+          </label>
+          <Select
+            value={targetMemberId}
+            onChange={(value) => {
+              setTargetMemberId(value);
+              // When selecting "All members", auto-select all members
+              if (value === '') {
+                setSelectedMembers(members);
+              }
+              // When selecting "Only me", clear selected members and auto-fill current user's GPMember
+              if (value === 'self') {
+                setSelectedMembers([]);
+                // Auto-fill current user's GPMember if available
+                if (currentUserGPMemberId) {
+                  const currentUserMember = members.find(m => m.id === currentUserGPMemberId);
+                  if (currentUserMember) {
+                    setSelectedMembers([currentUserMember]);
+                  }
+                }
+              }
+            }}
+            size="large"
+            style={{ width: '100%' }}
+            getPopupContainer={(trigger) => trigger.parentElement || document.body}
+            options={[
+              { label: 'Tất cả thành viên', value: '' },
+              { label: 'Chỉ mình tôi', value: 'self' },
+            ]}
+          />
+        </div>
+
+        {/* Member Tagging - Hidden when "Only me" is selected */}
+        {targetMemberId !== 'self' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tag thành viên
+            </label>
+            <Select
+              mode="multiple"
+              value={selectedMembers.map(m => m.id)}
+              onChange={(values) => {
+                const selected = members.filter(m => values.includes(m.id));
+                setSelectedMembers(selected);
+              }}
+              size="large"
+              style={{ width: '100%' }}
+              placeholder="@Nhập tên thành viên để tag..."
+              getPopupContainer={(trigger) => trigger.parentElement || document.body}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label?.toString() || '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={members.map(member => ({
+                label: member.fullname,
+                value: member.id,
+              }))}
+              disabled={!selectedFamilyTreeId}
+              maxTagCount="responsive"
+            />
+            {selectedMembers.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {selectedMembers.map(member => (
+                  <span
+                    key={member.id}
+                    className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
+                  >
+                    @{member.fullname}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))}
+                      className="ml-1 text-blue-500 hover:text-blue-700"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Public/Private */}
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">
+            Công khai sự kiện
+          </label>
+          <Switch
+            checked={isPublic}
+            onChange={(checked) => setIsPublic(checked)}
+          />
+        </div>
+
+        {/* Lunar Calendar */}
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">
+            Sử dụng lịch âm
+          </label>
+          <Switch
+            checked={isLunar}
+            onChange={(checked) => setIsLunar(checked)}
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmit}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmit ? 'Đang lưu...' : eventSelected ? 'Cập nhật' : 'Tạo sự kiện'}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 };
 

@@ -5,6 +5,21 @@ export enum EventType {
   BIRTHDAY = 'BIRTHDAY',
   HOLIDAY = 'HOLIDAY',
   OTHER = 'OTHER',
+  MEETING = 'MEETING',
+  MEMORIAL = 'MEMORIAL',
+  GATHERING = 'GATHERING',
+}
+
+// API Event Type Numbers
+export enum EventTypeNumber {
+  FUNERAL = 0,
+  WEDDING = 1,
+  BIRTHDAY = 2,
+  HOLIDAY = 3,
+  MEMORIAL = 4,
+  MEETING = 5,
+  GATHERING = 6,
+  OTHER = 7,
 }
 
 export enum RecurrenceType {
@@ -13,6 +28,16 @@ export enum RecurrenceType {
   WEEKLY = 'WEEKLY',
   MONTHLY = 'MONTHLY',
   YEARLY = 'YEARLY',
+}
+
+// API Recurrence Type Numbers
+export enum RecurrenceTypeNumber {
+  NONE = 0,
+  ONCE = 0,
+  DAILY = 1,
+  WEEKLY = 2,
+  MONTHLY = 3,
+  YEARLY = 4,
 }
 
 export enum ViewMode {
@@ -229,4 +254,52 @@ export interface UpdateEventPayload extends CreateEventPayload {
 export interface DeleteEventPayload {
   id: string;
   isDeleteAll: boolean;
+}
+
+// API Create Event Payload (matches backend API)
+export interface ApiCreateEventPayload {
+  name: string;
+  eventType: number; // 0-7 (FUNERAL=0, WEDDING=1, BIRTHDAY=2, HOLIDAY=3, MEMORIAL=4, MEETING=5, GATHERING=6, OTHER=7)
+  startTime: string; // ISO 8601 format: "2025-10-26T16:45:31.088Z"
+  endTime: string; // ISO 8601 format: "2025-10-26T16:45:31.088Z"
+  location: string | null;
+  recurrenceType: number; // 0=none/once, 1=daily, 2=weekly, 3=monthly, 4=yearly
+  ftId: string; // family tree ID (UUID)
+  description: string | null;
+  imageUrl: string | null;
+  referenceEventId: string | null; // reference to another event (UUID)
+  address: string | null;
+  locationName: string | null;
+  isAllDay: boolean;
+  recurrenceEndTime: string | null; // ISO 8601 format or null
+  isLunar: boolean;
+  targetMemberId: string | null; // null = all members, specific UUID = that member only
+  isPublic: boolean;
+  memberIds: string[]; // array of member IDs (UUIDs) to tag
+}
+
+// API Event Response (from backend)
+export interface ApiEventResponse {
+  id: string;
+  name: string;
+  eventType: number;
+  startTime: string;
+  endTime: string;
+  location?: string | null;
+  recurrenceType: string; // "None", "Daily", etc.
+  ftId: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  referenceEventId?: string | null;
+  address?: string | null;
+  locationName?: string | null;
+  isAllDay: boolean;
+  recurrenceEndTime?: string | null;
+  isLunar: boolean;
+  targetMemberId?: string | null;
+  targetMemberName?: string | null;
+  isPublic: boolean;
+  createdOn: string;
+  lastModifiedOn: string;
+  eventMembers: any[];
 }

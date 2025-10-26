@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { DatePicker, Radio } from 'antd';
-import { Search, Calendar, ChevronLeft, ChevronRight, CloudSun } from 'lucide-react';
+import { Search, Calendar, ChevronLeft, ChevronRight, CloudSun, User, LayoutGrid } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import moment from 'moment';
 import debounce from 'lodash/debounce';
 import dayjs from 'dayjs';
@@ -16,6 +17,7 @@ import DayCalendar from './DayCalendar';
 import InfiniteYearCalendar from './InfiniteYearCalendar';
 import GPEventInfoModal from './GPEventInfoModal';
 import GPEventDetailsModal from './GPEventDetailsModal';
+import MyEventsContent from './MyEventsContent';
 
 // Types
 import type {
@@ -32,7 +34,16 @@ moment.updateLocale('vi', { week: { dow: 1, doy: 1 } });
 
 const EventPage: React.FC = () => {
   const now = new Date();
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get('tab');
 
+  // Debug: Log when tab changes
+  useEffect(() => {
+    console.log('EventPage - Current tab:', tab);
+  }, [tab]);
+
+  // --- Hooks ---
+  const navigate = useNavigate();
   // State Management
   const [viewMode, setViewMode] = useState<ViewMode>('month' as ViewMode);
   const [currentDate, setCurrentDate] = useState<Date>(now);
@@ -42,7 +53,7 @@ const EventPage: React.FC = () => {
   const [eventFilters, setEventFilters] = useState<EventFilters | null>(null);
   const [search, setSearch] = useState<string>('');
   const [openDatePicker, setOpenDatePicker] = useState<boolean>(false);
-  
+
   // Loading states
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [error] = useState<string | null>(null);
@@ -229,7 +240,7 @@ const EventPage: React.FC = () => {
 
     switch (viewMode) {
       case 'year':
-        return <InfiniteYearCalendar 
+        return <InfiniteYearCalendar
           reload={reload}
           eventFilters={eventFilters || {}}
           isShowLunarDay={isShowLunarDay}
@@ -237,9 +248,9 @@ const EventPage: React.FC = () => {
           setIsOpenGPEventInfoModal={setIsOpenGPEventInfoModal}
         />;
       case 'month':
-        return <MonthCalendar 
-          {...commonProps} 
-          onMoreClick={() => {}} 
+        return <MonthCalendar
+          {...commonProps}
+          onMoreClick={() => { }}
         />;
       case 'week':
         return (
@@ -249,7 +260,7 @@ const EventPage: React.FC = () => {
           />
         );
       case 'day':
-        return <DayCalendar 
+        return <DayCalendar
           date={currentDate}
           reload={reload}
           {...(eventFilters && { eventFilters })}
@@ -260,7 +271,7 @@ const EventPage: React.FC = () => {
           handleSelect={handleSelect}
         />;
       case 'list':
-        return <InfiniteYearCalendar 
+        return <InfiniteYearCalendar
           reload={reload}
           eventFilters={eventFilters || {}}
           isShowLunarDay={isShowLunarDay}
@@ -268,10 +279,10 @@ const EventPage: React.FC = () => {
           setIsOpenGPEventInfoModal={setIsOpenGPEventInfoModal}
         />;
       default:
-        {/* @ts-ignore - Calendar component type conversion in progress */}
-        return <MonthCalendar 
-          {...commonProps} 
-          onMoreClick={() => {}} 
+        {/* @ts-ignore - Calendar component type conversion in progress */ }
+        return <MonthCalendar
+          {...commonProps}
+          onMoreClick={() => { }}
         />;
     }
   };
@@ -292,139 +303,169 @@ const EventPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Main Content - Calendar */}
-          <div className="flex-1 w-full min-w-0">
-            <div className="bg-white rounded-lg p-5 shadow-sm max-h-[calc(100vh-60px)] overflow-hidden flex flex-col">
-              {/* Header Section */}
-              <div className="mb-3 flex-shrink-0">
-                {/* Title */}
-                <h2 className="text-2xl font-semibold mb-3 text-gray-900">
-                  Lịch Sự Kiện Gia Phả
-                </h2>
+          {/* Main Content - Calendar or My Events */}
+          <div className="bg-white rounded-lg p-5 shadow-sm max-h-[calc(100vh-60px)] w-full overflow-auto flex flex-col">
+          <div className=" w-full min-w-0">
+            <div className="flex gap-2">
+            <button
+              onClick={() => {
+                navigate('/events');
+              }}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg h-10 text-[15px] font-medium mb-4 flex items-center justify-center gap-2 transition-colors"
+            >
+              <LayoutGrid className="w-5 h-5" />
+              <span>Sự kiện gia phả</span>
+            </button>
 
-                {/* Search Bar */}
-                <div className="relative mb-3">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm sự kiện..."
-                    value={search}
-                    onChange={handleSearchChange}
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                  {search && (
-                    <button
-                      onClick={handleClearSearch}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
+            <button
+              onClick={() => {
+                navigate('/events?tab=my-events');
+              }}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg h-10 text-[15px] font-medium mb-4 flex items-center justify-center gap-2 transition-colors"
+            >
+              <User className="w-5 h-5" />
+              <span>Sự kiện của tôi</span>
+            </button>
+            </div>
+            </div>
 
-                {/* Calendar Controls */}
-                <div className="pb-2 border-b border-gray-200">
-                  <div className="flex justify-between items-center flex-wrap gap-2">
-                    {/* Navigation Controls */}
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handlePrev}
-                          className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                          aria-label="Previous"
-                        >
-                          <ChevronLeft className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button
-                          onClick={handleToday}
-                          className="px-3 py-2 rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 transition-colors font-medium"
-                        >
-                          Hôm nay
-                        </button>
-                        <button
-                          onClick={handleNext}
-                          className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                          aria-label="Next"
-                        >
-                          <ChevronRight className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
+            <div className="flex-1 w-full min-w-0">
+              {tab === 'my-events' ? (
+                /* My Events Content */
+                <MyEventsContent />
+              ) : (
+                <>
+                  {/* Header Section */}
+                  <div className="mb-3 flex-shrink-0">
+                    {/* Title */}
+                    <h2 className="text-2xl font-semibold mb-3 text-gray-900">
+                      Lịch sự kiện gia phả
+                    </h2>
 
-                      {/* Date Display with Picker */}
-                      <div className="relative">
+                    {/* Search Bar */}
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Tìm kiếm sự kiện..."
+                        value={search}
+                        onChange={handleSearchChange}
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      />
+                      {search && (
                         <button
-                          onClick={() => setOpenDatePicker(!openDatePicker)}
-                          className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
+                          onClick={handleClearSearch}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
-                          <Calendar className="w-4 h-4 text-gray-600" />
-                          <span>{getDateDisplayText}</span>
+                          ×
                         </button>
-                        <DatePicker
-                          open={openDatePicker}
-                          value={dayjs(currentDate)}
-                          onChange={handleSelectedDate}
-                          onOpenChange={setOpenDatePicker}
-                          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
-                          getPopupContainer={(trigger: any) => trigger.parentElement || document.body}
-                        />
-                      </div>
+                      )}
                     </div>
 
-                    {/* Right Side Controls */}
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {/* View Mode Selector */}
-                      <Radio.Group
-                        value={viewMode}
-                        onChange={(e: any) => setViewMode(e.target.value as ViewMode)}
-                        buttonStyle="solid"
-                        size="middle"
-                      >
-                        <Radio.Button value="day">Ngày</Radio.Button>
-                        <Radio.Button value="week">Tuần</Radio.Button>
-                        <Radio.Button value="month">Tháng</Radio.Button>
-                        <Radio.Button value="year">Năm</Radio.Button>
-                      </Radio.Group>
+                    {/* Calendar Controls */}
+                    <div className="pb-2 border-b border-gray-200">
+                      <div className="flex justify-between items-center flex-wrap gap-2">
+                        {/* Navigation Controls */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handlePrev}
+                              className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                              aria-label="Previous"
+                            >
+                              <ChevronLeft className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={handleToday}
+                              className="px-3 py-2 rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 transition-colors font-medium"
+                            >
+                              Hôm nay
+                            </button>
+                            <button
+                              onClick={handleNext}
+                              className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                              aria-label="Next"
+                            >
+                              <ChevronRight className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </div>
 
-                      {/* Weather Toggle */}
-                      <button
-                        onClick={() => setViewWeather(!viewWeather)}
-                        className={`p-2.5 rounded-lg transition-colors ${
-                          viewWeather 
-                            ? 'bg-blue-500 text-white border-blue-500' 
-                            : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                        } border`}
-                        title={viewWeather ? 'Ẩn thời tiết' : 'Hiện thời tiết'}
-                        aria-label="Toggle weather"
-                      >
-                        <CloudSun className="w-4 h-4" />
-                      </button>
+                          {/* Date Display with Picker */}
+                          <div className="relative">
+                            <button
+                              onClick={() => setOpenDatePicker(!openDatePicker)}
+                              className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
+                            >
+                              <Calendar className="w-4 h-4 text-gray-600" />
+                              <span>{getDateDisplayText}</span>
+                            </button>
+                            <DatePicker
+                              open={openDatePicker}
+                              value={dayjs(currentDate)}
+                              onChange={handleSelectedDate}
+                              onOpenChange={setOpenDatePicker}
+                              style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+                              getPopupContainer={(trigger: any) => trigger.parentElement || document.body}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Right Side Controls */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {/* View Mode Selector */}
+                          <Radio.Group
+                            value={viewMode}
+                            onChange={(e: any) => setViewMode(e.target.value as ViewMode)}
+                            buttonStyle="solid"
+                            size="middle"
+                          >
+                            <Radio.Button value="day">Ngày</Radio.Button>
+                            <Radio.Button value="week">Tuần</Radio.Button>
+                            <Radio.Button value="month">Tháng</Radio.Button>
+                            <Radio.Button value="year">Năm</Radio.Button>
+                          </Radio.Group>
+
+                          {/* Weather Toggle */}
+                          <button
+                            onClick={() => setViewWeather(!viewWeather)}
+                            className={`p-2.5 rounded-lg transition-colors ${viewWeather
+                              ? 'bg-blue-500 text-white border-blue-500'
+                              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                              } border`}
+                            title={viewWeather ? 'Ẩn thời tiết' : 'Hiện thời tiết'}
+                            aria-label="Toggle weather"
+                          >
+                            <CloudSun className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Calendar View Content */}
-              <div className="mt-2 min-h-[400px] max-h-[calc(100vh-280px)] overflow-auto">
-                {initialLoading ? (
-                  <div className="flex justify-center items-center py-20 min-h-[400px]">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                  {/* Calendar View Content */}
+                  <div className="mt-2 min-h-[400px] max-h-[calc(100vh-280px)] overflow-auto">
+                    {initialLoading ? (
+                      <div className="flex justify-center items-center py-20 min-h-[400px]">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                      </div>
+                    ) : error ? (
+                      <div className="text-center py-20 min-h-[400px]">
+                        <p className="text-red-500 mb-5">{error}</p>
+                        <button
+                          onClick={() => setReload(!reload)}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          Thử lại
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-full">
+                        {renderCalendar()}
+                      </div>
+                    )}
                   </div>
-                ) : error ? (
-                  <div className="text-center py-20 min-h-[400px]">
-                    <p className="text-red-500 mb-5">{error}</p>
-                    <button 
-                      onClick={() => setReload(!reload)}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      Thử lại
-                    </button>
-                  </div>
-                ) : (
-                  <div className="w-full">
-                    {renderCalendar()}
-                  </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -436,8 +477,8 @@ const EventPage: React.FC = () => {
           isOpenModal={isOpenGPEventInfoModal}
           setIsOpenModal={setIsOpenGPEventInfoModal}
           defaultValues={eventSelected}
-          setConfirmDeleteModal={() => {}}
-          setConfirmDeleteAllModal={() => {}}
+          setConfirmDeleteModal={() => { }}
+          setConfirmDeleteAllModal={() => { }}
           setIsOpenGPEventDetailsModal={setIsOpenGPEventDetailsModal}
           setEventSelected={setEventSelected}
         />

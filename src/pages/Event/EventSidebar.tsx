@@ -5,7 +5,8 @@ import { useCombobox } from "downshift";
 import { EVENT_TYPE_CONFIG, EVENT_TYPE } from "./EventTypeLabel";
 import type { EventType } from "./EventTypeLabel";
 import EventStatistics from "./EventStatistics";
-import api from "../../services/apiService";
+import provinceService from "../../services/provinceService";
+import { useNavigate } from 'react-router-dom';
 
 /**
  * EventSidebar Component
@@ -97,11 +98,13 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await api.get("/account/provinces");
-        const provinces = Array.isArray(res.data) ? res.data : [];
+        const res = await provinceService.getAllProvinces();
+        const provinces = res?.data?.data || res?.data || [];
         const listCityMapped: CityItem[] = provinces.map((p: any) => ({
           name: p.nameWithType || p.name,
           code: p.code || p.slug || p.id,
+          lat: p.lat,
+          lon: p.lon,
         }));
         const fallback = MOCK_CITIES;
         setListCity(listCityMapped.length > 0 ? listCityMapped : fallback);
@@ -109,6 +112,8 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         setEventLocation("");
       } catch (error) {
         console.error("Error preparing sidebar data:", error);
+        // Use fallback on error
+        setListCity(MOCK_CITIES);
       }
     };
     fetchData();
@@ -208,7 +213,6 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         <Plus className="w-5 h-5" />
         <span>Thêm sự kiện mới</span>
       </button>
-
       {/* Event Type Section */}
       <div>
         <div

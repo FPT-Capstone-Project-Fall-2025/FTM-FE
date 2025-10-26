@@ -7,7 +7,10 @@ import type {
   GetEventsResponse,
   EventFilters,
   EventStatisticsData,
+  ApiCreateEventPayload,
+  ApiEventResponse,
 } from '@/types/event';
+import type { ApiResponse } from '@/types/api';
 
 // API Endpoints
 const ENDPOINTS = {
@@ -135,18 +138,59 @@ class EventService {
   }
 
   /**
-   * Create a new event
+   * Create a new event (using the actual backend API)
    */
-  async createEvent(payload: CreateEventPayload): Promise<FamilyEvent> {
-    const response = await apiService.post<FamilyEvent>(
-      ENDPOINTS.CREATE_EVENT,
-      payload
+  async createEvent(payload: ApiCreateEventPayload): Promise<ApiResponse<ApiEventResponse>> {
+    const response = await apiService.post<ApiResponse<ApiEventResponse>>(
+      '/ftfamilyevent',
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     );
     return response;
   }
 
   /**
-   * Update an existing event
+   * Get events by member ID
+   */
+  async getEventsByMember(memberId: string): Promise<ApiResponse<ApiEventResponse[]>> {
+    const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
+      `/ftfamilyevent/by-member/${memberId}`
+    );
+    return response;
+  }
+
+  /**
+   * Get my events by family tree ID
+   */
+  async getMyEventsByFtId(ftId: string): Promise<ApiResponse<ApiEventResponse[]>> {
+    const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
+      `/ftfamilyevent/my-events?ftId=${ftId}`
+    );
+    return response;
+  }
+
+  /**
+   * Update an existing event (using the actual backend API)
+   */
+  async updateEventById(eventId: string, payload: ApiCreateEventPayload): Promise<ApiResponse<ApiEventResponse>> {
+    const response = await apiService.put<ApiResponse<ApiEventResponse>>(
+      `/ftfamilyevent/${eventId}`,
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return response;
+  }
+
+  /**
+   * Update an existing event (legacy)
    */
   async updateEvent(payload: UpdateEventPayload): Promise<FamilyEvent> {
     const response = await apiService.put<FamilyEvent>(
@@ -157,7 +201,17 @@ class EventService {
   }
 
   /**
-   * Delete an event
+   * Delete an event by ID
+   */
+  async deleteEventById(eventId: string): Promise<ApiResponse<boolean>> {
+    const response = await apiService.delete<ApiResponse<boolean>>(
+      `/ftfamilyevent/${eventId}`
+    );
+    return response;
+  }
+
+  /**
+   * Delete an event (legacy)
    */
   async deleteEvent(payload: DeleteEventPayload): Promise<void> {
     await apiService.delete(
