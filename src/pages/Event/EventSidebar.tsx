@@ -1,9 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Button, Checkbox, Input } from "antd";
-import { useAppSelector } from '../../hooks/redux';
-import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
-import { PlusOutlined, CloseOutlined, EnvironmentOutlined, DownOutlined, UpOutlined } from "@ant-design/icons";
+import React, { useState, useEffect } from 'react';
+import { Checkbox } from "antd";
+import { Plus, MapPin, ChevronDown } from "lucide-react";
 import { useCombobox } from "downshift";
 import { EVENT_TYPE_CONFIG, EVENT_TYPE } from "./EventTypeLabel";
 import type { EventType } from "./EventTypeLabel";
@@ -48,12 +45,6 @@ interface CityItem {
 }
 
 // Mock data (optional fallback)
-const MOCK_FAMILY_GROUPS = [
-  { label: 'Gia phả họ Nguyễn', value: 'nguyen-family' },
-  { label: 'Gia phả họ Trần', value: 'tran-family' },
-  { label: 'Gia phả họ Lê', value: 'le-family' },
-];
-
 const MOCK_CITIES = [
   { name: 'Hồ Chí Minh', code: 'hcm', lat: 10.8231, lon: 106.6297 },
   { name: 'Hà Nội', code: 'hn', lat: 21.0285, lon: 105.8542 },
@@ -77,7 +68,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   });
   const [listCity, setListCity] = useState<CityItem[]>([]);
   const [inputValue, setInputValue] = useState<string>("");
-  const [eventGp, setEventGp] = useState<GPItem[]>([]);
+  const [eventGp] = useState<GPItem[]>([]);
   const [weather, setWeather] = useState<{
     temp: number;
     icon: string;
@@ -207,29 +198,26 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   // --- Render ---
   return (
     <div className="w-full p-5 bg-white rounded-lg">
-      <Button
-        type="primary"
-        icon={<PlusOutlined />}
-        block
-        size="small"
+      <button
         onClick={() => {
           setEventSelected(null);
           setIsOpenGPEventDetailsModal(true);
         }}
-        className="!bg-blue-500 !rounded-lg !h-10 !text-[15px] !font-medium mb-3 flex items-center justify-center hover:!bg-blue-600"
+        className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg h-10 text-[15px] font-medium mb-4 flex items-center justify-center gap-2 transition-colors"
       >
-        Thêm sự kiện mới
-      </Button>
+        <Plus className="w-5 h-5" />
+        <span>Thêm sự kiện mới</span>
+      </button>
 
       {/* Event Type Section */}
       <div>
         <div
           onClick={() => toggleSection("eventType")}
-          className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100"
+          className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100 select-none"
         >
           <span>Loại sự kiện</span>
-          <DownOutlined
-            className={`text-gray-500 text-xs transition-transform duration-300 ${openSections.eventType ? "rotate-180" : "rotate-0"
+          <ChevronDown
+            className={`text-gray-500 w-4 h-4 transition-transform duration-300 ${openSections.eventType ? "rotate-180" : "rotate-0"
               }`}
           />
         </div>
@@ -265,8 +253,8 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
           className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100 select-none"
         >
           <span>Sự kiện gia phả</span>
-          <DownOutlined
-            className={`text-gray-500 text-xs transition-transform duration-300 ${openSections.familyGroups ? "rotate-180" : "rotate-0"
+          <ChevronDown
+            className={`text-gray-500 w-4 h-4 transition-transform duration-300 ${openSections.familyGroups ? "rotate-180" : "rotate-0"
               }`}
           />
         </div>
@@ -322,7 +310,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
               {weather.icon ? (
                 <img src={weather.icon} alt="icon" className="w-8 h-8" />
               ) : (
-                <EnvironmentOutlined className="text-blue-500 text-lg" />
+                <MapPin className="text-blue-500 w-5 h-5" />
               )}
               <div className="text-sm">
                 <div className="font-medium">{weather.cityName || ''}</div>

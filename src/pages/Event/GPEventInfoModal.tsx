@@ -1,17 +1,7 @@
 // @ts-nocheck
 import { useEffect } from "react";
 import { Input, Select } from "antd";
-import {
-  CalendarOutlined,
-  EnvironmentOutlined,
-  RetweetOutlined,
-  UserOutlined,
-  ApartmentOutlined,
-  FileTextOutlined,
-  DeleteOutlined,
-  DownOutlined,
-} from "@ant-design/icons";
-import { X } from "lucide-react";
+import { X, Calendar, MapPin, Repeat, User, Users, FileText, Trash2, ChevronDown } from "lucide-react";
 import "moment/locale/vi";
 import moment from "moment";
 
@@ -125,17 +115,17 @@ const GPEventInfoModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
             {/* Thời gian */}
             <div className="flex items-center gap-2">
-              <CalendarOutlined className="text-blue-500" />
+              <Calendar className="w-5 h-5 text-blue-500" />
               <Input value={`${startTimeText} - ${endTimeText}`} readOnly className="font-medium uppercase" />
             </div>
             {/* Địa chỉ */}
             <div className="flex items-center gap-2">
-              <EnvironmentOutlined className="text-green-500" />
+              <MapPin className="w-5 h-5 text-green-500" />
               <Input value={address || ""} readOnly placeholder="Địa chỉ" />
             </div>
             {/* Lặp lại */}
             <div className="flex items-center gap-2">
-              <RetweetOutlined className="text-orange-500" />
+              <Repeat className="w-5 h-5 text-orange-500" />
               <Input value={recurrence === "ONCE"
                 ? "Không lặp lại"
                 : recurrence === "DAILY"
@@ -150,17 +140,17 @@ const GPEventInfoModal = ({
             </div>
             {/* Thành viên */}
             <div className="flex items-center gap-2">
-              <UserOutlined className="text-gray-500" />
+              <User className="w-5 h-5 text-gray-500" />
               <Input value={memberNamesJoin} readOnly placeholder="Thành viên" />
             </div>
             {/* Gia phả */}
             <div className="flex items-center gap-2">
-              <ApartmentOutlined className="text-purple-500" />
+              <Users className="w-5 h-5 text-purple-500" />
               <Input value={gpNamesJoin} readOnly placeholder="Gia phả" />
             </div>
             {/* Mô tả */}
             <div className="flex items-center gap-2 col-span-1 md:col-span-2">
-              <FileTextOutlined className="text-gray-400" />
+              <FileText className="w-5 h-5 text-gray-400" />
               <Input.TextArea value={decodeHTML(description)} readOnly autoSize placeholder="Mô tả" />
             </div>
           </div>
@@ -182,7 +172,7 @@ const GPEventInfoModal = ({
                   onClick={() => setConfirmDeleteModal(true)}
                   className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2"
                 >
-                  <DeleteOutlined />
+                  <Trash2 className="w-4 h-4" />
                   <span>Xóa</span>
                 </button>
               ) : (
@@ -190,8 +180,8 @@ const GPEventInfoModal = ({
                   onClick={() => setConfirmDeleteModal(true)}
                   className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2"
                 >
-                  <DeleteOutlined />
-                  <DownOutlined />
+                  <Trash2 className="w-4 h-4" />
+                  <ChevronDown className="w-4 h-4" />
                   <span>Xóa</span>
                 </button>
               )}

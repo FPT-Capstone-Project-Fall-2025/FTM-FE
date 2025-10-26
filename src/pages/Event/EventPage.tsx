@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Row, Col, Input, DatePicker, Radio, Button } from 'antd';
-import { SearchOutlined, CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { DatePicker, Radio } from 'antd';
+import { Search, Calendar, ChevronLeft, ChevronRight, CloudSun } from 'lucide-react';
 import moment from 'moment';
 import debounce from 'lodash/debounce';
 import dayjs from 'dayjs';
@@ -16,10 +16,6 @@ import DayCalendar from './DayCalendar';
 import InfiniteYearCalendar from './InfiniteYearCalendar';
 import GPEventInfoModal from './GPEventInfoModal';
 import GPEventDetailsModal from './GPEventDetailsModal';
-
-
-// Assets
-import weatherSwitch from '@/assets/img/icon/event/weather-switch.svg';
 
 // Types
 import type {
@@ -281,21 +277,12 @@ const EventPage: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', paddingBottom: '40px' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
-        <Row gutter={[20, 20]}>
+    <div className="min-h-screen bg-gray-100 pb-10">
+      <div className="max-w-7xl mx-auto px-4 py-5">
+        <div className="flex gap-5 flex-wrap lg:flex-nowrap">
           {/* Sidebar - Filters and Statistics */}
-          <Col xs={24} md={8} lg={6}>
-            <div style={{ 
-              background: 'white', 
-              borderRadius: '8px', 
-              padding: '0',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-              position: 'sticky',
-              top: '20px',
-              maxHeight: 'calc(100vh - 40px)',
-              overflowY: 'auto'
-            }}>
+          <div className="w-full lg:w-80">
+            <div className="bg-white rounded-lg shadow-sm sticky top-5 max-h-[calc(100vh-40px)] overflow-y-auto">
               <EventSidebar
                 handleFilter={handleFilter}
                 setIsShowLunarDay={setIsShowLunarDay}
@@ -303,107 +290,88 @@ const EventPage: React.FC = () => {
                 setIsOpenGPEventDetailsModal={setIsOpenGPEventDetailsModal}
               />
             </div>
-          </Col>
+          </div>
 
           {/* Main Content - Calendar */}
-          <Col xs={24} md={16} lg={18}>
-            <div style={{ 
-              background: 'white', 
-              borderRadius: '8px', 
-              padding: '20px',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-            }}>
+          <div className="flex-1 w-full">
+            <div className="bg-white rounded-lg p-5 shadow-sm">
               {/* Header Section */}
-              <div style={{ marginBottom: '20px' }}>
+              <div className="mb-5">
                 {/* Title */}
-                <h2 style={{ 
-                  fontSize: '24px', 
-                  fontWeight: 600, 
-                  margin: '0 0 16px 0',
-                  color: '#1a1a1a'
-                }}>
+                <h2 className="text-2xl font-semibold mb-4 text-gray-900">
                   Lịch Sự Kiện Gia Phả
                 </h2>
 
                 {/* Search Bar */}
-                <Input
-                  prefix={<SearchOutlined style={{ color: '#8c8c8c' }} />}
-                  placeholder="Tìm kiếm sự kiện..."
-                  value={search}
-                  onChange={handleSearchChange}
-                  size="large"
-                  allowClear
-                  onClear={handleClearSearch}
-                  style={{ 
-                    marginBottom: '16px',
-                    borderRadius: '8px'
-                  }}
-                />
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm sự kiện..."
+                    value={search}
+                    onChange={handleSearchChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                  {search && (
+                    <button
+                      onClick={handleClearSearch}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
 
                 {/* Calendar Controls */}
-                <div style={{ 
-                  paddingBottom: '16px',
-                  borderBottom: '1px solid #f0f0f0',
-                  marginBottom: '20px'
-                }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '12px'
-                  }}>
+                <div className="pb-4 border-b border-gray-200 mb-5">
+                  <div className="flex justify-between items-center flex-wrap gap-3">
                     {/* Navigation Controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <Button
-                          icon={<LeftOutlined />}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex gap-2">
+                        <button
                           onClick={handlePrev}
-                          style={{ borderRadius: '6px' }}
-                        />
-                        <Button
+                          className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                          aria-label="Previous"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-gray-600" />
+                        </button>
+                        <button
                           onClick={handleToday}
-                          style={{ 
-                            borderRadius: '6px',
-                            color: '#1677ff',
-                            borderColor: '#1677ff'
-                          }}
+                          className="px-3 py-2 rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 transition-colors font-medium"
                         >
                           Hôm nay
-                        </Button>
-                        <Button
-                          icon={<RightOutlined />}
+                        </button>
+                        <button
                           onClick={handleNext}
-                          style={{ borderRadius: '6px' }}
-                        />
+                          className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                          aria-label="Next"
+                        >
+                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                        </button>
                       </div>
 
                       {/* Date Display with Picker */}
-                      <Button
-                        icon={<CalendarOutlined />}
-                        onClick={() => setOpenDatePicker(!openDatePicker)}
-                        style={{ 
-                          borderRadius: '8px',
-                          fontWeight: 500
-                        }}
-                      >
-                        {getDateDisplayText}
-                      </Button>
-                      {openDatePicker && (
-                        <div style={{ position: 'absolute', zIndex: 1000 }}>
-                          <DatePicker
-                            open={openDatePicker}
-                            value={dayjs(currentDate)}
-                            onChange={handleSelectedDate}
-                            onOpenChange={setOpenDatePicker}
-                            getPopupContainer={(trigger: any) => trigger.parentElement || document.body}
-                          />
-                        </div>
-                      )}
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenDatePicker(!openDatePicker)}
+                          className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
+                        >
+                          <Calendar className="w-4 h-4 text-gray-600" />
+                          <span>{getDateDisplayText}</span>
+                        </button>
+                        <DatePicker
+                          open={openDatePicker}
+                          value={dayjs(currentDate)}
+                          onChange={handleSelectedDate}
+                          onOpenChange={setOpenDatePicker}
+                          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+                          getPopupContainer={(trigger: any) => trigger.parentElement || document.body}
+                        />
+                      </div>
                     </div>
 
                     {/* Right Side Controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div className="flex items-center gap-3 flex-wrap">
                       {/* View Mode Selector */}
                       <Radio.Group
                         value={viewMode}
@@ -411,88 +379,55 @@ const EventPage: React.FC = () => {
                         buttonStyle="solid"
                         size="middle"
                       >
-                        <Radio.Button value="day" style={{ borderRadius: '6px 0 0 6px' }}>
-                          Ngày
-                        </Radio.Button>
+                        <Radio.Button value="day">Ngày</Radio.Button>
                         <Radio.Button value="week">Tuần</Radio.Button>
                         <Radio.Button value="month">Tháng</Radio.Button>
-                        <Radio.Button value="year" style={{ borderRadius: '0 6px 6px 0' }}>
-                          Năm
-                        </Radio.Button>
+                        <Radio.Button value="year">Năm</Radio.Button>
                       </Radio.Group>
 
                       {/* Weather Toggle */}
-                      <Button
+                      <button
                         onClick={() => setViewWeather(!viewWeather)}
-                        style={{ 
-                          borderRadius: '8px',
-                          background: viewWeather ? '#1677ff' : 'white',
-                          color: viewWeather ? 'white' : '#595959',
-                          borderColor: viewWeather ? '#1677ff' : '#d9d9d9'
-                        }}
+                        className={`p-2.5 rounded-lg transition-colors ${
+                          viewWeather 
+                            ? 'bg-blue-500 text-white border-blue-500' 
+                            : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                        } border`}
                         title={viewWeather ? 'Ẩn thời tiết' : 'Hiện thời tiết'}
+                        aria-label="Toggle weather"
                       >
-                        <img 
-                          src={weatherSwitch} 
-                          alt="Weather" 
-                          style={{ 
-                            width: '16px', 
-                            height: '16px',
-                            filter: viewWeather ? 'brightness(0) invert(1)' : 'none'
-                          }} 
-                        />
-                      </Button>
+                        <CloudSun className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Calendar View Content */}
-              <div style={{ 
-                marginTop: '24px', 
-                minHeight: '500px',
-                overflowX: 'auto',
-                overflowY: 'visible'
-              }}>
+              <div className="mt-6 min-h-[500px] overflow-x-auto overflow-y-visible">
                 {initialLoading ? (
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center', 
-                    padding: '80px 20px',
-                    minHeight: '500px'
-                  }}>
-                    <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Đang tải...</span>
-                    </div>
+                  <div className="flex justify-center items-center py-20 min-h-[500px]">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
                   </div>
                 ) : error ? (
-                  <div style={{ 
-                    textAlign: 'center', 
-                    padding: '80px 20px',
-                    minHeight: '500px'
-                  }}>
-                    <p style={{ color: '#ff4d4f', marginBottom: '20px' }}>{error}</p>
-                    <Button 
-                      type="primary"
+                  <div className="text-center py-20 min-h-[500px]">
+                    <p className="text-red-500 mb-5">{error}</p>
+                    <button 
                       onClick={() => setReload(!reload)}
-                      style={{ borderRadius: '6px' }}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                     >
                       Thử lại
-                    </Button>
+                    </button>
                   </div>
                 ) : (
-                  <div style={{ 
-                    padding: '0',
-                    width: '100%'
-                  }}>
+                  <div className="w-full">
                     {renderCalendar()}
                   </div>
                 )}
               </div>
             </div>
-          </Col>
-        </Row>
+          </div>
+        </div>
       </div>
 
       {/* Event Info Modal */}

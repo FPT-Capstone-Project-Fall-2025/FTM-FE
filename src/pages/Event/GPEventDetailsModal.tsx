@@ -7,7 +7,7 @@ import { FormProvider, useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import eventService from "../../services/eventService";
-import { CalendarOutlined, CloseCircleOutlined, DownOutlined, EditOutlined, FileImageOutlined } from "@ant-design/icons";
+import { Calendar, X, ChevronDown, Edit2, Image as ImageIcon } from "lucide-react";
 import { EVENT_TYPE, EVENT_TYPE_CONFIG } from "./EventTypeLabel";
 
 // Types
@@ -74,10 +74,10 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   eventSelected,
 }) => {
   const [isAllDay, setIsAllDay] = useState<boolean>(false);
-  const [listCity, setListCity] = useState<CityOption[]>([]);
+  const [, setListCity] = useState<CityOption[]>([]);
   const [gpIdSelected, setGPIdSelected] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string>("");
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [, setFileList] = useState<UploadFile[]>([]);
   const [eventTypes, setEventType] = useState<Array<{ label: React.ReactNode; value: string }>>([]);
   const [gpMembersSrc, setGPMembersSrc] = useState<MemberOption[]>([]);
   const [isSubmit, setIsSubmit] = useState<boolean>(false);
@@ -200,9 +200,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   const getCity = async () => {
     // TODO: Implement ProfileService
     // await ProfileService.getCity().then((response) => {
-    //   setListCity(response);
+    //   // Use response here if needed
     // });
-    setListCity([]);
   };
 
   const getMembersSrc = async () => {
@@ -271,7 +270,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   const uploadButton = (
     <div className="text-center">
-      <FileImageOutlined className="text-2xl text-gray-400" />
+      <ImageIcon className="w-6 h-6 text-gray-400 mx-auto" />
       <div className="mt-2 text-sm text-gray-500">Bấm chọn hoặc kéo thả hình ảnh</div>
     </div>
   );
@@ -291,7 +290,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             <Button
               key="save"
               type="primary"
-              icon={<EditOutlined />}
+              icon={<Edit2 className="w-4 h-4" />}
               onClick={handleSubmit(handleSave)}
               disabled={isSubmit}
             >
@@ -319,10 +318,10 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 },
               }}
             >
-              <Button type="primary" icon={<EditOutlined />} disabled={isSubmit}>
+              <Button type="primary" icon={<Edit2 className="w-4 h-4" />} disabled={isSubmit}>
                 <Space>
                   Lưu
-                  <DownOutlined />
+                  <ChevronDown className="w-4 h-4" />
                 </Space>
               </Button>
             </Dropdown>,
@@ -461,7 +460,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                                   : false) || current > yearsFromNow.endOf("day")
                               );
                             }}
-                            prefix={<CalendarOutlined />}
+                            prefix={<Calendar className="w-4 h-4" />}
                             className="w-full"
                           />
                         </Form.Item>
@@ -539,7 +538,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   ? current < moment(startTimeValue)
                   : false
               }
-              prefix={<CalendarOutlined />}
               className="w-full"
             />
           </Form.Item>
@@ -688,7 +686,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 <Button
                   type="primary"
                   shape="circle"
-                  icon={<CloseCircleOutlined />}
+                  icon={<X className="w-4 h-4" />}
                   onClick={onRemoveImage}
                   className="!absolute top-2.5 right-2.5"
                 />
