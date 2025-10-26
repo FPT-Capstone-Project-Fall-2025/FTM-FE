@@ -3,14 +3,24 @@ import { ChevronDown, Search } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import type { PaginationProps } from "@/types/api";
 import type { FamilyMemberList } from "@/types/familytree";
-import { fetchFamilyMembers } from "@/services/familyTreeService";
+import familyTreeService from "@/services/familyTreeService";
+import { useAppSelector } from "@/hooks/redux";
 
 const Members: React.FC = () => {
+
+    const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree)
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(false);
     const [paginationData, setPaginationData] = useState<PaginationProps>({
         pageIndex: 1,
         pageSize: 10,
+        propertyFilters: [
+            {
+                name: "FTId",
+                operation: "EQUAL",
+                value: selectedFamilyTree ? selectedFamilyTree.id : ''
+            }
+        ],
         totalItems: 0,
         totalPages: 0,
     });
@@ -19,15 +29,12 @@ const Members: React.FC = () => {
     const loadMembers = async () => {
         setLoading(true);
         try {
-            const res = await fetchFamilyMembers({ pageIndex: 1,
-                pageSize: 10,
-                totalItems: 0,
-                totalPages: 0, });
+            const res = await familyTreeService.getFamilyTreeMembers(paginationData);
             setPaginationData(pre => ({
                 ...pre,
                 ...res.data
             }));
-            setFamilyMemberList(res.data);
+            setFamilyMemberList(res.data.data);
         } catch (error) {
             console.error("Failed to fetch members:", error);
         } finally {

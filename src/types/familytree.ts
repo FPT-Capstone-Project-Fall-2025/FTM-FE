@@ -55,3 +55,81 @@ export interface FamilyMemberList {
   birthday: string | null;
   filePath: string | null;
 }
+
+export enum CategoryCode {
+  FirstNode = 504,
+  Parent = 5001,
+  Sibling = 5003,
+  Spouse = 5002,
+  Child = 5004,
+}
+
+export interface AddingNodeProps {
+  fullname: string;
+  gender: 0 | 1;
+  isDeath: boolean;
+  categoryCode: CategoryCode | undefined;
+  ftId: string;
+  birthday?: string;
+  birthplace: string;
+  deathDescription?: string | undefined;
+  deathDate?: string | undefined;
+  burialAddress?: string | undefined;
+  burialWardId?: number | undefined;
+  burialProvinceId?: number | undefined;
+  identificationType: string | undefined;
+  identificationNumber?: number | undefined;
+  ethnicId?: number | undefined;
+  religionId?: number | undefined;
+  address?: string | undefined;
+  wardId?: number | undefined;
+  provinceId?: number | undefined;
+  email?: string | undefined;
+  phoneNumber?: string | undefined;
+  content?: string | undefined;
+  storyDescription?: string | undefined;
+  rootId?: string;
+  fromFTMemberId?: string | undefined;
+  fromFTMemberPartnerId?: string | undefined;
+}
+
+export interface FamilyNode {
+  id: string;
+  userId: string;
+  ftId: string;
+  ftRole: string;
+  fullname: string;
+  gender: 0 | 1;
+  isDeath: boolean;
+  birthday: string;
+  deathDescription: string;
+  deathDate: string;
+  burialAddress: string;
+  burialWardId: number;
+  burialProvinceId: number;
+  identificationType: string;
+  identificationNumber: number;
+  ethnicId: number;
+  religionId: number;
+  address: string;
+  wardId: number;
+  provinceId: number;
+  email: string;
+  phoneNumber: string;
+  content: string;
+  storyDescription: string;
+  privacyData: null;
+  picture: string;
+  ftMemberFiles: FileProps[]
+}
+
+export interface FileProps {
+  file?: string;
+  title?: string;
+  fileType?: string;
+  description?: string;
+  content?: string;
+  thumbnail?: string;
+}
+
+

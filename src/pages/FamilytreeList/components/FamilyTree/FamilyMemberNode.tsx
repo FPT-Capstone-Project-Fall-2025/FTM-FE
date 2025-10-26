@@ -1,14 +1,15 @@
 import { useAppSelector } from "@/hooks/redux";
 import type { FamilyMember } from "@/types/familytree";
-import { User } from "lucide-react";
+import { User, Plus, Trash2 } from "lucide-react";
 import { Handle, Position, type NodeProps } from "reactflow";
 
 interface FamilyMemberNodeData extends FamilyMember {
   onMemberClick?: (member: FamilyMember) => void;
+  onAdd?: () => void;
+  onDelete?: () => void;
 }
 
 const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
-
   const highlightedNodeId = useAppSelector(state => state.familyTree.highlightedNodeId);
   const isHighlighted = highlightedNodeId === id;
 
@@ -21,7 +22,7 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
 
   return (
     <div
-      className={`${bgColor} ${borderColor} ${highlightStyles} border-2 rounded-lg p-3 min-w-[140px] cursor-pointer hover:shadow-lg transition-shadow`}
+      className={`${bgColor} ${borderColor} ${highlightStyles} border-2 rounded-lg p-3 min-w-[140px] cursor-pointer hover:shadow-lg transition-shadow relative group`}
       onClick={() => data.onMemberClick?.(data)}
     >
       <Handle type="target" position={Position.Top} className="w-2 h-2" />
@@ -42,6 +43,22 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
       </div>
 
       <Handle type="source" position={Position.Bottom} className="w-2 h-2" />
+
+      {/* Add and Delete buttons on hover */}
+      <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); data.onAdd?.(); }}
+          className="p-1 bg-green-500 text-white rounded-full hover:bg-green-600"
+        >
+          <Plus size={16} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); data.onDelete?.(); }}
+          className="p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
     </div>
   );
 };

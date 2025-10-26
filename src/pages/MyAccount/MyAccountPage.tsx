@@ -36,7 +36,7 @@ const MyAccountPage: React.FC = () => {
             <div className="h-full flex flex-col px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                    <h1 className="text-4xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                         TÀI KHOẢN CỦA TÔI
                     </h1>
                 </div>

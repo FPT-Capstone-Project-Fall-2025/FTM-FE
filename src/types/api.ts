@@ -21,7 +21,8 @@ export interface PaginationProps {
   pageIndex: number;
   pageSize: number;
   propertyFilters?: Array<{
-    key: string,
+    name: string,
+    operation: string,
     value: string
   }>;
   totalItems: number;

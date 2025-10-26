@@ -3,10 +3,12 @@ import { Calendar, User, X } from "lucide-react";
 
 const MemberDetailPanel = ({
   member,
-  onClose
+  onClose,
+  onShowMemberDetail
 }: {
   member: FamilyMember | null | undefined;
   onClose: () => void;
+  onShowMemberDetail?: () => void;
 }) => {
   const bgColor = member?.gender === 1 ? 'bg-pink-200' : 'bg-blue-200';
 
@@ -71,7 +73,9 @@ const MemberDetailPanel = ({
                   </div>
                 ))}
               </div>
-              <button className="text-blue-600 text-sm mt-3 hover:underline">
+              <button 
+              onClick={onShowMemberDetail}
+              className="text-blue-600 text-sm mt-3 hover:underline">
                 Xem thêm→
               </button>
             </div>

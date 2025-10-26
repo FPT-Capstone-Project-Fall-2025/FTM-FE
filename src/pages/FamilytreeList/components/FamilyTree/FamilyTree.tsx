@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect, memo } from 'react';
+import { useMemo, useCallback, useEffect, memo, useState } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -11,7 +11,7 @@ import ReactFlow, {
   ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import type { FamilyMember } from '@/types/familytree';
+import type { AddingNodeProps, FamilyMember } from '@/types/familytree';
 import MemberDetailPanel from './MemberDetailPanel';
 import FamilyMemberNode from './FamilyMemberNode';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
@@ -20,25 +20,30 @@ import {
   setEdges,
   setHighlightedNode,
   setSelectedMember,
-  updateNodePosition
+  updateNodePosition,
 } from '@/stores/slices/familyTreeSlice';
 import FamilyTreeToolbar from './FamilyTreeToolbar';
 import { useReactFlowZoom } from '@/hooks/useReactFlowZoom';
 import SearchBar from './SearchBar';
 import AddNewNodeButton from './AddNewNodeButton';
+import AddNewNode from './AddNewNode';
+import familyTreeService from '@/services/familyTreeService';
+// import MemberDetailPage from '../../FamilyMemberDetail';
+import DeleteConfirmModal from './DeleteConfirmModal';
+import { toast } from 'react-toastify';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
 };
 
 // Memoized ReactFlow wrapper to prevent unnecessary re-renders
-const MemoizedReactFlow = memo(({ 
-  nodes, 
-  edges, 
-  onNodesChange, 
-  onEdgesChange, 
-  onConnect, 
-  nodeTypes 
+const MemoizedReactFlow = memo(({
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  nodeTypes,
 }: any) => {
   return (
     <ReactFlow
@@ -67,19 +72,27 @@ const FamilyTreeContent = () => {
   const members = useAppSelector(state => state.familyTree.members);
   const selectedMemberId = useAppSelector(state => state.familyTree.selectedMemberId);
   const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
-
+  const [isAddingNewNode, setIsAddingNewNode] = useState(false);
+  const [isDeletingNode, setIsDeletingNode] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
+  const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
+  // const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
 
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {
-    setLocalNodes(reduxNodes);
+    if (reduxNodes.length > 0) {
+      setLocalNodes(reduxNodes);
+    }
   }, [reduxNodes, setLocalNodes]);
 
   useEffect(() => {
-    setLocalEdges(reduxEdges);
+    if (reduxEdges.length > 0) {
+      setLocalEdges(reduxEdges);
+    }
   }, [reduxEdges, setLocalEdges]);
 
   useEffect(() => {
@@ -101,10 +114,9 @@ const FamilyTreeContent = () => {
 
   // Optimized: Only save history on drag END, not during dragging
   const handleNodesChange: OnNodesChange = useCallback((changes) => {
-    // Only save history when drag ends (not during dragging)
-    const isDragEnd = changes.some(c => 
-      c.type === 'position' && 
-      c.dragging === false && 
+    const isDragEnd = changes.some(c =>
+      c.type === 'position' &&
+      c.dragging === false &&
       c.position
     );
 
@@ -115,7 +127,7 @@ const FamilyTreeContent = () => {
         if (change.type === 'position' && change.position) {
           dispatch(updateNodePosition({
             id: change.id,
-            position: change.position
+            position: change.position,
           }));
         }
       });
@@ -147,6 +159,58 @@ const FamilyTreeContent = () => {
     dispatch(setSelectedMember(null));
   }, [dispatch]);
 
+  const handleAddNewNode = useCallback(async (formData: AddingNodeProps) => {
+    try {
+      const response = await familyTreeService.createFamilyNode({
+        ...formData,
+        ftId: selectedFamilyTree?.id || "",
+      });
+      console.log("API Response:", response);
+      // Re-fetch the family tree to sync with the new node
+      dispatch(fetchFamilyTree(selectedFamilyTree!.id));
+    } catch (error) {
+      console.error("Error adding new node:", error);
+    } finally {
+      setIsAddingNewNode(false);
+      setSelectedParent(null);
+    }
+  }, [dispatch, selectedFamilyTree?.id]);
+
+  // Handle delete node confirmation
+  const handleDeleteNodeConfirm = useCallback(async () => {
+    if (!memberToDelete?.id) return;
+    
+    setIsDeletingNode(true);
+    try {
+      const response = await familyTreeService.deleteFamilyNode(memberToDelete.id);
+      console.log("Delete API Response:", response);
+      
+      // Close the detail panel if the deleted member was selected
+      if (selectedMemberId === memberToDelete.id) {
+        dispatch(setSelectedMember(null));
+      }
+      
+      // Re-fetch the family tree to sync with the deleted node
+      if (selectedFamilyTree?.id) {
+        await dispatch(fetchFamilyTree(selectedFamilyTree.id));
+      }
+      
+      // Close the modal
+      setMemberToDelete(null);
+    } catch (error: any) {
+      console.error("Error deleting node:", error);
+      toast.error(error?.response?.data?.Message);
+    } finally {
+      setIsDeletingNode(false);
+    }
+  }, [memberToDelete, selectedFamilyTree?.id, selectedMemberId, dispatch]);
+
+  // Handle delete node cancel
+  const handleDeleteNodeCancel = useCallback(() => {
+    setMemberToDelete(null);
+    setIsDeletingNode(false);
+  }, []);
+
   // Memoize enhanced nodes - only recreate when nodes or handler changes
   const enhancedNodes = useMemo(() => {
     return nodes.map(node => ({
@@ -154,9 +218,22 @@ const FamilyTreeContent = () => {
       data: {
         ...node.data,
         onMemberClick: handleMemberClick,
+        onAdd: () => {
+          const member = members[node.id];
+          if (member) {
+            setSelectedParent(member);
+            setIsAddingNewNode(true);
+          }
+        },
+        onDelete: () => {
+          const member = members[node.id];
+          if (member) {
+            setMemberToDelete(member);
+          }
+        }
       },
     }));
-  }, [nodes, handleMemberClick]);
+  }, [nodes, handleMemberClick, members]);
 
   // Memoize nodeTypes to prevent recreation
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
@@ -186,42 +263,75 @@ const FamilyTreeContent = () => {
     <div className="relative w-full h-full overflow-hidden bg-gray-50">
       {/* Main Content */}
       <div className="flex h-full">
-        {/* Add New Node - Outside ReactFlow to prevent re-renders */}
-        {nodes.length === 0 ? 
-          <div className="h-full flex-1 flex items-center justify-center">
-            <AddNewNodeButton />
-          </div>
-          : 
-          <>
-            {/* ReactFlow Canvas */}
-            <div className="flex-1 relative">
-              <MemoizedReactFlow
-                nodes={enhancedNodes}
-                edges={edges}
-                onNodesChange={handleNodesChange}
-                onEdgesChange={handleEdgesChange}
-                onConnect={onConnect}
-                nodeTypes={memoizedNodeTypes}
-              />
-              
-              {/* Toolbar */}
-              <FamilyTreeToolbar />
-              
-              {/* Search Bar */}
-              <div className="absolute top-4 right-4 z-10">
-                <SearchBar onSelectMember={handleSearchSelect} />
-              </div>
-    
-              
-            </div>
-    
-            {/* Side Panel */}
-            <MemberDetailPanel
-              member={selectedMember}
-              onClose={handleClosePanel}
+        <>
+          {/* ReactFlow Canvas */}
+          <div className="flex-1 relative">
+            <MemoizedReactFlow
+              nodes={enhancedNodes}
+              edges={edges}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={memoizedNodeTypes}
             />
-          </>
-        }
+
+            {/* Toolbar */}
+            <FamilyTreeToolbar />
+
+            {/* Search Bar */}
+            <div className="absolute top-4 right-4 z-10">
+              <SearchBar onSelectMember={handleSearchSelect} />
+            </div>
+          </div>
+
+          {/* Side Panel */}
+          <MemberDetailPanel
+            member={selectedMember}
+            onClose={handleClosePanel}
+            // onShowMemberDetail={() => setShowMemberDetailModal(true)}
+          />
+        </>
+
+        {/* Add New Node - Outside ReactFlow to prevent re-renders */}
+        {nodes.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <AddNewNodeButton onOpen={() => setIsAddingNewNode(true)} />
+          </div>
+        )}
+        
+        {/* Add New Node Modal */}
+        {isAddingNewNode && (
+          <AddNewNode
+            ftId={selectedFamilyTree?.id || ""}
+            isFirstNode={nodes.length === 0}
+            parentMember={selectedParent}
+            existingRelationships={[]}
+            onSelectType={handleAddNewNode}
+            onClose={() => {
+              setIsAddingNewNode(false);
+              setSelectedParent(null);
+            }}
+          />
+        )}
+        
+        {/* Member Detail Modal */}
+        {/* {showMemberDetailModal && (
+          <MemberDetailPage
+            ftId={selectedFamilyTree?.id}
+            memberId={selectedMember?.id}
+            onClose={() => setShowMemberDetailModal(false)}
+          />
+        )} */}
+
+        {/* Delete Confirmation Modal */}
+        {memberToDelete && (
+          <DeleteConfirmModal
+            member={memberToDelete}
+            onConfirm={handleDeleteNodeConfirm}
+            onCancel={handleDeleteNodeCancel}
+            isDeleting={isDeletingNode}
+          />
+        )}
       </div>
     </div>
   );
