@@ -28,7 +28,6 @@ const FamilyTreePage: React.FC = () => {
     if (paramTab && tabs.some(t => t.id === paramTab)) {
       return paramTab;
     }
-
     try {
       const savedTab = localStorage.getItem(STORAGE_KEY) as 'basic' | 'tree' | 'members' | null;
       if (savedTab && tabs.some(t => t.id === savedTab)) {
@@ -37,7 +36,6 @@ const FamilyTreePage: React.FC = () => {
     } catch (error) {
       console.error('Failed to read from localStorage:', error);
     }
-
     return 'basic';
   };
 
@@ -47,7 +45,6 @@ const FamilyTreePage: React.FC = () => {
   const handleTabChange = (tabId: 'basic' | 'tree' | 'members') => {
     setActiveTab(tabId);
     setSearchParams({ tab: tabId });
-
     try {
       localStorage.setItem(STORAGE_KEY, tabId);
     } catch (error) {

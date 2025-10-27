@@ -169,6 +169,5 @@ export interface FileProps {
   description?: string;
   content?: string;
   thumbnail?: string | null;
-
 }
 

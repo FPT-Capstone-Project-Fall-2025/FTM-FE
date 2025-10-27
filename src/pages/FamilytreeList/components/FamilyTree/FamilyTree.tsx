@@ -78,7 +78,6 @@ const FamilyTreeContent = () => {
   const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
   const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
-
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
 
