@@ -104,25 +104,34 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
         const endOfMonth = startOfMonth.clone().endOf('month');
         const lastDayOfWeek = endOfMonth.clone().endOf('week'); // Sunday of the last week
         
-        const startDate = firstDayOfWeek.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
-        const endDate = lastDayOfWeek.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
+        const startDate = firstDayOfWeek.toDate();
+        const endDate = lastDayOfWeek.toDate();
         
         console.log('📅 MonthCalendar - Date range:', startDate, 'to', endDate);
         
-        // Fetch events for each selected family group using filter API
+        // Fetch events for each selected family group using getEventsByGp API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            // Use filter API for date range queries
-            const response = await eventService.filterEvents({
-              ftId: ftId,
-              startDate: startDate,
-              endDate: endDate,
-              pageIndex: 1,
-              pageSize: 100,
+            // Use getEventsByGp API to fetch all events from the group
+            const response = await eventService.getEventsByGp(ftId);
+            // Handle nested data structure: response.data.data.data
+            const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+            
+            // Filter events to only include those in the current month view
+            const filteredEvents = events.filter((event: any) => {
+              const eventStart = moment(event.startTime);
+              const eventEnd = moment(event.endTime);
+              // Include event if it starts or ends within the visible date range
+              return (
+                (eventStart.isSameOrAfter(startDate) && eventStart.isSameOrBefore(endDate)) ||
+                (eventEnd.isSameOrAfter(startDate) && eventEnd.isSameOrBefore(endDate)) ||
+                (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
+              );
             });
-            console.log(`📅 Events from ftId ${ftId}:`, response?.data?.length || 0, 'events');
-            console.log(`📅 Sample raw event from ${ftId}:`, response?.data?.[0]);
-            return response?.data || [];
+            
+            console.log(`📅 Events from ftId ${ftId}:`, filteredEvents.length, 'events (filtered from', events.length, 'total)');
+            console.log(`📅 Sample raw event from ${ftId}:`, filteredEvents[0]);
+            return filteredEvents;
           } catch (error) {
             console.error(`Error fetching events for ftId ${ftId}:`, error);
             return [];
@@ -142,13 +151,26 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
 
       // Filter and map events
       console.log('📅 MonthCalendar - Event type filter:', eventFilters?.eventType);
+      console.log('📅 MonthCalendar - Raw events before mapping:', allEvents);
       
       let apiEvents: CalendarEvent[] = allEvents
-        .filter((event: FamilyEvent) => {
+        .filter((event: any) => {
+          // Normalize eventType to uppercase for comparison
+          const normalizedEventType = typeof event.eventType === 'string' 
+            ? event.eventType.toUpperCase() 
+            : event.eventType === 0 ? 'FUNERAL'
+            : event.eventType === 1 ? 'WEDDING'
+            : event.eventType === 2 ? 'BIRTHDAY'
+            : event.eventType === 3 ? 'HOLIDAY'
+            : event.eventType === 4 ? 'MEMORIAL'
+            : event.eventType === 5 ? 'MEETING'
+            : event.eventType === 6 ? 'GATHERING'
+            : 'OTHER';
+          
           // Filter by event type if filters are set
           if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
-            const eventTypeMatches = eventFilters.eventType.includes(event.eventType);
-            console.log(`📅 Event ${event.name} type ${event.eventType} matches filter:`, eventTypeMatches);
+            const eventTypeMatches = eventFilters.eventType.includes(normalizedEventType);
+            console.log(`📅 Event ${event.name} type ${event.eventType} -> ${normalizedEventType} matches filter:`, eventTypeMatches);
             if (!eventTypeMatches) {
               return false;
             }
@@ -156,38 +178,78 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
           
           return true;
         })
-        .map((event: FamilyEvent) => {
+        .map((event: any) => {
+          // Normalize eventType from API (can be string "Wedding" or number 1)
+          const normalizedEventType = typeof event.eventType === 'string' 
+            ? event.eventType.toUpperCase() 
+            : event.eventType === 0 ? 'FUNERAL'
+            : event.eventType === 1 ? 'WEDDING'
+            : event.eventType === 2 ? 'BIRTHDAY'
+            : event.eventType === 3 ? 'HOLIDAY'
+            : event.eventType === 4 ? 'MEMORIAL'
+            : event.eventType === 5 ? 'MEETING'
+            : event.eventType === 6 ? 'GATHERING'
+            : 'OTHER';
+          
+          // Normalize recurrenceType from API (can be "None" or 0)
+          let normalizedRecurrence = 'ONCE';
+          if (event.recurrenceType) {
+            if (typeof event.recurrenceType === 'string') {
+              normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
+                ? 'ONCE' 
+                : event.recurrenceType.toUpperCase();
+            } else if (typeof event.recurrenceType === 'number') {
+              normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
+                : event.recurrenceType === 1 ? 'DAILY'
+                : event.recurrenceType === 2 ? 'WEEKLY'
+                : event.recurrenceType === 3 ? 'MONTHLY'
+                : event.recurrenceType === 4 ? 'YEARLY'
+                : 'ONCE';
+            }
+          }
+          
+          // Extract member names from eventMembers array
+          const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
+          
           const mappedEvent = {
             ...event,
             id: event.id,
+            name: event.name,
             title: event.name,
             start: event.startTime,
             end: event.endTime,
-            type: event.eventType,
-            allDay: event.isAllDay,
+            eventType: normalizedEventType,
+            type: normalizedEventType,
+            allDay: event.isAllDay || false,
             description: event.description || '',
             imageUrl: event.imageUrl || '',
-            gpIds: event.gpIds || [],
+            gpIds: event.ftId ? [event.ftId] : [],
             location: event.location || '',
             isOwner: event.isOwner || false,
-            recurrence: event.recurrence,
-            memberNames: event.memberNames || [],
-            gpNames: event.gpNames || [],
+            recurrence: normalizedRecurrence,
+            memberNames: memberNames,
+            gpNames: [],
             address: event.address || '',
             locationName: event.locationName || '',
             isLunar: event.isLunar || false,
+            targetMemberId: event.targetMemberId || null,
+            targetMemberName: event.targetMemberName || null,
+            isPublic: event.isPublic !== undefined ? event.isPublic : true,
             extendedProps: {
-              type: event.eventType,
+              type: normalizedEventType,
               description: event.description || '',
               location: event.location || '',
             }
           };
           
           console.log(`📅 Mapped event: ${event.name}`, {
+            original: event,
+            mapped: mappedEvent,
             start: mappedEvent.start,
             end: mappedEvent.end,
             allDay: mappedEvent.allDay,
-            type: mappedEvent.type
+            type: mappedEvent.type,
+            eventType: mappedEvent.eventType
           });
           
           return mappedEvent;

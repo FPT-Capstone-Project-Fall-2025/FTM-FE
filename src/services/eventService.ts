@@ -175,6 +175,19 @@ class EventService {
   }
 
   /**
+   * Get all events by family tree/group ID
+   * @param gpId - Family tree/group ID
+   * @param pageIndex - Page index (default 1)
+   * @param pageSize - Page size (default 1000 to get all events)
+   */
+  async getEventsByGp(gpId: string, pageIndex: number = 1, pageSize: number = 1000): Promise<ApiResponse<ApiEventResponse[]>> {
+    const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
+      `/ftfamilyevent/by-gp/${gpId}?pageIndex=${pageIndex}&pageSize=${pageSize}`
+    );
+    return response;
+  }
+
+  /**
    * Filter events using POST /api/ftfamilyevent/filter
    */
   async filterEvents(payload: EventFilterRequest): Promise<ApiResponse<ApiEventResponse[]>> {

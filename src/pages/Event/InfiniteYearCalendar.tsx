@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import moment from "moment";
-import { get } from "lodash";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent } from "@/types/event";
@@ -41,68 +40,129 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
   const [loadingYears, setLoadingYears] = useState<Set<number>>(new Set());
   const [isBatchLoading, setIsBatchLoading] = useState(false);
 
-  const combinedFilters = useMemo(() => ({ ...eventFilters }), [eventFilters]);
-
   const fetchYearEvents = useCallback(
     async (year: number) => {
-      if (yearEvents[year] || loadingYears.has(year)) return;
+      // Check if already fetched or loading
+      setLoadingYears((prev) => {
+        if (prev.has(year)) return prev;
+        const newSet = new Set(prev);
+        newSet.add(year);
+        return newSet;
+      });
 
-      setLoadingYears((prev) => new Set(prev).add(year));
-      try {
-        const promises = Array.from({ length: 12 }, async (_, i) => {
-          const month = i + 1;
-          try {
-            const res = await eventService.getMonthEvents(year, month, combinedFilters);
-            return get(res, "value.gpFamilyEvents", []);
-          } catch (err: any) {
-            // ✅ Nếu là lỗi 404 (Not Found) → bỏ qua tháng đó
-            if (err?.response?.status === 404) {
-              console.warn(`Không có dữ liệu tháng ${month}/${year}`);
-              return [];
-            }
-            // ✅ Các lỗi khác thì dừng hẳn
-            console.error(`Lỗi khi lấy dữ liệu tháng ${month}/${year}:`, err);
-            throw err;
-          }
-        });
-
-        const responses = await Promise.all(promises);
-        const allEvents = responses.flat();
-
-        // ✅ Nếu cả năm không có dữ liệu → bỏ qua
-        if (allEvents.length === 0) {
-          console.info(`Không có sự kiện nào trong năm ${year}. Dừng tải thêm.`);
-          return;
+      setYearEvents((prevYearEvents) => {
+        // If already have data for this year, skip
+        if (prevYearEvents[year]) {
+          setLoadingYears((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(year);
+            return newSet;
+          });
+          return prevYearEvents;
         }
 
-        const events: FamilyEvent[] = allEvents.map((event: FamilyEvent) => ({
-          ...event,
-          gpIds: event.gpIds || [],
-          gpNames: event.gpNames || [],
-          memberNames: event.memberNames || [],
-        }));
+        // Fetch events for this year
+        (async () => {
+          try {
+            console.log(`📅 Fetching events for year ${year}...`);
+            
+            // Check if family groups are selected
+            if (!eventFilters?.eventGp || eventFilters.eventGp.length === 0) {
+              console.log(`📅 No family groups selected for year ${year}`);
+              setYearEvents((prev) => ({ ...prev, [year]: [] }));
+              setLoadingYears((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete(year);
+                return newSet;
+              });
+              return;
+            }
 
-        setYearEvents((prev) => ({ ...prev, [year]: events }));
-      } catch (error) {
-        console.error(`⛔ Dừng tải năm ${year} do lỗi hệ thống:`, error);
-      } finally {
-        setLoadingYears((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(year);
-          return newSet;
-        });
-      }
+            // Calculate start and end dates for the year
+            const startDate = moment(`${year}-01-01`).startOf('year').toDate();
+            const endDate = moment(`${year}-12-31`).endOf('year').toDate();
+
+            // Fetch events for each selected family group
+            const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
+              try {
+                const response = await eventService.getEventsByGp(ftId);
+                const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+                
+                // Filter events for this year
+                const yearEvents = events.filter((event: any) => {
+                  const eventStart = moment(event.startTime);
+                  const eventEnd = moment(event.endTime);
+                  return (
+                    (eventStart.isSameOrAfter(startDate) && eventStart.isSameOrBefore(endDate)) ||
+                    (eventEnd.isSameOrAfter(startDate) && eventEnd.isSameOrBefore(endDate)) ||
+                    (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
+                  );
+                });
+                
+                console.log(`📅 Year ${year} - ftId ${ftId}: ${yearEvents.length} events`);
+                return yearEvents;
+              } catch (error) {
+                console.error(`Error fetching events for ftId ${ftId} in year ${year}:`, error);
+                return [];
+              }
+            });
+
+            const eventArrays = await Promise.all(eventPromises);
+            const allEvents = eventArrays.flat();
+
+            // Normalize events
+            const normalizedEvents: FamilyEvent[] = allEvents.map((event: any) => {
+              // Normalize eventType
+              const normalizedEventType = typeof event.eventType === 'string' 
+                ? event.eventType.toUpperCase() 
+                : event.eventType === 0 ? 'FUNERAL'
+                : event.eventType === 1 ? 'WEDDING'
+                : event.eventType === 2 ? 'BIRTHDAY'
+                : event.eventType === 3 ? 'HOLIDAY'
+                : event.eventType === 4 ? 'MEMORIAL'
+                : event.eventType === 5 ? 'MEETING'
+                : event.eventType === 6 ? 'GATHERING'
+                : 'OTHER';
+
+              const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
+
+              return {
+                ...event,
+                eventType: normalizedEventType,
+                gpIds: event.ftId ? [event.ftId] : [],
+                gpNames: [],
+                memberNames: memberNames,
+              };
+            });
+
+            console.log(`📅 Total events for year ${year}: ${normalizedEvents.length}`);
+            setYearEvents((prev) => ({ ...prev, [year]: normalizedEvents }));
+          } catch (error) {
+            console.error(`⛔ Error loading year ${year}:`, error);
+            setYearEvents((prev) => ({ ...prev, [year]: [] }));
+          } finally {
+            setLoadingYears((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(year);
+              return newSet;
+            });
+          }
+        })();
+
+        return prevYearEvents;
+      });
     },
-    [yearEvents, combinedFilters, loadingYears]
+    [eventFilters?.eventGp]
   );
 
   // ✅ Load initial years
   useEffect(() => {
     const currentYear = moment().year();
-    const initialYears = Array.from({ length: 10 }, (_, i) => currentYear + i);
+    const initialYears = Array.from({ length: 3 }, (_, i) => currentYear + i); // Start with 3 years instead of 10
     setYears(initialYears);
     setYearEvents({});
-  }, [reload, combinedFilters]);
+    setLoadingYears(new Set());
+  }, [reload]);
 
   // ✅ Infinite scroll (bottom loading)
   useEffect(() => {
@@ -111,9 +171,10 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
     const observer = new IntersectionObserver(
       (entries) => {
         const lastEntry = entries[0];
-        if (lastEntry.isIntersecting && !isBatchLoading) {
+        if (lastEntry?.isIntersecting && !isBatchLoading) {
           setIsBatchLoading(true);
           const lastYear = years[years.length - 1];
+          if (!lastYear) return;
           const newYears = Array.from({ length: 10 }, (_, i) => lastYear + i + 1);
 
           // Avoid infinite overflow (limit to 2100)
@@ -134,8 +195,21 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
 
   // ✅ Fetch events for each visible year
   useEffect(() => {
-    years.forEach((year) => fetchYearEvents(year));
-  }, [years, fetchYearEvents]);
+    if (years.length === 0) return;
+    
+    // Only fetch if we have family groups selected
+    if (!eventFilters?.eventGp || eventFilters.eventGp.length === 0) {
+      console.log('📅 No family groups selected, skipping year events fetch');
+      return;
+    }
+    
+    years.forEach((year) => {
+      // Only fetch if not already loading and not already have data
+      if (!loadingYears.has(year) && !yearEvents[year]) {
+        fetchYearEvents(year);
+      }
+    });
+  }, [years, eventFilters?.eventGp]);
 
   const handleEventClick = useCallback(
     (event: FamilyEvent) => {
@@ -201,6 +275,9 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
             ) : (
               sortedDates.map((date) => {
                 const isPastDate = moment(date).isBefore(moment(), 'day');
+                const dateEvents = groupedEvents[date] || [];
+                
+                if (dateEvents.length === 0) return null;
                 
                 return (
                   <div key={date} className="mb-5">
@@ -217,7 +294,7 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
                       </span>
                     </div>
                     <div className="flex flex-col gap-2">
-                      {groupedEvents[date].map((event) => (
+                      {dateEvents.map((event) => (
                         <div
                           key={event.id}
                           onClick={() => handleEventClick(event)}

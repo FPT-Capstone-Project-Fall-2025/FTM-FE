@@ -137,6 +137,11 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         }));
         
         setEventGp(mappedGps);
+        
+        // Auto-select all family groups on initialization
+        const allGroupIds = mappedGps.map(gp => gp.value);
+        setEventGroups(allGroupIds);
+        console.log('🎯 Auto-selected all family groups:', allGroupIds);
       } catch (error) {
         console.error("Error fetching family trees:", error);
         setEventGp([]);

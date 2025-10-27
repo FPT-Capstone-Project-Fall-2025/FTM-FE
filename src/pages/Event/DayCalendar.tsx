@@ -64,23 +64,33 @@ const DayCalendar = ({
         const dayStart = currentDay.clone().startOf('day');
         const dayEnd = currentDay.clone().endOf('day');
         
-        const startDate = dayStart.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
-        const endDate = dayEnd.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
+        const startDate = dayStart.toDate();
+        const endDate = dayEnd.toDate();
         
         console.log('📅 DayCalendar - Date range:', startDate, 'to', endDate);
         
-        // Fetch events for each selected family group using filter API
+        // Fetch events for each selected family group using getEventsByGp API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            const response = await eventService.filterEvents({
-              ftId: ftId,
-              startDate: startDate,
-              endDate: endDate,
-              pageIndex: 1,
-              pageSize: 100,
+            // Use getEventsByGp API to fetch all events from the group
+            const response = await eventService.getEventsByGp(ftId);
+            // Handle nested data structure: response.data.data.data
+            const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+            
+            // Filter events to only include those in the current day view
+            const filteredEvents = events.filter((event: any) => {
+              const eventStart = moment(event.startTime);
+              const eventEnd = moment(event.endTime);
+              // Include event if it starts or ends within the visible date range
+              return (
+                (eventStart.isSameOrAfter(startDate) && eventStart.isSameOrBefore(endDate)) ||
+                (eventEnd.isSameOrAfter(startDate) && eventEnd.isSameOrBefore(endDate)) ||
+                (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
+              );
             });
-            console.log(`📅 Events from ftId ${ftId}:`, response?.data?.length || 0, 'events');
-            return response?.data || [];
+            
+            console.log(`📅 Events from ftId ${ftId}:`, filteredEvents.length, 'events (filtered from', events.length, 'total)');
+            return filteredEvents;
           } catch (error) {
             console.error(`Error fetching events for ftId ${ftId}:`, error);
             return [];
@@ -100,9 +110,21 @@ const DayCalendar = ({
       // @ts-ignore - API response needs proper type definition
       const mappedEvents = allEvents
         .filter((event: any) => {
+          // Normalize eventType to uppercase for comparison
+          const normalizedEventType = typeof event.eventType === 'string' 
+            ? event.eventType.toUpperCase() 
+            : event.eventType === 0 ? 'FUNERAL'
+            : event.eventType === 1 ? 'WEDDING'
+            : event.eventType === 2 ? 'BIRTHDAY'
+            : event.eventType === 3 ? 'HOLIDAY'
+            : event.eventType === 4 ? 'MEMORIAL'
+            : event.eventType === 5 ? 'MEETING'
+            : event.eventType === 6 ? 'GATHERING'
+            : 'OTHER';
+          
           // Filter by event type
           if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
-            if (!eventFilters.eventType.includes(event.eventType)) {
+            if (!eventFilters.eventType.includes(normalizedEventType)) {
               return false;
             }
           }
@@ -110,10 +132,43 @@ const DayCalendar = ({
           return true;
         })
         .map((event: any) => {
+          // Normalize eventType from API
+          const normalizedEventType = typeof event.eventType === 'string' 
+            ? event.eventType.toUpperCase() 
+            : event.eventType === 0 ? 'FUNERAL'
+            : event.eventType === 1 ? 'WEDDING'
+            : event.eventType === 2 ? 'BIRTHDAY'
+            : event.eventType === 3 ? 'HOLIDAY'
+            : event.eventType === 4 ? 'MEMORIAL'
+            : event.eventType === 5 ? 'MEETING'
+            : event.eventType === 6 ? 'GATHERING'
+            : 'OTHER';
+          
+          // Normalize recurrenceType from API
+          let normalizedRecurrence = 'ONCE';
+          if (event.recurrenceType) {
+            if (typeof event.recurrenceType === 'string') {
+              normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
+                ? 'ONCE' 
+                : event.recurrenceType.toUpperCase();
+            } else if (typeof event.recurrenceType === 'number') {
+              normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
+                : event.recurrenceType === 1 ? 'DAILY'
+                : event.recurrenceType === 2 ? 'WEEKLY'
+                : event.recurrenceType === 3 ? 'MONTHLY'
+                : event.recurrenceType === 4 ? 'YEARLY'
+                : 'ONCE';
+            }
+          }
+          
+          // Extract member names from eventMembers array
+          const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
+          
           const start = moment(event.startTime);
           const end = moment(event.endTime);
           const durationDays = end.diff(start, "days", true);
           const isAllDay =
+            event.isAllDay ||
             durationDays >= 1 ||
             (start.format("HH:mm:ss") === "00:00:00" && end.format("HH:mm:ss") === "23:59:59");
 
@@ -129,26 +184,31 @@ const DayCalendar = ({
           return {
             ...event,
             id: event.id,
+            name: event.name,
             title: event.name,
             start: startStr,
             end: endStr,
+            eventType: normalizedEventType,
+            type: normalizedEventType,
             allDay: isAllDay,
-            type: event.eventType,
-            description: event.description,
-            imageUrl: event.imageUrl,
-            gpIds: event.gpIds,
-            location: event.location,
-            isOwner: event.isOwner,
-            recurrence: event.recurrence,
-            memberNames: event.memberNames,
-            gpNames: event.gpNames,
-            address: event.address,
-            locationName: event.locationName,
-            isLunar: event.isLunar,
+            description: event.description || '',
+            imageUrl: event.imageUrl || '',
+            gpIds: event.ftId ? [event.ftId] : [],
+            location: event.location || '',
+            isOwner: event.isOwner || false,
+            recurrence: normalizedRecurrence,
+            memberNames: memberNames,
+            gpNames: [],
+            address: event.address || '',
+            locationName: event.locationName || '',
+            isLunar: event.isLunar || false,
+            targetMemberId: event.targetMemberId || null,
+            targetMemberName: event.targetMemberName || null,
+            isPublic: event.isPublic !== undefined ? event.isPublic : true,
             extendedProps: {
-              type: event.eventType,
-              description: event.description,
-              location: event.location,
+              type: normalizedEventType,
+              description: event.description || '',
+              location: event.location || '',
             }
           };
         });
