@@ -124,12 +124,12 @@ export interface FamilyNode {
 }
 
 export interface FileProps {
-  file?: string;
+  file?: File;
   title?: string;
   fileType?: string;
   description?: string;
   content?: string;
-  thumbnail?: string;
+  thumbnail?: string | null;
 }
 
 
