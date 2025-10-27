@@ -63,8 +63,9 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       let allEvents: FamilyEvent[] = [];
 
       // Calculate start and end dates for the week view (outside conditional)
-      const currentWeekStart = moment().year(year).month(month - 1).week(week).startOf('week');
-      const currentWeekEnd = currentWeekStart.clone().endOf('week');
+      // Use isoWeek for consistency with the week navigation
+      const currentWeekStart = moment().year(year).month(month - 1).isoWeek(week).startOf('isoWeek');
+      const currentWeekEnd = currentWeekStart.clone().endOf('isoWeek');
       
       const startDate = currentWeekStart.toDate();
       const endDate = currentWeekEnd.toDate();
@@ -246,7 +247,10 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
 
       console.log('📅 WeekCalendar - Events after filtering:', mappedEvents.length, 'events');
       console.log('📅 WeekCalendar - Sample event:', mappedEvents[0]);
+      console.log('📅 WeekCalendar - All mapped events:', mappedEvents);
+      console.log('📅 WeekCalendar - Setting events to state...');
       setEvents(mappedEvents);
+      console.log('📅 WeekCalendar - Events set successfully');
 
       // Process weather data (only available from old API)
       // TODO: Integrate weather API separately if needed
@@ -401,6 +405,14 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
     } as FamilyEvent);
     setIsOpenGPEventDetailsModal(true);
   }, [setEventSelected, setIsOpenGPEventDetailsModal]);
+
+  // Debug: Log events state when it changes
+  useEffect(() => {
+    console.log('📅 WeekCalendar - events state updated:', events.length, 'events');
+    if (events.length > 0) {
+      console.log('📅 WeekCalendar - First event in state:', events[0]);
+    }
+  }, [events]);
 
   return (
     <div className="w-full bg-white rounded-lg p-4 overflow-auto">
