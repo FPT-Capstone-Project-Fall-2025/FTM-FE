@@ -16,6 +16,7 @@ import { Calendar, X, Image as ImageIcon } from "lucide-react";
 import { EVENT_TYPE, EVENT_TYPE_CONFIG } from "./EventTypeLabel";
 import type { ApiCreateEventPayload } from "../../types/event";
 import { toast } from 'react-toastify';
+import { formatLunarDate } from "../../utils/lunarUtils";
 
 // Types
 interface EventFormData {
@@ -65,7 +66,7 @@ const eventSchema = yup.object().shape({
   imageUrl: yup.string().nullable(),
   recurrenceEndTime: yup.string().nullable(),
   address: yup.string().nullable(),
-  targetMemberId: yup.string().nullable(),
+  targetMemberId: yup.string().nullable(), // Can be "", "self", or member ID
   isPublic: yup.boolean().default(true),
   isLunar: yup.boolean().default(false),
 });
@@ -168,8 +169,9 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   const recurrenceValue = watch('recurrence');
   const showRecurrenceEndTime = recurrenceValue && recurrenceValue !== 'ONCE';
 
-  // Watch startTime for validation
+  // Watch startTime and endTime for validation and lunar display
   const startTime = watch('startTime');
+  const endTime = watch('endTime');
 
   // Auto-update endTime when isAllDay is checked or startTime changes
   useEffect(() => {
@@ -278,12 +280,15 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
     fetchMembers();
   }, [selectedFamilyTreeId]);
 
-  // Auto-select all members when "All members" is selected and members are loaded
+  // Initialize targetMemberId to '' (group event) when members are loaded (if not set)
   useEffect(() => {
-    if (targetMemberId === '' && members.length > 0) {
-      setSelectedMembers(members);
+    if (members.length > 0 && targetMemberId === undefined && currentUserGPMemberId) {
+      // Default to group event for new events
+      if (!eventSelected || !eventSelected.id) {
+        setTargetMemberId('');
+      }
     }
-  }, [members, targetMemberId]);
+  }, [members, currentUserGPMemberId, eventSelected]);
 
   // Fetch current user's GPMember ID when family tree and userId are ready
   useEffect(() => {
@@ -364,10 +369,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       }
 
       // Set target member ID
+      // If targetMemberId matches current user's GPMemberId, show as 'self'
       if (event.targetMemberId) {
-        setTargetMemberId(event.targetMemberId);
+        if (event.targetMemberId === currentUserGPMemberId) {
+          setTargetMemberId('self');
+        } else {
+          setTargetMemberId(event.targetMemberId);
+        }
       } else {
-        setTargetMemberId(''); // All members
+        // Empty string means "group event"
+        setTargetMemberId('');
       }
 
       // Set selected members from eventMembers
@@ -401,11 +412,32 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         return formatted;
       };
       
+      // Auto-fill start and end times if not provided
+      const now = new Date();
+      const defaultStartTime = new Date(now);
+      defaultStartTime.setDate(now.getDate() + 1); // Tomorrow
+      defaultStartTime.setHours(9, 0, 0, 0); // 9:00 AM
+      
+      const defaultEndTime = new Date(now);
+      defaultEndTime.setDate(now.getDate() + 2); // Day after tomorrow
+      defaultEndTime.setHours(17, 0, 0, 0); // 5:00 PM
+      
+      const startTimeValue = event?.startTime 
+        ? formatDateTime(event.startTime) 
+        : format(defaultStartTime, "yyyy-MM-dd'T'HH:mm");
+        
+      const endTimeValue = event?.endTime 
+        ? formatDateTime(event.endTime) 
+        : format(defaultEndTime, "yyyy-MM-dd'T'HH:mm");
+      
+      console.log('🕐 Auto-filled startTime:', startTimeValue);
+      console.log('🕐 Auto-filled endTime:', endTimeValue);
+      
       reset({
         name: event?.name || '',
         eventType: event?.eventType || 'OTHER',
-        startTime: formatDateTime(event?.startTime),
-        endTime: formatDateTime(event?.endTime),
+        startTime: startTimeValue,
+        endTime: endTimeValue,
         location: event?.location || null,
         locationName: event?.locationName || null,
         recurrence: event?.recurrenceType || event?.recurrence || 'ONCE',
@@ -420,7 +452,19 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       setIsAllDay(event?.isAllDay || false);
       setIsPublic(event?.isPublic !== undefined ? event.isPublic : true);
       setIsLunar(event?.isLunar || false);
-      setTargetMemberId(event?.targetMemberId || '');
+      
+      // Set target member ID - default to '' (group event) for new events
+      if (event?.targetMemberId) {
+        // If matches current user's GPMemberId, show as 'self'
+        if (event.targetMemberId === currentUserGPMemberId) {
+          setTargetMemberId('self');
+        } else {
+          setTargetMemberId(event.targetMemberId);
+        }
+      } else {
+        setTargetMemberId(''); // Default to group event
+      }
+      
       setSelectedMembers([]);
       setPreviewImage(event?.imageUrl || null);
       if (!event?.imageUrl) {
@@ -457,8 +501,15 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         return;
       }
 
-      // Get current user's GPMember ID if "Only me" is selected
-      const actualTargetMemberId = targetMemberId === "self" ? currentUserGPMemberId : targetMemberId;
+      // Convert targetMemberId based on selection
+      // "self" → currentUserGPMemberId
+      // "" → null (group event)
+      // other → actual member ID
+      const actualTargetMemberId = targetMemberId === "self" 
+        ? currentUserGPMemberId 
+        : targetMemberId === "" 
+          ? null 
+          : targetMemberId;
 
       // Convert form data to API payload
       // NOTE: imageUrl is set to null because base64 is too long for varchar(500)
@@ -657,11 +708,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Ngày bắt đầu <span className="text-red-500">*</span>
           </label>
+          {isLunar && startTime && (
+            <div className="mb-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
+              🌙 {formatLunarDate(startTime)}
+            </div>
+          )}
           <Controller
             name="startTime"
             control={control}
             render={({ field }) => (
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-1">
                 <input
                   type="datetime-local"
                   value={
@@ -679,6 +735,18 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                     errors.startTime ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
+                {isLunar && field.value && (
+                  <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
+                    <div className="flex items-start gap-2 mb-1">
+                      <span className="text-gray-500">📅</span>
+                      <span><strong>Dương lịch:</strong> {format(new Date(field.value), 'dd/MM/yyyy HH:mm')}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600">🌙</span>
+                      <span><strong className="text-blue-700">Âm lịch:</strong> {formatLunarDate(field.value)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           />
@@ -691,11 +759,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Ngày kết thúc <span className="text-red-500">*</span>
             </label>
+            {isLunar && endTime && (
+              <div className="mb-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
+                🌙 {formatLunarDate(endTime)}
+              </div>
+            )}
             <Controller
               name="endTime"
               control={control}
               render={({ field }) => (
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-1">
                   <input
                     type="datetime-local"
                     value={
@@ -713,6 +786,18 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                       errors.endTime ? 'border-red-500' : 'border-gray-300'
                     }`}
                   />
+                  {isLunar && field.value && (
+                    <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
+                      <div className="flex items-start gap-2 mb-1">
+                        <span className="text-gray-500">📅</span>
+                        <span><strong>Dương lịch:</strong> {format(new Date(field.value), 'dd/MM/yyyy HH:mm')}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-blue-600">🌙</span>
+                        <span><strong className="text-blue-700">Âm lịch:</strong> {formatLunarDate(field.value)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             />
@@ -919,47 +1004,68 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           />
         </div>
 
-        {/* Target Member (Event visibility) */}
+        {/* Target Member - Sự kiện cho ai */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Đối tượng xem sự kiện
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Sự kiện cho <span className="text-red-500">*</span>
           </label>
-          <Select
-            value={targetMemberId}
-            onChange={(value) => {
-              setTargetMemberId(value);
-              // When selecting "All members", auto-select all members
-              if (value === '') {
-                setSelectedMembers(members);
-              }
-              // When selecting "Only me", clear selected members and auto-fill current user's GPMember
-              if (value === 'self') {
-                setSelectedMembers([]);
-                // Auto-fill current user's GPMember if available
-                if (currentUserGPMemberId) {
-                  const currentUserMember = members.find(m => m.id === currentUserGPMemberId);
-                  if (currentUserMember) {
-                    setSelectedMembers([currentUserMember]);
-                  }
-                }
-              }
-            }}
-            size="large"
-            style={{ width: '100%' }}
-            getPopupContainer={(trigger) => trigger.parentElement || document.body}
-            options={[
-              { label: 'Tất cả thành viên gia phả', value: '' },
-              { label: 'Chỉ mình tôi', value: 'self' },
-            ]}
-          />
+          
+          {/* Radio buttons */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="eventTargetType"
+                checked={targetMemberId === 'self'}
+                onChange={() => {
+                  setTargetMemberId('self');
+                  console.log('🎯 Selected: Sự kiện của tôi');
+                }}
+                className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700">👤 Sự kiện của tôi</span>
+            </label>
+            
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="eventTargetType"
+                checked={targetMemberId === ''}
+                onChange={() => {
+                  setTargetMemberId('');
+                  console.log('🎯 Selected: Sự kiện gia phả');
+                }}
+                className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700">👥 Sự kiện gia phả</span>
+            </label>
+          </div>
+          
+          <div className="mt-2 text-xs text-gray-500">
+            "Sự kiện của tôi" dành riêng cho bạn, "Sự kiện gia phả" dành cho cả gia đình
+          </div>
         </div>
 
-        {/* Member Tagging - Hidden when "Only me" is selected */}
-        {targetMemberId !== 'self' && (
+        {/* Member Tagging - Tag thêm thành viên tham gia */}
+        <div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tag thành viên
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Tag thành viên tham gia (tùy chọn)
+              </label>
+              {members.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMembers(members);
+                    console.log('✅ Selected all members:', members.length);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                >
+                  ⚡ Chọn tất cả ({members.length})
+                </button>
+              )}
+            </div>
             <Select
               mode="multiple"
               value={selectedMembers.map(m => m.id)}
@@ -982,6 +1088,23 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
               disabled={!selectedFamilyTreeId}
               maxTagCount="responsive"
             />
+            <div className="mt-1 flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                Tag thêm thành viên khác tham gia/được thông báo về sự kiện này
+              </div>
+              {selectedMembers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMembers([]);
+                    console.log('🗑️ Cleared all selected members');
+                  }}
+                  className="text-xs text-red-600 hover:text-red-700 font-medium hover:underline"
+                >
+                  Xóa tất cả
+                </button>
+              )}
+            </div>
             {selectedMembers.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {selectedMembers.map(member => (
@@ -1002,7 +1125,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
               </div>
             )}
           </div>
-        )}
+        </div>
 
         {/* Public/Private */}
         <div className="flex items-center justify-between">

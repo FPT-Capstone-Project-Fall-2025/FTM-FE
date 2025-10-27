@@ -298,10 +298,10 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
                         <div
                           key={event.id}
                           onClick={() => handleEventClick(event)}
-                          className={`p-3.5 bg-white border rounded-lg transition-all duration-200 ${
+                          className={`rounded-lg transition-all duration-200 ${
                             isPastDate
-                              ? 'border-gray-200 border-l-4 border-l-gray-400 opacity-60 cursor-default'
-                              : 'border-gray-200 border-l-4 border-l-blue-500 cursor-pointer hover:bg-gray-50 hover:border-l-blue-400 hover:shadow-[0_2px_12px_rgba(22,119,255,0.15)] hover:translate-x-1'
+                              ? 'border-gray-200 p-2 border-l-gray-400 opacity-60 cursor-default'
+                              : 'border-gray-200 p-2 border-l-blue-500 cursor-pointer hover:bg-gray-50 hover:border-l-blue-400 hover:shadow-[0_2px_12px_rgba(22,119,255,0.15)] hover:translate-x-1'
                           }`}
                         >
                           <EventTypeLabel

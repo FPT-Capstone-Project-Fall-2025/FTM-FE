@@ -9,6 +9,7 @@ import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
+import { processRecurringEvents } from "../../utils/recurringEventUtils";
 import type { EventClickArg, EventContentArg, DayHeaderContentArg } from '@fullcalendar/core';
 import './Calendar.css';
 
@@ -61,16 +62,16 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
     try {
       let allEvents: FamilyEvent[] = [];
 
+      // Calculate start and end dates for the week view (outside conditional)
+      const currentWeekStart = moment().year(year).month(month - 1).week(week).startOf('week');
+      const currentWeekEnd = currentWeekStart.clone().endOf('week');
+      
+      const startDate = currentWeekStart.toDate();
+      const endDate = currentWeekEnd.toDate();
+      
       // Check if family groups are selected
       if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
         console.log('📅 WeekCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
-        
-        // Calculate start and end dates for the week view
-        const currentWeekStart = moment().year(year).month(month - 1).week(week).startOf('week');
-        const currentWeekEnd = currentWeekStart.clone().endOf('week');
-        
-        const startDate = currentWeekStart.toDate();
-        const endDate = currentWeekEnd.toDate();
         
         console.log('📅 WeekCalendar - Date range:', startDate, 'to', endDate);
         
@@ -112,7 +113,33 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
         allEvents = [];
       }
 
-      const mappedEvents: CalendarEvent[] = allEvents
+      // Process recurring events to generate instances within the week view
+      const eventsWithRecurrence = allEvents.map((event: any) => {
+        // Normalize recurrenceType first
+        let normalizedRecurrence = 'ONCE';
+        if (event.recurrenceType) {
+          if (typeof event.recurrenceType === 'string') {
+            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
+              ? 'ONCE' 
+              : event.recurrenceType.toUpperCase();
+          } else if (typeof event.recurrenceType === 'number') {
+            normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
+              : event.recurrenceType === 1 ? 'DAILY'
+              : event.recurrenceType === 2 ? 'WEEKLY'
+              : event.recurrenceType === 3 ? 'MONTHLY'
+              : event.recurrenceType === 4 ? 'YEARLY'
+              : 'ONCE';
+          }
+        }
+        return { ...event, recurrence: normalizedRecurrence };
+      });
+      
+      // Generate recurring event instances for the week view
+      const expandedEvents = processRecurringEvents(eventsWithRecurrence, startDate, endDate);
+      
+      console.log('📅 WeekCalendar - Expanded events (with recurring):', expandedEvents.length);
+      
+      const mappedEvents: CalendarEvent[] = expandedEvents
         .filter((event: any) => {
           // Normalize eventType to uppercase for comparison
           const normalizedEventType = typeof event.eventType === 'string' 

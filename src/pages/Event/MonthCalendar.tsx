@@ -9,6 +9,7 @@ import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
+import { processRecurringEvents } from "../../utils/recurringEventUtils";
 import type { EventClickArg, EventContentArg, DayCellContentArg } from '@fullcalendar/core';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import './Calendar.css';
@@ -92,20 +93,20 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
     try {
       let allEvents: FamilyEvent[] = [];
 
+      // Calculate start and end dates for the calendar month view (outside conditional)
+      // Include days from previous and next month that are visible on the calendar
+      const startOfMonth = moment(`${year}-${month.toString().padStart(2, '0')}-01`).startOf('month');
+      const firstDayOfWeek = startOfMonth.clone().startOf('week'); // Monday of the first week
+      const endOfMonth = startOfMonth.clone().endOf('month');
+      const lastDayOfWeek = endOfMonth.clone().endOf('week'); // Sunday of the last week
+      
+      const startDate = firstDayOfWeek.toDate();
+      const endDate = lastDayOfWeek.toDate();
+
       // Check if family groups are selected
       if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
         console.log('📅 MonthCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
         console.log('📅 MonthCalendar - Year:', year, 'Month:', month);
-        
-        // Calculate start and end dates for the calendar month view
-        // Include days from previous and next month that are visible on the calendar
-        const startOfMonth = moment(`${year}-${month.toString().padStart(2, '0')}-01`).startOf('month');
-        const firstDayOfWeek = startOfMonth.clone().startOf('week'); // Monday of the first week
-        const endOfMonth = startOfMonth.clone().endOf('month');
-        const lastDayOfWeek = endOfMonth.clone().endOf('week'); // Sunday of the last week
-        
-        const startDate = firstDayOfWeek.toDate();
-        const endDate = lastDayOfWeek.toDate();
         
         console.log('📅 MonthCalendar - Date range:', startDate, 'to', endDate);
         
@@ -149,11 +150,37 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
         allEvents = [];
       }
 
+      // Process recurring events to generate instances within the month view
+      const eventsWithRecurrence = allEvents.map((event: any) => {
+        // Normalize recurrenceType first
+        let normalizedRecurrence = 'ONCE';
+        if (event.recurrenceType) {
+          if (typeof event.recurrenceType === 'string') {
+            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
+              ? 'ONCE' 
+              : event.recurrenceType.toUpperCase();
+          } else if (typeof event.recurrenceType === 'number') {
+            normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
+              : event.recurrenceType === 1 ? 'DAILY'
+              : event.recurrenceType === 2 ? 'WEEKLY'
+              : event.recurrenceType === 3 ? 'MONTHLY'
+              : event.recurrenceType === 4 ? 'YEARLY'
+              : 'ONCE';
+          }
+        }
+        return { ...event, recurrence: normalizedRecurrence };
+      });
+      
+      // Generate recurring event instances for the month view
+      const expandedEvents = processRecurringEvents(eventsWithRecurrence, startDate, endDate);
+      
+      console.log('📅 MonthCalendar - Expanded events (with recurring):', expandedEvents.length);
+      
       // Filter and map events
       console.log('📅 MonthCalendar - Event type filter:', eventFilters?.eventType);
-      console.log('📅 MonthCalendar - Raw events before mapping:', allEvents);
+      console.log('📅 MonthCalendar - Raw events before mapping:', expandedEvents);
       
-      let apiEvents: CalendarEvent[] = allEvents
+      let apiEvents: CalendarEvent[] = expandedEvents
         .filter((event: any) => {
           // Normalize eventType to uppercase for comparison
           const normalizedEventType = typeof event.eventType === 'string' 

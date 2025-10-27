@@ -5,6 +5,10 @@ import { X, Calendar, MapPin, Repeat, User, Users, FileText, Trash2, ChevronDown
 import "moment/locale/vi";
 import moment from "moment";
 
+// API Base URL for images
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
+const PREFIX_URL = API_BASE_URL.replace('/api', ''); // Remove /api suffix for image paths
+
 /**
  * Giải mã các ký tự HTML entities như &lt; &gt; &amp; &quot;
  */
@@ -87,7 +91,7 @@ const GPEventInfoModal = ({
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <h2 className="text-xl font-bold text-gray-900">{name}</h2>
+            <h2 className="text-xl font-bold text-gray-900">Chi tiết sự kiện: {name}</h2>
           </div>
           <button
             onClick={() => setIsOpenModal(false)}
@@ -104,55 +108,90 @@ const GPEventInfoModal = ({
           {imageUrl && (
             <div className="relative w-full">
               <img
-                src={`${PREFIX_URL}/${imageUrl}`}
+                src={imageUrl.startsWith('http') ? imageUrl : `${PREFIX_URL}/${imageUrl}`}
                 alt="Event"
                 className="w-full h-64 object-cover rounded-lg"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  console.error('Failed to load image:', imageUrl);
+                }}
               />
             </div>
           )}
 
-          {/* Thông tin sự kiện dạng inline input */}
+          {/* Thông tin sự kiện dạng text display (không thể chỉnh sửa) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
             {/* Thời gian */}
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-blue-500" />
-              <Input value={`${startTimeText} - ${endTimeText}`} readOnly className="font-medium uppercase" />
+            <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+              <Calendar className="w-5 h-5 text-blue-500 flex-shrink-0" />
+              <span className="font-medium text-sm">{startTimeText} - {endTimeText}</span>
             </div>
+            
             {/* Địa chỉ */}
-            <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-green-500" />
-              <Input value={address || ""} readOnly placeholder="Địa chỉ" />
+            <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+              <MapPin className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <span className="text-sm">{address || "Không có địa chỉ"}</span>
             </div>
+            
             {/* Lặp lại */}
-            <div className="flex items-center gap-2">
-              <Repeat className="w-5 h-5 text-orange-500" />
-              <Input value={recurrence === "ONCE"
-                ? "Không lặp lại"
-                : recurrence === "DAILY"
-                ? "Mỗi ngày"
-                : recurrence === "WEEKLY"
-                ? "Mỗi tuần"
-                : recurrence === "MONTHLY"
-                ? "Mỗi tháng"
-                : recurrence === "YEARLY"
-                ? "Mỗi năm"
-                : "Khác"} readOnly />
+            <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+              <Repeat className="w-5 h-5 text-orange-500 flex-shrink-0" />
+              <span className="text-sm">
+                {recurrence === "ONCE"
+                  ? "Không lặp lại"
+                  : recurrence === "DAILY"
+                  ? "Mỗi ngày"
+                  : recurrence === "WEEKLY"
+                  ? "Mỗi tuần"
+                  : recurrence === "MONTHLY"
+                  ? "Mỗi tháng"
+                  : recurrence === "YEARLY"
+                  ? "Mỗi năm"
+                  : "Khác"}
+              </span>
             </div>
+            
+            {/* Lịch âm */}
+            {isLunar && (
+              <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
+                <span className="text-blue-600 text-lg">🌙</span>
+                <span className="text-sm text-blue-700 font-medium">Sự kiện theo lịch âm</span>
+              </div>
+            )}
+            
             {/* Thành viên */}
-            <div className="flex items-center gap-2">
-              <User className="w-5 h-5 text-gray-500" />
-              <Input value={memberNamesJoin} readOnly placeholder="Thành viên" />
-            </div>
+            {memberNamesJoin && (
+              <div className="flex items-start gap-3 bg-gray-50 px-3 py-2 rounded-lg col-span-1 md:col-span-2">
+                <User className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500 mb-1">Thành viên tham gia:</div>
+                  <span className="text-sm">{memberNamesJoin}</span>
+                </div>
+              </div>
+            )}
+            
             {/* Gia phả */}
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-purple-500" />
-              <Input value={gpNamesJoin} readOnly placeholder="Gia phả" />
-            </div>
+            {gpNamesJoin && (
+              <div className="flex items-start gap-3 bg-gray-50 px-3 py-2 rounded-lg col-span-1 md:col-span-2">
+                <Users className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500 mb-1">Gia phả:</div>
+                  <span className="text-sm">{gpNamesJoin}</span>
+                </div>
+              </div>
+            )}
+            
             {/* Mô tả */}
-            <div className="flex items-center gap-2 col-span-1 md:col-span-2">
-              <FileText className="w-5 h-5 text-gray-400" />
-              <Input.TextArea value={decodeHTML(description)} readOnly autoSize placeholder="Mô tả" />
-            </div>
+            {description && (
+              <div className="flex items-start gap-3 bg-gray-50 px-3 py-3 rounded-lg col-span-1 md:col-span-2">
+                <FileText className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500 mb-1">Mô tả:</div>
+                  <p className="text-sm whitespace-pre-wrap">{decodeHTML(description)}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
