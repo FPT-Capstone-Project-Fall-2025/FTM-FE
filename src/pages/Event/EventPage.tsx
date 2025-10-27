@@ -235,6 +235,7 @@ const EventPage: React.FC = () => {
       viewWeather,
       setEventSelected,
       setIsOpenGPEventInfoModal,
+      setIsOpenGPEventDetailsModal,
       handleSelect,
     };
 
@@ -268,6 +269,7 @@ const EventPage: React.FC = () => {
           viewWeather={viewWeather}
           setEventSelected={setEventSelected}
           setIsOpenGPEventInfoModal={setIsOpenGPEventInfoModal}
+          setIsOpenGPEventDetailsModal={setIsOpenGPEventDetailsModal}
           handleSelect={handleSelect}
         />;
       case 'list':

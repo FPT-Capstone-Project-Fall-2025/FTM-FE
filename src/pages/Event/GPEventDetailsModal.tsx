@@ -251,20 +251,28 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
     const fetchMembers = async () => {
       try {
-        const res: any = await familyTreeService.getFamilyTreeMembers({
-          pageIndex: 1,
-          pageSize: 100,
-          filters: `[{"name":"ftId","operation":"EQUAL","value":"${selectedFamilyTreeId}"}]`
-        } as any);
-        const memberData = res?.data?.data?.data || res?.data?.data || [];
-        const memberOptions: MemberOption[] = memberData.map((member: any) => ({
-          id: member.id,
-          fullname: member.fullname,
-          ftId: member.ftId,
+        console.log('📋 Fetching members for family tree:', selectedFamilyTreeId);
+        
+        // Use the new member tree API
+        const res: any = await familyTreeService.getMemberTree(selectedFamilyTreeId);
+        
+        console.log('📋 Member tree API response:', res);
+        
+        // Extract member data from the datalist
+        const datalist = res?.data?.datalist || [];
+        
+        // Map the datalist to member options
+        const memberOptions: MemberOption[] = datalist.map((item: any) => ({
+          id: item.value.id,
+          fullname: item.value.name,
+          ftId: selectedFamilyTreeId,
         }));
+        
+        console.log('📋 Mapped members:', memberOptions.length, 'members found');
         setMembers(memberOptions);
       } catch (error) {
         console.error("Error fetching members:", error);
+        setMembers([]);
       }
     };
     fetchMembers();
@@ -316,16 +324,23 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   // Populate form when editing an existing event
   useEffect(() => {
-    if (isOpenModal && eventSelected && (eventSelected as any).id) {
+    if (isOpenModal && eventSelected && (eventSelected as any).id && (eventSelected as any).id !== '') {
       // This is edit mode - populate form with existing data
       const event = eventSelected as any;
+      
+      // Helper to format date for datetime-local input
+      const formatDateTime = (dateValue: any) => {
+        if (!dateValue) return '';
+        const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+        return format(date, "yyyy-MM-dd'T'HH:mm");
+      };
       
       // Set basic form fields
       reset({
         name: event.name || '',
         eventType: event.eventType || 'OTHER',
-        startTime: event.startTime || '',
-        endTime: event.endTime || '',
+        startTime: formatDateTime(event.startTime),
+        endTime: formatDateTime(event.endTime),
         location: event.location || null,
         locationName: event.locationName || null,
         recurrence: event.recurrenceType || 'ONCE',
@@ -369,31 +384,48 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       if (event.imageUrl) {
         setPreviewImage(event.imageUrl);
       }
-    } else if (isOpenModal && !eventSelected) {
-      // This is create mode - reset form
+    } else if (isOpenModal) {
+      // This is create mode (new event or eventSelected.id is empty)
+      const event = eventSelected as any;
+      
+      console.log('🆕 Create mode - eventSelected:', event);
+      console.log('🆕 Create mode - startTime:', event?.startTime);
+      console.log('🆕 Create mode - endTime:', event?.endTime);
+      
+      // Helper to format date for datetime-local input
+      const formatDateTime = (dateValue: any) => {
+        if (!dateValue) return '';
+        const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+        const formatted = format(date, "yyyy-MM-dd'T'HH:mm");
+        console.log('📅 formatDateTime:', dateValue, '→', formatted);
+        return formatted;
+      };
+      
       reset({
-        name: '',
-        eventType: 'OTHER',
-        startTime: '',
-        endTime: '',
-        location: null,
-        locationName: null,
-        recurrence: 'ONCE',
-        description: null,
-        imageUrl: null,
-        recurrenceEndTime: null,
-        address: null,
-        isAllDay: false,
-        isPublic: true,
-        isLunar: false,
+        name: event?.name || '',
+        eventType: event?.eventType || 'OTHER',
+        startTime: formatDateTime(event?.startTime),
+        endTime: formatDateTime(event?.endTime),
+        location: event?.location || null,
+        locationName: event?.locationName || null,
+        recurrence: event?.recurrenceType || event?.recurrence || 'ONCE',
+        description: event?.description || null,
+        imageUrl: event?.imageUrl || null,
+        recurrenceEndTime: event?.recurrenceEndTime || null,
+        address: event?.address || null,
+        isAllDay: event?.isAllDay || false,
+        isPublic: event?.isPublic !== undefined ? event.isPublic : true,
+        isLunar: event?.isLunar || false,
       });
-      setIsAllDay(false);
-      setIsPublic(true);
-      setIsLunar(false);
-      setTargetMemberId('');
+      setIsAllDay(event?.isAllDay || false);
+      setIsPublic(event?.isPublic !== undefined ? event.isPublic : true);
+      setIsLunar(event?.isLunar || false);
+      setTargetMemberId(event?.targetMemberId || '');
       setSelectedMembers([]);
-      setPreviewImage(null);
-      setFileList([]);
+      setPreviewImage(event?.imageUrl || null);
+      if (!event?.imageUrl) {
+        setFileList([]);
+      }
     }
   }, [isOpenModal, eventSelected, reset]);
 
@@ -916,7 +948,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             style={{ width: '100%' }}
             getPopupContainer={(trigger) => trigger.parentElement || document.body}
             options={[
-              { label: 'Tất cả thành viên', value: '' },
+              { label: 'Tất cả thành viên gia phả', value: '' },
               { label: 'Chỉ mình tôi', value: 'self' },
             ]}
           />

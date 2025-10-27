@@ -96,6 +96,17 @@ export interface GPData {
   description?: string;
 }
 
+// Event Filter Request (for POST /api/ftfamilyevent/filter)
+export interface EventFilterRequest {
+  ftId?: string;
+  startDate?: string; // ISO date string
+  endDate?: string;   // ISO date string
+  eventType?: string; // EventType enum value
+  isLunar?: boolean;
+  pageIndex?: number;
+  pageSize?: number;
+}
+
 // Base Event Interface
 export interface BaseEvent {
   id: string;

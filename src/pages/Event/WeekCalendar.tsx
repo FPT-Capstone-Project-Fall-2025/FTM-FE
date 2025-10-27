@@ -6,7 +6,6 @@ import moment from "moment";
 import "moment/locale/vi";
 import viLocale from "@fullcalendar/core/locales/vi";
 import EventTypeLabel from "./EventTypeLabel";
-import { forEach } from "lodash";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
@@ -19,99 +18,6 @@ addLunarToMoment(moment);
 moment.locale("vi");
 moment.updateLocale("vi", { week: { dow: 1, doy: 4 } });
 
-// MOCK DATA for demonstration
-const generateMockEventsForWeek = (year: number, month: number, week: number) => {
-  const weekStart = moment().year(year).month(month - 1).isoWeek(week).startOf("isoWeek");
-  
-  const mockEvents: CalendarEvent[] = [];
-  
-  // Generate events across the week
-  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-    const currentDay = weekStart.clone().add(dayOffset, 'days');
-    const dayStr = currentDay.format("YYYY-MM-DD");
-    
-    // Morning event
-    if (dayOffset % 2 === 0) {
-      mockEvents.push({
-        id: `mock-week-${dayOffset}-1`,
-        title: "Họp Gia Đình",
-        start: `${dayStr}T09:00:00`,
-        end: `${dayStr}T10:30:00`,
-        allDay: false,
-        type: "MEETING",
-        description: "Họp bàn về kế hoạch gia đình",
-        isOwner: true,
-        location: "Nhà",
-        gpNames: ["Gia đình Nguyễn"],
-        memberNames: ["Nguyễn Văn A", "Nguyễn Thị B"],
-        name: "Họp Gia Đình",
-        eventType: "MEETING",
-        startTime: `${dayStr}T09:00:00`,
-        endTime: `${dayStr}T10:30:00`,
-        extendedProps: {
-          type: "MEETING",
-          description: "Họp bàn về kế hoạch gia đình",
-          location: "Nhà",
-        }
-      });
-    }
-    
-    // Afternoon event
-    if (dayOffset % 3 === 0) {
-      mockEvents.push({
-        id: `mock-week-${dayOffset}-2`,
-        title: "Sinh Nhật",
-        start: `${dayStr}T14:00:00`,
-        end: `${dayStr}T17:00:00`,
-        allDay: false,
-        type: "BIRTHDAY",
-        description: "Chúc mừng sinh nhật",
-        isOwner: true,
-        location: "Nhà Hàng",
-        gpNames: ["Gia đình Nguyễn"],
-        memberNames: ["Nguyễn Văn A", "Nguyễn Thị B"],
-        name: "Sinh Nhật",
-        eventType: "BIRTHDAY",
-        startTime: `${dayStr}T14:00:00`,
-        endTime: `${dayStr}T17:00:00`,
-        extendedProps: {
-          type: "BIRTHDAY",
-          description: "Chúc mừng sinh nhật",
-          location: "Nhà Hàng",
-        }
-      });
-    }
-    
-    // Evening event
-    if (dayOffset === 2 || dayOffset === 5) {
-      mockEvents.push({
-        id: `mock-week-${dayOffset}-3`,
-        title: "Tiệc Tối",
-        start: `${dayStr}T19:00:00`,
-        end: `${dayStr}T21:30:00`,
-        allDay: false,
-        type: "GATHERING",
-        description: "Bữa tiệc sum họp",
-        isOwner: false,
-        location: "Nhà",
-        gpNames: ["Gia đình Nguyễn"],
-        memberNames: ["Nguyễn Văn C", "Nguyễn Thị D"],
-        name: "Tiệc Tối",
-        eventType: "GATHERING",
-        startTime: `${dayStr}T19:00:00`,
-        endTime: `${dayStr}T21:30:00`,
-        extendedProps: {
-          type: "GATHERING",
-          description: "Bữa tiệc sum họp",
-          location: "Nhà",
-        }
-      });
-    }
-  }
-  
-  return mockEvents;
-};
-
 interface WeekCalendarProps {
   year: number;
   month: number;
@@ -121,6 +27,7 @@ interface WeekCalendarProps {
   isShowLunarDay?: boolean;
   setEventSelected: (event: FamilyEvent) => void;
   setIsOpenGPEventInfoModal: (open: boolean) => void;
+  setIsOpenGPEventDetailsModal: (open: boolean) => void;
   viewWeather?: boolean;
   handleSelect: (selectInfo: any) => void;
 }
@@ -139,6 +46,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
   isShowLunarDay = true,
   setEventSelected,
   setIsOpenGPEventInfoModal,
+  setIsOpenGPEventDetailsModal,
   viewWeather = true,
   handleSelect,
 }) => {
@@ -151,93 +59,117 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
     if (!filterEvents.year || !filterEvents.month || !filterEvents.week) return;
     
     try {
-      const response: any = await eventService.getWeekEvents(
-        filterEvents.year,
-        filterEvents.month,
-        filterEvents.week,
-        filterEvents
-      );
+      let allEvents: FamilyEvent[] = [];
 
-      const mappedEvents: CalendarEvent[] = ((response?.value?.gpFamilyEvents || []) as FamilyEvent[]).map((event: FamilyEvent) => {
-        const start = moment(event.startTime);
-        const end = moment(event.endTime);
-        const durationDays = end.diff(start, "days", true);
-        const isAllDay =
-          event.isAllDay ||
-          durationDays >= 1 ||
-          (start.format("HH:mm:ss") === "00:00:00" &&
-            end.format("HH:mm:ss") === "23:59:59");
-
-        // Format dates for FullCalendar
-        let startStr = start.format("YYYY-MM-DDTHH:mm:ss");
-        let endStr = end.format("YYYY-MM-DDTHH:mm:ss");
-        if (isAllDay) {
-          startStr = start.format("YYYY-MM-DD");
-          endStr = end.clone().add(1, "day").format("YYYY-MM-DD");
-        }
-
-        return {
-          ...event,
-          id: event.id,
-          title: event.name,
-          start: startStr,
-          end: endStr,
-          allDay: isAllDay,
-          type: event.eventType,
-          description: event.description,
-          imageUrl: event.imageUrl,
-          gpIds: event.gpIds,
-          location: event.location,
-          isOwner: event.isOwner,
-          recurrence: event.recurrence,
-          memberNames: event.memberNames,
-          gpNames: event.gpNames,
-          address: event.address,
-          locationName: event.locationName,
-          isLunar: event.isLunar,
-          extendedProps: {
-            type: event.eventType,
-            description: event.description,
-            location: event.location,
+      // Check if family groups are selected
+      if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
+        console.log('📅 WeekCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
+        
+        // Calculate start and end dates for the week view
+        const currentWeekStart = moment().year(year).month(month - 1).week(week).startOf('week');
+        const currentWeekEnd = currentWeekStart.clone().endOf('week');
+        
+        const startDate = currentWeekStart.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
+        const endDate = currentWeekEnd.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
+        
+        console.log('📅 WeekCalendar - Date range:', startDate, 'to', endDate);
+        
+        // Fetch events for each selected family group using filter API
+        const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
+          try {
+            const response = await eventService.filterEvents({
+              ftId: ftId,
+              startDate: startDate,
+              endDate: endDate,
+              pageIndex: 1,
+              pageSize: 100,
+            });
+            console.log(`📅 Events from ftId ${ftId}:`, response?.data?.length || 0, 'events');
+            return response?.data || [];
+          } catch (error) {
+            console.error(`Error fetching events for ftId ${ftId}:`, error);
+            return [];
           }
-        };
-      });
+        });
 
-      // Use MOCK data if no events returned from API
-      if (mappedEvents.length === 0) {
-        const mockEvents = generateMockEventsForWeek(
-          filterEvents.year,
-          filterEvents.month,
-          filterEvents.week
-        );
-        setEvents(mockEvents);
+        const eventArrays = await Promise.all(eventPromises);
+        allEvents = eventArrays.flat() as any as FamilyEvent[];
+        
+        console.log('📅 WeekCalendar - Total events from all groups:', allEvents.length);
       } else {
-        setEvents(mappedEvents);
+        // No family groups selected - show empty
+        console.log('📅 WeekCalendar - No family groups selected, showing empty calendar');
+        allEvents = [];
       }
 
-      // Process weather data
-      if (response?.value?.dailyForecasts) {
-        const forecastData: Record<string, WeatherInfo> = {};
-        forEach((response.value.dailyForecasts || []) as any[], (forecast: any) => {
-          const key = moment(forecast.forecastDate).format("YYYY-MM-DD");
-          forecastData[key] = {
-            icon: forecast.weatherIcon,
-            temp: `${forecast.tempDay}°C`,
+      const mappedEvents: CalendarEvent[] = allEvents
+        .filter((event: FamilyEvent) => {
+          // Filter by event type
+          if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
+            if (!eventFilters.eventType.includes(event.eventType)) {
+              return false;
+            }
+          }
+          
+          return true;
+        })
+        .map((event: FamilyEvent) => {
+          const start = moment(event.startTime);
+          const end = moment(event.endTime);
+          const durationDays = end.diff(start, "days", true);
+          const isAllDay =
+            event.isAllDay ||
+            durationDays >= 1 ||
+            (start.format("HH:mm:ss") === "00:00:00" &&
+              end.format("HH:mm:ss") === "23:59:59");
+
+          // Format dates for FullCalendar
+          let startStr = start.format("YYYY-MM-DDTHH:mm:ss");
+          let endStr = end.format("YYYY-MM-DDTHH:mm:ss");
+          if (isAllDay) {
+            startStr = start.format("YYYY-MM-DD");
+            endStr = end.clone().add(1, "day").format("YYYY-MM-DD");
+          }
+
+          return {
+            ...event,
+            id: event.id,
+            title: event.name,
+            start: startStr,
+            end: endStr,
+            allDay: isAllDay,
+            type: event.eventType,
+            description: event.description || '',
+            imageUrl: event.imageUrl || '',
+            gpIds: event.gpIds || [],
+            location: event.location || '',
+            isOwner: event.isOwner || false,
+            recurrence: event.recurrence,
+            memberNames: event.memberNames || [],
+            gpNames: event.gpNames || [],
+            address: event.address || '',
+            locationName: event.locationName || '',
+            isLunar: event.isLunar || false,
+            extendedProps: {
+              type: event.eventType,
+              description: event.description || '',
+              location: event.location || '',
+            }
           };
         });
-        setWeatherData(forecastData);
-      }
+
+      console.log('📅 WeekCalendar - Events after filtering:', mappedEvents.length, 'events');
+      console.log('📅 WeekCalendar - Sample event:', mappedEvents[0]);
+      setEvents(mappedEvents);
+
+      // Process weather data (only available from old API)
+      // TODO: Integrate weather API separately if needed
+      setWeatherData({});
     } catch (error) {
       console.error("Error fetching week events:", error);
-      // Use MOCK data on error
-      const mockEvents = generateMockEventsForWeek(
-        filterEvents.year || moment().year(),
-        filterEvents.month || moment().month() + 1,
-        filterEvents.week || moment().isoWeek()
-      );
-      setEvents(mockEvents);
+      setEvents([]);
     }
-  }, [filterEvents]);
+  }, [filterEvents, eventFilters]);
 
   useEffect(() => {
     const newFilter = { ...eventFilters, year, month, week };
@@ -342,6 +274,48 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
     return moment(selectInfo.start).isSameOrAfter(moment());
   }, []);
 
+  // Handle date click to create new event
+  const handleDateClick = useCallback((arg: any) => {
+    const clickedDate = moment(arg.date);
+    
+    // Only allow creating events for future dates
+    if (clickedDate.isBefore(moment(), 'day')) {
+      return;
+    }
+    
+    console.log('📅 Date clicked:', clickedDate.format('YYYY-MM-DD HH:mm'));
+    
+    // Open modal with clicked date/time for new event creation
+    setEventSelected({
+      id: '',
+      startTime: clickedDate.toDate(),
+      endTime: clickedDate.clone().add(1, 'hour').toDate(),
+      isAllDay: false,
+      name: '',
+      eventType: 'BIRTHDAY',
+      description: '',
+      imageUrl: '',
+      gpIds: [],
+      location: '',
+      isOwner: true,
+      recurrence: 'ONCE',
+      memberNames: [],
+      gpNames: [],
+      address: '',
+      locationName: '',
+      isLunar: false,
+      isPublic: true,
+      referenceEventId: null,
+      recurrenceEndTime: null,
+      createdOn: new Date().toISOString(),
+      lastModifiedOn: new Date().toISOString(),
+      eventMembers: [],
+      targetMemberId: null,
+      targetMemberName: null,
+    } as FamilyEvent);
+    setIsOpenGPEventDetailsModal(true);
+  }, [setEventSelected, setIsOpenGPEventDetailsModal]);
+
   return (
     <div className="w-full bg-white rounded-lg p-4 overflow-auto">
       <FullCalendar
@@ -366,6 +340,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
         }}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
+        dateClick={handleDateClick}
         dayHeaderContent={renderDayHeaderContent}
         dayCellClassNames={dayCellClassNames}
         selectable={true}

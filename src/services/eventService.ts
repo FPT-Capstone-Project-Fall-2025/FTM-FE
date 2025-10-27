@@ -9,6 +9,7 @@ import type {
   EventStatisticsData,
   ApiCreateEventPayload,
   ApiEventResponse,
+  EventFilterRequest,
 } from '@/types/event';
 import type { ApiResponse } from '@/types/api';
 
@@ -169,6 +170,34 @@ class EventService {
   async getMyEventsByFtId(ftId: string): Promise<ApiResponse<ApiEventResponse[]>> {
     const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
       `/ftfamilyevent/my-events?ftId=${ftId}`
+    );
+    return response;
+  }
+
+  /**
+   * Filter events using POST /api/ftfamilyevent/filter
+   */
+  async filterEvents(payload: EventFilterRequest): Promise<ApiResponse<ApiEventResponse[]>> {
+    const response = await apiService.post<ApiResponse<ApiEventResponse[]>>(
+      `/ftfamilyevent/filter`,
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return response;
+  }
+
+  /**
+   * Get upcoming events by family tree ID
+   * @param ftId - Family tree ID
+   * @param days - Number of days to fetch (default 30)
+   */
+  async getUpcomingEventsByFtId(ftId: string, days: number = 30): Promise<ApiResponse<ApiEventResponse[]>> {
+    const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
+      `/ftfamilyevent/upcoming?FTId=${ftId}&days=${days}`
     );
     return response;
   }

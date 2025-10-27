@@ -86,6 +86,14 @@ const familyTreeService = {
     });
   },
 
+  /**
+   * Get member tree for event tagging
+   * This returns all members in a family tree for the event member tagging feature
+   */
+  getMemberTree(ftId: string): Promise<ApiResponse<FamilytreeDataResponse>> {
+    return api.get(`/ftmember/member-tree?ftId=${ftId}`);
+  },
+
   // [{"name":"name","operation":"EQUAL","value":"a8ab2642-8fb3-4496-8444-2d704011f938"}]
 };
 

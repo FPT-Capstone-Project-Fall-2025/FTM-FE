@@ -8,91 +8,10 @@ import viLocale from "@fullcalendar/core/locales/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
-import { forEach } from "lodash";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import type { EventClickArg, EventContentArg, DayCellContentArg } from '@fullcalendar/core';
-import { Plus, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import './Calendar.css';
-
-// MOCK data for demonstration
-const MOCK_EVENTS: FamilyEvent[] = [
-  {
-    id: "mock-1",
-    name: "Sinh nhật",
-    startTime: moment().add(1, 'days').set({ hour: 19, minute: 0 }).toISOString(),
-    endTime: moment().add(1, 'days').set({ hour: 21, minute: 0 }).toISOString(),
-    eventType: "BIRTHDAY",
-    isAllDay: false,
-    description: "Tiệc sinh nhật gia đình",
-    imageUrl: "",
-    gpIds: [],
-    location: "",
-    isOwner: true,
-    recurrence: "ONCE",
-    memberNames: ["Nguyễn Văn A"],
-    gpNames: [],
-    address: "Nhà hàng ABC",
-    locationName: "Nhà hàng ABC",
-    isLunar: false,
-  },
-  {
-    id: "mock-2",
-    name: "Du lịch với gia đình tại Paris",
-    startTime: moment().add(3, 'days').startOf('day').toISOString(),
-    endTime: moment().add(3, 'days').endOf('day').toISOString(),
-    eventType: "HOLIDAY",
-    isAllDay: true,
-    description: "Chuyến du lịch gia đình",
-    imageUrl: "",
-    gpIds: [],
-    location: "Paris",
-    isOwner: true,
-    recurrence: "ONCE",
-    memberNames: ["Gia đình"],
-    gpNames: [],
-    address: "Paris, France",
-    locationName: "Paris",
-    isLunar: false,
-  },
-  {
-    id: "mock-3",
-    name: "Đám cưới Trần Huyền",
-    startTime: moment().add(5, 'days').set({ hour: 11, minute: 0 }).toISOString(),
-    endTime: moment().add(5, 'days').set({ hour: 13, minute: 0 }).toISOString(),
-    eventType: "WEDDING",
-    isAllDay: false,
-    description: "Đám cưới của Trần Huyền",
-    imageUrl: "",
-    gpIds: [],
-    location: "Trung tâm hội nghị",
-    isOwner: false,
-    recurrence: "ONCE",
-    memberNames: ["Trần Huyền"],
-    gpNames: [],
-    address: "Trung tâm hội nghị ABC",
-    locationName: "Trung tâm hội nghị",
-    isLunar: false,
-  },
-  {
-    id: "mock-4",
-    name: "Giỗ họ",
-    startTime: moment().add(8, 'days').set({ hour: 17, minute: 30 }).toISOString(),
-    endTime: moment().add(8, 'days').set({ hour: 18, minute: 30 }).toISOString(),
-    eventType: "DEATH_ANNIVERSARY",
-    isAllDay: false,
-    description: "Giỗ tổ tiên",
-    imageUrl: "",
-    gpIds: [],
-    location: "Nhà thờ họ",
-    isOwner: true,
-    recurrence: "YEARLY",
-    memberNames: ["Họ Nguyễn"],
-    gpNames: [],
-    address: "Nhà thờ họ Nguyễn",
-    locationName: "Nhà thờ họ",
-    isLunar: true,
-  },
-];
 
 // Add lunar stub to moment
 addLunarToMoment(moment);
@@ -107,6 +26,7 @@ interface MonthCalendarProps {
   eventFilters?: EventFilters;
   isShowLunarDay?: boolean;
   setIsOpenGPEventInfoModal: (open: boolean) => void;
+  setIsOpenGPEventDetailsModal: (open: boolean) => void;
   setEventSelected: (event: FamilyEvent) => void;
   onMoreClick?: (date: Date) => void;
   viewWeather?: boolean;
@@ -125,6 +45,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
   eventFilters,
   isShowLunarDay = true,
   setIsOpenGPEventInfoModal,
+  setIsOpenGPEventDetailsModal,
   setEventSelected,
   onMoreClick,
   viewWeather = true,
@@ -167,83 +88,123 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
   // Fetch events and weather data
   const fetchEventsAndForecasts = useCallback(async () => {
     if (!combinedFilters.year || !combinedFilters.month) return;
+    
     try {
-      const response: any = await eventService.getMonthEvents(year, month, combinedFilters);
-      
-      let apiEvents: CalendarEvent[] = ((response?.value?.gpFamilyEvents || []) as FamilyEvent[]).map((event: FamilyEvent) => ({
-        ...event,
-        id: event.id,
-        title: event.name,
-        start: event.startTime,
-        end: event.endTime,
-        type: event.eventType,
-        allDay: event.isAllDay,
-        description: event.description,
-        imageUrl: event.imageUrl,
-        gpIds: event.gpIds,
-        location: event.location,
-        isOwner: event.isOwner,
-        recurrence: event.recurrence,
-        memberNames: event.memberNames,
-        gpNames: event.gpNames,
-        address: event.address,
-        locationName: event.locationName,
-        isLunar: event.isLunar,
-        extendedProps: {
-          type: event.eventType,
-          description: event.description,
-          location: event.location,
-        }
-      }));
-      
-      // Add MOCK events for demonstration (only if API returns no events)
-      if (apiEvents.length === 0) {
-        apiEvents = MOCK_EVENTS.map(event => ({
-          ...event,
-          title: event.name,
-          start: event.startTime,
-          end: event.endTime,
-          type: event.eventType,
-          allDay: event.isAllDay,
-          extendedProps: {
-            type: event.eventType,
-            description: event.description,
-            location: event.location,
+      let allEvents: FamilyEvent[] = [];
+
+      // Check if family groups are selected
+      if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
+        console.log('📅 MonthCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
+        console.log('📅 MonthCalendar - Year:', year, 'Month:', month);
+        
+        // Calculate start and end dates for the calendar month view
+        // Include days from previous and next month that are visible on the calendar
+        const startOfMonth = moment(`${year}-${month.toString().padStart(2, '0')}-01`).startOf('month');
+        const firstDayOfWeek = startOfMonth.clone().startOf('week'); // Monday of the first week
+        const endOfMonth = startOfMonth.clone().endOf('month');
+        const lastDayOfWeek = endOfMonth.clone().endOf('week'); // Sunday of the last week
+        
+        const startDate = firstDayOfWeek.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
+        const endDate = lastDayOfWeek.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
+        
+        console.log('📅 MonthCalendar - Date range:', startDate, 'to', endDate);
+        
+        // Fetch events for each selected family group using filter API
+        const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
+          try {
+            // Use filter API for date range queries
+            const response = await eventService.filterEvents({
+              ftId: ftId,
+              startDate: startDate,
+              endDate: endDate,
+              pageIndex: 1,
+              pageSize: 100,
+            });
+            console.log(`📅 Events from ftId ${ftId}:`, response?.data?.length || 0, 'events');
+            console.log(`📅 Sample raw event from ${ftId}:`, response?.data?.[0]);
+            return response?.data || [];
+          } catch (error) {
+            console.error(`Error fetching events for ftId ${ftId}:`, error);
+            return [];
           }
-        })) as CalendarEvent[];
+        });
+
+        const eventArrays = await Promise.all(eventPromises);
+        allEvents = eventArrays.flat() as any as FamilyEvent[];
+        
+        console.log('📅 MonthCalendar - Total raw events from all groups:', allEvents.length);
+        console.log('📅 MonthCalendar - Raw events:', allEvents);
+      } else {
+        // No family groups selected - show empty
+        console.log('📅 MonthCalendar - No family groups selected, showing empty calendar');
+        allEvents = [];
       }
+
+      // Filter and map events
+      console.log('📅 MonthCalendar - Event type filter:', eventFilters?.eventType);
       
+      let apiEvents: CalendarEvent[] = allEvents
+        .filter((event: FamilyEvent) => {
+          // Filter by event type if filters are set
+          if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
+            const eventTypeMatches = eventFilters.eventType.includes(event.eventType);
+            console.log(`📅 Event ${event.name} type ${event.eventType} matches filter:`, eventTypeMatches);
+            if (!eventTypeMatches) {
+              return false;
+            }
+          }
+          
+          return true;
+        })
+        .map((event: FamilyEvent) => {
+          const mappedEvent = {
+            ...event,
+            id: event.id,
+            title: event.name,
+            start: event.startTime,
+            end: event.endTime,
+            type: event.eventType,
+            allDay: event.isAllDay,
+            description: event.description || '',
+            imageUrl: event.imageUrl || '',
+            gpIds: event.gpIds || [],
+            location: event.location || '',
+            isOwner: event.isOwner || false,
+            recurrence: event.recurrence,
+            memberNames: event.memberNames || [],
+            gpNames: event.gpNames || [],
+            address: event.address || '',
+            locationName: event.locationName || '',
+            isLunar: event.isLunar || false,
+            extendedProps: {
+              type: event.eventType,
+              description: event.description || '',
+              location: event.location || '',
+            }
+          };
+          
+          console.log(`📅 Mapped event: ${event.name}`, {
+            start: mappedEvent.start,
+            end: mappedEvent.end,
+            allDay: mappedEvent.allDay,
+            type: mappedEvent.type
+          });
+          
+          return mappedEvent;
+        });
+      
+      console.log('📅 MonthCalendar - Events after filtering:', apiEvents.length, 'events');
+      console.log('📅 MonthCalendar - All mapped events:', apiEvents);
       setEvents(apiEvents);
 
-      // Process weather data
-      const forecastData: Record<string, WeatherInfo> = {};
-      forEach((response?.value?.dailyForecasts || []) as any[], (forecast: any) => {
-        const key = moment(forecast.forecastDate).format("YYYY-MM-DD");
-        forecastData[key] = {
-          icon: forecast.weatherIcon,
-          temp: `${forecast.tempDay}°C`,
-        };
-      });
-      setWeatherData(forecastData);
+      // Process weather data (only available from old API)
+      // TODO: Integrate weather API separately if needed
+      setWeatherData({});
     } catch (error) {
       console.error("Error fetching month events:", error);
-      // Use MOCK data on error
-      const mockEvents = MOCK_EVENTS.map(event => ({
-        ...event,
-        title: event.name,
-        start: event.startTime,
-        end: event.endTime,
-        type: event.eventType,
-        allDay: event.isAllDay,
-        extendedProps: {
-          type: event.eventType,
-          description: event.description,
-          location: event.location,
-        }
-      })) as CalendarEvent[];
-      setEvents(mockEvents);
+      setEvents([]);
     }
-  }, [year, month, combinedFilters]);
+  }, [year, month, combinedFilters, eventFilters]);
 
   useEffect(() => {
     fetchEventsAndForecasts();
@@ -336,6 +297,48 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
     return moment(selectInfo.start).isSameOrAfter(moment(), 'day');
   }, []);
 
+  // Handle date click to create new event
+  const handleDateClick = useCallback((arg: any) => {
+    const clickedDate = moment(arg.date);
+    
+    // Only allow creating events for future dates
+    if (clickedDate.isBefore(moment(), 'day')) {
+      return;
+    }
+    
+    console.log('📅 Date clicked:', clickedDate.format('YYYY-MM-DD'));
+    
+    // Open modal with clicked date for new event creation
+    setEventSelected({
+      id: '',
+      startTime: clickedDate.toDate(),
+      endTime: clickedDate.toDate(),
+      isAllDay: true,
+      name: '',
+      eventType: 'BIRTHDAY',
+      description: '',
+      imageUrl: '',
+      gpIds: [],
+      location: '',
+      isOwner: true,
+      recurrence: 'ONCE',
+      memberNames: [],
+      gpNames: [],
+      address: '',
+      locationName: '',
+      isLunar: false,
+      isPublic: true,
+      referenceEventId: null,
+      recurrenceEndTime: null,
+      createdOn: new Date().toISOString(),
+      lastModifiedOn: new Date().toISOString(),
+      eventMembers: [],
+      targetMemberId: null,
+      targetMemberName: null,
+    } as FamilyEvent);
+    setIsOpenGPEventDetailsModal(true);
+  }, [setEventSelected, setIsOpenGPEventDetailsModal]);
+
   // Handle day cell mouse events
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -397,18 +400,6 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
     });
   }, [hoveredDay, events]);
 
-  const handleCreateEventForDay = useCallback(() => {
-    if (!hoveredDay) return;
-    const date = moment(hoveredDay.date).toDate();
-    setEventSelected({
-      startTime: date,
-      endTime: date,
-      isAllDay: true,
-    } as FamilyEvent);
-    setIsOpenGPEventInfoModal(true);
-    setHoveredDay(null);
-  }, [hoveredDay, setEventSelected, setIsOpenGPEventInfoModal]);
-
   return (
     <div className="w-full bg-white rounded-lg relative overflow-auto">
       <FullCalendar
@@ -427,6 +418,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
         moreLinkClick={handleMoreLinkClick}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
+        dateClick={handleDateClick}
         dayCellContent={renderDayCellContent}
         dayCellClassNames={dayCellClassNames}
         height="auto"
@@ -486,17 +478,6 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
                 <p className="text-sm text-gray-500 mb-2">Chưa có sự kiện</p>
               </div>
             )}
-
-            {/* Create Event Button */}
-            {moment(hoveredDay.date).isSameOrAfter(moment(), 'day') && (
-              <button
-                onClick={handleCreateEventForDay}
-                className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Thêm sự kiện</span>
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -505,4 +486,3 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
 };
 
 export default MonthCalendar;
-

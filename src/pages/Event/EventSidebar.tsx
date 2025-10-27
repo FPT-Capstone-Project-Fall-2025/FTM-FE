@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Checkbox } from "antd";
-import { Plus, MapPin, ChevronDown } from "lucide-react";
+import { Plus, MapPin, ChevronDown, User } from "lucide-react";
 import { useCombobox } from "downshift";
 import { EVENT_TYPE_CONFIG, EVENT_TYPE } from "./EventTypeLabel";
 import type { EventType } from "./EventTypeLabel";
 import EventStatistics from "./EventStatistics";
 import provinceService from "../../services/provinceService";
+import familyTreeService from "../../services/familyTreeService";
 import { useNavigate } from 'react-router-dom';
 
 /**
@@ -69,7 +70,8 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   });
   const [listCity, setListCity] = useState<CityItem[]>([]);
   const [inputValue, setInputValue] = useState<string>("");
-  const [eventGp] = useState<GPItem[]>([]);
+  const [eventGp, setEventGp] = useState<GPItem[]>([]);
+  const [loadingFamilyTrees, setLoadingFamilyTrees] = useState<boolean>(false);
   const [weather, setWeather] = useState<{
     temp: number;
     icon: string;
@@ -78,6 +80,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   } | null>(null);
   const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Toggle checkbox selection
   const toggleCheckbox = <T,>(list: T[], setList: (value: T[]) => void, value: T) => {
@@ -118,6 +121,31 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
     };
     fetchData();
     setIsShowLunarDay(showLunar);
+  }, []);
+
+  // Fetch family trees (Gia phả)
+  useEffect(() => {
+    const fetchFamilyTrees = async () => {
+      setLoadingFamilyTrees(true);
+      try {
+        const response: any = await familyTreeService.getAllFamilyTrees(1, 100);
+        const familyTrees = response?.data?.data?.data || response?.data?.data || [];
+        
+        const mappedGps: GPItem[] = familyTrees.map((tree: any) => ({
+          label: tree.name || 'Gia phả',
+          value: tree.id,
+        }));
+        
+        setEventGp(mappedGps);
+      } catch (error) {
+        console.error("Error fetching family trees:", error);
+        setEventGp([]);
+      } finally {
+        setLoadingFamilyTrees(false);
+      }
+    };
+
+    fetchFamilyTrees();
   }, []);
 
   // Filter cities by user input
@@ -213,6 +241,17 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         <Plus className="w-5 h-5" />
         <span>Thêm sự kiện mới</span>
       </button>
+      
+      <button
+        onClick={() => {
+          console.log('Navigating to my events...');
+          navigate('/events?tab=my-events');
+        }}
+        className="w-full bg-white hover:bg-gray-50 text-blue-600 border-2 border-blue-500 rounded-lg h-10 text-[15px] font-medium mb-4 flex items-center justify-center gap-2 transition-colors"
+      >
+        <User className="w-5 h-5" />
+        <span>Sự kiện của tôi</span>
+      </button>
       {/* Event Type Section */}
       <div>
         <div
@@ -263,8 +302,12 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
           />
         </div>
         {openSections.familyGroups && (
-          <div className=" overflow-y-auto">
-            {eventGp.length === 0 ? (
+          <div className="overflow-y-auto py-2">
+            {loadingFamilyTrees ? (
+              <div className="text-sm text-gray-400 italic py-2">
+                Đang tải...
+              </div>
+            ) : eventGp.length === 0 ? (
               <div className="text-sm text-gray-400 italic py-2">
                 Không có gia phả nào
               </div>

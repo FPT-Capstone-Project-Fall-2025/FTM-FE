@@ -18,92 +18,13 @@ addLunarToMoment(moment);
 moment.locale("vi");
 moment.updateLocale("vi", { week: { dow: 1, doy: 4 } });
 
-// MOCK DATA for demonstration
-const generateMockEventsForDay = (date: string) => {
-  const baseDate = moment(date);
-  
-  return [
-    {
-      id: "mock-1",
-      title: "Họp Gia Đình",
-      start: baseDate.clone().hour(9).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
-      end: baseDate.clone().hour(10).minute(30).format("YYYY-MM-DDTHH:mm:ss"),
-      allDay: false,
-      type: "MEETING",
-      description: "Họp bàn về kế hoạch gia đình",
-      isOwner: true,
-      location: "Nhà",
-      gpNames: ["Gia đình Nguyễn"],
-      memberNames: ["Nguyễn Văn A", "Nguyễn Thị B"],
-      extendedProps: {
-        type: "MEETING",
-        description: "Họp bàn về kế hoạch gia đình",
-        location: "Nhà",
-      }
-    },
-    {
-      id: "mock-2",
-      title: "Sinh Nhật Bà Nội",
-      start: baseDate.clone().hour(11).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
-      end: baseDate.clone().hour(14).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
-      allDay: false,
-      type: "BIRTHDAY",
-      description: "Chúc mừng sinh nhật bà nội 80 tuổi",
-      isOwner: true,
-      location: "Nhà Hàng Đông Phương",
-      gpNames: ["Gia đình Nguyễn"],
-      memberNames: ["Nguyễn Văn A", "Nguyễn Thị B", "Nguyễn Văn C"],
-      extendedProps: {
-        type: "BIRTHDAY",
-        description: "Chúc mừng sinh nhật bà nội 80 tuổi",
-        location: "Nhà Hàng Đông Phương",
-      }
-    },
-    {
-      id: "mock-3",
-      title: "Đi Thăm Mộ Tổ Tiên",
-      start: baseDate.clone().hour(15).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
-      end: baseDate.clone().hour(17).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
-      allDay: false,
-      type: "MEMORIAL",
-      description: "Thăm viếng và dọn dẹp mộ tổ tiên",
-      isOwner: false,
-      location: "Nghĩa trang Bình Hưng Hòa",
-      gpNames: ["Gia đình Nguyễn"],
-      memberNames: ["Nguyễn Văn A", "Nguyễn Văn D"],
-      extendedProps: {
-        type: "MEMORIAL",
-        description: "Thăm viếng và dọn dẹp mộ tổ tiên",
-        location: "Nghĩa trang Bình Hưng Hòa",
-      }
-    },
-    {
-      id: "mock-4",
-      title: "Tiệc Tối Gia Đình",
-      start: baseDate.clone().hour(18).minute(30).format("YYYY-MM-DDTHH:mm:ss"),
-      end: baseDate.clone().hour(21).minute(0).format("YYYY-MM-DDTHH:mm:ss"),
-      allDay: false,
-      type: "GATHERING",
-      description: "Bữa tiệc sum họp cả nhà",
-      isOwner: true,
-      location: "Nhà",
-      gpNames: ["Gia đình Nguyễn"],
-      memberNames: ["Nguyễn Văn A", "Nguyễn Thị B", "Nguyễn Văn C", "Nguyễn Thị E"],
-      extendedProps: {
-        type: "GATHERING",
-        description: "Bữa tiệc sum họp cả nhà",
-        location: "Nhà",
-      }
-    },
-  ];
-};
-
 interface DayCalendarProps {
   date: Date | string;
   reload?: boolean;
   eventFilters?: EventFilters;
   isShowLunarDay?: boolean;
   setIsOpenGPEventInfoModal: any;
+  setIsOpenGPEventDetailsModal: any;
   setEventSelected: any;
   viewWeather?: boolean;
   handleSelect: any;
@@ -115,6 +36,7 @@ const DayCalendar = ({
   eventFilters,
   isShowLunarDay = true,
   setIsOpenGPEventInfoModal,
+  setIsOpenGPEventDetailsModal,
   setEventSelected,
   viewWeather,
   handleSelect,
@@ -126,83 +48,123 @@ const DayCalendar = ({
 
   const fetchEventsAndForecasts = useCallback(async (filters: any) => {
     if (!filters.date) {
-      // If no date, use mock data for today
-      const mockEvents = generateMockEventsForDay(moment().format("YYYY-MM-DD"));
-      setEvents(mockEvents);
+      setEvents([]);
       return;
     }
     
-    // Always load mock data first for immediate display
-    const mockEvents = generateMockEventsForDay(filters.date);
-    setEvents(mockEvents);
-    
     try {
-      // @ts-ignore - API response needs proper type definition
-      const response = await eventService.getDayEvents(filters.date, filters);
-      // @ts-ignore - API response needs proper type definition
-      const mappedEvents = response?.value?.gpFamilyEvents?.map((event: any) => {
-        const start = moment(event.startTime);
-        const end = moment(event.endTime);
-        const durationDays = end.diff(start, "days", true);
-        const isAllDay =
-          durationDays >= 1 ||
-          (start.format("HH:mm:ss") === "00:00:00" && end.format("HH:mm:ss") === "23:59:59");
+      let allEvents: any[] = [];
 
-        // Nếu allDay và kéo dài >1 ngày, map sang date-only và cho end = ngày kế tiếp
-        let startStr = start.format("YYYY-MM-DDTHH:mm:ss");
-        let endStr = end.format("YYYY-MM-DDTHH:mm:ss");
-        if (isAllDay) {
-          startStr = start.format("YYYY-MM-DD");
-          // end exclusive => +1 ngày để hiển thị đủ
-          endStr = end.clone().add(1, "day").format("YYYY-MM-DD");
-        }
+      // Check if family groups are selected
+      if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
+        console.log('📅 DayCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
+        
+        // Calculate start and end dates for the day view
+        const currentDay = moment(filters.date);
+        const dayStart = currentDay.clone().startOf('day');
+        const dayEnd = currentDay.clone().endOf('day');
+        
+        const startDate = dayStart.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
+        const endDate = dayEnd.format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z';
+        
+        console.log('📅 DayCalendar - Date range:', startDate, 'to', endDate);
+        
+        // Fetch events for each selected family group using filter API
+        const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
+          try {
+            const response = await eventService.filterEvents({
+              ftId: ftId,
+              startDate: startDate,
+              endDate: endDate,
+              pageIndex: 1,
+              pageSize: 100,
+            });
+            console.log(`📅 Events from ftId ${ftId}:`, response?.data?.length || 0, 'events');
+            return response?.data || [];
+          } catch (error) {
+            console.error(`Error fetching events for ftId ${ftId}:`, error);
+            return [];
+          }
+        });
 
-        return {
-          ...event,
-          id: event.id,
-          title: event.name,
-          start: startStr,
-          end: endStr,
-          allDay: isAllDay,
-          type: event.eventType,
-          description: event.description,
-          imageUrl: event.imageUrl,
-          gpIds: event.gpIds,
-          location: event.location,
-          isOwner: event.isOwner,
-          recurrence: event.recurrence,
-          memberNames: event.memberNames,
-          gpNames: event.gpNames,
-          address: event.address,
-          locationName: event.locationName,
-          isLunar: event.isLunar,
-          extendedProps: {
+        const eventArrays = await Promise.all(eventPromises);
+        allEvents = eventArrays.flat();
+        
+        console.log('📅 DayCalendar - Total events from all groups:', allEvents.length);
+      } else {
+        // No family groups selected - show empty
+        console.log('📅 DayCalendar - No family groups selected, showing empty calendar');
+        allEvents = [];
+      }
+
+      // @ts-ignore - API response needs proper type definition
+      const mappedEvents = allEvents
+        .filter((event: any) => {
+          // Filter by event type
+          if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
+            if (!eventFilters.eventType.includes(event.eventType)) {
+              return false;
+            }
+          }
+          
+          return true;
+        })
+        .map((event: any) => {
+          const start = moment(event.startTime);
+          const end = moment(event.endTime);
+          const durationDays = end.diff(start, "days", true);
+          const isAllDay =
+            durationDays >= 1 ||
+            (start.format("HH:mm:ss") === "00:00:00" && end.format("HH:mm:ss") === "23:59:59");
+
+          // Nếu allDay và kéo dài >1 ngày, map sang date-only và cho end = ngày kế tiếp
+          let startStr = start.format("YYYY-MM-DDTHH:mm:ss");
+          let endStr = end.format("YYYY-MM-DDTHH:mm:ss");
+          if (isAllDay) {
+            startStr = start.format("YYYY-MM-DD");
+            // end exclusive => +1 ngày để hiển thị đủ
+            endStr = end.clone().add(1, "day").format("YYYY-MM-DD");
+          }
+
+          return {
+            ...event,
+            id: event.id,
+            title: event.name,
+            start: startStr,
+            end: endStr,
+            allDay: isAllDay,
             type: event.eventType,
             description: event.description,
+            imageUrl: event.imageUrl,
+            gpIds: event.gpIds,
             location: event.location,
-          }
-        };
-      }) || [];
-
-      // Only use API data if it has events, otherwise keep mock data
-      if (mappedEvents.length > 0) {
-        setEvents(mappedEvents);
-      }
-
-      // @ts-ignore - API response needs proper type definition
-      if (response?.value?.dailyForecasts?.length > 0) {
-        // @ts-ignore - API response needs proper type definition
-        const forecast = response.value.dailyForecasts[0];
-        setWeatherData({
-          icon: forecast.weatherIcon,
-          temp: `${forecast.tempDay}°C`,
+            isOwner: event.isOwner,
+            recurrence: event.recurrence,
+            memberNames: event.memberNames,
+            gpNames: event.gpNames,
+            address: event.address,
+            locationName: event.locationName,
+            isLunar: event.isLunar,
+            extendedProps: {
+              type: event.eventType,
+              description: event.description,
+              location: event.location,
+            }
+          };
         });
-      }
+
+      console.log('📅 DayCalendar - Events after filtering:', mappedEvents.length, 'events');
+      console.log('📅 DayCalendar - Sample event:', mappedEvents[0]);
+      setEvents(mappedEvents);
+
+      // Process weather data (only available from old API)
+      // TODO: Integrate weather API separately if needed
+      setWeatherData({});
     } catch (error) {
       console.error("Error fetching events:", error);
-      // Keep mock data already set above
+      setEvents([]);
     }
-  }, []);
+  }, [eventFilters]);
 
   useEffect(() => {
     const updatedFilters = {
@@ -266,6 +228,48 @@ const DayCalendar = ({
     );
   }, [weatherData, viewWeather, isShowLunarDay]);
 
+  // Handle date click to create new event
+  const handleDateClick = useCallback((arg: any) => {
+    const clickedDate = moment(arg.date);
+    
+    // Only allow creating events for future dates
+    if (clickedDate.isBefore(moment(), 'day')) {
+      return;
+    }
+    
+    console.log('📅 Date/Time clicked:', clickedDate.format('YYYY-MM-DD HH:mm'));
+    
+    // Open modal with clicked date/time for new event creation
+    setEventSelected({
+      id: '',
+      startTime: clickedDate.toDate(),
+      endTime: clickedDate.clone().add(1, 'hour').toDate(),
+      isAllDay: false,
+      name: '',
+      eventType: 'BIRTHDAY',
+      description: '',
+      imageUrl: '',
+      gpIds: [],
+      location: '',
+      isOwner: true,
+      recurrence: 'ONCE',
+      memberNames: [],
+      gpNames: [],
+      address: '',
+      locationName: '',
+      isLunar: false,
+      isPublic: true,
+      referenceEventId: null,
+      recurrenceEndTime: null,
+      createdOn: new Date().toISOString(),
+      lastModifiedOn: new Date().toISOString(),
+      eventMembers: [],
+      targetMemberId: null,
+      targetMemberName: null,
+    });
+    setIsOpenGPEventDetailsModal(true);
+  }, [setEventSelected, setIsOpenGPEventDetailsModal]);
+
   return (
     <div className="w-full h-full min-h-[600px]">
       <FullCalendar
@@ -290,6 +294,7 @@ const DayCalendar = ({
         }}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
+        dateClick={handleDateClick}
         dayHeaderContent={renderDayHeaderContent}
         selectable={true}
         select={handleSelect}
