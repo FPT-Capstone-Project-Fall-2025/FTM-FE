@@ -9,9 +9,11 @@ import { setAvailableFamilyTrees, setSelectedFamilyTree } from '@/stores/slices/
 import type { FamilytreeCreationProps } from '@/types/familytree';
 import type { PaginationProps } from '@/types/api';
 import { Pagination } from '@/components/ui/Pagination';
+import { useNavigate } from 'react-router-dom';
 
 const FamilyTreeSelection: React.FC = () => {
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const availableFamilyTrees = useAppSelector(state => state.familyTreeMetaData.availableFamilyTrees);
     const [selectedTreeId, setSelectedTreeId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -43,8 +45,9 @@ const FamilyTreeSelection: React.FC = () => {
     const fetchFamilyTrees = async () => {
         try {
             setLoading(true);
-            const response = await familytreeService.getFamilytrees(paginationData);
-
+            const response = await familytreeService.getMyFamilytrees();
+            console.log(response);
+            
             dispatch(setAvailableFamilyTrees(response.data.data));
             setPaginationData({
                 pageIndex: response.data.pageIndex,
@@ -71,6 +74,7 @@ const FamilyTreeSelection: React.FC = () => {
         setSelectedTreeId(treeId);
         const selectedTree = availableFamilyTrees.find(tree => tree.id === treeId);
         if (selectedTree) dispatch(setSelectedFamilyTree(selectedTree));
+        navigate(`/family-trees/${treeId}`)
     };
 
     const openFileSelector = () => fileInputRef.current?.click();

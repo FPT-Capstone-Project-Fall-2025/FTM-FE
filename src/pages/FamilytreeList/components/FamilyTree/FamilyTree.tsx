@@ -166,10 +166,12 @@ const FamilyTreeContent = () => {
         ftId: selectedFamilyTree?.id || "",
       });
       console.log("API Response:", response);
+      toast.success(response.message)
       // Re-fetch the family tree to sync with the new node
       dispatch(fetchFamilyTree(selectedFamilyTree!.id));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding new node:", error);
+      toast.error(error?.response?.data?.message)
     } finally {
       setIsAddingNewNode(false);
       setSelectedParent(null);
@@ -183,8 +185,7 @@ const FamilyTreeContent = () => {
     setIsDeletingNode(true);
     try {
       const response = await familyTreeService.deleteFamilyNode(memberToDelete.id);
-      console.log("Delete API Response:", response);
-      
+      toast.success(response.message)
       // Close the detail panel if the deleted member was selected
       if (selectedMemberId === memberToDelete.id) {
         dispatch(setSelectedMember(null));

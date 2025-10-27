@@ -1,7 +1,8 @@
 import familyTreeService from "@/services/familyTreeService";
 import { CategoryCode, type AddingNodeProps, type FamilyNode } from "@/types/familytree";
 import { X, Users, User, Baby } from "lucide-react";
-import React, { useMemo, useState, useCallback, useEffect } from "react";
+import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { toast } from "react-toastify";
 import ReactFlow, {
   type Node,
   type Edge,
@@ -118,6 +119,8 @@ const AddNewNode = ({
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [showExtendedForm, setShowExtendedForm] = useState(false);
   const [partnerMembers] = useState<FamilyNode[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formData, setFormData] = useState<AddingNodeProps>({
     fullname: "",
     gender: 0 as 0 | 1,
@@ -145,6 +148,7 @@ const AddNewNode = ({
     rootId: parentMember?.id || "",
     fromFTMemberId: parentMember?.id,
     fromFTMemberPartnerId: undefined,
+    ftMemberFiles: [],
   });
 
   // Filter out existing relationships
@@ -264,12 +268,12 @@ const AddNewNode = ({
   const [edges] = useEdgesState(initialEdges);
 
   const fetchPartnerMembers = async () => {
-    if(parentMember?.partners && parentMember.partners.length > 1) {
+    if (parentMember?.partners && parentMember.partners.length > 0) {
       for (const partnerId of parentMember.partners) {
         try {
           const response = await familyTreeService.getFamilyTreeMemberById(ftId, partnerId);
           const data = response.data;
-          if(partnerMembers.findIndex(item => item.id === data.id) === -1) {
+          if (partnerMembers.findIndex(item => item.id === data.id) === -1) {
             partnerMembers.push(response.data);
           }
         } catch (error) {
@@ -322,12 +326,47 @@ const AddNewNode = ({
     }));
   };
 
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (2MB limit)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Kích thước file không được vượt quá 2MB");
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF");
+      return;
+    }
+
+    // Update formData with the file
+    setFormData((prev) => ({
+      ...prev,
+      ftMemberFiles: [{ file, title: file.name, fileType: file.type }],
+    }));
+
+    // Generate preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreviewImage(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const openFileSelector = () => fileInputRef.current?.click();
+
   const handleSave = async () => {
     if (onSelectType) {
       const updatedFormData = {
         ...formData,
         fromFTMemberPartnerId: selectedPartnerId || undefined,
       };
+      console.log(updatedFormData);
       await onSelectType(updatedFormData);
     }
     onClose?.();
@@ -338,6 +377,7 @@ const AddNewNode = ({
     setShowPartnerSelection(false);
     setSelectedPartnerId(null);
     setShowExtendedForm(false);
+    setPreviewImage(null);
     setFormData({
       fullname: "",
       gender: 0,
@@ -365,6 +405,7 @@ const AddNewNode = ({
       rootId: "",
       fromFTMemberId: undefined,
       fromFTMemberPartnerId: undefined,
+      ftMemberFiles: [],
     });
   };
 
@@ -460,6 +501,36 @@ const AddNewNode = ({
 
           {/* Form */}
           <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
+            {/* Image Upload and Preview */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Ảnh đại diện
+              </label>
+              <div
+                onClick={openFileSelector}
+                className="border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center h-24 w-24 mx-auto cursor-pointer hover:border-blue-400 transition-colors relative overflow-hidden"
+              >
+                {previewImage ? (
+                  <img
+                    src={previewImage}
+                    alt="Preview"
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                ) : (
+                  <Users className="w-12 h-12 text-gray-400" />
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/gif"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+              </div>
+              <p className="text-xs text-gray-500 text-center mt-2">
+                Nhấp để chọn ảnh (JPEG, PNG, GIF, tối đa 2MB)
+              </p>
+            </div>
             {/* Họ tên */}
             <div>
               <label className="block text-sm font-semibold text-gray-800 mb-2">

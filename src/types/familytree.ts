@@ -23,6 +23,14 @@ export interface FamilytreeCreationProps {
   gpModecode: number;
 }
 
+export interface FamilytreeUpdateProps {
+  Name: string;
+  OwnerId: string;
+  Description: string;
+  File?: File;
+  GPModeCode: number;
+}
+
 export interface Familytree {
   id: string;
   name: string;
@@ -91,6 +99,7 @@ export interface AddingNodeProps {
   rootId?: string;
   fromFTMemberId?: string | undefined;
   fromFTMemberPartnerId?: string | undefined;
+  ftMemberFiles?: FileProps[]
 }
 
 export interface FamilyNode {
@@ -121,6 +130,36 @@ export interface FamilyNode {
   privacyData: null;
   picture: string;
   ftMemberFiles: FileProps[]
+}
+
+export interface UpdateFamilyNode {
+  id?: string;
+  userId?: string;
+  ftId?: string;
+  ftRole?: string;
+  fullname?: string;
+  gender?: 0 | 1;
+  isDeath?: boolean;
+  birthday?: string;
+  deathDescription?: string;
+  deathDate?: string;
+  burialAddress?: string;
+  burialWardId?: number;
+  burialProvinceId?: number;
+  identificationType?: string;
+  identificationNumber?: number;
+  ethnicId?: number;
+  religionId?: number;
+  address?: string;
+  wardId?: number;
+  provinceId?: number;
+  email?: string;
+  phoneNumber?: string;
+  content?: string;
+  storyDescription?: string;
+  privacyData?: null;
+  picture?: string;
+  ftMemberFiles?: FileProps[]
 }
 
 export interface FileProps {

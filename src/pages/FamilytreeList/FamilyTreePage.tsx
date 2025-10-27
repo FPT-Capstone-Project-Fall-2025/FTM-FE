@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BasicInfo from "./components/BasicInfo";
 import Members from "./components/Members";
 import FamilyTreeApp from "./components/FamilyTree/FamilyTree";
@@ -19,6 +19,7 @@ const STORAGE_KEY = 'familyTreeActiveTab';
 const FamilyTreePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
 
   // Get initial tab from URL params or localStorage
@@ -27,7 +28,7 @@ const FamilyTreePage: React.FC = () => {
     if (paramTab && tabs.some(t => t.id === paramTab)) {
       return paramTab;
     }
-    
+
     try {
       const savedTab = localStorage.getItem(STORAGE_KEY) as 'basic' | 'tree' | 'members' | null;
       if (savedTab && tabs.some(t => t.id === savedTab)) {
@@ -36,7 +37,7 @@ const FamilyTreePage: React.FC = () => {
     } catch (error) {
       console.error('Failed to read from localStorage:', error);
     }
-    
+
     return 'basic';
   };
 
@@ -46,7 +47,7 @@ const FamilyTreePage: React.FC = () => {
   const handleTabChange = (tabId: 'basic' | 'tree' | 'members') => {
     setActiveTab(tabId);
     setSearchParams({ tab: tabId });
-    
+
     try {
       localStorage.setItem(STORAGE_KEY, tabId);
     } catch (error) {
@@ -56,6 +57,7 @@ const FamilyTreePage: React.FC = () => {
 
   const handleBack = (): void => {
     dispatch(setSelectedFamilyTree(null));
+    navigate('/family-trees')
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {

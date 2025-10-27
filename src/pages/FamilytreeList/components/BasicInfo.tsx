@@ -1,34 +1,42 @@
-import { useAppSelector } from "@/hooks/redux";
+import { useAppDispatch, useAppSelector } from "@/hooks/redux";
+import familyTreeService from "@/services/familyTreeService";
+import { removeFamilyTree } from "@/stores/slices/familyTreeMetaDataSlice";
+import type { FamilytreeUpdateProps } from "@/types/familytree";
 import { Edit2 } from "lucide-react";
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 const BasicInfo: React.FC = () => {
 
     const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
 
-    const [formData, setFormData] = useState({
-        name: selectedTree?.name || '',
-        owner: selectedTree?.owner || '',
-        description: selectedTree?.description || '',
-        filePath: selectedTree?.filePath || ''
+    const [formData, setFormData] = useState<FamilytreeUpdateProps>({
+        Name: selectedTree?.name || '',
+        OwnerId: selectedTree?.ownerId || '',
+        Description: selectedTree?.description || '',
+        GPModeCode: selectedTree?.gpModeCode || 0,
     });
-
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const [currentImage, setCurrentImage] = useState<string>(selectedTree?.filePath || '');
     const [isEditMode, setIsEditMode] = useState(false);
     const [showImagePopup, setShowImagePopup] = useState(false);
-    const [tempImage, setTempImage] = useState<string | ArrayBuffer | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [tempImage, setTempImage] = useState<string | null>(null);
+    const [tempFile, setTempFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
         
     const hasChanges = () => {
         return (
-            formData.name !== selectedTree?.name ||
-            formData.owner !== selectedTree.owner ||
-            formData.description !== selectedTree.description ||
-            formData.filePath !== tempImage
+            formData.Name !== (selectedTree?.name || '') ||
+            formData.OwnerId !== (selectedTree?.ownerId || '') ||
+            formData.Description !== (selectedTree?.description || '') ||
+            tempFile !== null
         );
     };
 
-    const handleChange = (e : React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         if (!isEditMode) return;
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -42,50 +50,65 @@ const BasicInfo: React.FC = () => {
     };
 
     const handleCancel = () => {
-        setFormData(pre => ({
-            ...pre,
-            ...selectedTree
-        }));
+        // Reset to original values from selectedTree
+        setFormData({
+            Name: selectedTree?.name || '',
+            OwnerId: selectedTree?.ownerId || '',
+            Description: selectedTree?.description || '',
+            GPModeCode: selectedTree?.gpModeCode || 0,
+        });
+        setCurrentImage(selectedTree?.filePath || '');
+        setTempFile(null);
+        setTempImage(null);
         setIsEditMode(false);
     };
 
     const handleSave = async () => {
-        if (!hasChanges()) return;
-        
-        // TODO: Implement API call here
-        
-        // After successful API call, update original data
-        setIsEditMode(false);
-        
-        // Example API call structure:
-        /*
-        try {
-            const response = await fetch('/api/family-tree', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    familyName: formData.familyName,
-                    founder: formData.founder,
-                    description: formData.description,
-                    image: currentImage
-                })
-            });
-            
-            if (response.ok) {
-                setOriginalData(formData);
-                setOriginalImage(currentImage);
-                setIsEditMode(false);
-            }
-        } catch (error) {
-            console.error('Error saving:', error);
+        if (!hasChanges()) {
+            setIsEditMode(false);
+            return;
         }
-        */
+
+        try {
+            const updateData: FamilytreeUpdateProps = {
+                Name: formData.Name,
+                OwnerId: formData.OwnerId,
+                Description: formData.Description,
+                GPModeCode: formData.GPModeCode,
+            };
+
+            // Add file if there's a new one
+            if (tempFile) {
+                updateData.File = tempFile;
+            }
+
+            const response = await familyTreeService.updateFamilyTree(selectedTree?.id || '', updateData);
+            
+            if (response.success) {
+                toast.success('Cập nhật gia phả thành công!');
+                
+                // Update current image if there was a new file
+                if (tempFile && tempImage) {
+                    setCurrentImage(tempImage);
+                }
+                
+                setIsEditMode(false);
+                setTempFile(null);
+                setTempImage(null);
+                
+                // Optionally dispatch an action to update Redux store
+                // dispatch(updateFamilyTree(response.data));
+            } else {
+                toast.error(response.message || 'Cập nhật thất bại!');
+            }
+        } catch (error: any) {
+            console.error('Error saving:', error);
+            toast.error(error?.message || 'Có lỗi xảy ra khi cập nhật!');
+        }
     };
 
-    const handleImageSelect = (e : any) => {
-        const file = e.target.files[0];
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         if (file) {
             // Validate file type
             const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
@@ -104,39 +127,59 @@ const BasicInfo: React.FC = () => {
             // Read file and create preview
             const reader = new FileReader();
             reader.onloadend = () => {
-                setTempImage(reader.result);
+                setTempImage(reader.result as string);
+                setTempFile(file);
             };
             reader.readAsDataURL(file);
         }
     };
 
     const handleImageSave = () => {
-        if(tempImage) {
-            setFormData(pre => ({
-                ...pre,
-                picture: tempImage.toString()
-            }))
-        }
+        // Just close the popup, the tempFile and tempImage are already set
+        // They will be used when the main form is saved
         setShowImagePopup(false);
-        setTempImage(null);
     };
 
     const handleImageDelete = () => {
         setTempImage(null);
-        setFormData(pre => ({
-            ...pre,
-            picture: ''
-        }))
+        setTempFile(null);
+        setCurrentImage('');
     };
 
     const handleImagePopupCancel = () => {
-        setTempImage(null);
+        // Reset temp states if user cancels without saving
+        if (!hasChanges()) {
+            setTempImage(null);
+            setTempFile(null);
+        }
         setShowImagePopup(false);
     };
 
     const openFileSelector = () => {
         fileInputRef.current?.click();
     };
+
+    const handleDelete = async () => {
+        if (!selectedTree?.id) {
+            toast.error('Không tìm thấy gia phả để xóa!');
+            return;
+        }
+
+        try {
+            const response = await familyTreeService.deleteFamilyTree(selectedTree.id);
+            toast.success(response.message);
+            setShowDeleteConfirm(false);
+            navigate('/family-trees');
+            dispatch(removeFamilyTree(selectedTree.id));
+           
+        } catch (error: any) {
+            console.error('Error deleting:', error);
+            toast.error(error?.message || 'Có lỗi xảy ra khi xóa gia phả!');
+        }
+    };
+
+    // Display priority: tempImage (new upload) > currentImage (saved)
+    const displayImage = tempImage || currentImage;
 
     return (
         <div className="h-full overflow-y-auto">
@@ -149,15 +192,15 @@ const BasicInfo: React.FC = () => {
                             isEditMode ? 'cursor-pointer hover:border-blue-500' : 'cursor-default'
                         }`}
                     >
-                        {formData?.filePath ? (
+                        {displayImage ? (
                             <>
                                 <img 
-                                    src={formData?.filePath} 
+                                    src={displayImage} 
                                     alt="Family tree" 
                                     className="w-full h-full object-cover"
                                 />
                                 {isEditMode && (
-                                    <div className="absolute inset-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/30 bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
                                         <Edit2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                 )}
@@ -169,7 +212,7 @@ const BasicInfo: React.FC = () => {
                                     <line x1="80" y1="20" x2="20" y2="80" stroke="currentColor" strokeWidth="2" />
                                 </svg>
                                 {isEditMode && (
-                                    <div className="absolute inset-0 group-hover:bg-opacity-5 rounded-lg transition-all flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-gray-100 bg-opacity-0 group-hover:bg-opacity-50 rounded-lg transition-all flex items-center justify-center">
                                         <Edit2 className="w-8 h-8 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                 )}
@@ -181,14 +224,14 @@ const BasicInfo: React.FC = () => {
                 {/* Form Section */}
                 <div className="lg:col-span-2 space-y-6">
                     <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="Name" className="block text-sm font-medium text-gray-700 mb-2">
                             Tên Gia Phả
                         </label>
                         <input
                             type="text"
-                            id="name"
-                            name="name"
-                            value={formData.name}
+                            id="Name"
+                            name="Name"
+                            value={formData.Name}
                             onChange={handleChange}
                             disabled={!isEditMode}
                             className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
@@ -199,31 +242,31 @@ const BasicInfo: React.FC = () => {
                     </div>
 
                     <div>
-                        <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-2">
-                            Người sở hữu
+                        <label htmlFor="OwnerId" className="block text-sm font-medium text-gray-700 mb-2">
+                            Mã người sở hữu
                         </label>
                         <input
                             type="text"
-                            id="owner"
-                            name="owner"
-                            value={formData.owner}
+                            id="OwnerId"
+                            name="OwnerId"
+                            value={formData.OwnerId}
                             onChange={handleChange}
                             disabled={!isEditMode}
                             className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
                                 !isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
                             }`}
-                            placeholder="Nhập tên người sở hữu"
+                            placeholder="Nhập mã người sở hữu"
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="Description" className="block text-sm font-medium text-gray-700 mb-2">
                             Ghi chú khác
                         </label>
                         <textarea
-                            id="description"
-                            name="description"
-                            value={formData.description}
+                            id="Description"
+                            name="Description"
+                            value={formData.Description}
                             onChange={handleChange}
                             disabled={!isEditMode}
                             rows={6}
@@ -236,13 +279,22 @@ const BasicInfo: React.FC = () => {
 
                     <div className="flex gap-3 justify-end pt-4">
                         {!isEditMode ? (
-                            <button
-                                type="button"
-                                onClick={handleEdit}
-                                className="px-6 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-900 transition-colors"
-                            >
-                                Chỉnh sửa
-                            </button>
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    className="px-6 py-2 border border-red-500 text-red-500 rounded-lg font-medium hover:bg-red-50 transition-colors"
+                                >
+                                    Xóa gia phả
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleEdit}
+                                    className="px-6 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-900 transition-colors"
+                                >
+                                    Chỉnh sửa
+                                </button>
+                            </>
                         ) : (
                             <>
                                 <button
@@ -272,7 +324,7 @@ const BasicInfo: React.FC = () => {
 
             {/* Image Upload Popup */}
             {showImagePopup && (
-                <div className="fixed inset-0 bg-black/60 bg-opacity-50 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black/50 bg-opacity-60 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
                         <button
                             onClick={handleImagePopupCancel}
@@ -288,9 +340,9 @@ const BasicInfo: React.FC = () => {
                         <p className="text-sm text-gray-400 mb-6">Định dạng: JPEG, JPG, PNG, GIF<br />Kích thước tối đa: 25MB</p>
 
                         {/* Image Preview */}
-                        {tempImage && (
+                        {displayImage && (
                             <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
-                                <img src={tempImage.toString()} alt="Preview" className="w-full h-48 object-cover" />
+                                <img src={displayImage} alt="Preview" className="w-full h-48 object-cover" />
                             </div>
                         )}
 
@@ -314,7 +366,7 @@ const BasicInfo: React.FC = () => {
                                 Chọn ảnh
                             </button>
 
-                            {(tempImage || formData?.filePath) && (
+                            {displayImage && (
                                 <button 
                                     onClick={handleImageDelete}
                                     className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
@@ -339,6 +391,41 @@ const BasicInfo: React.FC = () => {
                                 className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                             >
                                 LƯU
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Popup */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/50 bg-opacity-60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+                            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        
+                        <h2 className="text-xl font-semibold text-center mb-2">Xác nhận xóa gia phả</h2>
+                        <p className="text-sm text-gray-600 text-center mb-6">
+                            Bạn có chắc chắn muốn xóa gia phả <span className="font-semibold">"{selectedTree?.name}"</span>? 
+                            <br />
+                            Hành động này không thể hoàn tác!
+                        </p>
+
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                            >
+                                Xóa
                             </button>
                         </div>
                     </div>

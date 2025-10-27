@@ -3,7 +3,6 @@ import { X, Edit, Save, Calendar, MapPin, Phone, Mail, User, FileText, Image, Tr
 import type { FamilyNode, FileProps } from '@/types/familytree';
 import familyTreeService from '@/services/familyTreeService';
 import { toast } from 'react-toastify';
-import CustomDatePicker from '@/components/ui/DatePicker';
 
 interface MemberDetailPageProps {
     ftId: string | undefined;
@@ -33,7 +32,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                 try {
                     const response = await familyTreeService.getFamilyTreeMemberById(ftId, memberId);
                     setMember(response.data);
-                    setEditedMember(response.data);
+                    setEditedMember({ ...response.data }); // Initialize with fetched data
                 } catch (error) {
                     console.error('Error fetching member details:', error);
                     setError('Không thể tải thông tin thành viên');
@@ -41,29 +40,39 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                     setLoading(false);
                 }
             }
-        }
+        };
         fetchMemberDetail();
     }, [ftId, memberId]);
 
     const handleEdit = () => {
         setIsEditing(true);
-        setEditedMember(member);
+        setEditedMember({ ...member }); // Start editing with current member data
+    };
+
+    const getChangedFields = (original: FamilyNode, edited: FamilyNode): Partial<FamilyNode> => {
+        const changed: Partial<FamilyNode> = {};
+        for (const key in original) {
+            if (key === 'ftMemberFiles') continue; // Handle files separately
+            if (JSON.stringify(original[key as keyof FamilyNode]) !== JSON.stringify(edited[key as keyof FamilyNode])) {
+                changed[key as keyof FamilyNode] = edited[key as keyof FamilyNode];
+            }
+        }
+        return changed;
     };
 
     const handleSave = async () => {
-        if (!ftId || !editedMember) return;
+        if (!ftId || !editedMember || !member) return;
 
         setLoading(true);
         setError(null);
 
         try {
-            // Upload new files first
+            // Handle file uploads for new or updated files
             const updatedFiles: FileProps[] = await Promise.all(
-                editedMember.ftMemberFiles.map(async (fileItem) => {
+                editedMember.ftMemberFiles.map(async (fileItem, index) => {
                     if (fileItem.file instanceof File) {
                         const response = await familyTreeService.uploadFamilyMemberFile(ftId, editedMember.id, fileItem.file);
                         const uploadedData = response.data; // Assume { file: string (url), thumbnail: string | null, fileType: string }
-                        // Revoke local URL if exists
                         if (fileItem.thumbnail && fileItem.thumbnail.startsWith('blob:')) {
                             URL.revokeObjectURL(fileItem.thumbnail);
                         }
@@ -74,30 +83,44 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                             fileType: uploadedData.fileType,
                         };
                     }
+                    // Compare with original files to detect changes in metadata
+                    const originalFile = member.ftMemberFiles?.[index];
+                    if (originalFile && (fileItem.title !== originalFile.title || fileItem.description !== originalFile.description)) {
+                        return { ...fileItem }; // Include updated metadata
+                    }
                     return fileItem;
                 })
             );
 
-            const updatedMember: FamilyNode = {
-                ...editedMember,
-                ftMemberFiles: updatedFiles,
+            // Get only changed fields (excluding files)
+            const changedFields = getChangedFields(member, editedMember);
+
+            // Prepare update payload with changed fields and updated files
+            const updatePayload: Partial<FamilyNode> = {
+                ...changedFields,
+                ftMemberFiles: updatedFiles.length > 0 ? updatedFiles : undefined, // Only include if files changed
             };
 
-            const response = await familyTreeService.updateFamilyNode(ftId, updatedMember);
-            console.log(response);
+            // Send update request only if there are changes
+            if (Object.keys(updatePayload).length > 0) {
+                const response = await familyTreeService.updateFamilyNode(ftId, updatePayload);
+                setMember({ ...member, ...updatePayload }); // Update member state with changes
+                toast.success(response.message);
+            } else {
+                toast.info('Không có thay đổi nào được lưu.');
+            }
 
-            setMember(updatedMember);
             setIsEditing(false);
-            toast.success(response.message);
         } catch (error: any) {
-            toast.success(error?.response?.data?.message);
+            console.error('Error updating member:', error);
+            toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật');
+            setError('Có lỗi xảy ra khi cập nhật thông tin');
         } finally {
             setLoading(false);
         }
     };
 
     const handleCancel = () => {
-        // Revoke any local URLs for new files
         if (editedMember) {
             editedMember.ftMemberFiles.forEach((fileItem) => {
                 if (fileItem.thumbnail && fileItem.thumbnail.startsWith('blob:')) {
@@ -106,7 +129,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             });
         }
         setIsEditing(false);
-        setEditedMember(member);
+        setEditedMember({ ...member }); // Revert to original member data
         setError(null);
     };
 
@@ -135,8 +158,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             description: '',
             fileType: file.type,
             file,
-            thumbnail: file.type.includes('image') ? URL.createObjectURL(file) : null, // For videos, no thumbnail for now
-            content: '', // Optional
+            thumbnail: file.type.includes('image') ? URL.createObjectURL(file) : null,
+            content: '',
         }));
 
         handleInputChange('ftMemberFiles', [...editedMember.ftMemberFiles, ...newFiles]);
@@ -355,12 +378,12 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="text"
-                                                value={currentData.fullname}
-                                                onChange={(e) => handleInputChange('fullname', e.target.value)}
+                                                value={currentData.fullname || ''}
+                                                onChange={(e) => handleInputChange('fullname', e.target.value || undefined)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         ) : (
-                                            <p className="text-gray-900">{currentData.fullname}</p>
+                                            <p className="text-gray-900">{currentData.fullname || '-'}</p>
                                         )}
                                     </div>
                                     <div>
@@ -383,14 +406,14 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="date"
-                                                value={currentData.birthday}
-                                                onChange={(e) => handleInputChange('birthday', e.target.value)}
+                                                value={currentData.birthday || ''}
+                                                onChange={(e) => handleInputChange('birthday', e.target.value || undefined)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         ) : (
                                             <p className="text-gray-900 flex items-center gap-2">
                                                 <Calendar className="w-4 h-4" />
-                                                {new Date(currentData.birthday).toLocaleDateString('en-GB')}
+                                                {currentData.birthday ? new Date(currentData.birthday).toLocaleDateString('en-GB') : '-'}
                                             </p>
                                         )}
                                     </div>
@@ -399,12 +422,12 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="text"
-                                                value={currentData.ftRole}
-                                                onChange={(e) => handleInputChange('ftRole', e.target.value)}
+                                                value={currentData.ftRole || ''}
+                                                onChange={(e) => handleInputChange('ftRole', e.target.value || undefined)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         ) : (
-                                            <p className="text-gray-900">{currentData.ftRole}</p>
+                                            <p className="text-gray-900">{currentData.ftRole || '-'}</p>
                                         )}
                                     </div>
                                 </div>
@@ -422,14 +445,14 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="tel"
-                                                value={currentData.phoneNumber}
-                                                onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
+                                                value={currentData.phoneNumber || ''}
+                                                onChange={(e) => handleInputChange('phoneNumber', e.target.value || undefined)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         ) : (
                                             <p className="text-gray-900 flex items-center gap-2">
                                                 <Phone className="w-4 h-4" />
-                                                {currentData.phoneNumber}
+                                                {currentData.phoneNumber || '-'}
                                             </p>
                                         )}
                                     </div>
@@ -438,14 +461,14 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="email"
-                                                value={currentData.email || undefined}
-                                                onChange={(e) => handleInputChange('email', e.target.value)}
+                                                value={currentData.email || ''}
+                                                onChange={(e) => handleInputChange('email', e.target.value || undefined)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         ) : (
                                             <p className="text-gray-900 flex items-center gap-2">
                                                 <Mail className="w-4 h-4" />
-                                                {currentData.email}
+                                                {currentData.email || '-'}
                                             </p>
                                         )}
                                     </div>
@@ -453,15 +476,15 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ</label>
                                         {isEditing ? (
                                             <textarea
-                                                value={currentData.address}
-                                                onChange={(e) => handleInputChange('address', e.target.value)}
+                                                value={currentData.address || ''}
+                                                onChange={(e) => handleInputChange('address', e.target.value || undefined)}
                                                 rows={3}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         ) : (
                                             <p className="text-gray-900 flex items-start gap-2">
                                                 <MapPin className="w-4 h-4 mt-1" />
-                                                {currentData.address}
+                                                {currentData.address || '-'}
                                             </p>
                                         )}
                                     </div>
@@ -480,12 +503,12 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="text"
-                                                value={currentData.identificationType}
-                                                onChange={(e) => handleInputChange('identificationType', e.target.value)}
+                                                value={currentData.identificationType || ''}
+                                                onChange={(e) => handleInputChange('identificationType', e.target.value || undefined)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         ) : (
-                                            <p className="text-gray-900">{currentData.identificationType}</p>
+                                            <p className="text-gray-900">{currentData.identificationType || '-'}</p>
                                         )}
                                     </div>
                                     <div>
@@ -493,12 +516,12 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         {isEditing ? (
                                             <input
                                                 type="number"
-                                                value={currentData.identificationNumber}
-                                                onChange={(e) => handleInputChange('identificationNumber', Number(e.target.value))}
+                                                value={currentData.identificationNumber || ''}
+                                                onChange={(e) => handleInputChange('identificationNumber', Number(e.target.value) || undefined)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             />
                                         ) : (
-                                            <p className="text-gray-900">{currentData.identificationNumber}</p>
+                                            <p className="text-gray-900">{currentData.identificationNumber || '-'}</p>
                                         )}
                                     </div>
                                 </div>
@@ -528,8 +551,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                     {isEditing ? (
                                                         <input
                                                             type="date"
-                                                            value={currentData.deathDate}
-                                                            onChange={(e) => handleInputChange('deathDate', e.target.value)}
+                                                            value={currentData.deathDate || ''}
+                                                            onChange={(e) => handleInputChange('deathDate', e.target.value || undefined)}
                                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         />
                                                     ) : (
@@ -540,8 +563,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả nguyên nhân</label>
                                                     {isEditing ? (
                                                         <textarea
-                                                            value={currentData.deathDescription}
-                                                            onChange={(e) => handleInputChange('deathDescription', e.target.value)}
+                                                            value={currentData.deathDescription || ''}
+                                                            onChange={(e) => handleInputChange('deathDescription', e.target.value || undefined)}
                                                             rows={2}
                                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         />
@@ -553,8 +576,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ an táng</label>
                                                     {isEditing ? (
                                                         <textarea
-                                                            value={currentData.burialAddress}
-                                                            onChange={(e) => handleInputChange('burialAddress', e.target.value)}
+                                                            value={currentData.burialAddress || ''}
+                                                            onChange={(e) => handleInputChange('burialAddress', e.target.value || undefined)}
                                                             rows={2}
                                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         />
@@ -627,8 +650,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                                     <label className="block text-xs font-medium text-gray-600 mb-1">Tiêu đề</label>
                                                                     <input
                                                                         type="text"
-                                                                        value={file.title}
-                                                                        onChange={(e) => handleFileUpdate(index, 'title', e.target.value)}
+                                                                        value={file.title || ''}
+                                                                        onChange={(e) => handleFileUpdate(index, 'title', e.target.value || undefined)}
                                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                                         placeholder="Nhập tiêu đề..."
                                                                     />
@@ -636,8 +659,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                                 <div>
                                                                     <label className="block text-xs font-medium text-gray-600 mb-1">Mô tả</label>
                                                                     <textarea
-                                                                        value={file.description}
-                                                                        onChange={(e) => handleFileUpdate(index, 'description', e.target.value)}
+                                                                        value={file.description || ''}
+                                                                        onChange={(e) => handleFileUpdate(index, 'description', e.target.value || undefined)}
                                                                         rows={2}
                                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                                         placeholder="Nhập mô tả..."
@@ -746,8 +769,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                 </h3>
                                 {isEditing ? (
                                     <textarea
-                                        value={currentData.storyDescription}
-                                        onChange={(e) => handleInputChange('storyDescription', e.target.value)}
+                                        value={currentData.storyDescription || ''}
+                                        onChange={(e) => handleInputChange('storyDescription', e.target.value || undefined)}
                                         rows={10}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="Viết câu chuyện về cuộc đời của thành viên..."
@@ -763,8 +786,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                 <h3 className="text-lg font-semibold mb-4">Nội dung bổ sung</h3>
                                 {isEditing ? (
                                     <textarea
-                                        value={currentData.content}
-                                        onChange={(e) => handleInputChange('content', e.target.value)}
+                                        value={currentData.content || ''}
+                                        onChange={(e) => handleInputChange('content', e.target.value || undefined)}
                                         rows={6}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="Thông tin chi tiết khác..."
