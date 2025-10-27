@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { DatePicker, Radio } from 'antd';
-import { Search, Calendar, ChevronLeft, ChevronRight, CloudSun, User, LayoutGrid, CornerDownLeft } from 'lucide-react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Search, Calendar, ChevronLeft, ChevronRight, CloudSun, CornerDownLeft } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import moment from 'moment';
 import debounce from 'lodash/debounce';
 import dayjs from 'dayjs';
@@ -42,8 +42,6 @@ const EventPage: React.FC = () => {
     console.log('EventPage - Current tab:', tab);
   }, [tab]);
 
-  // --- Hooks ---
-  const navigate = useNavigate();
   // State Management
   const [viewMode, setViewMode] = useState<ViewMode>('month' as ViewMode);
   const [currentDate, setCurrentDate] = useState<Date>(now);

@@ -24,7 +24,7 @@ const eventTypes = Object.entries(CONFIG).map(([key, { label, icon, color }]) =>
   ),
 }));
 
-export default function EventTypeSelect({ field, fieldState }) {
+export default function EventTypeSelect({ field }: { field: any; fieldState?: any }) {
   return (
     <Select
       {...field}

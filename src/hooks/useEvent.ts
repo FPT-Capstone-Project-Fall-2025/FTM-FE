@@ -3,7 +3,7 @@ import eventService from '@/services/eventService';
 import type {
   FamilyEvent,
   EventFilters,
-  CreateEventPayload,
+  ApiCreateEventPayload,
   UpdateEventPayload,
   DeleteEventPayload,
   GetEventsResponse,
@@ -127,13 +127,14 @@ export const useEvents = () => {
   /**
    * Create a new event
    */
-  const createEvent = useCallback(async (payload: CreateEventPayload) => {
+  const createEvent = useCallback(async (payload: ApiCreateEventPayload) => {
     setLoading(true);
     setError(null);
     try {
-      const newEvent = await eventService.createEvent(payload);
-      setEvents((prev) => [...prev, newEvent]);
-      return newEvent;
+      const response = await eventService.createEvent(payload);
+      // Note: Since the response structure might be different, we don't automatically add to events array
+      // The caller should handle refetching or updating the events list as needed
+      return response;
     } catch (err: any) {
       setError(err.message || 'Failed to create event');
       throw err;

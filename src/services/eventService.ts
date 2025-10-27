@@ -1,7 +1,6 @@
 import apiService from './apiService';
 import type {
   FamilyEvent,
-  CreateEventPayload,
   UpdateEventPayload,
   DeleteEventPayload,
   GetEventsResponse,

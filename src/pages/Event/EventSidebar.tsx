@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Checkbox } from "antd";
-import { Plus, MapPin, ChevronDown, User } from "lucide-react";
+import { Plus, MapPin, ChevronDown } from "lucide-react";
 import { useCombobox } from "downshift";
 import { EVENT_TYPE_CONFIG, EVENT_TYPE } from "./EventTypeLabel";
 import type { EventType } from "./EventTypeLabel";

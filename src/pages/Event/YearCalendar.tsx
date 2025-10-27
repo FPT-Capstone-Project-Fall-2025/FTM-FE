@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import moment from "moment";
 import "moment/locale/vi";
 import { addLunarToMoment } from "../../utils/lunarUtils";
@@ -36,7 +36,7 @@ const YearCalendar: React.FC<YearCalendarProps> = ({
     }
   };
 
-  const handleDayClick = (date: moment.Moment, day: number, month: number, year: number) => {
+  const handleDayClick = (date: moment.Moment) => {
     // Only allow clicking on future dates
     if (date.isBefore(moment(), 'day')) {
       return;
@@ -99,7 +99,7 @@ const YearCalendar: React.FC<YearCalendarProps> = ({
                   return (
                     <div
                       key={day}
-                      onClick={() => handleDayClick(date, day, month, year)}
+                      onClick={() => handleDayClick(date)}
                       className={`aspect-square flex flex-col items-center justify-center rounded-lg transition-all duration-200 relative p-1 ${
                         isPast
                           ? 'bg-gray-100 cursor-not-allowed opacity-50'
