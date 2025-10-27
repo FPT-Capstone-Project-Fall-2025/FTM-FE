@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Modal, Input, Select, Upload, Checkbox, Switch } from "antd";
 import type { UploadFile } from "antd/es/upload/interface";
 import type { UploadChangeParam } from "antd/es/upload";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { format, isBefore, endOfDay } from 'date-fns';
 import * as yup from "yup";
 import { useForm, Controller } from "react-hook-form";
@@ -122,7 +122,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   handleCreatedEvent,
 }) => {
   const { id: familyTreeId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   
   const [isAllDay, setIsAllDay] = useState<boolean>(false);
   const [listCity, setListCity] = useState<CityOption[]>([]);
@@ -130,6 +129,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [eventTypes, setEventType] = useState<Array<{ label: React.ReactNode; value: string }>>([]);
   const [isSubmit, setIsSubmit] = useState<boolean>(false);
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
   const [isLunar, setIsLunar] = useState<boolean>(false);
   const [isPublic, setIsPublic] = useState<boolean>(true);
   const [targetMemberId, setTargetMemberId] = useState<string>("");
@@ -511,37 +511,69 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           ? null 
           : targetMemberId;
 
-      // Convert form data to API payload
-      // NOTE: imageUrl is set to null because base64 is too long for varchar(500)
-      // TODO: Implement proper image upload to cloud storage (S3, Azure Blob, etc.)
-      // and then send the cloud URL instead of base64
-      const payload: ApiCreateEventPayload = {
-        name: data.name,
-        eventType: convertEventTypeToNumber(data.eventType),
-        startTime: data.startTime,
-        endTime: data.endTime || data.startTime,
-        location: data.location || null,
-        locationName: data.locationName || null,
-        recurrenceType: convertRecurrenceToNumber(data.recurrence),
-        ftId: ftId,
-        description: data.description || null,
-        imageUrl: null, // TODO: Upload to cloud storage first
-        referenceEventId: null,
-        address: data.address || null,
-        isAllDay: isAllDay,
-        recurrenceEndTime: data.recurrenceEndTime || null,
-        isLunar: isLunar,
-        targetMemberId: actualTargetMemberId || null,
-        isPublic: isPublic,
-        memberIds: selectedMembers.map(m => m.id),
-      };
+      // Get image file if selected
+      const imageFile = fileList.length > 0 && fileList[0]?.originFileObj 
+        ? fileList[0].originFileObj 
+        : null;
 
-      console.log('API Payload:', payload);
-      
+      console.log('📸 Image file:', imageFile ? `${imageFile.name} (${(imageFile.size / 1024).toFixed(2)} KB)` : 'None');
+
       // Call the appropriate API
-      const response = isEditMode
-        ? await eventService.updateEventById((eventSelected as any).id, payload)
-        : await eventService.createEvent(payload);
+      let response;
+      if (isEditMode) {
+        // For edit mode, use the JSON API (no file upload support yet)
+        const payload: ApiCreateEventPayload = {
+          name: data.name,
+          eventType: convertEventTypeToNumber(data.eventType),
+          startTime: data.startTime,
+          endTime: data.endTime || data.startTime,
+          location: data.location || null,
+          locationName: data.locationName || null,
+          recurrenceType: convertRecurrenceToNumber(data.recurrence),
+          ftId: ftId,
+          description: data.description || null,
+          imageUrl: null, // TODO: Support image update
+          referenceEventId: null,
+          address: data.address || null,
+          isAllDay: isAllDay,
+          recurrenceEndTime: data.recurrenceEndTime || null,
+          isLunar: isLunar,
+          targetMemberId: actualTargetMemberId || null,
+          isPublic: isPublic,
+          memberIds: selectedMembers.map(m => m.id),
+        };
+        
+        response = await eventService.updateEventById((eventSelected as any).id, payload);
+      } else {
+        // For create mode, use FormData API to support file upload
+        if (imageFile) {
+          setIsUploadingImage(true);
+          toast.info("Đang tạo sự kiện với ảnh...", { autoClose: 2000 });
+        }
+        
+        response = await eventService.createEventWithFiles({
+          name: data.name,
+          eventType: convertEventTypeToNumber(data.eventType),
+          startTime: data.startTime,
+          endTime: data.endTime || data.startTime,
+          location: data.location || null,
+          locationName: data.locationName || null,
+          recurrenceType: convertRecurrenceToNumber(data.recurrence),
+          ftId: ftId,
+          description: data.description || null,
+          file: imageFile, // Pass file directly
+          referenceEventId: null,
+          address: data.address || null,
+          isAllDay: isAllDay,
+          recurrenceEndTime: data.recurrenceEndTime || null,
+          isLunar: isLunar,
+          targetMemberId: actualTargetMemberId || null,
+          isPublic: isPublic,
+          memberIds: selectedMembers.map(m => m.id),
+        });
+        
+        setIsUploadingImage(false);
+      }
       
       console.log('API Response:', response);
 
@@ -549,33 +581,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         const successMessage = isEditMode ? "Cập nhật sự kiện thành công!" : "Tạo sự kiện thành công!";
         toast.success(successMessage);
         
-        // Notify user if image was selected but not uploaded
-        if (previewImage && !isEditMode) {
-          toast.info("Lưu ý: Hình ảnh chưa được lưu. Tính năng upload ảnh đang được phát triển.", {
-            autoClose: 5000,
-          });
-        }
-        
         setIsOpenModal(false);
         if (handleCreatedEvent) {
           handleCreatedEvent();
         }
         reset();
-        
-        // Navigate to "My Events" tab after creating/editing an event
-        setTimeout(() => {
-          if (!isEditMode) {
-            // For new events, navigate to my-events tab
-            navigate(`/events?tab=my-events&refresh=${Date.now()}`);
-          } else {
-            // For edited events, check if we're already on my-events tab
-            const currentTab = new URLSearchParams(window.location.search).get('tab');
-            if (currentTab === 'my-events') {
-              // Refresh the my-events list by adding a timestamp
-              navigate(`/events?tab=my-events&refresh=${Date.now()}`);
-            }
-          }
-        }, 500);
       } else {
         toast.error(response.message || `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sự kiện`);
       }
@@ -935,7 +945,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Hình ảnh
-            <span className="ml-2 text-xs text-orange-500 font-normal">(Tính năng đang phát triển)</span>
           </label>
           <Controller
             name="imageUrl"
@@ -967,10 +976,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   <div className="mt-2 space-y-1">
                     <p className="text-xs text-gray-500">Xem trước:</p>
                     <img src={previewImage} alt="Preview" className="w-32 h-32 object-cover rounded border" />
-                    <p className="text-xs text-orange-500 flex items-center gap-1">
-                      <span>⚠️</span>
-                      <span>Ảnh chỉ hiển thị xem trước, chưa được lưu lên server</span>
-                    </p>
                   </div>
                 )}
               </>
@@ -1154,16 +1159,21 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           <button
             type="button"
             onClick={handleCancel}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            disabled={isSubmit || isUploadingImage}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Hủy
           </button>
           <button
             type="submit"
-            disabled={isSubmit}
+            disabled={isSubmit || isUploadingImage}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmit ? 'Đang lưu...' : eventSelected ? 'Cập nhật' : 'Tạo sự kiện'}
+            {isSubmit || isUploadingImage 
+              ? (fileList.length > 0 ? '📤 Đang tạo sự kiện với ảnh...' : '💾 Đang lưu...') 
+              : eventSelected 
+                ? 'Cập nhật' 
+                : 'Tạo sự kiện'}
           </button>
         </div>
       </form>

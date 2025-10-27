@@ -10,6 +10,7 @@ import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import { processRecurringEvents } from "../../utils/recurringEventUtils";
+import { getHolidaysForYear, formatHolidayForCalendar } from "../../utils/vietnameseHolidays";
 import type { EventClickArg, EventContentArg, DayCellContentArg } from '@fullcalendar/core';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import './Calendar.css';
@@ -249,7 +250,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
             type: normalizedEventType,
             allDay: event.isAllDay || false,
             description: event.description || '',
-            imageUrl: event.imageUrl || '',
+            imageUrl: event.imageUrl || null, // null if not provided
             gpIds: event.ftId ? [event.ftId] : [],
             location: event.location || '',
             isOwner: event.isOwner || false,
@@ -282,9 +283,22 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
           return mappedEvent;
         });
       
+      // Add Vietnamese holidays to calendar
+      const vietnameseHolidays = getHolidaysForYear(year);
+      const holidayEvents = vietnameseHolidays
+        .filter(holiday => {
+          const holidayMonth = holiday.solarDate.getMonth() + 1;
+          return holidayMonth === month;
+        })
+        .map(holiday => formatHolidayForCalendar(holiday, year));
+      
       console.log('📅 MonthCalendar - Events after filtering:', apiEvents.length, 'events');
+      console.log('📅 MonthCalendar - Vietnamese holidays:', holidayEvents.length, 'holidays');
       console.log('📅 MonthCalendar - All mapped events:', apiEvents);
-      setEvents(apiEvents);
+      
+      // Combine user events and holidays
+      const combinedEvents = [...apiEvents, ...holidayEvents as any];
+      setEvents(combinedEvents);
 
       // Process weather data (only available from old API)
       // TODO: Integrate weather API separately if needed

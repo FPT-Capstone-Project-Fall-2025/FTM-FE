@@ -10,6 +10,7 @@ import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import { processRecurringEvents } from "../../utils/recurringEventUtils";
+import { getHolidaysForYear, formatHolidayForCalendar } from "../../utils/vietnameseHolidays";
 import type { EventClickArg, EventContentArg, DayHeaderContentArg } from '@fullcalendar/core';
 import './Calendar.css';
 
@@ -245,11 +246,24 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
           };
         });
 
+      // Add Vietnamese holidays to calendar
+      const vietnameseHolidays = getHolidaysForYear(year);
+      const holidayEvents = vietnameseHolidays
+        .filter(holiday => {
+          const holidayDate = moment(holiday.solarDate);
+          return holidayDate.isSameOrAfter(startDate) && holidayDate.isSameOrBefore(endDate);
+        })
+        .map(holiday => formatHolidayForCalendar(holiday, year));
+      
       console.log('📅 WeekCalendar - Events after filtering:', mappedEvents.length, 'events');
+      console.log('📅 WeekCalendar - Vietnamese holidays:', holidayEvents.length, 'holidays');
       console.log('📅 WeekCalendar - Sample event:', mappedEvents[0]);
       console.log('📅 WeekCalendar - All mapped events:', mappedEvents);
       console.log('📅 WeekCalendar - Setting events to state...');
-      setEvents(mappedEvents);
+      
+      // Combine user events and holidays
+      const combinedEvents = [...mappedEvents, ...holidayEvents as any];
+      setEvents(combinedEvents);
       console.log('📅 WeekCalendar - Events set successfully');
 
       // Process weather data (only available from old API)

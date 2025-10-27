@@ -7,7 +7,6 @@ import type { EventType } from "./EventTypeLabel";
 import EventStatistics from "./EventStatistics";
 import provinceService from "../../services/provinceService";
 import familyTreeService from "../../services/familyTreeService";
-import { useNavigate } from 'react-router-dom';
 
 /**
  * EventSidebar Component
@@ -80,7 +79,6 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   } | null>(null);
   const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   // Toggle checkbox selection
   const toggleCheckbox = <T,>(list: T[], setList: (value: T[]) => void, value: T) => {
@@ -247,23 +245,18 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         <span>Thêm sự kiện mới</span>
       </button>
       
-      <button
-        onClick={() => {
-          console.log('Navigating to my events...');
-          navigate('/events?tab=my-events');
-        }}
-        className="w-full bg-white hover:bg-gray-50 text-blue-600 border-2 border-blue-500 rounded-lg h-10 text-[15px] font-medium mb-4 flex items-center justify-center gap-2 transition-colors"
-      >
-        <User className="w-5 h-5" />
-        <span>Sự kiện của tôi</span>
-      </button>
       {/* Event Type Section */}
       <div>
         <div
           onClick={() => toggleSection("eventType")}
           className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100 select-none"
         >
-          <span>Loại sự kiện</span>
+          <div className="flex items-center gap-2">
+            <span>Loại sự kiện</span>
+            <span className="text-xs text-gray-500 font-normal">
+              ({eventTypes.length}/{Object.values(EVENT_TYPE).length})
+            </span>
+          </div>
           <ChevronDown
             className={`text-gray-500 w-4 h-4 transition-transform duration-300 ${openSections.eventType ? "rotate-180" : "rotate-0"
               }`}
@@ -272,6 +265,31 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
 
         {openSections.eventType && (
           <div className="py-2">
+            {/* Select All / Deselect All Buttons */}
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEventTypes([...Object.values(EVENT_TYPE)]);
+                }}
+                className="flex-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded border border-blue-200 transition-colors font-medium"
+                type="button"
+              >
+                ✓ Chọn tất cả
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEventTypes([]);
+                }}
+                className="flex-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded border border-gray-200 transition-colors font-medium"
+                type="button"
+              >
+                ✕ Bỏ chọn
+              </button>
+            </div>
+
+            {/* Event Type Checkboxes */}
             {Object.values(EVENT_TYPE).map((type) => (
               <div key={type} className="mb-2.5">
                 <Checkbox
@@ -300,7 +318,12 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
           onClick={() => toggleSection("familyGroups")}
           className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100 select-none"
         >
-          <span>Sự kiện gia phả</span>
+          <div className="flex items-center gap-2">
+            <span>Sự kiện gia phả</span>
+            <span className="text-xs text-gray-500 font-normal">
+              ({eventGroups.length}/{eventGp.length})
+            </span>
+          </div>
           <ChevronDown
             className={`text-gray-500 w-4 h-4 transition-transform duration-300 ${openSections.familyGroups ? "rotate-180" : "rotate-0"
               }`}
@@ -317,17 +340,44 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
                 Không có gia phả nào
               </div>
             ) : (
-              eventGp.map((group) => (
-                <div key={group.value} className="mb-2.5">
-                  <Checkbox
-                    checked={eventGroups.includes(group.value)}
-                    onChange={() => toggleCheckbox(eventGroups, setEventGroups, group.value)}
-                    className="w-full"
+              <>
+                {/* Select All / Deselect All Buttons */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEventGroups(eventGp.map(g => g.value));
+                    }}
+                    className="flex-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded border border-blue-200 transition-colors font-medium"
+                    type="button"
                   >
-                    <span className="text-sm">{group.label}</span>
-                  </Checkbox>
+                    ✓ Chọn tất cả
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEventGroups([]);
+                    }}
+                    className="flex-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded border border-gray-200 transition-colors font-medium"
+                    type="button"
+                  >
+                    ✕ Bỏ chọn
+                  </button>
                 </div>
-              ))
+
+                {/* Group Checkboxes */}
+                {eventGp.map((group) => (
+                  <div key={group.value} className="mb-2.5">
+                    <Checkbox
+                      checked={eventGroups.includes(group.value)}
+                      onChange={() => toggleCheckbox(eventGroups, setEventGroups, group.value)}
+                      className="w-full"
+                    >
+                      <span className="text-sm">{group.label}</span>
+                    </Checkbox>
+                  </div>
+                ))}
+              </>
             )}
           </div>
         )}

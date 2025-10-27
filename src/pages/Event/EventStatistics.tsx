@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import eventService from "../../services/eventService";
+import familyTreeService from "../../services/familyTreeService";
 import moment from "moment";
 import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
 
@@ -8,37 +9,6 @@ const unitMap: { [key: string]: string } = {
   weeks: "tuần",
   months: "tháng",
 };
-
-// Mock data for demo
-const MOCK_EVENTS = [
-  {
-    id: "1",
-    name: "Giáng sinh",
-    startTime: "2025-12-24T00:00:00",
-    endTime: "2025-12-25T00:00:00",
-    eventType: "HOLIDAY",
-    imageUrl: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=400",
-    statisticsEvent: { days: 51, weeks: 7, months: 2 }
-  },
-  {
-    id: "2",
-    name: "Tết Nguyên Đán",
-    startTime: "2026-01-29T00:00:00",
-    endTime: "2026-02-02T00:00:00",
-    eventType: "HOLIDAY",
-    imageUrl: "https://images.unsplash.com/photo-1548247661-3d7905940716?w=400",
-    statisticsEvent: { days: 87, weeks: 12, months: 3 }
-  },
-  {
-    id: "3",
-    name: "Sinh nhật Bà",
-    startTime: "2025-11-15T00:00:00",
-    endTime: "2025-11-15T00:00:00",
-    eventType: "BIRTHDAY",
-    imageUrl: "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?w=400",
-    statisticsEvent: { days: 12, weeks: 2, months: 0 }
-  }
-];
 
 interface Event {
   id: string;
@@ -62,85 +32,264 @@ interface TotalEvent {
 const EventStatistics: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
-  const [totalEvent, setTotalEvent] = useState<TotalEvent>({ oldEventNumber: 105, nextEventNumber: 24 });
+  const [totalEvent, setTotalEvent] = useState<TotalEvent>({ oldEventNumber: 0, nextEventNumber: 0 });
   const [segmentOrder, setSegmentOrder] = useState<string[]>(["days", "weeks", "months"]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [countdown, setCountdown] = useState({ days: 0, weeks: 0, months: 0 });
+
+  // Calculate countdown for an event
+  const calculateCountdown = useCallback((eventStartTime: string) => {
+    const now = moment();
+    const eventDate = moment(eventStartTime);
+    
+    if (eventDate.isBefore(now)) {
+      return { days: 0, weeks: 0, months: 0 };
+    }
+    
+    const totalDays = eventDate.diff(now, 'days');
+    const totalWeeks = Math.floor(totalDays / 7);
+    const totalMonths = eventDate.diff(now, 'months');
+    
+    return {
+      days: totalDays,
+      weeks: totalWeeks,
+      months: totalMonths,
+    };
+  }, []);
 
   useEffect(() => {
     const fetchUpcomingEvents = async () => {
       try {
-        const response = await eventService.getUpcomingEvents();
+        // 1. First, get all family trees for the user
+        const familyTreesResponse = await familyTreeService.getMyFamilytrees();
+        console.log('📊 EventStatistics - Family Trees Response:', familyTreesResponse);
         
-        if (response?.value?.gpFamilyEvents && response.value.gpFamilyEvents.length > 0) {
-          const mappedEvents = response.value.gpFamilyEvents.map((event: any) => ({
+        const familyTrees = familyTreesResponse?.data || [];
+        
+        if (familyTrees.length === 0) {
+          console.log('📊 EventStatistics - No family trees found');
+          setEvents([]);
+          setTotalEvent({ oldEventNumber: 0, nextEventNumber: 0 });
+          return;
+        }
+        
+        // 2. Fetch events from all family trees
+        const eventPromises = familyTrees.map((ft: any) => 
+          eventService.getEventsByGp(ft.id).catch((err: any) => {
+            console.error(`Error fetching events for ftId ${ft.id}:`, err);
+            return { data: { data: [] } };
+          })
+        );
+        
+        const eventResponses = await Promise.all(eventPromises);
+        
+        // 3. Combine all events from all family trees
+        const allEventsFromAPI: any[] = [];
+        eventResponses.forEach((response: any) => {
+          const eventsData = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+          if (Array.isArray(eventsData)) {
+            allEventsFromAPI.push(...eventsData);
+          }
+        });
+        
+        console.log('📊 EventStatistics - Total events from all family trees:', allEventsFromAPI.length);
+        
+        if (allEventsFromAPI.length === 0) {
+          console.log('📊 EventStatistics - No events found');
+          setEvents([]);
+          setTotalEvent({ oldEventNumber: 0, nextEventNumber: 0 });
+          return;
+        }
+        
+        const now = moment();
+        
+        // 4. Separate past and upcoming events based on startTime
+        const upcomingEventsFromAPI = allEventsFromAPI.filter((event: any) => 
+          moment(event.startTime).isAfter(now)
+        );
+        
+        const pastEventsFromAPI = allEventsFromAPI.filter((event: any) => 
+          moment(event.startTime).isBefore(now)
+        );
+        
+        // 5. Map upcoming events and calculate countdown
+        const mappedEvents = upcomingEventsFromAPI
+          .map((event: any) => ({
             id: event.id,
             name: event.name,
             startTime: event.startTime,
             endTime: event.endTime,
             eventType: event.eventType,
-            imageUrl: event.imageUrl || MOCK_EVENTS[0].imageUrl,
-            statisticsEvent: event.statisticsEvent || { days: 0, weeks: 0, months: 0 },
-          }));
-          
-          setEvents(mappedEvents);
-          setTotalEvent({
-            oldEventNumber: response.value.oldEventNumber || 105,
-            nextEventNumber: response.value.nextEventNumber || 24,
-          });
-        } else {
-          // Use mock data if no real events
-          setEvents(MOCK_EVENTS);
-        }
+            imageUrl: event.imageUrl || '',
+            statisticsEvent: calculateCountdown(event.startTime),
+          }))
+          // Sort by closest first
+          .sort((a: Event, b: Event) => 
+            moment(a.startTime).diff(moment(b.startTime))
+          );
+        
+        setEvents(mappedEvents);
+        setTotalEvent({
+          oldEventNumber: pastEventsFromAPI.length,
+          nextEventNumber: upcomingEventsFromAPI.length,
+        });
+        
+        console.log('📊 EventStatistics - Final results:', {
+          total: allEventsFromAPI.length,
+          past: pastEventsFromAPI.length,
+          upcoming: upcomingEventsFromAPI.length,
+          mappedEvents,
+        });
+        
       } catch (error) {
-        console.error("Error fetching upcoming events:", error);
-        // Fallback to mock data on error
-        setEvents(MOCK_EVENTS);
+        console.error("📊 EventStatistics - Error fetching events:", error);
+        // No fallback - show empty state
+        setEvents([]);
+        setTotalEvent({ oldEventNumber: 0, nextEventNumber: 0 });
       }
     };
     fetchUpcomingEvents();
-  }, []);
+  }, [calculateCountdown]);
 
+  // Auto-select first upcoming event
   useEffect(() => {
     if (events.length > 0 && !selectedEvent) {
-      const next = events.find((x) => x.statisticsEvent.days >= 0);
-      setSelectedEvent(next || events[0]);
+      // Events are already sorted by closest first
+      const firstEvent = events[0];
+      if (firstEvent) {
+        setSelectedEvent(firstEvent);
+      }
     }
   }, [events, selectedEvent]);
+
+  // Update countdown in real-time for selected event
+  useEffect(() => {
+    if (!selectedEvent) return;
+    
+    // Update countdown immediately
+    const updateCountdown = () => {
+      const newCountdown = calculateCountdown(selectedEvent.startTime);
+      setCountdown(newCountdown);
+      
+      // Update the event in the list as well
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === selectedEvent.id 
+            ? { ...event, statisticsEvent: newCountdown }
+            : event
+        )
+      );
+    };
+    
+    updateCountdown();
+    
+    // Update every minute
+    const interval = setInterval(updateCountdown, 60000);
+    
+    return () => clearInterval(interval);
+  }, [selectedEvent, calculateCountdown]);
 
   const handleOnChanged = (eventId: string) => {
     const newEvent = events.find((x) => x.id === eventId);
     if (newEvent) {
-      setSelectedEvent(newEvent);
+      // Recalculate countdown for newly selected event
+      const newCountdown = calculateCountdown(newEvent.startTime);
+      setSelectedEvent({
+        ...newEvent,
+        statisticsEvent: newCountdown,
+      });
+      setCountdown(newCountdown);
       setDropdownOpen(false);
     }
   };
 
   const handleSegmentClick = (segment: string) => {
-    const base = ["days", "weeks", "months"];
+    const base: string[] = ["days", "weeks", "months"];
     const idx = base.indexOf(segment);
-    const newOrder = [
-      base[(idx + 2) % 3],
-      base[idx],
-      base[(idx + 1) % 3],
+    const newOrder: string[] = [
+      base[(idx + 2) % 3] || "days",
+      base[idx] || "weeks",
+      base[(idx + 1) % 3] || "months",
     ];
     setSegmentOrder(newOrder);
   };
 
   const handleCycleUp = () => {
     // Move to previous time unit (months -> weeks -> days -> months)
-    const base = ["days", "weeks", "months"];
-    const currentIdx = base.indexOf(segmentOrder[1]);
+    const base: string[] = ["days", "weeks", "months"];
+    const currentSegment = segmentOrder[1];
+    if (!currentSegment) return;
+    
+    const currentIdx = base.indexOf(currentSegment);
     const prevIdx = (currentIdx - 1 + 3) % 3;
-    handleSegmentClick(base[prevIdx]);
+    const prevSegment = base[prevIdx];
+    if (prevSegment) {
+      handleSegmentClick(prevSegment);
+    }
   };
 
   const handleCycleDown = () => {
     // Move to next time unit (days -> weeks -> months -> days)
-    const base = ["days", "weeks", "months"];
-    const currentIdx = base.indexOf(segmentOrder[1]);
+    const base: string[] = ["days", "weeks", "months"];
+    const currentSegment = segmentOrder[1];
+    if (!currentSegment) return;
+    
+    const currentIdx = base.indexOf(currentSegment);
     const nextIdx = (currentIdx + 1) % 3;
-    handleSegmentClick(base[nextIdx]);
+    const nextSegment = base[nextIdx];
+    if (nextSegment) {
+      handleSegmentClick(nextSegment);
+    }
   };
+
+  // Show empty state if no events
+  if (events.length === 0) {
+    return (
+      <div className="space-y-3">
+        {/* Empty State */}
+        <div className="bg-gradient-to-br from-gray-400 to-gray-500 rounded-2xl p-6 shadow-lg text-center">
+          <Calendar className="w-16 h-16 text-white/50 mx-auto mb-3" />
+          <p className="text-white text-lg font-medium">Không có sự kiện sắp tới</p>
+          <p className="text-white/80 text-sm mt-1">Tạo sự kiện mới để theo dõi</p>
+        </div>
+        
+        {/* Bottom Section - Statistics */}
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-around gap-4">
+            {/* Past Events */}
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl">
+                <Calendar className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-3xl font-bold text-white leading-none">
+                  {totalEvent.oldEventNumber}
+                </div>
+                <div className="text-xs text-white/90 font-medium mt-0.5">
+                  Sự kiện đã qua
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="h-12 w-px bg-white/30"></div>
+
+            {/* Upcoming Events */}
+            <div className="flex items-center gap-3">
+              <div>
+                <div className="text-3xl font-bold text-white leading-none text-right">
+                  {totalEvent.nextEventNumber}
+                </div>
+                <div className="text-xs text-white/90 font-medium mt-0.5 text-right">
+                  Sự kiện sắp tới
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -164,7 +313,8 @@ const EventStatistics: React.FC = () => {
             
             <div className="relative">
               {segmentOrder.map((seg, idx) => {
-                const value = selectedEvent?.statisticsEvent[seg] || 0;
+                // Use real-time countdown state
+                const value = countdown[seg as keyof typeof countdown] || 0;
                 const isCurrent = idx === 1;
                 const isTop = idx === 0;
                 const isBottom = idx === 2;
@@ -219,17 +369,28 @@ const EventStatistics: React.FC = () => {
               
               {dropdownOpen && (
                 <div className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg z-10 max-h-48 overflow-y-auto border border-t-0 border-gray-200">
-                  {events.map((event) => (
-                    <button
-                      key={event.id}
-                      onClick={() => handleOnChanged(event.id)}
-                      className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 transition-colors ${
-                        selectedEvent?.id === event.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
-                      }`}
-                    >
-                      {event.name}
-                    </button>
-                  ))}
+                  {events.length > 0 ? (
+                    events.map((event) => (
+                      <button
+                        key={event.id}
+                        onClick={() => handleOnChanged(event.id)}
+                        className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 transition-colors ${
+                          selectedEvent?.id === event.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="truncate flex-1">{event.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            {moment(event.startTime).format('DD/MM/YYYY')}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-4 text-sm text-gray-400 text-center">
+                      Không có sự kiện sắp tới
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -241,19 +402,32 @@ const EventStatistics: React.FC = () => {
                   {moment(selectedEvent.startTime).format("DD")}
                 </div>
                 <div className="text-xs text-gray-600 font-medium">
-                  Tháng {moment(selectedEvent.startTime).format("M")}
+                  Tháng {moment(selectedEvent.startTime).format("M/YYYY")}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {moment(selectedEvent.startTime).format("dddd")}
                 </div>
               </div>
             )}
 
             {/* Event Image */}
             {selectedEvent && (
-              <div className="relative h-24 overflow-hidden">
-                <img
-                  src={selectedEvent.imageUrl}
-                  alt={selectedEvent.name}
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative h-24 overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100">
+                {selectedEvent.imageUrl && selectedEvent.imageUrl.startsWith('http') ? (
+                  <img
+                    src={selectedEvent.imageUrl}
+                    alt={selectedEvent.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Calendar className="w-12 h-12 text-blue-400 opacity-50" />
+                  </div>
+                )}
               </div>
             )}
           </div>
