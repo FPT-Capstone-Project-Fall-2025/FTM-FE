@@ -66,7 +66,7 @@ const EventStatistics: React.FC = () => {
         
         const familyTrees = familyTreesResponse?.data || [];
         
-        if (familyTrees.length === 0) {
+        if (familyTrees.data.length === 0) {
           console.log('📊 EventStatistics - No family trees found');
           setEvents([]);
           setTotalEvent({ oldEventNumber: 0, nextEventNumber: 0 });
@@ -74,7 +74,7 @@ const EventStatistics: React.FC = () => {
         }
         
         // 2. Fetch events from all family trees
-        const eventPromises = familyTrees.map((ft: any) => 
+        const eventPromises = familyTrees.data.map((ft: any) => 
           eventService.getEventsByGp(ft.id).catch((err: any) => {
             console.error(`Error fetching events for ftId ${ft.id}:`, err);
             return { data: { data: [] } };

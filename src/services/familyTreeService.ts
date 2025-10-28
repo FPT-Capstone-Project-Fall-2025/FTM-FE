@@ -1,4 +1,4 @@
-import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps, FamilyNode, FamilytreeUpdateProps } from '@/types/familytree';
+import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps, FamilyNode, FamilytreeUpdateProps, UpdateFamilyNode } from '@/types/familytree';
 import type { ApiResponse, PaginationProps, PaginationResponse } from './../types/api';
 import api from './apiService';
 
@@ -73,7 +73,6 @@ const familyTreeService = {
         ...props,
         propertyFilters: JSON.stringify(props.propertyFilters)
       }
-<<<<<<< HEAD
     });
   },
 
@@ -86,16 +85,6 @@ const familyTreeService = {
   },
 
   // [{"name":"name","operation":"EQUAL","value":"a8ab2642-8fb3-4496-8444-2d704011f938"}]
-  getFamilyTreeMemberById(ftId: string, memberId: string): Promise<ApiResponse<FamilyNode>> {
-    return api.get(`/ftmember/${ftId}/get-by-memberid`, {
-      params: {
-        memberId
-      }
-=======
->>>>>>> 41dcd28 (implementing v2)
-    });
-  },
-
   getFamilyTreeMemberById(ftId: string, memberId: string): Promise<ApiResponse<FamilyNode>> {
     return api.get(`/ftmember/${ftId}/get-by-memberid`, {
       params: {
@@ -131,20 +120,9 @@ const familyTreeService = {
           "Content-Type": "multipart/form-data"
         }
     });
-<<<<<<< HEAD
   },
   
-  updateFamilyNode(ftId: string, props: FamilyNode): Promise<ApiResponse<string>> {
-    return api.put(`/ftmember/${ftId}`, props);
-  },
-
-  deleteFamilyNode(ftMemberId: string): Promise<ApiResponse<string>> {
-    return api.delete(`/ftmember/${ftMemberId}`);
-=======
->>>>>>> 41dcd28 (implementing v2)
-  },
-  
-  updateFamilyNode(ftId: string, props: FamilyNode): Promise<ApiResponse<string>> {
+  updateFamilyNode(ftId: string, props: UpdateFamilyNode): Promise<ApiResponse<string>> {
     return api.put(`/ftmember/${ftId}`, props);
   },
 

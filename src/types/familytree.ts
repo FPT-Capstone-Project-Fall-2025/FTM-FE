@@ -103,7 +103,8 @@ export interface AddingNodeProps {
 }
 
 export interface FamilyNode {
-  id: string;
+  id?: string;
+  ftMemberId?: string;
   userId: string;
   ftId: string;
   ftRole: string;

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Globe } from 'lucide-react';
-import familyTreeService, { type FamilyTree } from '@/services/familyTreeService';
+import familyTreeService from '@/services/familyTreeService';
+import type { Familytree } from '@/types/familytree';
 
 const GroupPostPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [familyTrees, setFamilyTrees] = useState<FamilyTree[]>([]);
+  const [familyTrees, setFamilyTrees] = useState<Familytree[]>([]);
   const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({

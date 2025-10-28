@@ -143,10 +143,10 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
 
   // Create D3 tree layout
   const treeLayout = d3.tree<D3TreeNode>()
-    .nodeSize([350, 300]) // [horizontal spacing, vertical spacing]
+    .nodeSize([300, 350]) // [horizontal spacing, vertical spacing]
     .separation((a, b) => {
       // More separation for nodes with many descendants
-      return a.parent === b.parent ? 0.6 : 1.2;
+      return a.parent === b.parent ? 1 : 1.2;
     });
 
   // Convert to hierarchy and calculate layout
@@ -181,44 +181,17 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
             const avgX = (memberPos.x + partnerPos.x) / 2;
             
             positionMap.set(memberId, {
-              x: avgX - 200,
+              x: avgX - 100,
               y: memberPos.y
             });
             positionMap.set(partnerId, {
-              x: avgX + 200,
+              x: avgX + 100,
               y: partnerPos.y
             });
           }
         });
       }
     }
-
-    // Separate children with/without children for better organization
-    const childrenWithKids: string[] = [];
-    const childrenWithoutKids: string[] = [];
-    
-    childIds.forEach(childId => {
-      const hasChildren = (childrenOf.get(childId) || []).length > 0;
-      if (hasChildren) {
-        childrenWithKids.push(childId);
-      } else {
-        childrenWithoutKids.push(childId);
-      }
-    });
-
-    // Arrange: childless on left, with children on right
-    const orderedChildren = [...childrenWithoutKids, ...childrenWithKids];
-    const numChildren = orderedChildren.length;
-    const childSpacing = 240; // Increased spacing to prevent overlap
-    const totalChildWidth = (numChildren - 1) * childSpacing;
-    const startX = centerX - totalChildWidth / 2;
-
-    orderedChildren.forEach((childId, index) => {
-      const childPos = positionMap.get(childId);
-      if (childPos) {
-        childPos.x = startX + index * childSpacing;
-      }
-    });
   });
 
   // Adjust positions for partners who share children
@@ -324,7 +297,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
             id: `partner-${pair}`,
             source: memberId,
             target: partnerId,
-            type: 'default',
+            type: 'straight',
             animated: false,
             style: {
               stroke: '#e879f9',

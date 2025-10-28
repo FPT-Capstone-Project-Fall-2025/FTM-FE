@@ -448,7 +448,7 @@ const AddNewNode = ({
               partnerMembers.map((partner) => (
                 <button
                   key={partner.id}
-                  onClick={() => handlePartnerSelect(partner.id)}
+                  onClick={() => handlePartnerSelect(partner.id || '')}
                   className="w-full px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-left"
                 >
                   {partner.fullname}
