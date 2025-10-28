@@ -11,6 +11,7 @@ export default function CustomDatePicker({
     value?: string;
     onChange: (value: string) => void;
     isEditing: boolean;
+    outline?: boolean;
 }) {
     const dateValue = value ? new Date(value) : null;
 

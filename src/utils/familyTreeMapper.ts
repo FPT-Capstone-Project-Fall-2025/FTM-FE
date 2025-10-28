@@ -1,9 +1,17 @@
 import { MarkerType, type Node, type Edge } from 'reactflow';
+import * as d3 from 'd3';
 import type { FamilytreeDataResponse, FamilyMember } from '@/types/familytree';
 
 interface ChildrenGroup {
   key: string; // partnerId
   value: string[]; // childIds
+}
+
+interface D3TreeNode {
+  id: string;
+  children?: D3TreeNode[];
+  x?: number;
+  y?: number;
 }
 
 export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
@@ -13,9 +21,9 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
   );
 
   // Build relationship maps
-  const childrenOf = new Map<string, string[]>(); // parentId -> childIds
-  const parentsOf = new Map<string, Set<string>>(); // childId -> parentIds
-  const partnerPairs = new Set<string>(); // "parentA-parentB" pairs who have children together
+  const childrenOf = new Map<string, string[]>();
+  const parentsOf = new Map<string, Set<string>>();
+  const partnerPairs = new Set<string>();
 
   // Initialize maps
   Object.keys(members).forEach(memberId => {
@@ -25,20 +33,17 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
 
   // Process all members to build relationships
   Object.entries(members).forEach(([memberId, member]) => {
-    // Process children array: each entry has a partner key and children values
     if (member.children && Array.isArray(member.children)) {
       member.children.forEach((childGroup: ChildrenGroup) => {
         const partnerId = childGroup.key;
         const childIds = childGroup.value || [];
 
-        // Add children to this parent
         childIds.forEach(childId => {
           if (!childrenOf.get(memberId)!.includes(childId)) {
             childrenOf.get(memberId)!.push(childId);
           }
           parentsOf.get(childId)!.add(memberId);
           
-          // Also add the partner as parent
           if (partnerId && members[partnerId]) {
             parentsOf.get(childId)!.add(partnerId);
             if (!childrenOf.get(partnerId)!.includes(childId)) {
@@ -47,7 +52,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
           }
         });
 
-        // Track partner pairs who have children together
         if (partnerId && partnerId !== memberId && members[partnerId]) {
           const pair = [memberId, partnerId].sort().join('-');
           partnerPairs.add(pair);
@@ -56,7 +60,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     }
   });
 
-  // Calculate generations using BFS from root
+  // Calculate generations using BFS
   const root = response.root;
   const generationMap = new Map<string, number>();
   const queue: Array<[string, number]> = [[root, 0]];
@@ -69,7 +73,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
 
     generationMap.set(memberId, gen);
 
-    // Add children to queue (next generation down)
     const children = childrenOf.get(memberId) || [];
     children.forEach(childId => {
       if (!visited.has(childId)) {
@@ -77,7 +80,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       }
     });
 
-    // Add partners to same generation
     const member = members[memberId];
     if (member?.partners && Array.isArray(member.partners)) {
       member.partners.forEach(partnerId => {
@@ -94,7 +96,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       const member = members[memberId];
       let assignedGen: number | null = null;
 
-      // Try to assign based on children's generation
       const children = childrenOf.get(memberId) || [];
       for (const childId of children) {
         if (generationMap.has(childId)) {
@@ -103,7 +104,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         }
       }
 
-      // Try to assign based on partners' generation
       if (assignedGen === null && member?.partners) {
         for (const partnerId of member.partners) {
           if (generationMap.has(partnerId)) {
@@ -113,7 +113,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         }
       }
 
-      // Default to root generation
       if (assignedGen === null) {
         assignedGen = 0;
       }
@@ -122,127 +121,110 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     }
   });
 
-  // Group members by generation
-  const generationGroups = new Map<number, string[]>();
-  generationMap.forEach((gen, memberId) => {
-    if (!generationGroups.has(gen)) {
-      generationGroups.set(gen, []);
+  // === D3.js TREE LAYOUT ===
+  // Build D3 tree hierarchy
+  function buildD3Tree(nodeId: string, visited: Set<string>): D3TreeNode {
+    if (visited.has(nodeId)) {
+      return { id: nodeId };
     }
-    generationGroups.get(gen)!.push(memberId);
+    visited.add(nodeId);
+
+    const children = childrenOf.get(nodeId) || [];
+    const node: D3TreeNode = { id: nodeId };
+
+    if (children.length > 0) {
+      node.children = children.map(childId => buildD3Tree(childId, visited));
+    }
+
+    return node;
+  }
+
+  const d3Root = buildD3Tree(root, new Set());
+
+  // Create D3 tree layout
+  const treeLayout = d3.tree<D3TreeNode>()
+    .nodeSize([300, 350]) // [horizontal spacing, vertical spacing]
+    .separation((a, b) => {
+      // More separation for nodes with many descendants
+      return a.parent === b.parent ? 1 : 1.2;
+    });
+
+  // Convert to hierarchy and calculate layout
+  const hierarchy = d3.hierarchy(d3Root);
+  const treeData = treeLayout(hierarchy);
+
+  // Extract positions from D3 layout
+  const positionMap = new Map<string, { x: number; y: number }>();
+  
+  treeData.descendants().forEach(node => {
+    positionMap.set(node.data.id, {
+      x: node.x,
+      y: node.y
+    });
   });
 
-  // Sort generations (highest to lowest)
-  const sortedGenerations = Array.from(generationGroups.keys()).sort((a, b) => a - b);
-
-  // Layout configuration
-  const verticalSpacing = 300;
-  const horizontalSpacing = 300;
-  const partnerSpacing = 120; // Tighter spacing between partners
-  const siblingSpacing = 200; // Spacing between sibling groups
-  const positionMap = new Map<string, { x: number; y: number }>();
-
-  // Position nodes generation by generation
-  sortedGenerations.forEach(generation => {
-    const memberIds = generationGroups.get(generation)!;
-    const y = generation * verticalSpacing;
-
-    // Group partners together
-    const positioned = new Set<string>();
-    const groups: string[][] = [];
-
-    memberIds.forEach(memberId => {
-      if (positioned.has(memberId)) return;
-
-      const member = members[memberId];
-      const group = [memberId];
-      positioned.add(memberId);
-
-      // Add partners to the same group
-      if (member?.partners && Array.isArray(member.partners)) {
-        member.partners.forEach(partnerId => {
-          if (memberIds.includes(partnerId) && !positioned.has(partnerId)) {
-            group.push(partnerId);
-            positioned.add(partnerId);
+  // Position partners next to their spouses
+  Object.entries(members).forEach(([memberId, member]) => {
+    if (member.partners && Array.isArray(member.partners)) {
+      const memberPos = positionMap.get(memberId);
+      if (memberPos) {
+        member.partners.forEach((partnerId, index) => {
+          if (members[partnerId] && !positionMap.has(partnerId)) {
+            // Position partner to the right of the member
+            positionMap.set(partnerId, {
+              x: memberPos.x + (index + 1) * 200,
+              y: memberPos.y
+            });
+          } else if (members[partnerId] && positionMap.has(partnerId)) {
+            // Partner already positioned, adjust to be closer
+            const partnerPos = positionMap.get(partnerId)!;
+            const avgX = (memberPos.x + partnerPos.x) / 2;
+            
+            positionMap.set(memberId, {
+              x: avgX - 100,
+              y: memberPos.y
+            });
+            positionMap.set(partnerId, {
+              x: avgX + 100,
+              y: partnerPos.y
+            });
           }
         });
       }
-
-      groups.push(group);
-    });
-
-    // Calculate total width needed for this generation
-    let totalWidth = 0;
-    groups.forEach((group, index) => {
-      if (group.length === 1) {
-        totalWidth += horizontalSpacing;
-      } else {
-        // Partners: tight spacing between them
-        totalWidth += (group.length - 1) * partnerSpacing;
-      }
-      // Add spacing between groups (except for last group)
-      if (index < groups.length - 1) {
-        totalWidth += siblingSpacing;
-      }
-    });
-
-    // Position groups centered
-    let currentX = -totalWidth / 2;
-    groups.forEach((group, groupIndex) => {
-      if (group.length === 1) {
-        positionMap.set(group[0]!, { x: currentX, y });
-        currentX += horizontalSpacing;
-      } else {
-        // Position partners tightly together
-        const groupWidth = (group.length - 1) * partnerSpacing;
-        const groupStartX = currentX;
-        
-        group.forEach((memberId, index) => {
-          positionMap.set(memberId, { 
-            x: groupStartX + index * partnerSpacing, 
-            y 
-          });
-        });
-        currentX += groupWidth;
-      }
-      
-      // Add spacing to next group
-      if (groupIndex < groups.length - 1) {
-        currentX += siblingSpacing;
-      }
-    });
-  });
-
-  // CRITICAL FIX: Adjust children positions to avoid overlapping
-  // Group children by their parent set
-  const childrenByParentSet = new Map<string, string[]>();
-  
-  parentsOf.forEach((parentIds, childId) => {
-    const parentKey = Array.from(parentIds).sort().join('-');
-    if (!childrenByParentSet.has(parentKey)) {
-      childrenByParentSet.set(parentKey, []);
     }
-    childrenByParentSet.get(parentKey)!.push(childId);
   });
 
-  // Position each group of children
-  childrenByParentSet.forEach((childIds, parentKey) => {
-    const parents = parentKey.split('-');
+  // Adjust positions for partners who share children
+  partnerPairs.forEach(pairKey => {
+    const [partner1, partner2] = pairKey.split('-');
+    const pos1 = positionMap.get(partner1!);
+    const pos2 = positionMap.get(partner2!);
     
-    if (parents.length === 0) return;
-
-    // Calculate center point between parents (or just parent position if single parent)
-    let centerX: number;
-    if (parents.length === 2) {
-      const parent1Pos = positionMap.get(parents[0]!);
-      const parent2Pos = positionMap.get(parents[1]!);
-      if (parent1Pos && parent2Pos) {
-        centerX = (parent1Pos.x + parent2Pos.x) / 2;
-      } else {
-        centerX = parent1Pos?.x || parent2Pos?.x || 0;
-      }
-    } else {
-      const parentPos = positionMap.get(parents[0]!);
-      centerX = parentPos?.x || 0;
+    if (pos1 && pos2) {
+      // Ensure they're on the same Y level
+      const avgY = (pos1.y + pos2.y) / 2;
+      const centerX = (pos1.x + pos2.x) / 2;
+      
+      positionMap.set(partner1!, {
+        x: centerX - 100,
+        y: avgY
+      });
+      positionMap.set(partner2!, {
+        x: centerX + 100,
+        y: avgY
+      });
+      
+      // Position their children centered under them
+      const children = childrenOf.get(partner1!) || [];
+      children.forEach(childId => {
+        const childPos = positionMap.get(childId);
+        if (childPos) {
+          positionMap.set(childId, {
+            x: childPos.x,
+            y: avgY + 300
+          });
+        }
+      });
     }
 
     // Separate children with/without children for better organization
@@ -273,6 +255,8 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     });
   });
 
+  // === END D3 LAYOUT ===
+
   // Create React Flow nodes
   const flowNodes: Node[] = Object.entries(members).map(([memberId, member]) => {
     const pos = positionMap.get(memberId) || { x: 0, y: 0 };
@@ -294,12 +278,18 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
   // Create React Flow edges
   const flowEdges: Edge[] = [];
 
-  // Parent-child edges (from parent to child)
-  childrenOf.forEach((childIds, parentId) => {
-    childIds.forEach(childId => {
-      // Only create one edge per parent-child relationship
+  // Parent-child edges
+  const processedChildEdges = new Set<string>();
+  
+  parentsOf.forEach((parentIds, childId) => {
+    const parents = Array.from(parentIds).filter(p => members[p]);
+    
+    if (parents.length === 0) return;
+    
+    parents.forEach(parentId => {
       const edgeId = `child-${parentId}-${childId}`;
-      if (!flowEdges.some(e => e.id === edgeId)) {
+      if (!processedChildEdges.has(edgeId)) {
+        processedChildEdges.add(edgeId);
         flowEdges.push({
           id: edgeId,
           source: parentId,
@@ -319,38 +309,29 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     });
   });
 
-  // Partner edges - create for ALL partners in the partners array
+  // Partner edges
   const processedPartnerPairs = new Set<string>();
   
   Object.entries(members).forEach(([memberId, member]) => {
     if (member.partners && Array.isArray(member.partners)) {
       member.partners.forEach(partnerId => {
-        // Create sorted pair to avoid duplicates
         const pair = [memberId, partnerId].sort().join('-');
         
         if (!processedPartnerPairs.has(pair) && members[partnerId]) {
           processedPartnerPairs.add(pair);
           
-          // Check if they have children together
-          const hasChildren = partnerPairs.has(pair);
-          
-          if (!hasChildren) {
-            flowEdges.push({
-              id: `partner-${pair}`,
-              source: memberId,
-              target: partnerId,
-              type: 'smoothstep',
-              animated: false,
-              style: {
-                stroke: '#94a3b8',
-                strokeWidth: 2,
-              },
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-                color: '#94a3b8',
-              },
-            });
-          }
+          flowEdges.push({
+            id: `partner-${pair}`,
+            source: memberId,
+            target: partnerId,
+            type: 'straight',
+            animated: false,
+            style: {
+              stroke: '#e879f9',
+              strokeWidth: 2,
+              strokeDasharray: '5,5',
+            },
+          });
         }
       });
     }

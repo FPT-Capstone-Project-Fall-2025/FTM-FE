@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BasicInfo from "./components/BasicInfo";
 import Members from "./components/Members";
 import FamilyTreeApp from "./components/FamilyTree/FamilyTree";
@@ -13,15 +14,53 @@ const tabs = [
   { id: 'members', label: 'THÀNH VIÊN' }
 ];
 
-const FamilyTreePage: React.FC = () => {
+const STORAGE_KEY = 'familyTreeActiveTab';
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'tree' | 'members'>('basic');
+const FamilyTreePage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
+
+  // Get initial tab from URL params or localStorage
+  const getInitialTab = (): 'basic' | 'tree' | 'members' => {
+    const paramTab = searchParams.get('tab') as 'basic' | 'tree' | 'members' | null;
+    if (paramTab && tabs.some(t => t.id === paramTab)) {
+      return paramTab;
+    }
+    try {
+      const savedTab = localStorage.getItem(STORAGE_KEY) as 'basic' | 'tree' | 'members' | null;
+      if (savedTab && tabs.some(t => t.id === savedTab)) {
+        return savedTab;
+      }
+    } catch (error) {
+      console.error('Failed to read from localStorage:', error);
+    }
+    return 'basic';
+  };
+
+  const [activeTab, setActiveTab] = useState<'basic' | 'tree' | 'members'>(getInitialTab());
+
+  // Update URL and localStorage when tab changes
+  const handleTabChange = (tabId: 'basic' | 'tree' | 'members') => {
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
+    try {
+      localStorage.setItem(STORAGE_KEY, tabId);
+    } catch (error) {
+      console.error('Failed to write to localStorage:', error);
+    }
+  };
 
   const handleBack = (): void => {
     dispatch(setSelectedFamilyTree(null));
-  }
+    navigate('/family-trees')
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error('Failed to clear localStorage:', error);
+    }
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -65,7 +104,7 @@ const FamilyTreePage: React.FC = () => {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as 'basic' | 'tree' | 'members')}
+              onClick={() => handleTabChange(tab.id as 'basic' | 'tree' | 'members')}
               className={`py-3 px-1 border-b-2 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${activeTab === tab.id
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

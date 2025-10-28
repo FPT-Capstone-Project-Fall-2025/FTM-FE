@@ -12,9 +12,10 @@ import MainLayout from '@/components/layout/MainLayout'
 import MyAccountPage from '@/pages/MyAccount/MyAccountPage'
 import ForgotPassword from '@/pages/Auth/ForgotPassword'
 import ResetPassword from '@/pages/Auth/ResetPassword'
-import MainFamilyTreePage from '@/pages/FamilytreeList/MainFamilyTreePage'
 import GroupPostPage from '@/pages/Post/GroupPostPage'
 import PostPage from '@/pages/Post/PostPage'
+import FamilyTreePage from '@/pages/FamilytreeList/FamilyTreePage'
+import FamilyTreeSelection from '@/pages/FamilytreeList/FamilyTreeSelection'
 import EventPage from '@/pages/Event/EventPage'
 // PostDetailPage is used as a modal in PostPage, not a standalone route
 // import PostDetailPage from '@/pages/Post/PostDetailPage'
@@ -73,7 +74,27 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MainLayout>
-          <MainFamilyTreePage />
+          <FamilyTreeSelection />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/family-trees/:treeId',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <FamilyTreePage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/events',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <EventPage />
         </MainLayout>
       </ProtectedRoute>
     ),

@@ -28,9 +28,9 @@ import SearchBar from './SearchBar';
 import AddNewNodeButton from './AddNewNodeButton';
 import AddNewNode from './AddNewNode';
 import familyTreeService from '@/services/familyTreeService';
-// import MemberDetailPage from '../../FamilyMemberDetail';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import { toast } from 'react-toastify';
+import MemberDetailPage from '../../FamilyMemberDetail';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -77,8 +77,7 @@ const FamilyTreeContent = () => {
   const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
   const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
-  // const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
-
+  const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
 
@@ -166,10 +165,12 @@ const FamilyTreeContent = () => {
         ftId: selectedFamilyTree?.id || "",
       });
       console.log("API Response:", response);
+      toast.success(response.message)
       // Re-fetch the family tree to sync with the new node
       dispatch(fetchFamilyTree(selectedFamilyTree!.id));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding new node:", error);
+      toast.error(error?.response?.data?.message)
     } finally {
       setIsAddingNewNode(false);
       setSelectedParent(null);
@@ -183,8 +184,7 @@ const FamilyTreeContent = () => {
     setIsDeletingNode(true);
     try {
       const response = await familyTreeService.deleteFamilyNode(memberToDelete.id);
-      console.log("Delete API Response:", response);
-      
+      toast.success(response.message)
       // Close the detail panel if the deleted member was selected
       if (selectedMemberId === memberToDelete.id) {
         dispatch(setSelectedMember(null));
@@ -234,6 +234,14 @@ const FamilyTreeContent = () => {
       },
     }));
   }, [nodes, handleMemberClick, members]);
+
+  const handleOpenMemberDetailPage = () => {
+    setShowMemberDetailModal(true)
+  }
+
+  const handleCloseMemberDetailPage = () => {
+    setShowMemberDetailModal(false)
+  }
 
   // Memoize nodeTypes to prevent recreation
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
@@ -288,7 +296,7 @@ const FamilyTreeContent = () => {
           <MemberDetailPanel
             member={selectedMember}
             onClose={handleClosePanel}
-            // onShowMemberDetail={() => setShowMemberDetailModal(true)}
+            onShowMemberDetail={handleOpenMemberDetailPage}
           />
         </>
 
@@ -315,13 +323,13 @@ const FamilyTreeContent = () => {
         )}
         
         {/* Member Detail Modal */}
-        {/* {showMemberDetailModal && (
+        {showMemberDetailModal && (
           <MemberDetailPage
             ftId={selectedFamilyTree?.id}
             memberId={selectedMember?.id}
-            onClose={() => setShowMemberDetailModal(false)}
+            onClose={handleCloseMemberDetailPage}
           />
-        )} */}
+        )}
 
         {/* Delete Confirmation Modal */}
         {memberToDelete && (

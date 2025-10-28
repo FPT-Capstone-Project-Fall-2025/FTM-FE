@@ -42,7 +42,7 @@ const MemberDetailPanel = ({
                   <h2 className="text-xl font-bold text-gray-800">{member.name}</h2>
                   <div className="flex items-center gap-1 text-sm text-gray-600">
                     <Calendar className="w-4 h-4" />
-                    <span>Sinh: {member.birthday}</span>
+                    <span>Sinh: {new Date(member.birthday || '').toLocaleDateString('en-GB')}</span>
                   </div>
                   <div className="text-sm text-gray-600">Mất: -</div>
                 </div>
@@ -59,7 +59,7 @@ const MemberDetailPanel = ({
             <div className="bg-white rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-gray-800 mb-2">Mô tả tiểu sử</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                {member.bio || 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut do eiusmod tempor'}
+                {member.bio || "Trống"}
               </p>
             </div>
 
