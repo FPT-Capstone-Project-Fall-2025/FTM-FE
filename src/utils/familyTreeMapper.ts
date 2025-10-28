@@ -226,33 +226,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         }
       });
     }
-
-    // Separate children with/without children for better organization
-    const childrenWithKids: string[] = [];
-    const childrenWithoutKids: string[] = [];
-    
-    childIds.forEach(childId => {
-      const hasChildren = (childrenOf.get(childId) || []).length > 0;
-      if (hasChildren) {
-        childrenWithKids.push(childId);
-      } else {
-        childrenWithoutKids.push(childId);
-      }
-    });
-
-    // Arrange: childless on left, with children on right
-    const orderedChildren = [...childrenWithoutKids, ...childrenWithKids];
-    const numChildren = orderedChildren.length;
-    const childSpacing = 240; // Increased spacing to prevent overlap
-    const totalChildWidth = (numChildren - 1) * childSpacing;
-    const startX = centerX - totalChildWidth / 2;
-
-    orderedChildren.forEach((childId, index) => {
-      const childPos = positionMap.get(childId);
-      if (childPos) {
-        childPos.x = startX + index * childSpacing;
-      }
-    });
   });
 
   // === END D3 LAYOUT ===
