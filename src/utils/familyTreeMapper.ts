@@ -73,7 +73,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     const children = childrenOf.get(memberId) || [];
     children.forEach(childId => {
       if (!visited.has(childId)) {
-        queue.push([childId, gen - 1]);
+        queue.push([childId, gen + 1]);
       }
     });
 
@@ -98,7 +98,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       const children = childrenOf.get(memberId) || [];
       for (const childId of children) {
         if (generationMap.has(childId)) {
-          assignedGen = generationMap.get(childId)! + 1;
+          assignedGen = generationMap.get(childId)! - 1;
           break;
         }
       }
@@ -132,18 +132,19 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
   });
 
   // Sort generations (highest to lowest)
-  const sortedGenerations = Array.from(generationGroups.keys()).sort((a, b) => b - a);
+  const sortedGenerations = Array.from(generationGroups.keys()).sort((a, b) => a - b);
 
   // Layout configuration
-  const verticalSpacing = 250;
-  const horizontalSpacing = 200;
-  const partnerSpacing = 120; // Closer spacing for partners
+  const verticalSpacing = 300;
+  const horizontalSpacing = 300;
+  const partnerSpacing = 120; // Tighter spacing between partners
+  const siblingSpacing = 200; // Spacing between sibling groups
   const positionMap = new Map<string, { x: number; y: number }>();
 
   // Position nodes generation by generation
   sortedGenerations.forEach(generation => {
     const memberIds = generationGroups.get(generation)!;
-    const y = -generation * verticalSpacing;
+    const y = generation * verticalSpacing;
 
     // Group partners together
     const positioned = new Set<string>();
@@ -169,48 +170,107 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       groups.push(group);
     });
 
-    // Calculate total width needed
+    // Calculate total width needed for this generation
     let totalWidth = 0;
-    groups.forEach(group => {
+    groups.forEach((group, index) => {
       if (group.length === 1) {
         totalWidth += horizontalSpacing;
       } else {
-        totalWidth += (group.length - 1) * partnerSpacing + horizontalSpacing;
+        // Partners: tight spacing between them
+        totalWidth += (group.length - 1) * partnerSpacing;
+      }
+      // Add spacing between groups (except for last group)
+      if (index < groups.length - 1) {
+        totalWidth += siblingSpacing;
       }
     });
 
-    // Position groups
+    // Position groups centered
     let currentX = -totalWidth / 2;
-    groups.forEach(group => {
+    groups.forEach((group, groupIndex) => {
       if (group.length === 1) {
-        positionMap.set(group[0]!, { x: currentX + horizontalSpacing / 2, y });
+        positionMap.set(group[0]!, { x: currentX, y });
         currentX += horizontalSpacing;
       } else {
-        // Position partners close together
+        // Position partners tightly together
+        const groupWidth = (group.length - 1) * partnerSpacing;
+        const groupStartX = currentX;
+        
         group.forEach((memberId, index) => {
           positionMap.set(memberId, { 
-            x: currentX + index * partnerSpacing, 
+            x: groupStartX + index * partnerSpacing, 
             y 
           });
         });
-        currentX += (group.length - 1) * partnerSpacing + horizontalSpacing;
+        currentX += groupWidth;
+      }
+      
+      // Add spacing to next group
+      if (groupIndex < groups.length - 1) {
+        currentX += siblingSpacing;
       }
     });
   });
 
-  // Adjust children positions to center between parents
+  // CRITICAL FIX: Adjust children positions to avoid overlapping
+  // Group children by their parent set
+  const childrenByParentSet = new Map<string, string[]>();
+  
   parentsOf.forEach((parentIds, childId) => {
-    const parents = Array.from(parentIds);
+    const parentKey = Array.from(parentIds).sort().join('-');
+    if (!childrenByParentSet.has(parentKey)) {
+      childrenByParentSet.set(parentKey, []);
+    }
+    childrenByParentSet.get(parentKey)!.push(childId);
+  });
+
+  // Position each group of children
+  childrenByParentSet.forEach((childIds, parentKey) => {
+    const parents = parentKey.split('-');
+    
+    if (parents.length === 0) return;
+
+    // Calculate center point between parents (or just parent position if single parent)
+    let centerX: number;
     if (parents.length === 2) {
       const parent1Pos = positionMap.get(parents[0]!);
       const parent2Pos = positionMap.get(parents[1]!);
-      const childPos = positionMap.get(childId);
-
-      if (parent1Pos && parent2Pos && childPos) {
-        // Center child between parents
-        childPos.x = (parent1Pos.x + parent2Pos.x) / 2;
+      if (parent1Pos && parent2Pos) {
+        centerX = (parent1Pos.x + parent2Pos.x) / 2;
+      } else {
+        centerX = parent1Pos?.x || parent2Pos?.x || 0;
       }
+    } else {
+      const parentPos = positionMap.get(parents[0]!);
+      centerX = parentPos?.x || 0;
     }
+
+    // Separate children with/without children for better organization
+    const childrenWithKids: string[] = [];
+    const childrenWithoutKids: string[] = [];
+    
+    childIds.forEach(childId => {
+      const hasChildren = (childrenOf.get(childId) || []).length > 0;
+      if (hasChildren) {
+        childrenWithKids.push(childId);
+      } else {
+        childrenWithoutKids.push(childId);
+      }
+    });
+
+    // Arrange: childless on left, with children on right
+    const orderedChildren = [...childrenWithoutKids, ...childrenWithKids];
+    const numChildren = orderedChildren.length;
+    const childSpacing = 240; // Increased spacing to prevent overlap
+    const totalChildWidth = (numChildren - 1) * childSpacing;
+    const startX = centerX - totalChildWidth / 2;
+
+    orderedChildren.forEach((childId, index) => {
+      const childPos = positionMap.get(childId);
+      if (childPos) {
+        childPos.x = startX + index * childSpacing;
+      }
+    });
   });
 
   // Create React Flow nodes
@@ -226,7 +286,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       },
       position: pos,
       style: {
-        minWidth: '160px',
+        minWidth: '180px',
       },
     };
   });
@@ -291,7 +351,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
               },
             });
           }
-          
         }
       });
     }

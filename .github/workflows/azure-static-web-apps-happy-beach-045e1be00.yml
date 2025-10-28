@@ -4,15 +4,17 @@ on:
   push:
     branches:
       - dev
-  pull_request:
-    types: [opened, reopened]
-    branches:
-      - dev
+  # pull_request:
+  #   types: [opened, reopened]
+  #   branches:
+  #     - dev
 jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy Job
+    env:  
+      VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -32,9 +34,11 @@ jobs:
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "/dist" # App source code path
           config_file_location: "./dist/"
+
           api_location: "" # Api source code path - optional
           output_location: "build" # Built app content directory - optional
           skip_app_build: true
+
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
@@ -48,6 +52,8 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_GRASS_08413B900 }}
           action: "close"
+
+
 
 
 

@@ -43,12 +43,7 @@ const FamilyTreeSelection: React.FC = () => {
     const fetchFamilyTrees = async () => {
         try {
             setLoading(true);
-            const response = await familytreeService.getFamilytrees({
-                pageIndex: paginationData.pageIndex,
-                pageSize: paginationData.pageSize,
-                totalItems: 0,
-                totalPages: 0
-            });
+            const response = await familytreeService.getFamilytrees(paginationData);
 
             dispatch(setAvailableFamilyTrees(response.data.data));
             setPaginationData({
@@ -171,7 +166,7 @@ const FamilyTreeSelection: React.FC = () => {
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">GIA PHẢ CỦA TÔI</h1>
+                    <h1 className="text-4xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">GIA PHẢ CỦA TÔI</h1>
                     <p className="text-gray-600">Chọn một gia phả để xem và chỉnh sửa thông tin của bạn</p>
                 </div>
 

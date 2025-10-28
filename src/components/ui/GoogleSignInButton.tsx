@@ -59,7 +59,8 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
             return
         }
 
-        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        console.log('Google Client ID (env):', import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
         if (!clientId) {
             console.error('Google Client ID is not configured in environment variables')
