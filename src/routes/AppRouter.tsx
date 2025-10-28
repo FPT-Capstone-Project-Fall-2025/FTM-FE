@@ -100,6 +100,16 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: '/events',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <EventPage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/group',
     element: (
       <ProtectedRoute>
