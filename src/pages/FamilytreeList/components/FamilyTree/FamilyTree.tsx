@@ -83,15 +83,11 @@ const FamilyTreeContent = () => {
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {
-    if (reduxNodes.length > 0) {
       setLocalNodes(reduxNodes);
-    }
   }, [reduxNodes, setLocalNodes]);
 
   useEffect(() => {
-    if (reduxEdges.length > 0) {
       setLocalEdges(reduxEdges);
-    }
   }, [reduxEdges, setLocalEdges]);
 
   useEffect(() => {
@@ -170,7 +166,7 @@ const FamilyTreeContent = () => {
       dispatch(fetchFamilyTree(selectedFamilyTree!.id));
     } catch (error: any) {
       console.error("Error adding new node:", error);
-      toast.error(error?.response?.data?.message)
+      toast.error(error?.response?.data?.Message)
     } finally {
       setIsAddingNewNode(false);
       setSelectedParent(null);

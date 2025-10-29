@@ -2,18 +2,13 @@ import { useRef } from 'react';
 import {
     Download,
     Upload,
-    Grid3x3,
-    ArrowDown,
-    ArrowRight,
-    ArrowUp,
-    ArrowLeft
+    RotateCcw
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import {
-    applyLayout,
     importFamilyTree as importFamilyTreeAction,
+    resetToInitialLayout,
 } from '@/stores/slices/familyTreeSlice';
-import { getLayoutedElements, type LayoutDirection } from '@/utils/layoutUtils';
 import { exportFamilyTree, importFamilyTree } from '@/utils/exportUtils';
 
 const FamilyTreeToolbar = () => {
@@ -24,23 +19,9 @@ const FamilyTreeToolbar = () => {
     const edges = useAppSelector(state => state.familyTree.edges);
     const members = useAppSelector(state => state.familyTree.members);
 
-    // Auto Layout Handler
-    const handleAutoLayout = (direction: LayoutDirection = 'TB') => {
-        const { nodes: layoutedNodes,
-            // edges: layoutedEdges 
-        } = getLayoutedElements(
-            nodes,
-            edges,
-            {
-                direction,
-                nodeWidth: 150,
-                nodeHeight: 100,
-                rankSep: 150,
-                nodeSep: 100,
-            }
-        );
-
-        dispatch(applyLayout(layoutedNodes));
+    // Reset Layout Handler - restores original TB layout
+    const handleResetLayout = () => {
+        dispatch(resetToInitialLayout());
     };
 
     // Export Handler
@@ -81,54 +62,22 @@ const FamilyTreeToolbar = () => {
 
     return (
         <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-2 flex gap-2">
-            {/* Auto Layout */}
-            <div className="relative group">
-                <button
-                    onClick={() => handleAutoLayout('TB')}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors"
-                    title="Tự động sắp xếp"
-                >
-                    <Grid3x3 className="w-5 h-5" />
-                </button>
+            {/* Reset Layout */}
+            <button
+                onClick={handleResetLayout}
+                className="p-2 hover:bg-gray-100 rounded transition-colors"
+                title="Khôi phục cấu trúc gốc"
+            >
+                <RotateCcw className="w-5 h-5" />
+            </button>
 
-                {/* Layout direction dropdown */}
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-1 hidden group-hover:block z-10 min-w-[180px]">
-                    <button
-                        onClick={() => handleAutoLayout('TB')}
-                        className="flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-sm transition-colors"
-                    >
-                        <ArrowDown className="w-4 h-4 text-blue-500" />
-                        <span>Trên xuống dưới</span>
-                    </button>
-                    <button
-                        onClick={() => handleAutoLayout('LR')}
-                        className="flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-sm transition-colors"
-                    >
-                        <ArrowRight className="w-4 h-4 text-blue-500" />
-                        <span>Trái sang phải</span>
-                    </button>
-                    <button
-                        onClick={() => handleAutoLayout('BT')}
-                        className="flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-sm transition-colors"
-                    >
-                        <ArrowUp className="w-4 h-4 text-blue-500" />
-                        <span>Dưới lên trên</span>
-                    </button>
-                    <button
-                        onClick={() => handleAutoLayout('RL')}
-                        className="flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-blue-50 rounded text-sm transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4 text-blue-500" />
-                        <span>Phải sang trái</span>
-                    </button>
-                </div>
-            </div>
             <div className="w-px bg-gray-300" />
+
             {/* Export */}
             <button
                 onClick={handleExport}
                 className="p-2 hover:bg-gray-100 rounded transition-colors"
-                title="Export Family Tree"
+                title="Xuất cây gia phả"
             >
                 <Download className="w-5 h-5" />
             </button>
@@ -137,7 +86,7 @@ const FamilyTreeToolbar = () => {
             <button
                 onClick={() => fileInputRef.current?.click()}
                 className="p-2 hover:bg-gray-100 rounded transition-colors"
-                title="Import Family Tree"
+                title="Nhập cây gia phả"
             >
                 <Upload className="w-5 h-5" />
             </button>

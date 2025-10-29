@@ -1,5 +1,7 @@
+import dataService from "@/services/dataService";
 import familyTreeService from "@/services/familyTreeService";
 import { CategoryCode, type AddingNodeProps, type FamilyNode } from "@/types/familytree";
+import type { Province, Ward } from "@/types/user";
 import { X, Users, User, Baby } from "lucide-react";
 import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
@@ -23,8 +25,20 @@ interface AddNewNodeProps {
   onSelectType?: (formData?: any) => Promise<void>;
 }
 
+interface Relationship {
+  id: string;
+  code: CategoryCode;
+  label: string;
+  icon: typeof Users;
+  row: number;
+  color: string;
+  textColor: string;
+  borderColor: string;
+  gender: 0 | 1;
+}
+
 // Define all possible relationships with icons and details
-const allRelationships = [
+const allRelationships: Relationship[] = [
   {
     id: "father",
     code: CategoryCode.Parent,
@@ -34,6 +48,7 @@ const allRelationships = [
     color: "bg-blue-50",
     textColor: "text-blue-600",
     borderColor: "border-blue-300",
+    gender: 0,
   },
   {
     id: "mother",
@@ -44,6 +59,7 @@ const allRelationships = [
     color: "bg-blue-50",
     textColor: "text-blue-600",
     borderColor: "border-blue-300",
+    gender: 1,
   },
   {
     id: "spouse",
@@ -54,6 +70,7 @@ const allRelationships = [
     color: "bg-gray-100",
     textColor: "text-gray-600",
     borderColor: "border-gray-300",
+    gender: 0,
   },
   {
     id: "sibling-brother",
@@ -64,16 +81,18 @@ const allRelationships = [
     color: "bg-blue-50",
     textColor: "text-blue-600",
     borderColor: "border-blue-300",
+    gender: 0,
   },
   {
     id: "sibling-sister",
     code: CategoryCode.Sibling,
-    label: "THÊM CHỊ/EM GÁI",
+    label: "THÊM ANH/CHỊ/EM",
     icon: User,
     row: 1,
     color: "bg-pink-100",
     textColor: "text-pink-600",
     borderColor: "border-pink-300",
+    gender: 0,
   },
   {
     id: "child-son",
@@ -84,6 +103,7 @@ const allRelationships = [
     color: "bg-blue-50",
     textColor: "text-blue-600",
     borderColor: "border-blue-300",
+    gender: 0
   },
   {
     id: "child-daughter",
@@ -94,15 +114,14 @@ const allRelationships = [
     color: "bg-pink-100",
     textColor: "text-pink-600",
     borderColor: "border-pink-300",
+    gender: 1
   },
 ];
 
 // Sample options for select fields (you can expand these as needed)
 const selectOptions = {
-  WardId: ["Ward 1", "Ward 2", "Ward 3"],
-  ProvinceId: ["Province A", "Province B", "Province C"],
   EthnicId: ["Kinh", "Tày", "Thái"],
-  ReligionId: ["Buddhism", "Christianity", "None"],
+  ReligionId: ["Phật giáo", "Thiên chúa giáo", "Không"],
   IdentificationType: ["CMND", "CCCD", "Passport"],
 };
 
@@ -121,6 +140,12 @@ const AddNewNode = ({
   const [partnerMembers] = useState<FamilyNode[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
+  const [selectedBurialProvinceId, setSelectedBurialProvinceId] = useState<string>('');
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [burialWards, setBurialWards] = useState<Ward[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
   const [formData, setFormData] = useState<AddingNodeProps>({
     fullname: "",
@@ -207,7 +232,7 @@ const AddNewNode = ({
           background: "white",
           border: "2px solid #d1d5db",
           borderRadius: "8px",
-          padding: "12px",
+          padding: "18px",
           minWidth: "140px",
           fontSize: "12px",
           zIndex: 100,
@@ -284,9 +309,48 @@ const AddNewNode = ({
     }
   }
 
+  const loadDefaultData = async () => {
+    setIsLoadingLocation(true);
+    try {
+      const provincesResponse = await dataService.getProvinces();
+      setProvinces(provincesResponse.data);
+    } catch (error) {
+      console.error('Error loading location data:', error);
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
   useEffect(() => {
+    loadDefaultData();
     fetchPartnerMembers();
   }, []);
+
+  useEffect(() => {
+    if (!selectedProvinceId) return;
+    const loadWardData = async () => {
+      try {
+        const response = await dataService.getWards(selectedProvinceId);
+        setWards(response.data);
+      } catch (error) {
+        console.error('Error loading wards data:', error);
+      }
+    }
+    loadWardData();
+  }, [selectedProvinceId]);
+
+  useEffect(() => {
+    if (!selectedBurialProvinceId) return;
+    const loadWardData = async () => {
+      try {
+        const response = await dataService.getWards(selectedBurialProvinceId);
+        setBurialWards(response.data);
+      } catch (error) {
+        console.error('Error loading wards data:', error);
+      }
+    }
+    loadWardData();
+  }, [selectedBurialProvinceId]);
 
   const handleRelationshipSelect = useCallback((type: string) => {
     setSelectedType(type);
@@ -294,6 +358,7 @@ const AddNewNode = ({
     setFormData((prev) => ({
       ...prev,
       categoryCode: selectedElement?.code,
+      gender: selectedElement?.gender || 0
     }));
 
     // Trigger partner selection for child types if parent has partners
@@ -357,6 +422,40 @@ const AddNewNode = ({
       setPreviewImage(e.target?.result as string);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const provinceId = e.target.value;
+    setSelectedProvinceId(provinceId);
+    setFormData(prev => ({
+      ...prev,
+      provinceId: provinceId
+    }));
+  };
+
+  const handleBurialProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const provinceId = e.target.value;
+    setSelectedBurialProvinceId(provinceId);
+    setFormData(prev => ({
+      ...prev,
+      burialProvinceId: provinceId
+    }));
+  };
+
+  const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const wardId = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      wardId: wardId
+    }));
+  };
+
+  const handleBurialWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const wardId = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      burialWardId: wardId
+    }));
   };
 
   const openFileSelector = () => fileInputRef.current?.click();
@@ -671,48 +770,46 @@ const AddNewNode = ({
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                       />
                     </div>
+                    {/* Province */}
                     <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">
-                        Phường chôn cất
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Tỉnh/Thành phố chôn cất
                       </label>
-                      <select
-                        name="burialWardId"
-                        value={formData.burialWardId || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            burialWardId: e.target.value ? parseInt(e.target.value) : undefined,
-                          }))
-                        }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                      >
-                        <option value="">Chọn phường</option>
-                        {selectOptions.WardId.map((option, index) => (
-                          <option key={option} value={index + 1}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
+                        <select
+                          name="province"
+                          value={selectedBurialProvinceId || ""}
+                          onChange={handleBurialProvinceChange}
+                          disabled={isLoadingLocation}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                        >
+                          <option value="">Chọn tỉnh/thành phố</option>
+                          {provinces.map(province => (
+                            <option key={province.id} value={province.id}>
+                              {province.nameWithType}
+                            </option>
+                          ))}
+                        </select>
                     </div>
+                    {/* Ward */}
                     <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">
-                        Tỉnh chôn cất
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Quận/Huyện chôn cất
                       </label>
                       <select
-                        name="burialProvinceId"
-                        value={formData.burialProvinceId || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            burialProvinceId: e.target.value ? parseInt(e.target.value) : undefined,
-                          }))
-                        }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                        name="ward"
+                        value={formData.burialWardId || ""}
+                        onChange={handleBurialWardChange}
+                        disabled={isLoadingLocation || !selectedBurialProvinceId}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
                       >
-                        <option value="">Chọn tỉnh</option>
-                        {selectOptions.ProvinceId.map((option, index) => (
-                          <option key={option} value={index + 1}>
-                            {option}
+                        <option value="">
+                          {!selectedBurialProvinceId
+                            ? 'Chọn tỉnh/thành phố trước'
+                            : 'Chọn quận/huyện'}
+                        </option>
+                        {burialWards.map(ward => (
+                          <option key={ward.code} value={ward.id}>
+                            {ward.name}
                           </option>
                         ))}
                       </select>
@@ -823,52 +920,50 @@ const AddNewNode = ({
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Province */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Phường
-                    </label>
-                    <select
-                      name="wardId"
-                      value={formData.wardId || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          wardId: e.target.value ? parseInt(e.target.value) : undefined,
-                        }))
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    >
-                      <option value="">Chọn phường</option>
-                      {selectOptions.WardId.map((option, index) => (
-                        <option key={option} value={index + 1}>
-                          {option}
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Tỉnh/Thành phố
+                      </label>
+                        <select
+                          name="province"
+                          value={selectedProvinceId || ""}
+                          onChange={handleProvinceChange}
+                          disabled={isLoadingLocation}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                        >
+                          <option value="">Chọn tỉnh/thành phố</option>
+                          {provinces.map(province => (
+                            <option key={province.id} value={province.id}>
+                              {province.nameWithType}
+                            </option>
+                          ))}
+                        </select>
+                    </div>
+                    {/* Ward */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Quận/Huyện
+                      </label>
+                      <select
+                        name="ward"
+                        value={formData.wardId || ""}
+                        onChange={handleWardChange}
+                        disabled={isLoadingLocation || !selectedProvinceId}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        <option value="">
+                          {!selectedProvinceId
+                            ? 'Chọn tỉnh/thành phố trước'
+                            : 'Chọn quận/huyện'}
                         </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Tỉnh
-                    </label>
-                    <select
-                      name="provinceId"
-                      value={formData.provinceId || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          provinceId: e.target.value ? parseInt(e.target.value) : undefined,
-                        }))
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    >
-                      <option value="">Chọn tỉnh</option>
-                      {selectOptions.ProvinceId.map((option, index) => (
-                        <option key={option} value={index + 1}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                        {wards.map(ward => (
+                          <option key={ward.code} value={ward.id}>
+                            {ward.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                 </div>
 
                 {/* Contact */}
