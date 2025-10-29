@@ -10,6 +10,7 @@ export interface FamilyMember {
   partners?: string[];
   children?: any[];
   isRoot: boolean,
+  statusCode?: number;
   isCurrentMember: boolean,
   isPartner: boolean;
 }
@@ -83,15 +84,15 @@ export interface AddingNodeProps {
   deathDescription?: string | undefined;
   deathDate?: string | undefined;
   burialAddress?: string | undefined;
-  burialWardId?: number | undefined;
-  burialProvinceId?: number | undefined;
+  burialWardId?: string | undefined;
+  burialProvinceId?: string | undefined;
   identificationType: string | undefined;
   identificationNumber?: number | undefined;
   ethnicId?: number | undefined;
   religionId?: number | undefined;
   address?: string | undefined;
-  wardId?: number | undefined;
-  provinceId?: number | undefined;
+  wardId?: string | undefined;
+  provinceId?: string | undefined;
   email?: string | undefined;
   phoneNumber?: string | undefined;
   content?: string | undefined;
