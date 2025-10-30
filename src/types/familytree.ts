@@ -63,6 +63,13 @@ export interface FamilyMemberList {
   gender: number;
   birthday: string | null;
   filePath: string | null;
+  ftMemberFiles?: Array<{
+    ftMemberId: string;
+    title: string;
+    filePath: string;
+    fileType: string;
+    isActive: boolean;
+  }>;
 }
 
 export enum CategoryCode {

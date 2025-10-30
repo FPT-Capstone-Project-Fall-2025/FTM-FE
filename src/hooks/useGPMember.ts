@@ -21,10 +21,13 @@ export const useGPMember = (gpId: string | null, userId: string | null): UseGPMe
 
   const fetchGPMember = async () => {
     if (!gpId || !userId) {
+      console.log('⚠️ useGPMember: Missing gpId or userId', { gpId, userId });
       setError('GPId and UserId are required');
       return;
     }
 
+    console.log('🔄 useGPMember: Fetching GPMember...', { gpId, userId });
+    
     setLoading(true);
     setError(null);
 
@@ -32,26 +35,37 @@ export const useGPMember = (gpId: string | null, userId: string | null): UseGPMe
       // First, try to get cached GPMemberId
       const cachedId = familyTreeMemberService.getCachedGPMemberId();
       if (cachedId) {
+        console.log('💾 useGPMember: Using cached GPMemberId:', cachedId);
         setGpMemberId(cachedId);
       }
 
       // Get full GPMember information
+      console.log('📞 useGPMember: Calling getGPMemberByUserId...');
       const member = await familyTreeMemberService.getGPMemberByUserId(gpId, userId);
       
+      console.log('📬 useGPMember: Received member:', member);
+      
       if (member) {
+        console.log('✅ useGPMember: Setting GPMember state', {
+          id: member.id,
+          fullname: member.fullname,
+          ftMemberFilesCount: member.ftMemberFiles?.length || 0
+        });
         setGpMember(member);
         setGpMemberId(member.id);
         // Ensure it's cached
         familyTreeMemberService.setGPMemberId(gpId, userId, member.id);
       } else {
+        console.error('❌ useGPMember: No member data returned');
         setError('Không thể lấy thông tin thành viên gia phả');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi không xác định';
+      console.error('❌ useGPMember: Error:', err);
       setError(errorMessage);
-      console.error('Error in useGPMember:', err);
     } finally {
       setLoading(false);
+      console.log('🏁 useGPMember: Fetch completed');
     }
   };
 

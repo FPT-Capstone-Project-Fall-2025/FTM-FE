@@ -55,14 +55,6 @@ const CommentInput: React.FC<CommentInputProps> = ({
   return (
     <div className="p-4 border-t border-gray-200">
       <div className="flex items-center space-x-3">
-        <img
-          src={userAvatar}
-          alt="Your avatar"
-          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = defaultPicture;
-          }}
-        />
         <div className="flex-1 flex flex-col space-y-2">
           <div className="flex items-center space-x-2 relative">
             <input

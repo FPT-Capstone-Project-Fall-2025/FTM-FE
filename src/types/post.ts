@@ -30,6 +30,7 @@ export interface Post {
   reactionsSummary: { [key: string]: number };
   userReaction?: string | null;
   userReactionId?: string | null; // ID of the user's reaction for deletion
+  status?: number; // Privacy status: 1 = public, 0 = private
 }
 
 export interface Comment {

@@ -156,7 +156,7 @@ const ReactionArea: React.FC<ReactionAreaProps> = ({
         className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors relative ${
           post.userReaction ? 'text-blue-600' : 'text-gray-600'
         }`}
-        title={post.userReaction ? 'Nhấp để bỏ phản ứng, hover để đổi' : 'Nhấp để thích, hover để chọn'}
+        title={post.userReaction ? 'Nhấp để bỏ tương tác, hover để đổi' : 'Nhấp để thích, hover để chọn'}
       >
         {post.userReaction ? (
           <span className="text-lg">

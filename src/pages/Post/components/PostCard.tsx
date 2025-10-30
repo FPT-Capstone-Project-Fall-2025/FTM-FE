@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   MoreHorizontal,
   ThumbsUp,
@@ -17,6 +18,7 @@ import {
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import type { Post, ReactionType, Comment } from '../../../types/post';
 import PostStats from './PostStats';
+import familyTreeMemberService, { getAvatarFromGPMember, getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
 import PostActions from './PostActions';
 
 // Video component with thumbnail generation
@@ -81,7 +83,8 @@ const VideoWithThumbnail: React.FC<{
 
 // Helper function to check if URL is a video
 const isVideoUrl = (url: string): boolean => {
-  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+  if (!url) return false;
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.flv', '.wmv'];
   const urlLower = url.toLowerCase();
   return videoExtensions.some(ext => urlLower.includes(ext));
 };
@@ -101,7 +104,7 @@ interface PostCardProps {
   editImages: File[];
   editImagePreviews: string[];
   editCaptions: string[];
-  existingImages: { id: string, url: string, caption?: string }[];
+  existingImages: { id: string, url: string, caption?: string, fileType?: number }[];
   isUpdatingPost: boolean;
 
   // Edit mode setters
@@ -225,7 +228,40 @@ export const CommentItem: React.FC<{
   showCommentMenu,
   setShowCommentMenu
 }) => {
+  const { id: familyTreeId } = useParams<{ id: string }>();
+  const [commentDisplayName, setCommentDisplayName] = useState<string>(comment.author?.name || 'User');
+  const [commentGpAvatar, setCommentGpAvatar] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!comment.gpMemberId || !familyTreeId) return;
+      const profile = await familyTreeMemberService.getGPMemberByMemberId(familyTreeId, comment.gpMemberId);
+      if (cancelled || !profile) return;
+      const name = getDisplayNameFromGPMember(profile) || comment.author?.name || 'User';
+      const avatar = getAvatarFromGPMember(profile) || null;
+      setCommentDisplayName(name);
+      setCommentGpAvatar(avatar);
+    })();
+    return () => { cancelled = true; };
+  }, [comment.gpMemberId, familyTreeId]);
   const canReply = depth < maxDepth; // depth 0 (comment) can reply, depth 1 (reply) cannot
+
+  // Calculate avatar source with priority (Group → current user fallback → api → default)
+  const commentAvatar = commentGpAvatar || (comment.gpMemberId === currentUserGPMemberId ? userData.picture : null) || comment.author?.avatar || defaultPicture;
+  
+  // Debug: Log comment avatar source
+  React.useEffect(() => {
+    console.log('💬 [CommentItem] Rendering comment:', {
+      commentId: comment.id,
+      authorName: comment.author?.name,
+      avatar: commentAvatar,
+      isCurrentUser: comment.gpMemberId === currentUserGPMemberId,
+      avatarSource: commentAvatar?.includes('/ftmembers/') ? 'GPMember (ftMemberFiles)' : 
+                    commentAvatar?.includes('/avatars/') ? 'Global Profile' : 
+                    commentAvatar?.includes('ui-avatars.com') ? 'UI Avatars' :
+                    'defaultPicture'
+    });
+  }, [comment.id, comment.author?.name, commentAvatar, comment.gpMemberId, currentUserGPMemberId]);
 
   return (
     <div className={`${depth > 0 ? 'ml-6 md:ml-10 relative' : ''}`}>
@@ -236,12 +272,8 @@ export const CommentItem: React.FC<{
 
       <div className="flex items-start space-x-3">
         <img
-          src={
-            comment.gpMemberId && comment.gpMemberId === currentUserGPMemberId
-              ? (userData.picture || comment.author?.avatar || defaultPicture)
-              : (comment.author?.avatar || defaultPicture)
-          }
-          alt={comment.author?.name || 'User'}
+          src={commentAvatar}
+          alt={commentDisplayName}
           className="w-8 h-8 rounded-full object-cover flex-shrink-0 relative z-10 bg-white"
           onError={(e) => {
             (e.target as HTMLImageElement).src = defaultPicture;
@@ -251,7 +283,7 @@ export const CommentItem: React.FC<{
           {editingCommentId === comment.id ? (
             // Edit mode
             <div className="bg-gray-100 rounded-lg px-4 py-2">
-              <p className="font-semibold text-sm text-gray-900 mb-2">{comment.author?.name || 'User'}</p>
+              <p className="font-semibold text-sm text-gray-900 mb-2">{commentDisplayName}</p>
               <textarea
                 value={editCommentContent}
                 onChange={(e) => setEditCommentContent?.(e.target.value)}
@@ -280,7 +312,7 @@ export const CommentItem: React.FC<{
           ) : (
             // View mode
             <div className="bg-gray-100 rounded-lg px-4 py-2">
-              <p className="font-semibold text-sm text-gray-900">{comment.author?.name || 'User'}</p>
+              <p className="font-semibold text-sm text-gray-900">{commentDisplayName}</p>
               <p className="text-gray-900">{comment.content}</p>
               {comment.isEdited && comment.editedAt && (
                 <p className="text-xs text-gray-500 italic mt-1">Đã chỉnh sửa {comment.editedAt}</p>
@@ -473,6 +505,7 @@ const PostCard: React.FC<PostCardProps> = ({
   editContent,
   editTitle,
   editStatus,
+  editImages,
   editImagePreviews,
   editCaptions,
   existingImages,
@@ -541,6 +574,8 @@ const PostCard: React.FC<PostCardProps> = ({
   const [localShowComments, setLocalShowComments] = useState(showComments);
   const [_showEmojiPicker, _setShowEmojiPicker] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [resolvedTypes, setResolvedTypes] = useState<Record<string, 'video' | 'image'>>({});
+  const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
 
   // Toggle comments visibility
   const handleToggleComments = () => {
@@ -557,9 +592,24 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  // Get display name and avatar with proper fallback
-  const displayName = post.author.name;
-  const displayAvatar = post.author.avatar;
+  // Group-specific author mapping using gpMemberId
+  const { id: familyTreeId } = useParams<{ id: string }>();
+  const [displayName, setDisplayName] = useState<string>(post.author.name);
+  const [displayAvatar, setDisplayAvatar] = useState<string>(post.author.avatar || defaultPicture);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!post.gpMemberId || !familyTreeId) return;
+      const profile = await familyTreeMemberService.getGPMemberByMemberId(familyTreeId, post.gpMemberId);
+      if (cancelled || !profile) return;
+      const name = getDisplayNameFromGPMember(profile) || post.author.name;
+      const avatar = getAvatarFromGPMember(profile) || post.author.avatar || defaultPicture;
+      setDisplayName(name);
+      setDisplayAvatar(avatar);
+    })();
+    return () => { cancelled = true; };
+  }, [post.gpMemberId, familyTreeId]);
 
   return (
     <div key={post.id} className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -586,10 +636,26 @@ const PostCard: React.FC<PostCardProps> = ({
                 >
                   {post.author.timeAgo}
                 </button>
+                {/* Privacy Status */}
+                <span className="text-gray-300">•</span>
+                {Number(post.status ?? 1) === 1 ? (
+                  <div className="flex items-center space-x-1 text-gray-500" title="Công khai">
+                    <Globe className="w-3.5 h-3.5" />
+                    <span className="text-xs">Công khai</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-1 text-gray-500" title="Chỉ mình tôi">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span className="text-xs">Chỉ mình tôi</span>
+                  </div>
+                )}
                 {post.isEdited && (
-                  <span className="text-xs text-gray-400">
-                    • đã chỉnh sửa {post.editedAt}
-                  </span>
+                  <>
+                    <span className="text-xs text-gray-400">•</span>
+                    <span className="text-xs text-gray-400">
+                      đã chỉnh sửa {post.editedAt}
+                    </span>
+                  </>
                 )}
               </div>
             </div>
@@ -657,8 +723,8 @@ const PostCard: React.FC<PostCardProps> = ({
         </div>
       </div>
 
-      {/* Post Title */}
-      {post.title && (
+      {/* Post Title - Only show when not editing */}
+      {post.title && editingPostId !== post.id && (
         <div className="px-6 pb-2">
           <h3 className="text-lg font-semibold text-gray-900">{post.title}</h3>
         </div>
@@ -709,59 +775,91 @@ const PostCard: React.FC<PostCardProps> = ({
               rows={4}
             />
 
-            {/* Existing Images */}
-            {existingImages.length > 0 && (
+            {/* Media (Existing + New) */}
+            {(existingImages.length > 0 || editImagePreviews.length > 0) && (
               <div className="space-y-2">
-                <h5 className="text-sm font-medium text-gray-700">Ảnh hiện tại:</h5>
+                <h5 className="text-sm font-medium text-gray-700">
+                  Media ({existingImages.length + editImagePreviews.length})
+                </h5>
                 <div className="grid grid-cols-2 gap-2">
-                  {existingImages.map((image, index) => (
-                    <div key={image.id} className="relative">
-                      <img
-                        src={image.url}
-                        alt={`Existing ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <button
-                        onClick={() => onRemoveExistingImage(image.id)}
-                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* New Images */}
-            {editImagePreviews.length > 0 && (
-              <div className="space-y-2">
-                <h5 className="text-sm font-medium text-gray-700">Ảnh mới:</h5>
-                <div className="grid grid-cols-2 gap-2">
-                  {editImagePreviews.map((preview, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="relative">
-                        <img
-                          src={preview}
-                          alt={`New ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-lg"
-                        />
-                        <button
-                          onClick={() => onRemoveEditImage(index)}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                  {/* Existing Images/Videos */}
+                  {existingImages.map((image, index) => {
+                    const isVideo = image.fileType === 1 || isVideoUrl(image.url);
+                    return (
+                      <div key={`existing-${image.id}`} className="space-y-2">
+                        <div className="relative">
+                          {isVideo ? (
+                            <video
+                              src={image.url}
+                              className="w-full h-32 object-cover rounded-lg"
+                              controls
+                              preload="metadata"
+                              playsInline
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                          ) : (
+                            <img
+                              src={image.url}
+                              alt={`Media ${index + 1}`}
+                              className="w-full h-32 object-cover rounded-lg"
+                            />
+                          )}
+                          <button
+                            onClick={() => onRemoveExistingImage(image.id)}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {image.caption && (
+                          <p className="text-xs text-gray-600 px-2">{image.caption}</p>
+                        )}
                       </div>
-                      <input
-                        type="text"
-                        value={editCaptions[index] || ''}
-                        onChange={(e) => onUpdateEditCaption(index, e.target.value)}
-                        placeholder={`Mô tả cho ảnh ${index + 1}...`}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
+                  
+                  {/* New Images/Videos */}
+                  {editImagePreviews.map((preview, index) => {
+                    const isVideo = editImages[index]?.type.startsWith('video/');
+                    const mediaNumber = existingImages.length + index + 1;
+                    return (
+                      <div key={`new-${index}`} className="space-y-2">
+                        <div className="relative">
+                          {isVideo ? (
+                            <video
+                              src={preview}
+                              className="w-full h-32 object-cover rounded-lg"
+                              controls
+                              preload="metadata"
+                              playsInline
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                          ) : (
+                            <img
+                              src={preview}
+                              alt={`Media ${mediaNumber}`}
+                              className="w-full h-32 object-cover rounded-lg"
+                            />
+                          )}
+                          <button
+                            onClick={() => onRemoveEditImage(index)}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={editCaptions[index] || ''}
+                          onChange={(e) => onUpdateEditCaption(index, e.target.value)}
+                          placeholder={`Mô tả cho ${isVideo ? 'video' : 'ảnh'} ${mediaNumber}...`}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -835,14 +933,71 @@ const PostCard: React.FC<PostCardProps> = ({
         const mediaCount = mediaList.length;
         const isSingleMedia = mediaCount === 1;
 
-        if (mediaCount === 0) return null;
+        // Resolve uncertain media types (no extension and fileType not reliable)
+        useEffect(() => {
+          let cancelled = false;
+          const run = async () => {
+            for (const item of mediaList) {
+              const id = item.id;
+              const url = item.fileUrl;
+              if (resolvedTypes[id]) continue;
+              const byUrl = isVideoUrl(url);
+              const byType = item.fileType === 1 || (item as any).fileType === 'video';
+              if (byUrl || byType) {
+                if (cancelled) return;
+                setResolvedTypes(prev => ({ ...prev, [id]: 'video' }));
+                continue;
+              }
+              setResolvingIds(prev => new Set(prev).add(id));
+              const isImage = await new Promise<boolean>((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = url;
+              });
+              if (cancelled) return;
+              if (isImage) {
+                setResolvedTypes(prev => ({ ...prev, [id]: 'image' }));
+                setResolvingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+                continue;
+              }
+              const isVid = await new Promise<boolean>((resolve) => {
+                const vid = document.createElement('video');
+                const onLoaded = () => { cleanup(); resolve(true); };
+                const onError = () => { cleanup(); resolve(false); };
+                const cleanup = () => {
+                  vid.removeEventListener('loadedmetadata', onLoaded);
+                  vid.removeEventListener('error', onError);
+                };
+                vid.addEventListener('loadedmetadata', onLoaded);
+                vid.addEventListener('error', onError);
+                vid.preload = 'metadata';
+                vid.src = url;
+              });
+              if (cancelled) return;
+              setResolvedTypes(prev => ({ ...prev, [id]: isVid ? 'video' : 'image' }));
+              setResolvingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+            }
+          };
+          run();
+          return () => { cancelled = true; };
+        }, [post.id, mediaCount]);
 
         return (
           <div className="px-6 pb-4 cursor-pointer"  onClick={() => onOpenPostDetail(post)}>
             {isSingleMedia ? (
               // Single media - Display with 1:1 aspect ratio (square)
               <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black">
-                {(mediaList[0]!.fileType === 1 || isVideoUrl(mediaList[0]!.fileUrl)) ? (
+                {(() => {
+                  const item = mediaList[0]!;
+                  const forced = resolvedTypes[item.id];
+                  const url = item.fileUrl;
+                  const byUrl = isVideoUrl(url);
+                  const byType = item.fileType === 1 || (item as any).fileType === 'video';
+                  // Default to image unless we are certain it's a video
+                  const isVideo = forced ? forced === 'video' : (byUrl || byType);
+                  return isVideo;
+                })() ? (
                   // Single Video
                   <VideoWithThumbnail
                     src={mediaList[0]!.fileUrl}
@@ -870,7 +1025,16 @@ const PostCard: React.FC<PostCardProps> = ({
               <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black">
                 {/* Current Media Display */}
                 <div className="w-full h-full">
-                  {(mediaList[currentMediaIndex]!.fileType === 1 || isVideoUrl(mediaList[currentMediaIndex]!.fileUrl)) ? (
+                  {(() => {
+                    const item = mediaList[currentMediaIndex]!;
+                    const forced = resolvedTypes[item.id];
+                    const url = item.fileUrl;
+                    const byUrl = isVideoUrl(url);
+                    const byType = item.fileType === 1 || (item as any).fileType === 'video';
+                    // Default to image unless we are certain it's a video
+                    const isVideo = forced ? forced === 'video' : (byUrl || byType);
+                    return isVideo;
+                  })() ? (
                     // Video
                     <VideoWithThumbnail
                       key={mediaList[currentMediaIndex]!.id}

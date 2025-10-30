@@ -9,6 +9,7 @@ import CommentInput from './components/CommentInput';
 import CommentArea from './components/CommentArea';
 import PostActions from './components/PostActions';
 import PostStats from './components/PostStats';
+import familyTreeMemberService, { getAvatarFromGPMember, getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
 
 // Video component with thumbnail generation
 const VideoWithThumbnail: React.FC<{
@@ -93,6 +94,7 @@ interface PostDetailPageProps {
   isHoveringReactionPicker?: React.MutableRefObject<{ [postId: string]: boolean }>;
   getReactionSummaryText?: (post: PostType) => string;
   onReactionSummaryClick?: (postId: string) => void;
+  userData?: { name: string; picture: string };
   CommentItem: React.FC<{
     comment: CommentType;
     postId: string;
@@ -121,6 +123,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
   isHoveringReactionPicker,
   getReactionSummaryText,
   onReactionSummaryClick,
+  userData,
   CommentItem
 }) => {
   const { id: _groupId } = useParams<{ id: string }>();
@@ -164,14 +167,49 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     return date.toLocaleDateString('vi-VN');
   };
 
+  /**
+   * Extract avatar URL from GPMember ftMemberFiles
+   * Looks for file with title containing 'Avatar' (case-sensitive) and isActive = true
+   */
+  const extractAvatarFromFtMemberFiles = (ftMemberFiles: any[]): string | null => {
+    if (!ftMemberFiles || ftMemberFiles.length === 0) return null;
+    
+    const avatarFile = ftMemberFiles.find(file => 
+      file.title && 
+      file.title.includes('Avatar') && 
+      file.isActive
+    );
+    
+    return avatarFile?.filePath || null;
+  };
+
   // Function to transform API comment to Comment interface
   const transformApiComment = (apiComment: any): CommentType => {
+    // Priority 1: Extract avatar from ftMemberFiles (GPMember specific)
+    // Priority 2: Use authorPicture (may be global profile)
+    // Priority 3: Default picture
+    const avatarFromGPMember = extractAvatarFromFtMemberFiles(apiComment.ftMemberFiles);
+    const avatar = avatarFromGPMember || apiComment.authorPicture || defaultPicture;
+    
+    console.log('🔍 [PostDetailPage Comment] Avatar extraction:', {
+      commentId: apiComment.id,
+      authorName: apiComment.authorName,
+      hasFtMemberFiles: !!apiComment.ftMemberFiles,
+      ftMemberFilesCount: apiComment.ftMemberFiles?.length || 0,
+      avatarFromGPMember,
+      authorPicture: apiComment.authorPicture,
+      finalAvatar: avatar,
+      source: avatarFromGPMember ? 'GPMember (ftMemberFiles)' : 
+              apiComment.authorPicture ? 'authorPicture (may be global)' : 
+              'defaultPicture'
+    });
+    
     const comment: CommentType = {
       id: apiComment.id || `comment-${Date.now()}-${Math.random()}`,
       gpMemberId: apiComment.gpMemberId,
       author: {
         name: apiComment.authorName || 'Unknown User',
-        avatar: apiComment.authorPicture || defaultPicture
+        avatar: avatar
       },
       content: apiComment.content || '',
       images: apiComment.attachments?.map((file: any) => file.url) || [],
@@ -259,6 +297,25 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     }
   }, [post?.id, post?.totalReactions, post?.userReaction, post?.reactionsSummary, post?.comments.length, isOpen]);
 
+  // Group-specific author mapping (hooks must be before any return)
+  const { id: familyTreeId } = useParams<{ id: string }>();
+  const [displayName, setDisplayName] = useState<string>(post?.author.name || '');
+  const [displayAvatar, setDisplayAvatar] = useState<string>(post?.author.avatar || defaultPicture);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!post?.gpMemberId || !familyTreeId) return;
+      const profile = await familyTreeMemberService.getGPMemberByMemberId(familyTreeId, post.gpMemberId);
+      if (cancelled || !profile) return;
+      const name = getDisplayNameFromGPMember(profile) || post.author.name;
+      const avatar = getAvatarFromGPMember(profile) || post.author.avatar || defaultPicture;
+      setDisplayName(name);
+      setDisplayAvatar(avatar);
+    })();
+    return () => { cancelled = true; };
+  }, [post?.gpMemberId, familyTreeId]);
+
   if (!isOpen || !post) return null;
 
   // Check if current user can edit this post
@@ -309,7 +366,13 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
               {/* Current Media Display */}
               {mediaList[currentMediaIndex] && (
                 <>
-                  {(mediaList[currentMediaIndex].fileType === 1 || isVideoUrl(mediaList[currentMediaIndex].fileUrl)) ? (
+                  {(() => {
+                    const url = mediaList[currentMediaIndex].fileUrl;
+                    const byUrl = isVideoUrl(url);
+                    const byType = mediaList[currentMediaIndex].fileType === 1 || (mediaList[currentMediaIndex] as any).fileType === 'video';
+                    const isVideo = byUrl || byType;
+                    return isVideo;
+                  })() ? (
                     <VideoWithThumbnail
                       key={mediaList[currentMediaIndex].id}
                       src={mediaList[currentMediaIndex].fileUrl}
@@ -402,15 +465,15 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
               {((post.attachments && post.attachments.length > 0) || (post.images && post.images.length > 0)) ? (
                 <>
                   <img
-                    src={post.author.avatar}
-                    alt={post.author.name}
+                    src={displayAvatar}
+                    alt={displayName}
                     className="w-10 h-10 rounded-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = defaultPicture;
                     }}
                   />
                   <div>
-                    <h3 className="font-semibold text-gray-900">{post.author.name}</h3>
+                    <h3 className="font-semibold text-gray-900">{displayName}</h3>
                     <div className="flex items-center space-x-2">
                       <p className="text-sm text-gray-500">{post.author.timeAgo}</p>
                       {post.isEdited && (
@@ -423,7 +486,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
                 </>
               ) : (
                 <div className="flex-1 text-center">
-                  <h3 className="font-semibold text-gray-900 text-lg">Bài viết của {post.author.name}</h3>
+                  <h3 className="font-semibold text-gray-900 text-lg">Bài viết của {displayName}</h3>
                 </div>
               )}
             </div>
@@ -440,15 +503,15 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center space-x-3">
                 <img
-                  src={post.author.avatar}
-                  alt={post.author.name}
+                  src={displayAvatar}
+                  alt={displayName}
                   className="w-10 h-10 rounded-full object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = defaultPicture;
                   }}
                 />
                 <div>
-                  <h4 className="font-semibold text-gray-900">{post.author.name}</h4>
+                  <h4 className="font-semibold text-gray-900">{displayName}</h4>
                   <div className="flex items-center space-x-2">
                     <p className="text-sm text-gray-500">{post.author.timeAgo}</p>
                     {post.isEdited && (
@@ -565,10 +628,10 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
           {/* Comment Input */}
           <CommentInput
             postId={post.id}
-                    value={commentInputs[post.id] || ''}
+            value={commentInputs[post.id] || ''}
             onChange={(value) => setCommentInputs(prev => ({ ...prev, [post.id]: value }))}
             onSubmit={handleCommentSubmit}
-            userAvatar={defaultPicture}
+            userAvatar={userData?.picture || defaultPicture}
           />
         </div>
       </div>

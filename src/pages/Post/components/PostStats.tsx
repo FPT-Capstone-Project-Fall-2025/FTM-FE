@@ -115,7 +115,7 @@ const PostStats: React.FC<PostStatsProps> = ({
               )}
             </div>
           ) : (
-            <span>0 phản ứng</span>
+            <span>Hãy là người tương tác đầu tiên</span>
           )}
         </div>
         <div>

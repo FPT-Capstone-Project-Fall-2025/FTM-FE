@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, Image, X, ThumbsUp, Search, Edit, Trash2, Users, User, Share } from 'lucide-react';
+import { MessageCircle, Image, X, ThumbsUp, Search, Edit, Trash2, Users, User, Share, Globe, Lock } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
 import PostCard, { CommentItem } from './components/PostCard';
 import GPEventDetailsModal from '../Event/GPEventDetailsModal';
 import postService, { type CreatePostData } from '@/services/postService';
 import familyTreeService from '@/services/familyTreeService';
-import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
+import familyTreeMemberService, { type GPMember, getAvatarFromGPMember, getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
 import userService from '@/services/userService';
 import { useGPMember } from '@/hooks/useGPMember';
 import { toast } from 'react-toastify';
@@ -38,7 +39,6 @@ const PostPage: React.FC = () => {
   const [showSearchPopup, setShowSearchPopup] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
-  const navigate = useNavigate();
   
   // Family tree details state
   const [familyTreeData, setFamilyTreeData] = useState<any>(null);
@@ -46,6 +46,7 @@ const PostPage: React.FC = () => {
   
   // User data state (similar to Navigation.tsx)
   const [userData, setUserData] = useState({ name: '', picture: '' });
+  const [gpMemberMap, setGpMemberMap] = useState<Record<string, GPMember>>({});
   const [searchQuery, setSearchQuery] = useState('');
 
   // GPMember integration - Get GPMemberId for the current user in this family tree
@@ -83,6 +84,8 @@ const PostPage: React.FC = () => {
   const [showPostDetail, setShowPostDetail] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deletingPostIds, setDeletingPostIds] = useState<Set<string>>(new Set());
+  const [createStatus, setCreateStatus] = useState<number>(1); // 1 = Công khai, 0 = Chỉ mình tôi
 
   // Comment editing states
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -130,14 +133,48 @@ const PostPage: React.FC = () => {
     { type: 'Angry', id: 6, emoji: '😠', label: 'Giận dữ' }
   ];
 
+  // Preload group member profiles map for avatar/name mapping
+  useEffect(() => {
+    if (!currentFamilyTreeId) return;
+    let isMounted = true;
+    (async () => {
+      try {
+        const treeResp = await familyTreeService.getFamilyTreeData(currentFamilyTreeId);
+        const dataList = (treeResp.data as any)?.datalist || [];
+        const memberIds: string[] = dataList
+          .map((n: any) => n?.value?.id)
+          .filter((id: any) => typeof id === 'string');
+        const uniqueIds = Array.from(new Set(memberIds));
+        const results = await Promise.all(
+          uniqueIds.map(async (memberId) => {
+            const profile = await familyTreeMemberService.getGPMemberByMemberId(currentFamilyTreeId, memberId);
+            return [memberId, profile] as const;
+          })
+        );
+        if (!isMounted) return;
+        const map: Record<string, GPMember> = {};
+        results.forEach(([memberId, profile]) => {
+          if (profile) map[memberId] = profile;
+        });
+        setGpMemberMap(map);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [currentFamilyTreeId]);
+
   // Function to transform API comment to Comment interface
   const transformApiComment = (apiComment: any): Comment => {
+    const memberProfile = apiComment.gpMemberId ? gpMemberMap[apiComment.gpMemberId] : undefined;
+    const authorNameFromGroup = memberProfile ? (getDisplayNameFromGPMember(memberProfile) || undefined) : undefined;
+    const avatarFromGroup = memberProfile ? (getAvatarFromGPMember(memberProfile) || undefined) : undefined;
     const comment: Comment = {
       id: apiComment.id || `comment-${Date.now()}-${Math.random()}`,
       gpMemberId: apiComment.gpMemberId,
       author: {
-        name: apiComment.authorName || 'Unknown User',
-        avatar: apiComment.authorPicture || defaultPicture
+        name: authorNameFromGroup || apiComment.authorName || 'Unknown User',
+        avatar: avatarFromGroup || apiComment.authorPicture || defaultPicture
       },
       content: apiComment.content || '',
       images: apiComment.attachments?.map((file: any) => file.url) || [],
@@ -170,7 +207,6 @@ const PostPage: React.FC = () => {
     try {
       const result = await postService.getPostsByFamilyTree(currentFamilyTreeId);
       
-      console.log('Posts API response:', result);
       
       // Handle both API response formats
       const success = result.success || result.status || (result.statusCode === 200);
@@ -189,14 +225,17 @@ const PostPage: React.FC = () => {
           const hasReacted = currentUserReaction?.hasReacted === true;
           const userReactionType = hasReacted ? currentUserReaction.reactionType : null;
           const userReactionId = hasReacted ? currentUserReaction.id : null;
+          const memberProfile = apiPost.gpMemberId ? gpMemberMap[apiPost.gpMemberId] : undefined;
+          const authorNameFromGroup = memberProfile ? (getDisplayNameFromGPMember(memberProfile) || undefined) : undefined;
+          const avatarFromGroup = memberProfile ? (getAvatarFromGPMember(memberProfile) || undefined) : undefined;
           
           return {
             id: apiPost.id,
             title: apiPost.title,
             gpMemberId: apiPost.gpMemberId,
             author: {
-              name: apiPost.authorName || apiPost.author?.name || apiPost.createdBy || 'Unknown User',
-              avatar: apiPost.authorPicture || apiPost.author?.avatar || defaultPicture,
+              name: authorNameFromGroup || apiPost.authorName || apiPost.author?.name || apiPost.createdBy || 'Unknown User',
+              avatar: avatarFromGroup || apiPost.authorPicture || apiPost.author?.avatar || defaultPicture,
               timeAgo: formatTimeAgo(apiPost.createdOn || apiPost.createdAt || new Date().toISOString())
             },
             content: apiPost.content,
@@ -219,19 +258,11 @@ const PostPage: React.FC = () => {
         
         setPosts(transformedPosts);
         
-        console.log('✅ Posts loaded with reactions:', transformedPosts.map(p => ({
-          id: p.id,
-          userReaction: p.userReaction,
-          hasReacted: !!p.userReaction,
-          totalReactions: p.totalReactions,
-          totalComments: p.totalComments
-        })));
       } else {
         const errorMessage = result.message || result.errors || 'Failed to load posts';
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Error loading posts:', error);
       
       // More detailed error handling
       let errorMessage = 'Có lỗi xảy ra khi tải bài viết';
@@ -250,12 +281,6 @@ const PostPage: React.FC = () => {
         }
       }
       
-      console.error('Detailed error:', {
-        error,
-        familyTreeId: currentFamilyTreeId,
-        user,
-        token: token ? 'Present' : 'Missing'
-      });
       
       setError(errorMessage);
     } finally {
@@ -270,12 +295,8 @@ const PostPage: React.FC = () => {
   // Log GPMemberId when it's loaded for debugging
   useEffect(() => {
     if (gpMemberId) {
-      console.log('GPMemberId loaded successfully:', gpMemberId);
-      console.log('Family Tree ID:', currentFamilyTreeId);
-      console.log('User ID:', currentUserId);
     }
     if (gpMemberError) {
-      console.error('GPMember error:', gpMemberError);
     }
   }, [gpMemberId, gpMemberError]);
 
@@ -286,39 +307,21 @@ const PostPage: React.FC = () => {
       const success = result.success || result.status || (result.statusCode === 200);
       
       if (success && result.data) {
-        console.log('✅ loadPostReactions API response:', result);
         
         // Handle paginated response or direct array
         const reactionsData = Array.isArray(result.data) 
           ? result.data 
           : ((result.data as any)?.data || []);
         
-        console.log('📊 Reactions data array:', reactionsData);
-        console.log('🔍 Searching for gpMemberId:', gpMemberId);
         
         // Check if current user has reacted using gpMemberId and hasReacted flag
         const userReaction = reactionsData.find((reaction: any) => {
-          console.log('  - Checking reaction:', {
-            id: reaction.id,
-            gpMemberId: reaction.gpMemberId,
-            reactionType: reaction.reactionType,
-            hasReacted: reaction.hasReacted,
-            matches: reaction.gpMemberId === gpMemberId && reaction.hasReacted === true
-          });
           return reaction.gpMemberId === gpMemberId && reaction.hasReacted === true;
         });
         
-        console.log('🎯 User reaction found:', userReaction);
         
         if (userReaction) {
-          console.log('✅ Setting active reaction:', {
-            postId,
-            reactionType: userReaction.reactionType,
-            reactionId: userReaction.id,
-            emoji: reactionTypes.find(r => r.type === userReaction.reactionType)?.emoji
-          });
         } else {
-          console.log('ℹ️ No active reaction for this user on post:', postId);
         }
         
         // Update post with user reaction and reactionId
@@ -334,7 +337,6 @@ const PostPage: React.FC = () => {
         ));
       }
     } catch (error) {
-      console.error('❌ Error loading reactions for post ${postId}:', error);
     }
   };
 
@@ -345,14 +347,12 @@ const PostPage: React.FC = () => {
     
     // Check if this exact operation is already pending
     if (pendingReactions.current.has(operationKey)) {
-      console.log('⚠️ Duplicate operation detected, ignoring:', operationKey);
       return;
     }
     
     try {
       // Mark operation as pending
       pendingReactions.current.add(operationKey);
-      console.log('🔒 Operation locked:', operationKey);
       
       if (!gpMemberId) {
         toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
@@ -372,28 +372,16 @@ const PostPage: React.FC = () => {
 
       // Check if this post is already being processed (prevent rapid clicks)
       if ((post as any).isProcessingReaction) {
-        console.log('Reaction already in progress, ignoring click');
         return;
       }
 
       // Find the numeric reaction ID from reactionType string
       const reactionConfig = reactionTypes.find(r => r.type === reactionType);
       if (!reactionConfig) {
-        console.error('Invalid reaction type:', reactionType);
-        console.error('Available reaction types:', reactionTypes.map(r => r.type));
         toast.error('Loại phản ứng không hợp lệ!');
         return;
       }
 
-      console.log('=== Reaction Action ===');
-      console.log('PostID:', postId);
-      console.log('GPMemberID:', gpMemberId);
-      console.log('Reaction Type (string):', reactionType);
-      console.log('Reaction ID (numeric):', reactionConfig.id);
-      console.log('Reaction Config:', reactionConfig);
-      console.log('Current User Reaction:', post.userReaction);
-      console.log('Current User Reaction ID:', post.userReactionId);
-      console.log('=====================');
 
       // Set processing flag to prevent rapid clicks
       setPosts(prev => prev.map(p => 
@@ -401,17 +389,10 @@ const PostPage: React.FC = () => {
       ));
 
       // Check if user already has any reaction to prevent duplicate
-      console.log('� Checking existing reaction...');
-      console.log('   Current userReaction:', post.userReaction);
-      console.log('   Current userReactionId:', post.userReactionId);
-      console.log('   Clicking on:', reactionType);
 
       // If user already has this reaction, remove it (toggle off)
       // This handles the case when hasReacted: true and user clicks the same reaction again
       if (post.userReaction === reactionType) {
-        console.log('🔄 User already has this reaction (hasReacted: true), removing it...');
-        console.log('   ReactionType:', reactionType);
-        console.log('   ReactionID to delete:', post.userReactionId);
         
         // Use the stored reaction ID for deletion
         if (!post.userReactionId) {
@@ -424,18 +405,13 @@ const PostPage: React.FC = () => {
           return;
         }
         
-        console.log('📤 Calling DELETE /api/post/reactions/' + post.userReactionId);
         const removeResult = await postService.removePostReaction(post.userReactionId);
         
-        console.log('📥 DELETE response:', removeResult);
         
         if (!removeResult.status) {
           throw new Error(removeResult.message || 'Không thể xóa phản ứng');
         }
         
-        console.log('✅ Reaction removed from API successfully (hasReacted now false)');
-        console.log('   Status:', removeResult.status);
-        console.log('   Message:', removeResult.message);
         
         // Update state immediately (frontend calculation) - set userReaction to null
         setPosts(prev => prev.map(p => {
@@ -451,12 +427,6 @@ const PostPage: React.FC = () => {
               }
             }
             
-            console.log('🔄 Updated post state:', {
-              userReaction: null,
-              userReactionId: null,
-              totalReactions: Math.max(0, p.totalReactions - 1),
-              reactionsSummary: newReactionsSummary
-            });
             
             return {
               ...p,
@@ -498,7 +468,6 @@ const PostPage: React.FC = () => {
       } else {
         // If user has a different reaction, remove it first and WAIT (REQUIRED)
         if (post.userReaction && post.userReactionId) {
-          console.log('🔄 Removing old reaction (REQUIRED):', post.userReaction, 'with ID:', post.userReactionId);
           
           const removeResult = await postService.removePostReaction(post.userReactionId);
           
@@ -510,12 +479,9 @@ const PostPage: React.FC = () => {
             throw new Error(removeResult.message || 'Phải xóa phản ứng cũ trước khi thêm phản ứng mới');
           }
           
-          console.log('✅ Old reaction deleted from API, brief wait for backend sync...');
           // Brief wait to ensure backend processes deletion before adding new reaction
           await new Promise(resolve => setTimeout(resolve, 300));
-          console.log('✅ Backend sync complete, safe to add new reaction');
         } else {
-          console.log('ℹ️ No existing reaction, adding new reaction directly');
         }
         
         // Add new reaction using new API format
@@ -525,20 +491,9 @@ const PostPage: React.FC = () => {
           reactionType: reactionConfig.id // Use numeric ID (1-6)
         };
         
-        console.log('📤 Sending reaction to API:', {
-          ...reactionPayload,
-          reactionTypeName: reactionType,
-          emoji: reactionConfig.emoji
-        });
         
         const response = await postService.addPostReaction(reactionPayload);
         
-        console.log('📥 Reaction API response:', {
-          status: response.status,
-          statusCode: response.statusCode,
-          data: response.data,
-          message: response.message
-        });
         
         // Check if response is successful
         if (!response.status) {
@@ -551,14 +506,8 @@ const PostPage: React.FC = () => {
         const actualReactionType = response.data?.reactionType || reactionType;
         const hasReacted = response.data?.hasReacted ?? true;
         
-        console.log('New reaction details:', {
-          id: newReactionId,
-          type: actualReactionType,
-          hasReacted: hasReacted
-        });
         
         if (!newReactionId) {
-          console.warn('Warning: No reaction ID returned from API');
         }
         
         // Update state immediately (frontend calculation)
@@ -637,13 +586,8 @@ const PostPage: React.FC = () => {
       
       // Unlock operation immediately (frontend calculation is already done)
       pendingReactions.current.delete(operationKey);
-      console.log('✅ Operation unlocked (success):', operationKey);
-      console.log('✅ Reaction updated successfully with frontend calculation');
       
     } catch (error: any) {
-      console.error('❌ Error handling reaction:', error);
-      console.error('Error response:', error.response);
-      console.error('Error data:', error.response?.data);
       
       // Clear processing flag on error
       setPosts(prev => prev.map(p => 
@@ -654,7 +598,6 @@ const PostPage: React.FC = () => {
       toast.error(`Lỗi phản ứng: ${errorMessage}`);
       
       // Reload reactions AND summary from server to sync state after error
-      console.log('🔄 Reloading from server due to error...');
       await Promise.all([
         loadPostReactions(postId),
         loadReactionSummary(postId)
@@ -662,7 +605,6 @@ const PostPage: React.FC = () => {
       
       // Unlock operation after error
       pendingReactions.current.delete(operationKey);
-      console.log('🔓 Operation unlocked (error):', operationKey);
     }
   };
 
@@ -697,12 +639,10 @@ const PostPage: React.FC = () => {
       const success = result.success || result.status || (result.statusCode === 200);
       
       if (success && result.data) {
-        console.log('📊 Reaction summary loaded:', result.data);
         
         // Calculate total reactions from summary
         const totalReactions = Object.values(result.data).reduce((sum: number, count: any) => sum + (Number(count) || 0), 0);
         
-        console.log('📊 Total reactions calculated:', totalReactions);
         
         // Update post with reaction summary AND total count
         setPosts(prev => prev.map(post => 
@@ -716,7 +656,6 @@ const PostPage: React.FC = () => {
         ));
       }
     } catch (error) {
-      console.error(`Error loading reaction summary for post ${postId}:`, error);
     }
   };
 
@@ -743,10 +682,8 @@ const PostPage: React.FC = () => {
         if (success && data) {
           setFamilyTreeData(data);
         } else {
-          console.error('Failed to load family tree details:', result.message);
         }
       } catch (error) {
-        console.error('Error loading family tree details:', error);
       } finally {
         setFamilyTreeLoading(false);
       }
@@ -766,7 +703,6 @@ const PostPage: React.FC = () => {
           picture: response.data.picture
         }));
       } catch (error) {
-        console.log(error);
       }
     };
     fetchInitialData();
@@ -886,12 +822,8 @@ const PostPage: React.FC = () => {
         return;
       }
       
-      console.log('Using GPMemberId:', gpMemberId);
       
       // Debug logging for arrays
-      console.log('selectedImages length:', selectedImages.length);
-      console.log('fileCaptions length:', fileCaptions.length);
-      console.log('fileCaptions array:', fileCaptions);
       
       // Prepare data according to API structure
       const postData: CreatePostData = {
@@ -899,7 +831,7 @@ const PostPage: React.FC = () => {
         Title: postTitle.trim() || '',  // Allow empty title
         Content: postContent.trim() || '', // Ensure Content is never undefined
         GPMemberId: gpMemberId,
-        Status: 1,
+        Status: createStatus,
         Files: selectedImages.length > 0 ? selectedImages : undefined,
         Captions: selectedImages.length > 0 ? fileCaptions : undefined,
         // Temporarily disable FileTypes to test if it's causing the validation error
@@ -910,16 +842,9 @@ const PostPage: React.FC = () => {
         // }) : undefined
       };
 
-      console.log('Creating post with data:', postData);
-      console.log('User info (state):', user);
-      console.log('User data (API):', userData);
-      console.log('Family Tree ID:', currentFamilyTreeId);
-      console.log('GPMemberId:', gpMemberId);
-      console.log('Full name from JWT:', getFullNameFromToken(token!));
 
       const response = await postService.createPost(postData);
       
-      console.log('Post creation response:', response);
 
       // Handle both API response formats
       const success = response.success || response.status || (response.statusCode === 200);
@@ -957,8 +882,6 @@ const PostPage: React.FC = () => {
           comments: data.comments || []
         };
 
-        console.log('New post created with attachments:', newPost.attachments);
-        console.log('Images (backward compat):', newPost.images);
 
         setPosts(prev => [newPost, ...prev]);
         
@@ -967,12 +890,9 @@ const PostPage: React.FC = () => {
         
         toast.success('Bài viết đã được tạo thành công!');
       } else {
-        console.error('Post creation failed:', response);
         throw new Error(response.message || 'Failed to create post');
       }
     } catch (error: any) {
-      console.error('Error creating post:', error);
-      console.error('Error response data:', error.response?.data);
       
       // More specific error messages
       let errorMessage = 'Có lỗi xảy ra khi tạo bài viết. Vui lòng thử lại!';
@@ -981,7 +901,6 @@ const PostPage: React.FC = () => {
         // Check for validation errors
         const validationErrors = error.response?.data?.errors;
         if (validationErrors) {
-          console.error('Validation errors:', validationErrors);
           const errorMessages = Object.entries(validationErrors)
             .map(([field, messages]: [string, any]) => {
               if (Array.isArray(messages)) {
@@ -1019,19 +938,18 @@ const PostPage: React.FC = () => {
   };
 
   // Handle event creation and auto-create linked post
-  const handleEventCreated = async (eventData?: any) => {
-    console.log('Event created, creating linked post...', eventData);
+  const handleEventCreated = async () => {
     
     // Fetch the latest events to get the newly created event
     try {
-      const response = await postService.getPosts(currentFamilyTreeId);
+      const response = await postService.getPostsByFamilyTree(currentFamilyTreeId);
       
       // Get the latest event (assuming it's the first one)
       // In a real scenario, you would get the event ID from the creation response
       
       // For now, we'll just refresh the posts to include any auto-created posts
-      if (response.data && response.data.data) {
-        const fetchedPosts = response.data.data.map((post: any) => ({
+      if (response.data && (response.data as any).data) {
+        const fetchedPosts = (response.data as any).data.map((post: any) => ({
           id: post.id,
           title: post.title,
           gpMemberId: post.gpMemberId,
@@ -1063,7 +981,6 @@ const PostPage: React.FC = () => {
         toast.success('Sự kiện và bài viết đã được tạo thành công!');
       }
     } catch (error) {
-      console.error('Error refreshing posts after event creation:', error);
     }
     
     setShowEventModal(false);
@@ -1073,12 +990,10 @@ const PostPage: React.FC = () => {
   const handleLike = (id: string, type: 'post' | 'comment', postId?: string) => {
     // Validation
     if (!id || !type) {
-      console.error('handleLike: Missing required parameters', { id, type, postId });
       return;
     }
 
     if (type === 'comment' && !postId) {
-      console.error('handleLike: postId is required for comment likes');
       return;
     }
 
@@ -1161,7 +1076,6 @@ const PostPage: React.FC = () => {
         content: commentText || '',
       });
       
-      console.log('Comment result:', result);
       
       // Handle both API response formats
       const success = result.success || result.status || (result.statusCode === 200);
@@ -1215,7 +1129,6 @@ const PostPage: React.FC = () => {
         throw new Error(result.message || 'Failed to submit comment');
       }
     } catch (error: any) {
-      console.error('Error submitting comment:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi gửi bình luận';
       toast.error(errorMessage);
     }
@@ -1223,13 +1136,11 @@ const PostPage: React.FC = () => {
 
   // Facebook-style edit post handler
   const handleEditPost = (postId: string, content: string, title?: string) => {
-    console.log('Attempting to edit post:', postId, 'by user:', getCurrentUserName());
 
     // Find the post to check ownership
     const postToEdit = posts.find(post => post.id === postId);
 
     if (!postToEdit) {
-      console.error('Post not found:', postId);
       toast.error('Bài viết không tồn tại!');
       setShowPostMenu(null);
       return;
@@ -1237,7 +1148,6 @@ const PostPage: React.FC = () => {
 
     // Check if user is logged in
     if (!isAuthenticated || !token) {
-      console.error('User not authenticated');
       toast.error('Bạn cần đăng nhập để thực hiện hành động này!');
       setShowPostMenu(null);
       return;
@@ -1245,13 +1155,11 @@ const PostPage: React.FC = () => {
 
     // Check if the current user is the author of the post
     if (!isCurrentUserPost(postToEdit.gpMemberId)) {
-      console.warn('User attempting to edit another user\'s post');
       toast.error('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
       setShowPostMenu(null);
       return;
     }
 
-    console.log('Edit permission granted, opening edit mode');
     
     // Initialize edit state
     setEditingPostId(postId);
@@ -1287,7 +1195,6 @@ const PostPage: React.FC = () => {
       return;
     }
 
-    console.log('Attempting to save edit for post:', postId);
     setIsUpdatingPost(true);
 
     try {
@@ -1311,7 +1218,6 @@ const PostPage: React.FC = () => {
         updateData.RemoveImageIds = imagesToRemove;
       }
 
-      console.log('Updating post with data:', updateData);
       const response = await postService.updatePostWithFiles(postId, updateData);
 
       const success = response.success || response.status || (response.statusCode === 200);
@@ -1349,9 +1255,6 @@ const PostPage: React.FC = () => {
         throw new Error(response.message || 'Failed to update post');
       }
     } catch (error: any) {
-      console.error('Error updating post:', error);
-      console.error('Error response:', error.response);
-      console.error('Error data:', error.response?.data);
       
       let errorMessage = 'Có lỗi xảy ra khi cập nhật bài viết. Vui lòng thử lại!';
       
@@ -1492,39 +1395,33 @@ const PostPage: React.FC = () => {
       toast.success('Đã sao chép link vào clipboard!');
       setShowSharePopup(false);
     } catch (err) {
-      console.error('Failed to copy: ', err);
       toast.error('Không thể sao chép link. Vui lòng thử lại!');
     }
   };
 
   // Handler for modal post editing
   const handleModalEditPost = (postId: string, newContent: string) => {
-    console.log('Attempting to save modal edit for post:', postId, 'by user:', getCurrentUserName());
 
     // Find the post to check ownership before saving
     const postToEdit = posts.find(post => post.id === postId);
 
     if (!postToEdit) {
-      console.error('Post not found:', postId);
       toast.error('Bài viết không tồn tại!');
       return;
     }
 
     // Check if user is logged in
     if (!isAuthenticated || !token) {
-      console.error('User not authenticated');
       toast.error('Bạn cần đăng nhập để thực hiện hành động này!');
       return;
     }
 
     // Check if the current user is the author of the post
     if (!isCurrentUserPost(postToEdit.gpMemberId)) {
-      console.warn('User attempting to save modal edit for another user\'s post');
       toast.error('Bạn chỉ có thể chỉnh sửa bài viết của chính mình!');
       return;
     }
 
-    console.log('Modal edit permission granted, updating post');
 
     setPosts(prev => prev.map(post =>
       post.id === postId ? {
@@ -1545,7 +1442,6 @@ const PostPage: React.FC = () => {
       } : null);
     }
 
-    console.log('Modal post edit saved successfully');
   };
 
   // Handler for editing a comment
@@ -1588,7 +1484,6 @@ const PostPage: React.FC = () => {
         throw new Error(result.message || 'Failed to update comment');
       }
     } catch (error: any) {
-      console.error('Error updating comment:', error);
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật bình luận');
     }
   };
@@ -1656,7 +1551,6 @@ const PostPage: React.FC = () => {
             throw new Error(result.message || 'Failed to delete comment');
           }
         } catch (error: any) {
-          console.error('Error deleting comment:', error);
           toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi xóa bình luận');
         }
       },
@@ -1710,7 +1604,6 @@ const PostPage: React.FC = () => {
         throw new Error(result.message || 'Failed to report comment');
       }
     } catch (error: any) {
-      console.error('Error reporting comment:', error);
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi gửi báo cáo');
     }
   };
@@ -1788,7 +1681,6 @@ const PostPage: React.FC = () => {
         throw new Error(result.message || 'Failed to submit reply');
       }
     } catch (error: any) {
-      console.error('Error submitting reply:', error);
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi gửi trả lời');
     }
   };
@@ -1818,23 +1710,19 @@ const PostPage: React.FC = () => {
   };
 
   const handleDeletePost = (postId: string) => {
-    console.log('Attempting to delete post:', postId, 'by user:', getCurrentUserName());
 
     // Find the post to check ownership
     const postToDelete = posts.find(post => post.id === postId);
 
     if (!postToDelete) {
-      console.error('Post not found:', postId);
       toast.error('Bài viết không tồn tại!');
       setShowPostMenu(null);
       return;
     }
 
-    console.log('Post found:', postToDelete.author.name, 'vs current user:', getCurrentUserName());
 
     // Check if user is logged in
     if (!isAuthenticated || !token) {
-      console.error('User not authenticated');
       toast.error('Bạn cần đăng nhập để thực hiện hành động này!');
       setShowPostMenu(null);
       return;
@@ -1842,7 +1730,6 @@ const PostPage: React.FC = () => {
 
     // Check if the current user is the author of the post
     if (!isCurrentUserPost(postToDelete.gpMemberId)) {
-      console.warn('User attempting to delete another user\'s post');
       toast.error('Bạn chỉ có thể xóa bài viết của chính mình!');
       setShowPostMenu(null);
       return;
@@ -1855,13 +1742,16 @@ const PostPage: React.FC = () => {
       'Xóa bài viết',
       confirmMessage,
       async () => {
-        console.log('User confirmed deletion, calling API to delete post:', postId);
-
+        // Show skeleton while deleting
+        setDeletingPostIds(prev => {
+          const next = new Set(prev);
+          next.add(postId);
+          return next;
+        });
         try {
           // Call API to delete the post
           const result = await postService.deletePost(postId);
 
-          console.log('Delete post API response:', result);
 
           if (result.status && result.data) {
             // Remove the post from the posts array
@@ -1873,15 +1763,20 @@ const PostPage: React.FC = () => {
               setSelectedPost(null);
             }
 
-            console.log('Post deleted successfully');
             toast.success('Bài viết đã được xóa thành công!');
           } else {
             throw new Error(result.message || 'Không thể xóa bài viết');
           }
         } catch (error) {
-          console.error('Error deleting post:', error);
           const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa bài viết';
           toast.error(errorMessage);
+        } finally {
+          // Remove skeleton state
+          setDeletingPostIds(prev => {
+            const next = new Set(prev);
+            next.delete(postId);
+            return next;
+          });
         }
       },
       {
@@ -1889,7 +1784,6 @@ const PostPage: React.FC = () => {
         cancelText: 'Hủy',
         confirmButtonClass: 'bg-red-600 hover:bg-red-700',
         onCancel: () => {
-          console.log('User cancelled deletion');
         }
       }
     );
@@ -1906,7 +1800,6 @@ const PostPage: React.FC = () => {
   const handleSubmitPostReport = () => {
     if (postReportReason.trim()) {
       // TODO: Submit report to backend
-      console.log('Reporting post:', reportingPostId, 'Reason:', postReportReason);
       toast.success('Báo cáo bài viết đã được gửi thành công!');
       setShowReportPostModal(false);
       setPostReportReason('');
@@ -1931,7 +1824,6 @@ const PostPage: React.FC = () => {
         setSearchLoading(false);
         setShowSearchPopup(false);
         
-        console.log(`Tìm thấy ${filteredPosts.length} bài viết cho từ khóa: "${searchQuery}"`);
       }, 500);
     }
   };
@@ -2126,10 +2018,10 @@ const PostPage: React.FC = () => {
                     )}
 
                     <div className="flex items-center space-x-3">
-                      {userData.picture ? (
+                      {getAvatarFromGPMember(_gpMember) || userData.picture ? (
                         <img
-                          src={userData.picture}
-                          alt="Your avatar"
+                          src={getAvatarFromGPMember(_gpMember) || userData.picture || defaultPicture}
+                          alt={getDisplayNameFromGPMember(_gpMember) || 'Your avatar'}
                           className="w-10 h-10 rounded-full object-cover"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = defaultPicture;
@@ -2319,6 +2211,20 @@ const PostPage: React.FC = () => {
 
                 {/* Posts Feed */}
                 {!initialLoading && !error && !searchLoading && (isSearchActive ? searchResults : posts).length > 0 && (isSearchActive ? searchResults : posts).map((post) => (
+                  deletingPostIds.has(post.id) ? (
+                    <div key={post.id} className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 animate-pulse">
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className="w-12 h-12 rounded-full bg-gray-200" />
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
+                          <div className="h-3 bg-gray-100 rounded w-1/4" />
+                        </div>
+                      </div>
+                      <div className="h-4 bg-gray-100 rounded w-5/6 mb-2" />
+                      <div className="h-4 bg-gray-100 rounded w-2/3 mb-4" />
+                      <div className="w-full aspect-square bg-gray-100 rounded" />
+                    </div>
+                  ) : (
                   <PostCard
                     key={post.id}
                     post={post}
@@ -2391,6 +2297,7 @@ const PostPage: React.FC = () => {
                     collapsedReplies={collapsedReplies}
                     setCollapsedReplies={setCollapsedReplies}
                   />
+                  )
                 ))}
               </div>
 
@@ -2469,8 +2376,9 @@ const PostPage: React.FC = () => {
                         return acc;
                       }, {});
                       
-                      // Get top 5 authors
-                      const topAuthors = Object.values(authorCounts)
+                      // Get top 5 authors, keep their ids for GP mapping
+                      const topAuthors = Object.entries(authorCounts)
+                        .map(([id, data]) => ({ id, ...data }))
                         .sort((a, b) => b.count - a.count)
                         .slice(0, 5);
                       
@@ -2484,12 +2392,16 @@ const PostPage: React.FC = () => {
                       
                       return topAuthors.length > 0 ? (
                         <div className="space-y-2">
-                          {topAuthors.map((author, index) => (
+                          {topAuthors.map((author, index) => {
+                            const profile = gpMemberMap[author.id];
+                            const displayName = profile ? (getDisplayNameFromGPMember(profile) || author.name) : author.name;
+                            const displayAvatar = profile ? (getAvatarFromGPMember(profile) || author.avatar) : author.avatar;
+                            return (
                             <div key={index} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gray-50 transition-all duration-200 group">
                               <div className="relative">
                                 <img
-                                  src={author.avatar || defaultPicture}
-                                  alt={author.name}
+                                  src={displayAvatar || defaultPicture}
+                                  alt={displayName}
                                   className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all"
                                   onError={(e) => {
                                     (e.target as HTMLImageElement).src = defaultPicture;
@@ -2500,7 +2412,7 @@ const PostPage: React.FC = () => {
                                 </div>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-900 truncate">{author.name}</p>
+                                <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
                                 <p className="text-xs text-gray-500 flex items-center space-x-1">
                                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
@@ -2510,7 +2422,7 @@ const PostPage: React.FC = () => {
                                 </p>
                               </div>
                             </div>
-                          ))}
+                          )})}
                         </div>
                       ) : (
                         <p className="text-sm text-gray-500 text-center py-8">Chưa có dữ liệu</p>
@@ -2858,11 +2770,12 @@ const PostPage: React.FC = () => {
 
                 {/* User Info */}
                 <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
                     {userData.picture ? (
                       <img 
-                        src={userData.picture} 
-                        alt="Avatar" 
+                        src={getAvatarFromGPMember(_gpMember) || userData.picture || defaultPicture} 
+                        alt={getDisplayNameFromGPMember(_gpMember) || userData?.name || 'User'} 
                         className="w-10 h-10 rounded-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = defaultPicture;
@@ -2875,9 +2788,27 @@ const PostPage: React.FC = () => {
                     )}
                     <div>
                       <p className="font-semibold text-gray-900">
-                        {userData?.name || 'User'}
+                        {getDisplayNameFromGPMember(_gpMember) || userData?.name || 'User'}
                       </p>
                     </div>
+                    </div>
+                    <button
+                      onClick={() => setCreateStatus(prev => prev === 1 ? 0 : 1)}
+                      className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                      type="button"
+                    >
+                      {createStatus === 1 ? (
+                        <>
+                          <Globe className="w-4 h-4 text-green-600" />
+                          <span className="text-sm text-gray-700">Công khai</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4 text-gray-600" />
+                          <span className="text-sm text-gray-700">Chỉ mình tôi</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
