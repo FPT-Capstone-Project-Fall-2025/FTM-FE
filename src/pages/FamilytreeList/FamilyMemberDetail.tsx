@@ -148,15 +148,18 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                 payload.ftMemberFiles = processedFiles;
             }
 
-            const { message } = await familyTreeService.updateFamilyNode(
+            const response = await familyTreeService.updateFamilyNode(
                 ftId,
                 payload
             );
 
+            toast.success(response.message);
+            console.log(response); 
             setMember((prev) => (prev ? { ...prev, ...payload } : prev));
             setEditedMember((prev) => (prev ? { ...prev, ...payload } : prev));
 
-            toast.success(message);
+            
+
             setIsEditing(false);
         } catch (err: any) {
             console.error('Save error:', err);

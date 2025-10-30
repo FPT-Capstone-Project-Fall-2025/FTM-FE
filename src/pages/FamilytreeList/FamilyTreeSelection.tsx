@@ -7,8 +7,6 @@ import familytreeService from '@/services/familyTreeService';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { setAvailableFamilyTrees, setSelectedFamilyTree } from '@/stores/slices/familyTreeMetaDataSlice';
 import type { FamilytreeCreationProps } from '@/types/familytree';
-import type { PaginationProps } from '@/types/api';
-import { Pagination } from '@/components/ui/Pagination';
 import { useNavigate } from 'react-router-dom';
 
 const FamilyTreeSelection: React.FC = () => {
@@ -19,13 +17,6 @@ const FamilyTreeSelection: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [apiLoading, setApiLoading] = useState(false);
     const [showCreatePopup, setShowCreatePopup] = useState(false);
-
-    const [paginationData, setPaginationData] = useState<PaginationProps>({
-        pageIndex: 1,
-        pageSize: 7,
-        totalItems: 0,
-        totalPages: 0
-    });
 
     const [newTreeData, setNewTreeData] = useState<FamilytreeCreationProps>({
         name: '',
@@ -40,7 +31,7 @@ const FamilyTreeSelection: React.FC = () => {
 
     useEffect(() => {
         fetchFamilyTrees();
-    }, [paginationData.pageIndex, paginationData.pageSize]);
+    }, []);
 
     const fetchFamilyTrees = async () => {
         try {
@@ -49,25 +40,12 @@ const FamilyTreeSelection: React.FC = () => {
             console.log(response);
             
             dispatch(setAvailableFamilyTrees(response.data.data));
-            setPaginationData({
-                pageIndex: response.data.pageIndex,
-                pageSize: response.data.pageSize,
-                totalItems: response.data.totalItems,
-                totalPages: response.data.totalPages
-            });
         } catch (error) {
             console.error('Error fetching family trees:', error);
             toast.error('Không thể tải danh sách gia phả');
         } finally {
             setLoading(false);
         }
-    };
-
-    const handlePageChange = (page: number) => {
-        setPaginationData(prev => ({
-            ...prev,
-            pageIndex: page
-        }));
     };
 
     const handleSelectTree = (treeId: string) => {
@@ -112,7 +90,9 @@ const FamilyTreeSelection: React.FC = () => {
     };
 
     const handleSaveNewTree = async () => {
-        if (!newTreeData.name || !newTreeData.ownerName) {
+        if (!newTreeData.name 
+            // || !newTreeData.ownerName
+            ) {
             toast.error('Vui lòng nhập đầy đủ tên và chủ sở hữu.');
             return;
         }
@@ -177,7 +157,7 @@ const FamilyTreeSelection: React.FC = () => {
                 {/* Family Trees Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     {loading
-                        ? renderSkeletonCard(paginationData.pageSize)
+                        ? renderSkeletonCard(availableFamilyTrees.length)
                         : availableFamilyTrees.map((tree) => (
                             <div
                                 key={tree.id}
@@ -243,17 +223,6 @@ const FamilyTreeSelection: React.FC = () => {
                         </div>
                     )}
                 </div>
-
-                {/* Pagination Component */}
-                {!loading && paginationData.totalPages > 1 && (
-                    <Pagination
-                        pageIndex={paginationData.pageIndex}
-                        pageSize={paginationData.pageSize}
-                        totalItems={paginationData.totalItems}
-                        totalPages={paginationData.totalPages}
-                        onPageChange={handlePageChange}
-                    />
-                )}
             </div>
 
             {/* Create family tree modal */}
@@ -304,7 +273,7 @@ const FamilyTreeSelection: React.FC = () => {
                                     placeholder="Nhập tên gia phả"
                                 />
                             </div>
-                            <div>
+                            {/* <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Chủ Sở Hữu</label>
                                 <input
                                     type="text"
@@ -313,7 +282,7 @@ const FamilyTreeSelection: React.FC = () => {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                     placeholder="Nhập tên chủ sở hữu"
                                 />
-                            </div>
+                            </div> */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Ghi Chú</label>
                                 <textarea
