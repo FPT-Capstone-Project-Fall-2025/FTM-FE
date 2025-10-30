@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import { MessageCircle, Image, X, ThumbsUp, Search, Edit, Trash2, Users, User, Share } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
 import PostCard, { CommentItem } from './components/PostCard';
+import GPEventDetailsModal from '../Event/GPEventDetailsModal';
 import postService, { type CreatePostData } from '@/services/postService';
 import familyTreeService from '@/services/familyTreeService';
 import { getUserIdFromToken, getFullNameFromToken } from '@/utils/jwtUtils';
@@ -36,6 +37,8 @@ const PostPage: React.FC = () => {
   const [_commentImagePreviews, _setCommentImagePreviews] = useState<{ [key: string]: string[] }>({});
   const [showSearchPopup, setShowSearchPopup] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const navigate = useNavigate();
   
   // Family tree details state
   const [familyTreeData, setFamilyTreeData] = useState<any>(null);
@@ -467,6 +470,31 @@ const PostPage: React.FC = () => {
           }
           return p;
         }));
+        
+        // Also update selectedPost if it's the same post (for modal)
+        if (selectedPost?.id === postId) {
+          setSelectedPost(prev => {
+            if (!prev) return null;
+            const newReactionsSummary = { ...prev.reactionsSummary };
+            const reactionKey = reactionType.toLowerCase();
+            
+            if (newReactionsSummary[reactionKey]) {
+              newReactionsSummary[reactionKey]--;
+              if (newReactionsSummary[reactionKey] === 0) {
+                delete newReactionsSummary[reactionKey];
+              }
+            }
+            
+            return {
+              ...prev,
+              userReaction: null,
+              userReactionId: null,
+              totalReactions: Math.max(0, prev.totalReactions - 1),
+              reactionsSummary: newReactionsSummary,
+              isLiked: false
+            };
+          });
+        }
       } else {
         // If user has a different reaction, remove it first and WAIT (REQUIRED)
         if (post.userReaction && post.userReactionId) {
@@ -568,6 +596,41 @@ const PostPage: React.FC = () => {
           }
           return p;
         }));
+        
+        // Also update selectedPost if it's the same post (for modal)
+        if (selectedPost?.id === postId) {
+          setSelectedPost(prev => {
+            if (!prev) return null;
+            const newReactionsSummary = { ...prev.reactionsSummary };
+            
+            // If changing from one reaction to another, decrease old count
+            if (prev.userReaction) {
+              const oldReactionKey = prev.userReaction.toLowerCase();
+              if (newReactionsSummary[oldReactionKey]) {
+                newReactionsSummary[oldReactionKey]--;
+                if (newReactionsSummary[oldReactionKey] === 0) {
+                  delete newReactionsSummary[oldReactionKey];
+                }
+              }
+            }
+            
+            // Increase count for new reaction
+            const newReactionKey = actualReactionType.toLowerCase();
+            newReactionsSummary[newReactionKey] = (newReactionsSummary[newReactionKey] || 0) + 1;
+            
+            // Total reactions: increase only if user had no previous reaction
+            const totalChange = prev.userReaction ? 0 : 1;
+            
+            return {
+              ...prev,
+              userReaction: hasReacted ? actualReactionType : null,
+              userReactionId: hasReacted ? newReactionId : null,
+              totalReactions: prev.totalReactions + totalChange,
+              reactionsSummary: newReactionsSummary,
+              isLiked: actualReactionType === 'Like' && hasReacted
+            };
+          });
+        }
       }
       
       setShowReactionPicker(null);
@@ -953,6 +1016,57 @@ const PostPage: React.FC = () => {
     setImagePreviews([]);
     setFileCaptions([]);
     setShowCreatePostModal(false);
+  };
+
+  // Handle event creation and auto-create linked post
+  const handleEventCreated = async (eventData?: any) => {
+    console.log('Event created, creating linked post...', eventData);
+    
+    // Fetch the latest events to get the newly created event
+    try {
+      const response = await postService.getPosts(currentFamilyTreeId);
+      
+      // Get the latest event (assuming it's the first one)
+      // In a real scenario, you would get the event ID from the creation response
+      
+      // For now, we'll just refresh the posts to include any auto-created posts
+      if (response.data && response.data.data) {
+        const fetchedPosts = response.data.data.map((post: any) => ({
+          id: post.id,
+          title: post.title,
+          gpMemberId: post.gpMemberId,
+          author: {
+            name: post.authorName || 'Unknown',
+            avatar: post.authorPicture || defaultPicture,
+            timeAgo: post.timeAgo || 'Vừa xong'
+          },
+          content: post.content,
+          attachments: post.attachments?.map((file: any) => ({
+            id: file.id,
+            fileUrl: file.fileUrl || file.url,
+            fileType: file.fileType,
+            caption: file.caption,
+            createdOn: file.createdOn
+          })) || [],
+          images: post.attachments?.map((file: any) => file.fileUrl || file.url) || [],
+          likes: post.totalReactions || 0,
+          totalReactions: post.totalReactions || 0,
+          totalComments: post.totalComments || 0,
+          reactionsSummary: post.reactionsSummary || {},
+          userReaction: post.userReaction || null,
+          userReactionId: post.userReactionId || null,
+          isLiked: post.userReaction === 'Like',
+          comments: post.comments || []
+        }));
+        
+        setPosts(fetchedPosts);
+        toast.success('Sự kiện và bài viết đã được tạo thành công!');
+      }
+    } catch (error) {
+      console.error('Error refreshing posts after event creation:', error);
+    }
+    
+    setShowEventModal(false);
   };
 
 
@@ -1850,7 +1964,7 @@ const PostPage: React.FC = () => {
     postId: string;
     depth?: number;
     maxDepth?: number;
-  }> = ({ comment, postId, depth = 0, maxDepth = 2 }) => (
+  }> = ({ comment, postId, depth = 0, maxDepth = 1 }) => ( // Only allow 2 levels: comments and replies
     <CommentItem
       comment={comment}
       postId={postId}
@@ -2049,9 +2163,10 @@ const PostPage: React.FC = () => {
                       </button>
 
                       <button
-                        // onClick={() => setShowCreatePostModal(true)}
+                        onClick={() => setShowEventModal(true)}
                         disabled={gpMemberLoading || !!gpMemberError || !gpMemberId}
                         className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Tạo sự kiện và chia sẻ"
                       >
                         <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                           <span className="text-blue-600 text-sm">📍</span>
@@ -2277,24 +2392,6 @@ const PostPage: React.FC = () => {
                     setCollapsedReplies={setCollapsedReplies}
                   />
                 ))}
-
-                {/* Empty State */}
-                {!initialLoading && !error && posts.length === 0 ? (
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-                    <div className="text-center">
-                      <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có bài viết nào</h3>
-                      <p className="text-gray-600 mb-4">Hãy là người đầu tiên chia sẻ câu chuyện của gia đình!</p>
-                      <button
-                        onClick={() => setShowCreatePostModal(true)}
-                        disabled={gpMemberLoading || !!gpMemberError || !gpMemberId}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {gpMemberLoading ? 'Đang tải...' : gpMemberError ? 'Không thể tạo bài viết' : 'Tạo bài viết đầu tiên'}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
               {/* Right Sidebar */}
@@ -2417,73 +2514,6 @@ const PostPage: React.FC = () => {
                         </div>
                       ) : (
                         <p className="text-sm text-gray-500 text-center py-8">Chưa có dữ liệu</p>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
-                      <span>Bài viết nổi bật trong tháng</span>
-                    </h3>
-                  </div>
-                  <div className="p-4">
-                    {(() => {
-                      const topPosts = [...posts]
-                        .sort((a, b) => (b.totalReactions || 0) - (a.totalReactions || 0))
-                        .slice(0, 3);
-                      
-                      return topPosts.length > 0 ? (
-                        <div className="space-y-3">
-                          {topPosts.map((post, index) => (
-                            <div 
-                              key={post.id}
-                              onClick={() => handleOpenPostDetail(post)}
-                              className="group p-3 bg-gradient-to-br from-gray-50 to-white rounded-xl hover:from-blue-50 hover:to-white border border-gray-100 hover:border-blue-200 cursor-pointer transition-all duration-200 hover:shadow-md"
-                            >
-                              <div className="flex items-start space-x-3 mb-2">
-                                <div className="relative">
-                                  <img
-                                    src={post.author.avatar || defaultPicture}
-                                    alt={post.author.name}
-                                    className="w-8 h-8 rounded-full object-cover ring-2 ring-white"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src = defaultPicture;
-                                    }}
-                                  />
-                                  {index < 3 && (
-                                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
-                                      {index + 1}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-semibold text-gray-900 truncate">{post.author.name}</p>
-                                  <p className="text-xs text-gray-500">{post.author.timeAgo}</p>
-                                </div>
-                              </div>
-                              <p className="text-sm text-gray-700 line-clamp-2 mb-3 leading-relaxed">{post.content}</p>
-                              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                                <div className="flex items-center space-x-3 text-xs">
-                                  <span className="flex items-center space-x-1 text-pink-600 font-medium">
-                                    <ThumbsUp className="w-3.5 h-3.5" />
-                                    <span>{post.totalReactions || 0}</span>
-                                  </span>
-                                  <span className="flex items-center space-x-1 text-green-600 font-medium">
-                                    <MessageCircle className="w-3.5 h-3.5" />
-                                    <span>{post.comments.length}</span>
-                                  </span>
-                                </div>
-                                <span className="text-xs text-blue-600 font-medium group-hover:underline">
-                                  Xem chi tiết →
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 text-center py-8">Chưa có bài viết nào</p>
                       );
                     })()}
                   </div>
@@ -3055,9 +3085,28 @@ const PostPage: React.FC = () => {
             setPosts(prev => prev.map(p =>
               p.id === postId ? { ...p, comments } : p
             ));
-            setSelectedPost(prev => prev ? { ...prev, comments } : null);
+            if (selectedPost?.id === postId) {
+              setSelectedPost(prev => prev ? { ...prev, comments } : null);
+            }
           }}
+          reactionTypes={reactionTypes}
+          showReactionPicker={showReactionPicker}
+          setShowReactionPicker={setShowReactionPicker}
+          onReaction={handleReaction}
+          hoveredPost={hoveredPost}
+          setHoveredPost={setHoveredPost}
+          tooltipShowTime={tooltipShowTime}
+          isHoveringReactionPicker={isHoveringReactionPicker}
+          getReactionSummaryText={getReactionSummaryText}
+          onReactionSummaryClick={handleReactionSummaryClick}
           CommentItem={SimpleCommentItem}
+        />
+
+        {/* Event Creation Modal */}
+        <GPEventDetailsModal
+          isOpenModal={showEventModal}
+          setIsOpenModal={setShowEventModal}
+          handleCreatedEvent={handleEventCreated}
         />
       </div>
     </div>

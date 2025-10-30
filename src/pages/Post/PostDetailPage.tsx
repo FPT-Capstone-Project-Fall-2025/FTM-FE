@@ -2,9 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, Send, X, ThumbsUp, Edit, Save, XCircle, Smile, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Edit, Save, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import postService from '@/services/postService';
-import type { Post as PostType, Comment as CommentType } from '@/types/post';
+import type { Post as PostType, Comment as CommentType, ReactionType } from '@/types/post';
+import CommentInput from './components/CommentInput';
+import CommentArea from './components/CommentArea';
+import PostActions from './components/PostActions';
+import PostStats from './components/PostStats';
 
 // Video component with thumbnail generation
 const VideoWithThumbnail: React.FC<{
@@ -62,6 +66,13 @@ const VideoWithThumbnail: React.FC<{
   );
 };
 
+// Helper function to check if URL is a video
+const isVideoUrl = (url: string): boolean => {
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+  const urlLower = url.toLowerCase();
+  return videoExtensions.some(ext => urlLower.includes(ext));
+};
+
 interface PostDetailPageProps {
   isOpen: boolean;
   post: PostType | null;
@@ -72,6 +83,16 @@ interface PostDetailPageProps {
   onCommentSubmit: (postId: string) => void;
   onEditPost?: (postId: string, newContent: string) => void;
   onUpdateComments?: (postId: string, comments: CommentType[]) => void;
+  reactionTypes?: ReactionType[];
+  showReactionPicker?: string | null;
+  setShowReactionPicker?: (id: string | null) => void;
+  onReaction?: (postId: string, reactionType: string) => void;
+  hoveredPost?: string | null;
+  setHoveredPost?: (id: string | null) => void;
+  tooltipShowTime?: React.MutableRefObject<{ [postId: string]: number }>;
+  isHoveringReactionPicker?: React.MutableRefObject<{ [postId: string]: boolean }>;
+  getReactionSummaryText?: (post: PostType) => string;
+  onReactionSummaryClick?: (postId: string) => void;
   CommentItem: React.FC<{
     comment: CommentType;
     postId: string;
@@ -90,6 +111,16 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
   onCommentSubmit,
   onEditPost,
   onUpdateComments,
+  reactionTypes = [],
+  showReactionPicker,
+  setShowReactionPicker,
+  onReaction,
+  hoveredPost,
+  setHoveredPost,
+  tooltipShowTime,
+  isHoveringReactionPicker,
+  getReactionSummaryText,
+  onReactionSummaryClick,
   CommentItem
 }) => {
   const { id: _groupId } = useParams<{ id: string }>();
@@ -98,38 +129,23 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
   const [editContent, setEditContent] = useState('');
   const [showComments, setShowComments] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-
-  // Common emojis list
-  const commonEmojis = [
-    '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
-    '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
-    '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
-    '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
-    '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮',
-    '🤧', '🥵', '🥶', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐',
-    '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦',
-    '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞',
-    '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '👍', '👎',
-    '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✌️', '🤞', '🤟', '🤘',
-    '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
-    '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '🎉', '🎊'
-  ];
-
-  // Handle emoji selection
-  const handleEmojiSelect = (emoji: string) => {
-    if (post) {
-      setCommentInputs(prev => ({
-        ...prev,
-        [post.id]: (prev[post.id] || '') + emoji
-      }));
-      setShowEmojiPicker(false);
-      // Focus back on the input
-      const input = document.querySelector(`#comment-input-${post.id}`) as HTMLInputElement;
-      if (input) input.focus();
-    }
-  };
+  const [commentRefreshTrigger, setCommentRefreshTrigger] = useState(0);
+  
+  // ALWAYS use local state for modal to prevent hover sync with main feed
+  // Modal should have completely independent hover behavior
+  const localTooltipShowTime = useRef<{ [postId: string]: number }>({});
+  const localIsHoveringReactionPicker = useRef<{ [postId: string]: boolean }>({});
+  const [localHoveredPost, setLocalHoveredPost] = useState<string | null>(null);
+  const [localShowReactionPicker, setLocalShowReactionPicker] = useState<string | null>(null);
+  
+  // Modal uses its own local state for hover/tooltips (independent from main feed)
+  const effectiveTooltipShowTime = localTooltipShowTime;
+  const effectiveIsHoveringReactionPicker = localIsHoveringReactionPicker;
+  const effectiveHoveredPost = localHoveredPost;
+  const effectiveSetHoveredPost = setLocalHoveredPost;
+  const effectiveShowReactionPicker = localShowReactionPicker;
+  const effectiveSetShowReactionPicker = setLocalShowReactionPicker;
 
   // Helper function to format time ago
   const formatTimeAgo = (dateString: string): string => {
@@ -168,7 +184,18 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     return comment;
   };
 
-  // Load comments from API when popup opens
+  // Reset modal's local hover state when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Clear all hover states when modal closes
+      setLocalShowReactionPicker(null);
+      setLocalHoveredPost(null);
+      localTooltipShowTime.current = {};
+      localIsHoveringReactionPicker.current = {};
+    }
+  }, [isOpen]);
+
+  // Load comments from API when popup opens or when comments are updated
   useEffect(() => {
     const loadComments = async () => {
       if (isOpen && post?.id) {
@@ -209,7 +236,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     };
 
     loadComments();
-  }, [isOpen, post?.id]);
+  }, [isOpen, post?.id, post?.totalComments, commentRefreshTrigger]);
 
   // Automatically show comments when popup opens
   useEffect(() => {
@@ -217,6 +244,20 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
       setShowComments(true);
     }
   }, [isOpen]);
+
+  // Sync local state with post changes (reactions, comments, etc.)
+  useEffect(() => {
+    if (post && isOpen) {
+      // Reset media index when post changes
+      setCurrentMediaIndex(0);
+      
+      // Reset edit state when post changes
+      if (isEditingPost && editContent !== post.content) {
+        setIsEditingPost(false);
+        setEditContent('');
+      }
+    }
+  }, [post?.id, post?.totalReactions, post?.userReaction, post?.reactionsSummary, post?.comments.length, isOpen]);
 
   if (!isOpen || !post) return null;
 
@@ -240,6 +281,15 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     setIsEditingPost(false);
   };
 
+  // Handle comment submission and refresh comments
+  const handleCommentSubmit = () => {
+    onCommentSubmit(post.id);
+    // Trigger comment refresh after a short delay to allow API to process
+    setTimeout(() => {
+      setCommentRefreshTrigger(prev => prev + 1);
+    }, 500);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className={`bg-white rounded-lg shadow-xl ${(post.attachments && post.attachments.length > 0) || (post.images && post.images.length > 0) ? 'max-w-7xl w-full' : 'max-w-2xl w-full'} max-h-[90vh] overflow-hidden flex`}>
@@ -259,7 +309,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
               {/* Current Media Display */}
               {mediaList[currentMediaIndex] && (
                 <>
-                  {mediaList[currentMediaIndex].fileType === 1 ? (
+                  {(mediaList[currentMediaIndex].fileType === 1 || isVideoUrl(mediaList[currentMediaIndex].fileUrl)) ? (
                     <VideoWithThumbnail
                       key={mediaList[currentMediaIndex].id}
                       src={mediaList[currentMediaIndex].fileUrl}
@@ -461,147 +511,65 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
 
           
 
-          {/* Post Stats */}
+          {/* Post Stats - with reaction tooltip */}
+          {reactionTypes.length > 0 && getReactionSummaryText && onReactionSummaryClick ? (
+            <PostStats
+              post={post}
+              reactionTypes={reactionTypes}
+              hoveredPost={effectiveHoveredPost}
+              setHoveredPost={effectiveSetHoveredPost}
+              tooltipShowTime={effectiveTooltipShowTime}
+              isHoveringReactionPicker={effectiveIsHoveringReactionPicker}
+              getReactionSummaryText={getReactionSummaryText}
+              onReactionSummaryClick={onReactionSummaryClick}
+            />
+          ) : (
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex items-center justify-between text-sm text-gray-500">
               <div className="flex items-center space-x-1">
-                <ThumbsUp className="w-4 h-4 text-blue-600" />
-                <span>{post.likes} lượt thích</span>
+                  <span>{post.totalReactions || post.likes || 0} lượt thích</span>
               </div>
               <div>
-                {post.comments.length > 0 && (
-                  <span>{post.comments.length} bình luận</span>
+                  {(post.totalComments || post.comments.length) > 0 && (
+                    <span>{post.totalComments || post.comments.length} bình luận</span>
                 )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Post Actions */}
-          <div className="px-4 py-3 border-b border-gray-200">
-            <div className="flex items-center justify-around">
-              <button
-                onClick={() => onLikePost(post.id, 'post')}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors ${
-                  post.isLiked ? 'text-blue-600' : 'text-gray-600'
-                }`}
-              >
-                <ThumbsUp className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
-                <span className="font-medium">Thích</span>
-              </button>
-              <button 
-                onClick={() => setShowComments(!showComments)}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
-              >
-                <MessageCircle className="w-5 h-5" />
-                <span className="font-medium">Bình luận ({post.comments.length})</span>
-              </button>
-            </div>
-          </div>
+          {/* Post Actions - with reaction picker */}
+          {reactionTypes.length > 0 && onReaction ? (
+            <PostActions
+              post={post}
+              reactionTypes={reactionTypes}
+              showReactionPicker={effectiveShowReactionPicker}
+              setShowReactionPicker={effectiveSetShowReactionPicker}
+              onReaction={onReaction}
+              onCommentClick={() => setShowComments(!showComments)}
+              isInModal={false}
+            />
+          ) : null}
 
           {/* Comments Section */}
           <div className="flex-1 overflow-y-auto">
-            {loadingComments ? (
-              <div className="p-4 flex items-center justify-center">
-                <div className="flex items-center space-x-2 text-gray-500">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                  <span>Đang tải bình luận...</span>
-                </div>
-              </div>
-            ) : (
-              <>
-                {showComments && post.comments.length > 0 && (
-                  <div className="p-4 space-y-4">
-                    {post.comments.map((comment) => (
-                      <CommentItem
-                        key={comment.id}
-                        comment={comment}
+            <CommentArea
+              comments={post.comments}
                         postId={post.id}
-                      />
-                    ))}
-                  </div>
-                )}
-                {showComments && post.comments.length === 0 && (
-                  <div className="p-4 text-center text-gray-500">
-                    Chưa có bình luận nào. Hãy là người đầu tiên bình luận!
-                  </div>
-                )}
-              </>
-            )}
+              showComments={showComments}
+              loadingComments={loadingComments}
+              CommentItem={CommentItem}
+            />
           </div>
 
           {/* Comment Input */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center space-x-3">
-              <img
-                src={defaultPicture}
-                alt="Your avatar"
-                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = defaultPicture;
-                }}
-              />
-              <div className="flex-1 flex flex-col space-y-2">
-                <div className="flex items-center space-x-2 relative">
-                  <input
-                    id={`comment-input-${post.id}`}
-                    type="text"
+          <CommentInput
+            postId={post.id}
                     value={commentInputs[post.id] || ''}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                      setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))
-                    }
-                    placeholder="Viết bình luận..."
-                    className="flex-1 px-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent"
-                    onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === 'Enter') {
-                        onCommentSubmit(post.id);
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
-                    title="Chọn emoji"
-                  >
-                    <Smile className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => onCommentSubmit(post.id)}
-                    disabled={!commentInputs[post.id]?.trim()}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-full disabled:text-gray-400 disabled:hover:bg-transparent transition-colors"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-
-                  {/* Emoji Picker Popup */}
-                  {showEmojiPicker && (
-                    <div className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-xl p-3 z-50 w-80 max-h-64 overflow-y-auto">
-                      <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
-                        <h4 className="text-sm font-semibold text-gray-900">Chọn emoji</h4>
-                        <button
-                          onClick={() => setShowEmojiPicker(false)}
-                          className="text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-8 gap-1">
-                        {commonEmojis.map((emoji, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleEmojiSelect(emoji)}
-                            className="text-2xl hover:bg-gray-100 rounded p-1 transition-colors hover:scale-110 transform duration-150"
-                            title={emoji}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+            onChange={(value) => setCommentInputs(prev => ({ ...prev, [post.id]: value }))}
+            onSubmit={handleCommentSubmit}
+            userAvatar={defaultPicture}
+          />
         </div>
       </div>
     </div>

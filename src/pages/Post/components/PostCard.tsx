@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   MoreHorizontal,
   ThumbsUp,
-  MessageCircle,
   Camera,
   Save,
   X,
@@ -17,6 +16,8 @@ import {
 } from 'lucide-react';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import type { Post, ReactionType, Comment } from '../../../types/post';
+import PostStats from './PostStats';
+import PostActions from './PostActions';
 
 // Video component with thumbnail generation
 const VideoWithThumbnail: React.FC<{
@@ -76,6 +77,13 @@ const VideoWithThumbnail: React.FC<{
       Your browser does not support the video tag.
     </video>
   );
+};
+
+// Helper function to check if URL is a video
+const isVideoUrl = (url: string): boolean => {
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+  const urlLower = url.toLowerCase();
+  return videoExtensions.some(ext => urlLower.includes(ext));
 };
 
 interface PostCardProps {
@@ -196,7 +204,7 @@ export const CommentItem: React.FC<{
   comment, 
   postId, 
   depth = 0, 
-  maxDepth = 2,
+  maxDepth = 1, // Only allow 2 levels: comments (depth 0) and replies (depth 1)
   currentUserGPMemberId,
   userData,
   editingCommentId,
@@ -217,7 +225,7 @@ export const CommentItem: React.FC<{
   showCommentMenu,
   setShowCommentMenu
 }) => {
-  const canReply = depth < maxDepth;
+  const canReply = depth < maxDepth; // depth 0 (comment) can reply, depth 1 (reply) cannot
 
   return (
     <div className={`${depth > 0 ? 'ml-6 md:ml-10 relative' : ''}`}>
@@ -390,7 +398,6 @@ export const CommentItem: React.FC<{
                   </div>
                 )}
                 <input
-                  key={`reply-${comment.id}`}
                   type="text"
                   value={replyInputs?.[comment.id] || ''}
                   onChange={(e) => setReplyInputs?.(prev => ({ ...prev, [comment.id]: e.target.value }))}
@@ -835,7 +842,7 @@ const PostCard: React.FC<PostCardProps> = ({
             {isSingleMedia ? (
               // Single media - Display with 1:1 aspect ratio (square)
               <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black">
-                {mediaList[0]!.fileType === 1 ? (
+                {(mediaList[0]!.fileType === 1 || isVideoUrl(mediaList[0]!.fileUrl)) ? (
                   // Single Video
                   <VideoWithThumbnail
                     src={mediaList[0]!.fileUrl}
@@ -863,7 +870,7 @@ const PostCard: React.FC<PostCardProps> = ({
               <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black">
                 {/* Current Media Display */}
                 <div className="w-full h-full">
-                  {mediaList[currentMediaIndex]!.fileType === 1 ? (
+                  {(mediaList[currentMediaIndex]!.fileType === 1 || isVideoUrl(mediaList[currentMediaIndex]!.fileUrl)) ? (
                     // Video
                     <VideoWithThumbnail
                       key={mediaList[currentMediaIndex]!.id}
@@ -945,237 +952,27 @@ const PostCard: React.FC<PostCardProps> = ({
       })()}
 
       {/* Post Stats */}
-      <div className="px-6 py-3 border-t border-gray-200">
-        <div className="flex items-center justify-between text-sm text-gray-500">
-          <div className="flex items-center space-x-1">
-            {post.totalReactions > 0 ? (
-              <div
-                className="flex items-center space-x-1 cursor-pointer hover:underline relative"
-                onMouseEnter={() => {
-                  setHoveredPost(post.id);
-                  tooltipShowTime.current[post.id] = Date.now();
-                }}
-                onMouseLeave={() => {
-                  // Don't close if hovering over reaction picker
-                  if (isHoveringReactionPicker.current[post.id]) {
-                    return;
-                  }
-
-                  const showTime = tooltipShowTime.current[post.id];
-                  if (!showTime) {
-                    setHoveredPost(null);
-                    return;
-                  }
-
-                  const elapsed = Date.now() - showTime;
-                  const minDisplayTime = 2000; // 2 seconds minimum
-                  const remainingTime = Math.max(0, minDisplayTime - elapsed);
-
-                  setTimeout(() => {
-                    // Double check not hovering reaction picker
-                    if (!isHoveringReactionPicker.current[post.id]) {
-                      setHoveredPost(null);
-                      delete tooltipShowTime.current[post.id];
-                    }
-                  }, remainingTime);
-                }}
-              >
-                <div onClick={() => onReactionSummaryClick(post.id)}>
-                  <span className="text-lg">{getReactionSummaryText(post)}</span>
-                  <span className="ml-1">{post.totalReactions}</span>
-                </div>
-
-                {/* Reaction tooltip dropdown - clickable */}
-                {hoveredPost === post.id && (
-                  <div
-                    className="absolute left-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl p-3 min-w-[200px] z-[9999]"
-                    style={{ pointerEvents: 'auto' }}
-                    onMouseEnter={() => {
-                      setHoveredPost(post.id);
-                      if (!tooltipShowTime.current[post.id]) {
-                        tooltipShowTime.current[post.id] = Date.now();
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      // Don't close if hovering over reaction picker
-                      if (isHoveringReactionPicker.current[post.id]) {
-                        return;
-                      }
-
-                      const showTime = tooltipShowTime.current[post.id];
-                      if (!showTime) {
-                        setHoveredPost(null);
-                        return;
-                      }
-
-                      const elapsed = Date.now() - showTime;
-                      const minDisplayTime = 2000; // 2 seconds minimum
-                      const remainingTime = Math.max(0, minDisplayTime - elapsed);
-
-                      setTimeout(() => {
-                        // Double check not hovering reaction picker
-                        if (!isHoveringReactionPicker.current[post.id]) {
-                          setHoveredPost(null);
-                          delete tooltipShowTime.current[post.id];
-                        }
-                      }, remainingTime);
-                    }}
-                  >
-                    <div className="space-y-1 text-sm">
-                      {Object.entries(post.reactionsSummary)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([type, count]) => {
-                          const reactionEmoji = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase())?.emoji || '👍';
-                          const reactionLabel = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase())?.label || type;
-                          return (
-                            <button
-                              key={type}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onReactionSummaryClick(post.id);
-                              }}
-                              className="w-full flex items-center justify-between hover:bg-gray-50 px-3 py-2 rounded transition-colors cursor-pointer"
-                            >
-                              <span className="flex items-center space-x-2">
-                                <span className="text-lg">{reactionEmoji}</span>
-                                <span className="text-gray-700">{reactionLabel}</span>
-                              </span>
-                              <span className="font-semibold text-blue-600">{count}</span>
-                            </button>
-                          );
-                        })}
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-gray-100">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onReactionSummaryClick(post.id);
-                        }}
-                        className="w-full text-center text-xs text-blue-600 hover:text-blue-700 font-medium py-1"
-                      >
-                        Xem tất cả →
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <span>0 phản ứng</span>
-            )}
-          </div>
-          <div>
-            {(post.totalComments ?? post.comments.length) > 0 && (
-              <span>{post.totalComments ?? post.comments.length} bình luận</span>
-            )}
-          </div>
-        </div>
-      </div>
+      <PostStats
+        post={post}
+        reactionTypes={reactionTypes}
+        hoveredPost={hoveredPost}
+        setHoveredPost={setHoveredPost}
+        tooltipShowTime={tooltipShowTime}
+        isHoveringReactionPicker={isHoveringReactionPicker}
+        getReactionSummaryText={getReactionSummaryText}
+        onReactionSummaryClick={onReactionSummaryClick}
+      />
 
       {/* Post Actions */}
-      <div className="px-6 py-3 border-t border-gray-200">
-        <div className="flex items-center justify-around">
-          <div className="relative">
-            <button
-              onMouseEnter={() => {
-                setShowReactionPicker(post.id);
-                isHoveringReactionPicker.current[post.id] = true;
-              }}
-              onMouseLeave={() => {
-                // Delay hiding to allow hovering over picker (like Facebook)
-                setTimeout(() => {
-                  if (showReactionPicker === post.id && !isHoveringReactionPicker.current[post.id]) {
-                    setShowReactionPicker(null);
-                  }
-                }, 500);
-              }}
-              onClick={() => {
-                // Quick click: if user already has a reaction, toggle it off
-                // If no reaction, add Like by default
-                if (!showReactionPicker) {
-                  const reactionToToggle = post.userReaction || 'Like';
-                  onReaction(post.id, reactionToToggle);
-                }
-              }}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors relative ${post.userReaction ? 'text-blue-600' : 'text-gray-600'
-                }`}
-            >
-              {post.userReaction ? (
-                <span className="text-lg">
-                  {reactionTypes.find(r => r.type === post.userReaction)?.emoji || '👍'}
-                </span>
-              ) : (
-                <ThumbsUp className="w-5 h-5" />
-              )}
-              <span className={`${post.userReaction ? 'font-bold' : 'font-medium'}`}>
-                {post.userReaction ? reactionTypes.find(r => r.type === post.userReaction)?.label : 'Thích'}
-              </span>
-            </button>
-
-            {/* Reaction Picker */}
-            {showReactionPicker === post.id && (
-              <div
-                className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-full shadow-lg p-2 flex space-x-2 z-50"
-                onMouseEnter={() => {
-                  setShowReactionPicker(post.id);
-                  isHoveringReactionPicker.current[post.id] = true;
-                }}
-                onMouseLeave={() => {
-                  // Delay closing to allow smooth transition
-                  setTimeout(() => {
-                    setShowReactionPicker(null);
-                    isHoveringReactionPicker.current[post.id] = false;
-                  }, 300);
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {reactionTypes.map((reaction) => (
-                  <button
-                    key={reaction.type}
-                    onMouseEnter={(e) => {
-                      // Hover to select reaction (like Facebook)
-                      e.stopPropagation();
-                      console.log('🎯 Hovered reaction:', reaction.type, 'ID:', reaction.id, 'Emoji:', reaction.emoji);
-                      onReaction(post.id, reaction.type);
-                      // Close picker after selection with delay
-                      setTimeout(() => {
-                        setShowReactionPicker(null);
-                        isHoveringReactionPicker.current[post.id] = false;
-                      }, 200);
-                    }}
-                    onClick={(e) => {
-                      // Also allow click for mobile/accessibility
-                      e.stopPropagation();
-                      e.preventDefault();
-                      console.log('🎯 Clicked reaction:', reaction.type, 'ID:', reaction.id, 'Emoji:', reaction.emoji);
-                      onReaction(post.id, reaction.type);
-                      // Close picker immediately on click
-                      setShowReactionPicker(null);
-                      isHoveringReactionPicker.current[post.id] = false;
-                    }}
-                    className="text-2xl hover:scale-125 transition-transform duration-200 p-1 rounded-full hover:bg-gray-100"
-                    title={reaction.label}
-                  >
-                    {reaction.emoji}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={handleToggleComments}
-            disabled={isInModal}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-              isInModal 
-                ? 'cursor-not-allowed opacity-50 text-gray-400' 
-                : 'hover:bg-gray-100 text-gray-600 cursor-pointer'
-            }`}
-          >
-            <MessageCircle className="w-5 h-5" />
-            <span className="font-medium">Bình luận ({post.totalComments ?? post.comments.length})</span>
-          </button>
-        </div>
-      </div>
+      <PostActions
+        post={post}
+        reactionTypes={reactionTypes}
+        showReactionPicker={showReactionPicker}
+        setShowReactionPicker={setShowReactionPicker}
+        onReaction={onReaction}
+        onCommentClick={handleToggleComments}
+        isInModal={isInModal}
+      />
 
     </div>
   );
