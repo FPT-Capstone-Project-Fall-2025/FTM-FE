@@ -27,7 +27,7 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
     : '';
 
   const nameTextStyles = isDeleted
-    ? 'line-through text-gray-500'
+    ? 'text-gray-500'
     : 'text-gray-800';
 
   const birthdayTextStyles = isDeleted

@@ -83,11 +83,11 @@ const FamilyTreeContent = () => {
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {
-      setLocalNodes(reduxNodes);
+    setLocalNodes(reduxNodes);
   }, [reduxNodes, setLocalNodes]);
 
   useEffect(() => {
-      setLocalEdges(reduxEdges);
+    setLocalEdges(reduxEdges);
   }, [reduxEdges, setLocalEdges]);
 
   useEffect(() => {
@@ -176,7 +176,7 @@ const FamilyTreeContent = () => {
   // Handle delete node confirmation
   const handleDeleteNodeConfirm = useCallback(async () => {
     if (!memberToDelete?.id) return;
-    
+
     setIsDeletingNode(true);
     try {
       const response = await familyTreeService.deleteFamilyNode(memberToDelete.id);
@@ -185,12 +185,12 @@ const FamilyTreeContent = () => {
       if (selectedMemberId === memberToDelete.id) {
         dispatch(setSelectedMember(null));
       }
-      
+
       // Re-fetch the family tree to sync with the deleted node
       if (selectedFamilyTree?.id) {
         await dispatch(fetchFamilyTree(selectedFamilyTree.id));
       }
-      
+
       // Close the modal
       setMemberToDelete(null);
     } catch (error: any) {
@@ -242,6 +242,25 @@ const FamilyTreeContent = () => {
   // Memoize nodeTypes to prevent recreation
   const memoizedNodeTypes = useMemo(() => nodeTypes, []);
 
+  const fullscreenStyles = `
+  .family-tree-main-container:fullscreen {
+    background-color: #f9fafb;
+  }
+  
+  .family-tree-main-container:fullscreen .react-flow {
+    width: 100vw;
+    height: 100vh;
+  }
+  
+  .family-tree-main-container:fullscreen .member-detail-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 50;
+  }
+`;
+
   if (loading) {
     return (
       <div className="relative w-full h-full overflow-hidden bg-gray-50 animate-pulse">
@@ -264,80 +283,83 @@ const FamilyTreeContent = () => {
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-gray-50">
-      {/* Main Content */}
-      <div className="flex h-full">
-        <>
-          {/* ReactFlow Canvas */}
-          <div className="flex-1 relative">
-            <MemoizedReactFlow
-              nodes={enhancedNodes}
-              edges={edges}
-              onNodesChange={handleNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onConnect={onConnect}
-              nodeTypes={memoizedNodeTypes}
-            />
+    <>
+      <style>{fullscreenStyles}</style>
+      <div className="family-tree-main-container relative w-full h-full overflow-hidden bg-gray-50">
+        {/* Main Content */}
+        <div className="flex h-full">
+          <>
+            {/* ReactFlow Canvas */}
+            <div className="flex-1 relative">
+              <MemoizedReactFlow
+                nodes={enhancedNodes}
+                edges={edges}
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={memoizedNodeTypes}
+              />
 
-            {/* Toolbar */}
-            <FamilyTreeToolbar />
+              {/* Toolbar */}
+              <FamilyTreeToolbar />
 
-            {/* Search Bar */}
-            <div className="absolute top-4 right-4 z-10">
-              <SearchBar onSelectMember={handleSearchSelect} />
+              {/* Search Bar */}
+              <div className="absolute top-4 right-4 z-10">
+                <SearchBar onSelectMember={handleSearchSelect} />
+              </div>
             </div>
-          </div>
 
-          {/* Side Panel */}
-          <MemberDetailPanel
-            member={selectedMember}
-            onClose={handleClosePanel}
-            onShowMemberDetail={handleOpenMemberDetailPage}
-          />
-        </>
+            {/* Side Panel */}
+              <MemberDetailPanel
+                member={selectedMember}
+                onClose={handleClosePanel}
+                onShowMemberDetail={handleOpenMemberDetailPage}
+              />
+          </>
 
-        {/* Add New Node - Outside ReactFlow to prevent re-renders */}
-        {nodes.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <AddNewNodeButton onOpen={() => setIsAddingNewNode(true)} />
-          </div>
-        )}
-        
-        {/* Add New Node Modal */}
-        {isAddingNewNode && (
-          <AddNewNode
-            ftId={selectedFamilyTree?.id || ""}
-            isFirstNode={nodes.length === 0}
-            parentMember={selectedParent}
-            existingRelationships={[]}
-            onSelectType={handleAddNewNode}
-            onClose={() => {
-              setIsAddingNewNode(false);
-              setSelectedParent(null);
-            }}
-          />
-        )}
-        
-        {/* Member Detail Modal */}
-        {showMemberDetailModal && (
-          <MemberDetailPage
-            ftId={selectedFamilyTree?.id}
-            memberId={selectedMember?.id}
-            onClose={handleCloseMemberDetailPage}
-          />
-        )}
+          {/* Add New Node - Outside ReactFlow to prevent re-renders */}
+          {nodes.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <AddNewNodeButton onOpen={() => setIsAddingNewNode(true)} />
+            </div>
+          )}
 
-        {/* Delete Confirmation Modal */}
-        {memberToDelete && (
-          <DeleteConfirmModal
-            member={memberToDelete}
-            onConfirm={handleDeleteNodeConfirm}
-            onCancel={handleDeleteNodeCancel}
-            isDeleting={isDeletingNode}
-          />
-        )}
+          {/* Add New Node Modal */}
+          {isAddingNewNode && (
+            <AddNewNode
+              ftId={selectedFamilyTree?.id || ""}
+              isFirstNode={nodes.length === 0}
+              parentMember={selectedParent}
+              existingRelationships={[]}
+              onSelectType={handleAddNewNode}
+              onClose={() => {
+                setIsAddingNewNode(false);
+                setSelectedParent(null);
+              }}
+            />
+          )}
+
+          {/* Member Detail Modal */}
+          {showMemberDetailModal && (
+            <MemberDetailPage
+              ftId={selectedFamilyTree?.id}
+              memberId={selectedMember?.id}
+              onClose={handleCloseMemberDetailPage}
+            />
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {memberToDelete && (
+            <DeleteConfirmModal
+              member={memberToDelete}
+              onConfirm={handleDeleteNodeConfirm}
+              onCancel={handleDeleteNodeCancel}
+              isDeleting={isDeletingNode}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
