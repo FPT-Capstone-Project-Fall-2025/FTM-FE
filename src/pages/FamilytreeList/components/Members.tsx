@@ -71,6 +71,32 @@ const Members: React.FC = () => {
         return gender === 1 ? "Nam" : "Nữ";
     };
 
+    /**
+     * Get avatar URL from member's ftMemberFiles or fallback to filePath
+     */
+    const getMemberAvatar = (member: FamilyMemberList): string | null => {
+        // Priority 1: Extract from ftMemberFiles (GPMember data)
+        // Check title contains 'Avatar' (case-sensitive) and isActive = true
+        if (member.ftMemberFiles && member.ftMemberFiles.length > 0) {
+            const avatarFile = member.ftMemberFiles.find(file => 
+                file.title && 
+                file.title.includes('Avatar') && 
+                file.isActive
+            );
+            if (avatarFile) {
+                return avatarFile.filePath;
+            }
+        }
+        
+        // Priority 2: Fallback to filePath (may be from global user profile)
+        if (member.filePath) {
+            return member.filePath;
+        }
+        
+        // Priority 3: No avatar
+        return null;
+    };
+
     return (
         <div className="h-full overflow-hidden space-y-6 flex flex-col p-6 bg-gray-50">
             {/* Header with Search */}
@@ -113,21 +139,31 @@ const Members: React.FC = () => {
                                     <td className="px-6 py-4 text-sm text-gray-600">{getGenderLabel(member.gender)}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{formatBirthday(member.birthday)}</td>
                                     <td className="px-6 py-4 text-sm">
-                                        {member.filePath ? (
-                                            <img
-                                                src={member.filePath}
-                                                alt={member.fullname}
-                                                className="w-10 h-10 rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            <img
-                                                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                                    member.fullname
-                                                )}&background=random&size=64`}
-                                                alt={member.fullname}
-                                                className="w-10 h-10 rounded-full"
-                                            />
-                                        )}
+                                        {(() => {
+                                            const avatarUrl = getMemberAvatar(member);
+                                            return avatarUrl ? (
+                                                <img
+                                                    src={avatarUrl}
+                                                    alt={member.fullname}
+                                                    className="w-10 h-10 rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        console.log('❌ Failed to load avatar for', member.fullname, ':', avatarUrl);
+                                                        // Fallback to UI Avatars
+                                                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                                            member.fullname
+                                                        )}&background=random&size=64`;
+                                                    }}
+                                                />
+                                            ) : (
+                                                <img
+                                                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                                        member.fullname
+                                                    )}&background=random&size=64`}
+                                                    alt={member.fullname}
+                                                    className="w-10 h-10 rounded-full"
+                                                />
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4 text-sm">
                                         <button className="flex items-center gap-1 text-gray-700 hover:text-gray-900">

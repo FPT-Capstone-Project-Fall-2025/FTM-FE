@@ -76,14 +76,112 @@ export interface GPMember {
     slug: string;
     nameWithType: string;
   };
-  ftMemberFiles: any[];
+  ftMemberFiles: Array<{
+    ftMemberId: string;
+    title: string;
+    content: string;
+    filePath: string;
+    fileType: string;
+    description: string;
+    thumbnail: string;
+    isActive: boolean;
+    createdBy: string;
+    createdOn: string;
+    lastModifiedBy: string;
+    lastModifiedOn: string;
+  }>;
 }
 
 // Cache for storing GPMemberId
 let cachedGPMemberId: string | null = null;
 let cacheKey: string | null = null;
+// Cache for full member profiles by memberId within a specific ftId
+const gpMemberCacheByMemberId: Map<string, GPMember> = new Map(); // key: `${ftId}:${memberId}`
+const gpMemberCacheByUserId: Map<string, GPMember> = new Map();   // key: `${ftId}:${userId}`
+
+/**
+ * Extract avatar URL from ftMemberFiles
+ * Looks for file with title containing 'Avatar'
+ */
+export const getAvatarFromGPMember = (gpMember: GPMember | null): string | null => {
+  console.log('🔍 getAvatarFromGPMember called with:', {
+    hasGPMember: !!gpMember,
+    hasFiles: !!gpMember?.ftMemberFiles,
+    filesCount: gpMember?.ftMemberFiles?.length || 0
+  });
+
+  if (!gpMember || !gpMember.ftMemberFiles || gpMember.ftMemberFiles.length === 0) {
+    console.log('❌ No GPMember or ftMemberFiles found');
+    return null;
+  }
+
+  console.log('🔍 Searching for avatar in files:', gpMember.ftMemberFiles.map(f => ({
+    title: f.title,
+    filePath: f.filePath,
+    isActive: f.isActive,
+    hasAvatar: f.title?.includes('Avatar'),
+    matchesCondition: !!(f.title && f.title.includes('Avatar') && f.isActive)
+  })));
+
+  // Find the file with title containing 'Avatar' (case-sensitive)
+  const avatarFile = gpMember.ftMemberFiles.find(file => {
+    const hasTitle = !!file.title;
+    const hasAvatarInTitle = file.title?.includes('Avatar') || false;
+    
+    // Handle isActive as boolean, string, or number (API might return different types)
+    const isFileActive = file.isActive === true || 
+                        (file.isActive as any) === "true" || 
+                        (file.isActive as any) === 1 ||
+                        !!file.isActive;
+    
+    console.log(`  Checking file:`, {
+      title: file.title,
+      hasTitle,
+      hasAvatarInTitle,
+      isActive: file.isActive,
+      isActiveType: typeof file.isActive,
+      isFileActive,
+      matches: hasTitle && hasAvatarInTitle && isFileActive
+    });
+    
+    return hasTitle && hasAvatarInTitle && isFileActive;
+  });
+
+  console.log('🎯 Avatar file found:', avatarFile);
+  console.log('📸 Avatar URL:', avatarFile?.filePath || null);
+
+  return avatarFile?.filePath || null;
+};
+
+/**
+ * Get display name from GPMember
+ */
+export const getDisplayNameFromGPMember = (gpMember: GPMember | null): string | null => {
+  return gpMember?.fullname || null;
+};
 
 const familyTreeMemberService = {
+  /** Get full GPMember by ftId and memberId (group-specific profile) */
+  async getGPMemberByMemberId(ftId: string, memberId: string): Promise<GPMember | null> {
+    try {
+      const cacheKey = `${ftId}:${memberId}`;
+      if (gpMemberCacheByMemberId.has(cacheKey)) {
+        return gpMemberCacheByMemberId.get(cacheKey)!;
+      }
+      const response: ApiResponse<GPMember> = await api.get(`/ftmember/${ftId}/get-by-memberid`, {
+        params: { memberId }
+      });
+      const data = (response.data as any)?.data || response.data;
+      if (response.status && data) {
+        gpMemberCacheByMemberId.set(cacheKey, data as GPMember);
+        return data as GPMember;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
   /**
    * Get GPMemberId (family tree member ID) by GPId (family tree ID) and userId
    * This function will cache the result to avoid unnecessary API calls
@@ -131,23 +229,20 @@ const familyTreeMemberService = {
    */
   async getGPMemberByUserId(gpId: string, userId: string): Promise<GPMember | null> {
     try {
-      const response: ApiResponse<GPMember> = await api.get(
-        `/ftmember/${gpId}/get-by-userid?userId=${userId}`
-      );
-
-      console.log('getGPMemberByUserId API response:', response);
-
-      // Handle nested data structure
-      const memberData = (response.data as any)?.data || response.data;
-
-      if (response.status && memberData) {
-        return memberData as GPMember;
-      } else {
-        console.error('Failed to get GPMember:', response.message);
-        return null;
+      const cacheKey = `${gpId}:${userId}`;
+      if (gpMemberCacheByUserId.has(cacheKey)) {
+        return gpMemberCacheByUserId.get(cacheKey)!;
       }
+      const response: ApiResponse<GPMember> = await api.get(`/ftmember/${gpId}/get-by-userid`, {
+        params: { userId }
+      });
+      const memberData = (response.data as any)?.data || response.data;
+      if (response.status && memberData) {
+        gpMemberCacheByUserId.set(cacheKey, memberData as GPMember);
+        return memberData as GPMember;
+      }
+      return null;
     } catch (error) {
-      console.error('Error getting GPMember:', error);
       return null;
     }
   },
@@ -165,7 +260,8 @@ const familyTreeMemberService = {
   clearGPMemberIdCache(): void {
     cachedGPMemberId = null;
     cacheKey = null;
-    console.log('GPMemberId cache cleared');
+    gpMemberCacheByMemberId.clear();
+    gpMemberCacheByUserId.clear();
   },
 
   /**
@@ -174,7 +270,6 @@ const familyTreeMemberService = {
   setGPMemberId(gpId: string, userId: string, gpMemberId: string): void {
     cacheKey = `${gpId}-${userId}`;
     cachedGPMemberId = gpMemberId;
-    console.log('GPMemberId set manually:', gpMemberId);
   }
 };
 
