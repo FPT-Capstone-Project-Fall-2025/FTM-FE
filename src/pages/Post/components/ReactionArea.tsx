@@ -17,13 +17,10 @@ const ReactionArea: React.FC<ReactionAreaProps> = ({
   setShowReactionPicker,
   onReaction,
 }) => {
-  const [isHovering, setIsHovering] = React.useState(false);
   const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const hideTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleMouseEnter = () => {
-    setIsHovering(true);
-    
     // Clear any pending hide timeout
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current);
@@ -37,8 +34,6 @@ const ReactionArea: React.FC<ReactionAreaProps> = ({
   };
 
   const handleMouseLeave = () => {
-    setIsHovering(false);
-    
     // Clear the show timeout if user leaves before picker shows
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
@@ -55,8 +50,6 @@ const ReactionArea: React.FC<ReactionAreaProps> = ({
   };
 
   const handlePickerMouseEnter = () => {
-    setIsHovering(true);
-    
     // Clear any pending hide timeout when entering picker
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current);
@@ -65,8 +58,6 @@ const ReactionArea: React.FC<ReactionAreaProps> = ({
   };
 
   const handlePickerMouseLeave = () => {
-    setIsHovering(false);
-    
     // Hide picker when mouse leaves
     // Only hide if THIS post's picker is showing
     hideTimeoutRef.current = setTimeout(() => {
@@ -128,7 +119,7 @@ const ReactionArea: React.FC<ReactionAreaProps> = ({
         clearTimeout(hideTimeoutRef.current);
         hideTimeoutRef.current = null;
       }
-      setIsHovering(false);
+      // ensure hover state cleared for this component
     }
   }, [showReactionPicker, post.id]);
 

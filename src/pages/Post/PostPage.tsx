@@ -233,6 +233,7 @@ const PostPage: React.FC = () => {
             id: apiPost.id,
             title: apiPost.title,
             gpMemberId: apiPost.gpMemberId,
+            status: Number(apiPost.status ?? 1),
             author: {
               name: authorNameFromGroup || apiPost.authorName || apiPost.author?.name || apiPost.createdBy || 'Unknown User',
               avatar: avatarFromGroup || apiPost.authorPicture || apiPost.author?.avatar || defaultPicture,
