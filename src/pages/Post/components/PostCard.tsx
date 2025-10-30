@@ -575,7 +575,6 @@ const PostCard: React.FC<PostCardProps> = ({
   const [_showEmojiPicker, _setShowEmojiPicker] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [resolvedTypes, setResolvedTypes] = useState<Record<string, 'video' | 'image'>>({});
-  const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
 
   // Toggle comments visibility
   const handleToggleComments = () => {
@@ -948,7 +947,6 @@ const PostCard: React.FC<PostCardProps> = ({
                 setResolvedTypes(prev => ({ ...prev, [id]: 'video' }));
                 continue;
               }
-              setResolvingIds(prev => new Set(prev).add(id));
               const isImage = await new Promise<boolean>((resolve) => {
                 const img = new Image();
                 img.onload = () => resolve(true);
@@ -958,7 +956,6 @@ const PostCard: React.FC<PostCardProps> = ({
               if (cancelled) return;
               if (isImage) {
                 setResolvedTypes(prev => ({ ...prev, [id]: 'image' }));
-                setResolvingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
                 continue;
               }
               const isVid = await new Promise<boolean>((resolve) => {
@@ -976,7 +973,6 @@ const PostCard: React.FC<PostCardProps> = ({
               });
               if (cancelled) return;
               setResolvedTypes(prev => ({ ...prev, [id]: isVid ? 'video' : 'image' }));
-              setResolvingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
             }
           };
           run();

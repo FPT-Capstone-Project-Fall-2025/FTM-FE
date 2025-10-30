@@ -1,5 +1,4 @@
 import React from 'react';
-import { ThumbsUp } from 'lucide-react';
 import type { Post, ReactionType } from '@/types/post';
 
 interface PostStatsProps {
