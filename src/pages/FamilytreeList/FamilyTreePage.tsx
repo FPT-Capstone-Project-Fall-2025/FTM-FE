@@ -4,6 +4,7 @@ import BasicInfo from "./components/BasicInfo";
 import Members from "./components/Members";
 import FamilyTreeApp from "./components/FamilyTree/FamilyTree";
 import HonorBoard from "./components/HonorBoard";
+import FundManagement from "./components/FundManagement";
 import { ChevronRight, Users, Minimize2, Maximize2 } from "lucide-react";
 import NotFoundPage from "@/components/shared/NotFoundPage";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
@@ -13,7 +14,8 @@ const tabs = [
   { id: 'basic', label: 'THÔNG TIN CƠ BẢN' },
   { id: 'tree', label: 'GIA PHẢ' },
   { id: 'members', label: 'THÀNH VIÊN' },
-  { id: 'honor-board', label: 'THÀNH TÍCH GIA TỘC' }
+  { id: 'honor-board', label: 'THÀNH TÍCH GIA TỘC' },
+  { id: 'fund', label: 'QUỸ GIA TỘC' }
 ];
 
 const STORAGE_KEY = 'familyTreeActiveTab';
@@ -26,13 +28,13 @@ const FamilyTreePage: React.FC = () => {
   const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
 
   // Get initial tab from URL params or localStorage
-  const getInitialTab = (): 'basic' | 'tree' | 'members' | 'honor-board' => {
-    const paramTab = searchParams.get('tab') as 'basic' | 'tree' | 'members' | 'honor-board' | null;
+  const getInitialTab = (): 'basic' | 'tree' | 'members' | 'honor-board' | 'fund' => {
+    const paramTab = searchParams.get('tab') as 'basic' | 'tree' | 'members' | 'honor-board' | 'fund' | null;
     if (paramTab && tabs.some(t => t.id === paramTab)) {
       return paramTab;
     }
     try {
-      const savedTab = localStorage.getItem(STORAGE_KEY) as 'basic' | 'tree' | 'members' | 'honor-board' | null;
+      const savedTab = localStorage.getItem(STORAGE_KEY) as 'basic' | 'tree' | 'members' | 'honor-board' | 'fund' | null;
       if (savedTab && tabs.some(t => t.id === savedTab)) {
         return savedTab;
       }
@@ -53,11 +55,11 @@ const FamilyTreePage: React.FC = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'tree' | 'members' | 'honor-board'>(getInitialTab());
+  const [activeTab, setActiveTab] = useState<'basic' | 'tree' | 'members' | 'honor-board' | 'fund'>(getInitialTab());
   const [isHeaderMinimized, setIsHeaderMinimized] = useState(getInitialHeaderState());
 
   // Update URL and localStorage when tab changes
-  const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'honor-board') => {
+  const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'honor-board' | 'fund') => {
     setActiveTab(tabId);
     setSearchParams({ tab: tabId });
     try {
@@ -97,13 +99,15 @@ const FamilyTreePage: React.FC = () => {
         return <Members />;
       case 'honor-board':
         return <HonorBoard />;
+      case 'fund':
+        return <FundManagement />;
       default:
         return <NotFoundPage />;
     }
   };
 
   return (
-    <div className="h-full bg-gray-50 px-4 sm:px-6 lg:px-8 py-8 flex flex-col">
+    <div className="h-full bg-gray-50 px-4 sm:px-6 lg:px-8 py-4 flex flex-col">
       {/* Top row with back button and minimize button */}
       <div className=" flex items-center justify-between gap-3">
         <button
@@ -151,12 +155,12 @@ const FamilyTreePage: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="border-b border-gray-200 mb-8">
+      <div className="border-b border-gray-200 mb-2">
         <nav className="flex space-x-8 sm:space-x-12">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => handleTabChange(tab.id as 'basic' | 'tree' | 'members' | 'honor-board')}
+              onClick={() => handleTabChange(tab.id as 'basic' | 'tree' | 'members' | 'honor-board' | 'fund')}
               className={`py-3 px-1 border-b-2 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${activeTab === tab.id
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
