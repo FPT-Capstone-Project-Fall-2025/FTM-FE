@@ -413,7 +413,7 @@ const AddNewNode = ({
     // Update formData with the file
     setFormData((prev) => ({
       ...prev,
-      ftMemberFiles: [{ file, title: file.name, fileType: file.type }],
+      file: file,
     }));
 
     // Generate preview

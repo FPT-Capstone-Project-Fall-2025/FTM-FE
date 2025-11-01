@@ -107,6 +107,7 @@ export interface AddingNodeProps {
   rootId?: string;
   fromFTMemberId?: string | undefined;
   fromFTMemberPartnerId?: string | undefined;
+  avatar?: File;
   ftMemberFiles?: FileProps[]
 }
 
@@ -119,6 +120,7 @@ export interface FamilyNode {
   fullname: string;
   gender: 0 | 1;
   isDeath: boolean;
+  deathDateUnknown?: boolean;
   birthday: string;
   deathDescription: string;
   deathDate: string;
@@ -137,7 +139,8 @@ export interface FamilyNode {
   content: string;
   storyDescription: string;
   privacyData: null;
-  picture: string;
+  picture: string | null;
+  avatar?: File;
   ftMemberFiles: FileProps[]
 }
 
@@ -167,16 +170,24 @@ export interface UpdateFamilyNode {
   content?: string;
   storyDescription?: string;
   privacyData?: null;
-  picture?: string;
-  ftMemberFiles?: FileProps[]
+  picture?: string | null;
+  ftMemberFiles?: FileProps[];
+  avatar?: File;
 }
 
 export interface FileProps {
-  file?: File;
+  ftMemberId?: string;
   title?: string;
-  fileType?: string;
   description?: string;
-  content?: string;
+  fileType?: string;
+  file?: File | undefined;
   thumbnail?: string | null;
+  content?: string;
+  filePath?: string | undefined;
+  isActive?: boolean;
+  createdBy?: string;
+  createdOn?: string;
+  lastModifiedBy?: string;
+  lastModifiedOn?: string;
 }
 

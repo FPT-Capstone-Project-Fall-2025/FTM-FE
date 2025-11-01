@@ -24,14 +24,12 @@ function findTopAncestor(
     visited.add(current);
     const parents = parentsOf.get(current);
     if (!parents || parents.size === 0) break;
-    // Pick the first parent (arbitrary; could prefer male/female if needed)
     current = Array.from(parents)[0]!;
   }
   return current;
 }
 
 // Helper: Get all nodes in the connected component reachable from startId
-// (traverses up to parents, down to children, sideways to partners)
 function getConnectedComponent(
   startId: string,
   members: Record<string, FamilyMember>,
@@ -44,39 +42,31 @@ function getConnectedComponent(
     const id = stack.pop()!;
     if (visited.has(id)) continue;
     visited.add(id);
-    // Add parents (up)
     parentsOf.get(id)!.forEach(p => stack.push(p));
-    // Add children (down)
     childrenOf.get(id)?.forEach(c => stack.push(c));
-    // Add partners (side)
     members[id]?.partners?.forEach(p => stack.push(p));
   }
   return visited;
 }
 
 export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
-  // Convert datalist to members map
   const members: Record<string, FamilyMember> = Object.fromEntries(
     response.datalist.map(item => [item.key, item.value])
   );
 
-  // Validate we have members
   if (Object.keys(members).length === 0) {
     return { nodes: [], edges: [], members: {} };
   }
 
-  // Build relationship maps with validation
   const childrenOf = new Map<string, string[]>();
   const parentsOf = new Map<string, Set<string>>();
   const partnerPairs = new Set<string>();
 
-  // Initialize maps only for existing members
   Object.keys(members).forEach(memberId => {
     childrenOf.set(memberId, []);
     parentsOf.set(memberId, new Set());
   });
 
-  // Process all members to build relationships with enhanced validation
   Object.entries(members).forEach(([memberId, member]) => {
     if (member.children && Array.isArray(member.children)) {
       member.children.forEach((childGroup: ChildrenGroup) => {
@@ -84,7 +74,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         const childIds = childGroup.value || [];
 
         childIds.forEach(childId => {
-          // CRITICAL: Only process if child still exists
           if (!members[childId]) return;
 
           if (!childrenOf.get(memberId)!.includes(childId)) {
@@ -92,7 +81,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
           }
           parentsOf.get(childId)!.add(memberId);
 
-          // CRITICAL: Only add partner if they exist
           if (partnerId && members[partnerId]) {
             parentsOf.get(childId)!.add(partnerId);
             if (!childrenOf.get(partnerId)!.includes(childId)) {
@@ -101,7 +89,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
           }
         });
 
-        // Track partner pairs only if both exist
         if (partnerId && partnerId !== memberId && members[partnerId]) {
           const pair = [memberId, partnerId].sort().join('-');
           partnerPairs.add(pair);
@@ -110,19 +97,14 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     }
   });
 
-  // Validate root exists, fallback if not
   const root = members[response.root] ? response.root : Object.keys(members)[0];
   if (!root) {
     return { nodes: [], edges: [], members: {} };
   }
 
-  // Compute connected component to filter to relevant nodes/edges
   const component = getConnectedComponent(root, members, parentsOf, childrenOf);
-
-  // Find top ancestor in the component to start layout from the hierarchy top
   const d3Root = findTopAncestor(root, parentsOf);
 
-  // Calculate generations using BFS (now starting from top ancestor)
   const generationMap = new Map<string, number>();
   const queue: Array<[string, number]> = [[d3Root, 0]];
   const visited = new Set<string>();
@@ -135,7 +117,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
 
     generationMap.set(memberId, gen);
 
-    // Add children (only if they exist and in component)
     const children = (childrenOf.get(memberId) || []).filter(
       cId => members[cId] && component.has(cId)
     );
@@ -145,7 +126,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       }
     });
 
-    // Add partners to same generation (only if they exist and in component)
     const member = members[memberId];
     if (member?.partners && Array.isArray(member.partners)) {
       member.partners.forEach(partnerId => {
@@ -160,13 +140,11 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     }
   }
 
-  // Ensure all remaining members in component have a generation
   component.forEach(memberId => {
     if (!generationMap.has(memberId)) {
       const member = members[memberId];
       let assignedGen: number | null = null;
 
-      // Try children
       const children = (childrenOf.get(memberId) || []).filter(
         cId => members[cId] && component.has(cId)
       );
@@ -177,7 +155,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         }
       }
 
-      // Try partners
       if (assignedGen === null && member?.partners) {
         for (const partnerId of member.partners) {
           if (
@@ -195,9 +172,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     }
   });
 
-  // === D3.js TREE LAYOUT WITH FIXED MULTI-PARENT SUPPORT ===
-
-  // Step 1: Build D3 tree (following primary parent line only, now from top)
   function buildD3Tree(
     nodeId: string,
     visited: Set<string>
@@ -231,19 +205,16 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     return { nodes: [], edges: [], members: {} };
   }
 
-  // Step 2: Apply D3 tree layout
   const treeLayout = d3
     .tree<D3TreeNode>()
-    .nodeSize([280, 320]) // [horizontal, vertical] spacing
+    .nodeSize([280, 320])
     .separation((a, b) => {
-      // Same parent = closer, different parent = further
       return a.parent === b.parent ? 1 : 1.5;
     });
 
   const hierarchy = d3.hierarchy(d3RootNode);
   const treeData = treeLayout(hierarchy);
 
-  // Step 3: Extract initial positions from D3
   const positionMap = new Map<string, { x: number; y: number }>();
 
   treeData.descendants().forEach(node => {
@@ -253,7 +224,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     });
   });
 
-  // Step 4: Position partners adjacent to their spouses
   const partnersProcessed = new Set<string>();
 
   Object.entries(members).forEach(([memberId, member]) => {
@@ -275,13 +245,11 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       const partnerPos = positionMap.get(partnerId);
 
       if (!partnerPos) {
-        // Partner not in D3 tree, position next to spouse
         positionMap.set(partnerId, {
           x: memberPos.x + 200,
           y: memberPos.y,
         });
       } else {
-        // Both in tree, center them together
         const centerX = (memberPos.x + partnerPos.x) / 2;
         const avgY = (memberPos.y + partnerPos.y) / 2;
 
@@ -297,14 +265,13 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     });
   });
 
-  // Step 5: Adjust children to be centered between both parents
   parentsOf.forEach((parentIds, childId) => {
     if (!component.has(childId) || !members[childId]) return;
 
     const parents = Array.from(parentIds).filter(
       pId => members[pId] && component.has(pId)
     );
-    if (parents.length !== 2) return; // Only adjust for two-parent children
+    if (parents.length !== 2) return;
 
     const parent1Pos = positionMap.get(parents[0]!);
     const parent2Pos = positionMap.get(parents[1]!);
@@ -312,10 +279,8 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
 
     if (!parent1Pos || !parent2Pos || !childPos) return;
 
-    // Center child between both parents (X axis only, keep D3's Y)
     const parentCenterX = (parent1Pos.x + parent2Pos.x) / 2;
 
-    // Group siblings from same parents
     const siblings = Array.from(parentsOf.entries())
       .filter(([_, pIds]) => {
         const pArray = Array.from(pIds).sort();
@@ -328,24 +293,21 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       .map(([sibId, _]) => sibId)
       .filter(sibId => members[sibId] && component.has(sibId));
 
-    // Calculate total width needed for all siblings
     const siblingSpacing = 250;
     const totalWidth = (siblings.length - 1) * siblingSpacing;
     const startX = parentCenterX - totalWidth / 2;
 
-    // Redistribute siblings evenly
     siblings.forEach((siblingId, index) => {
       const sibPos = positionMap.get(siblingId);
       if (sibPos) {
         positionMap.set(siblingId, {
           x: startX + index * siblingSpacing,
-          y: sibPos.y, // Keep D3's Y coordinate
+          y: sibPos.y,
         });
       }
     });
   });
 
-  // Step 6: Handle any members not yet positioned (edge case, now filtered to component)
   component.forEach(memberId => {
     if (!positionMap.has(memberId)) {
       const gen = generationMap.get(memberId) || 0;
@@ -356,36 +318,233 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     }
   });
 
-  // Step 7: Resolve overlaps per generation by enforcing min spacing
-  // This prevents leaf nodes from overlapping adjacent partners or unbalanced branches
-  const MIN_NODE_SPACING = 220; // Based on node width (~180px) + margin; adjust if nodes are resized
-  const nodesByGen = new Map<number, { id: string; x: number }[]>();
+  // Step 7: Group spouse clusters and separate different families - Conform to D3 by preserving original cluster centers
+  const MIN_FAMILY_SPACING = 350; // Buffer for nudging only if overlaps
+  const SPOUSE_SPACING = 200; // Internal cluster spacing, close to D3 nodeSize[0]/1.4 for compatibility
+
+  const nodesByGen = new Map<number, string[]>();
 
   generationMap.forEach((gen, id) => {
     if (component.has(id)) {
-      let list = nodesByGen.get(gen) || [];
-      list.push({ id, x: positionMap.get(id)!.x });
+      const list = nodesByGen.get(gen) || [];
+      list.push(id);
       nodesByGen.set(gen, list);
     }
   });
 
-  for (const [_, nodeList] of nodesByGen) {
-    // Sort by current x position
-    nodeList.sort((a, b) => a.x - b.x);
+  for (const [_, nodeIds] of nodesByGen) {
+    const spouseGraph = new Map<string, Set<string>>();
+    nodeIds.forEach(id => spouseGraph.set(id, new Set()));
 
-    let prevX = nodeList[0]?.x;
-    for (let i = 1; i < nodeList.length; i++) {
-      const current = nodeList[i];
-      if (current?.x! - prevX! < MIN_NODE_SPACING) {
-        current!.x = prevX! + MIN_NODE_SPACING;
+    Object.entries(members).forEach(([memberId, member]) => {
+      if (!nodeIds.includes(memberId)) return;
+      if (!member.partners || !Array.isArray(member.partners)) return;
+
+      member.partners.forEach(partnerId => {
+        if (nodeIds.includes(partnerId)) {
+          spouseGraph.get(memberId)!.add(partnerId);
+          spouseGraph.get(partnerId)!.add(memberId);
+        }
+      });
+    });
+
+    const visited = new Set<string>();
+    const spouseClusters: string[][] = [];
+
+    nodeIds.forEach(startId => {
+      if (visited.has(startId)) return;
+
+      const cluster: string[] = [];
+      const queue = [startId];
+
+      while (queue.length > 0) {
+        const id = queue.shift()!;
+        if (visited.has(id)) continue;
+        visited.add(id);
+        cluster.push(id);
+
+        spouseGraph.get(id)!.forEach(spouseId => {
+          if (!visited.has(spouseId)) {
+            queue.push(spouseId);
+          }
+        });
       }
-      // Update position (y unchanged)
-      positionMap.set(current!.id, { x: current!.x, y: positionMap.get(current!.id)!.y });
-      prevX = current!.x;
+
+      spouseClusters.push(cluster);
+    });
+
+    // Calculate original avgX from D3 for each cluster (preserve D3 positioning)
+    spouseClusters.forEach(cluster => {
+      const avgX =
+        cluster.reduce((sum, id) => sum + positionMap.get(id)!.x, 0) /
+        cluster.length;
+      (cluster as any).avgX = avgX;
+    });
+
+    // Sort by original avgX to check for overlaps later
+    spouseClusters.sort((a, b) => (a as any).avgX - (b as any).avgX);
+
+    // Reposition WITHIN clusters around their original D3 avgX (no cumulative shift)
+    spouseClusters.forEach(cluster => {
+      const originalAvgX = (cluster as any).avgX;
+      const clusterWidth = (cluster.length - 1) * SPOUSE_SPACING;
+      const startX = originalAvgX - clusterWidth / 2;
+
+      if (cluster.length === 1) {
+        positionMap.set(cluster[0]!, {
+          x: originalAvgX,
+          y: positionMap.get(cluster[0]!)!.y,
+        });
+      } else if (cluster.length === 2) {
+        const [id1, id2] = cluster.sort(
+          (a, b) => positionMap.get(a)!.x - positionMap.get(b)!.x
+        );
+        positionMap.set(id1!, {
+          x: startX,
+          y: positionMap.get(id1!)!.y,
+        });
+        positionMap.set(id2!, {
+          x: startX + SPOUSE_SPACING,
+          y: positionMap.get(id2!)!.y,
+        });
+      } else {
+        // Symmetric positioning for >2
+        let centerPerson = cluster[0]!;
+        let maxSpouses = 0;
+
+        cluster.forEach(id => {
+          const spouseCount = spouseGraph.get(id)!.size;
+          if (spouseCount > maxSpouses) {
+            maxSpouses = spouseCount;
+            centerPerson = id;
+          }
+        });
+
+        const spouses = Array.from(spouseGraph.get(centerPerson)!).filter(id =>
+          cluster.includes(id)
+        );
+        spouses.sort((a, b) => positionMap.get(a)!.x - positionMap.get(b)!.x);
+
+        const numLeft = Math.floor(spouses.length / 2);
+        const numRight = spouses.length - numLeft;
+        const centerIndex = numLeft;
+
+        positionMap.set(centerPerson, {
+          x: startX + centerIndex * SPOUSE_SPACING,
+          y: positionMap.get(centerPerson)!.y,
+        });
+
+        for (let i = 0; i < numLeft; i++) {
+          positionMap.set(spouses[i]!, {
+            x: startX + (centerIndex - 1 - i) * SPOUSE_SPACING,
+            y: positionMap.get(spouses[i]!)!.y,
+          });
+        }
+
+        for (let i = 0; i < numRight; i++) {
+          positionMap.set(spouses[numLeft + i]!, {
+            x: startX + (centerIndex + 1 + i) * SPOUSE_SPACING,
+            y: positionMap.get(spouses[numLeft + i]!)!.y,
+          });
+        }
+      }
+    });
+
+    // Collision avoidance: Nudge overlapping clusters rightward if needed (preserves D3 order)
+    for (let i = 1; i < spouseClusters.length; i++) {
+      const prevCluster = spouseClusters[i - 1]!;
+      const currCluster = spouseClusters[i]!;
+
+      const prevMaxX = Math.max(
+        ...prevCluster.map(id => positionMap.get(id)!.x)
+      );
+      const currMinX = Math.min(
+        ...currCluster.map(id => positionMap.get(id)!.x)
+      );
+
+      if (currMinX - prevMaxX < MIN_FAMILY_SPACING / 2) {
+        const nudge = MIN_FAMILY_SPACING / 2 - (currMinX - prevMaxX) + 50;
+        currCluster?.forEach(id => {
+          const pos = positionMap.get(id)!;
+          positionMap.set(id, { x: pos.x + nudge, y: pos.y });
+        });
+      }
     }
   }
 
-  // Create React Flow nodes (filtered to component)
+  // Step 8: CRITICAL - Recursively recenter ALL children under their parents (top-down for hierarchy)
+  const sortedGens = Array.from(nodesByGen.keys()).sort((a, b) => a - b);
+
+  for (let i = 0; i < sortedGens.length - 1; i++) {
+    const currentGen = sortedGens[i]!;
+    const nextGen = sortedGens[i + 1]!;
+
+    const currentGenNodes = nodesByGen.get(currentGen) || [];
+    const nextGenNodes = nodesByGen.get(nextGen) || [];
+
+    if (nextGenNodes.length === 0) continue;
+
+    // Group children by their parent set
+    const childrenByParentSet = new Map<string, string[]>();
+
+    nextGenNodes.forEach(childId => {
+      const parentIds = Array.from(parentsOf.get(childId) || []).filter(
+        pId =>
+          members[pId] && component.has(pId) && currentGenNodes.includes(pId)
+      );
+
+      if (parentIds.length === 0) return;
+
+      const parentKey = parentIds.sort().join('-');
+
+      if (!childrenByParentSet.has(parentKey)) {
+        childrenByParentSet.set(parentKey, []);
+      }
+      childrenByParentSet.get(parentKey)!.push(childId);
+    });
+
+    // Position each sibling group under their parents
+    childrenByParentSet.forEach((children, parentKey) => {
+      const parentIds = parentKey.split('-').filter(id => members[id]);
+
+      if (parentIds.length === 0) return;
+
+      const parentPositions = parentIds
+        .map(id => positionMap.get(id))
+        .filter(pos => pos !== undefined) as { x: number; y: number }[];
+
+      if (parentPositions.length === 0) return;
+
+      const parentCenterX =
+        parentPositions.reduce((sum, pos) => sum + pos.x, 0) /
+        parentPositions.length;
+
+      const sortedChildren = [...children].sort((a, b) => {
+        const posA = positionMap.get(a);
+        const posB = positionMap.get(b);
+        return (posA?.x || 0) - (posB?.x || 0);
+      });
+
+      // Dynamic spacing tied to D3 nodeSize (280 base); compress for large groups to stay under parents
+      let childSpacing = 280; // Match D3 horizontal nodeSize for compatibility
+      if (sortedChildren.length > 3) {
+        childSpacing = Math.max(150, (280 * 3) / sortedChildren.length); 
+      }
+      const totalWidth = (sortedChildren.length - 1) * childSpacing;
+      const startX = parentCenterX - totalWidth / 2;
+
+      sortedChildren.forEach((childId, index) => {
+        const childPos = positionMap.get(childId);
+        if (childPos) {
+          positionMap.set(childId, {
+            x: startX + index * childSpacing,
+            y: childPos.y,
+          });
+        }
+      });
+    });
+  }
+
   const flowNodes: Node[] = Object.entries(members)
     .filter(([memberId]) => component.has(memberId))
     .map(([memberId, member]) => {
@@ -405,10 +564,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       };
     });
 
-  // Create React Flow edges (filtered to component)
   const flowEdges: Edge[] = [];
-
-  // Parent-child edges
   const processedChildEdges = new Set<string>();
 
   parentsOf.forEach((parentIds, childId) => {
@@ -441,7 +597,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     });
   });
 
-  // Partner edges
   const processedPartnerPairs = new Set<string>();
 
   Object.entries(members).forEach(([memberId, member]) => {
