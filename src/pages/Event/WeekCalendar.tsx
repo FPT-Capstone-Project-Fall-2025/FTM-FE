@@ -4,19 +4,20 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from '@fullcalendar/interaction';
 import moment from "moment";
 import "moment/locale/vi";
-import viLocale from "@fullcalendar/core/locales/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import { processRecurringEvents } from "../../utils/recurringEventUtils";
 import { getHolidaysForYear, formatHolidayForCalendar } from "../../utils/vietnameseHolidays";
+import { vietnameseCalendarLocale, commonVietnameseCalendarConfig } from "../../utils/vietnameseCalendarConfig";
 import type { EventClickArg, EventContentArg, DayHeaderContentArg } from '@fullcalendar/core';
 import './Calendar.css';
 
 // Add lunar stub to moment
 addLunarToMoment(moment);
 
+// Configure moment for Vietnamese (already done in vietnameseCalendarConfig, but ensure it's set)
 moment.locale("vi");
 moment.updateLocale("vi", { week: { dow: 1, doy: 4 } });
 
@@ -197,8 +198,12 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
           // Extract member names from eventMembers array
           const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
           
-          const start = moment(event.startTime);
-          const end = moment(event.endTime);
+          // Use start/end from recurring instances if available, otherwise parse from startTime/endTime
+          const eventStartTime = event.start || event.startTime;
+          const eventEndTime = event.end || event.endTime;
+          
+          const start = moment(eventStartTime);
+          const end = moment(eventEndTime);
           const durationDays = end.diff(start, "days", true);
           const isAllDay =
             event.isAllDay ||
@@ -434,36 +439,31 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
         ref={calendarRef}
         plugins={[timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"
-        locale={viLocale}
-        firstDay={1}
+        locale={vietnameseCalendarLocale}
+        firstDay={commonVietnameseCalendarConfig.firstDay}
         events={events}
-        headerToolbar={false}
-        height="auto"
-        slotMinTime="00:00:00"
-        slotMaxTime="24:00:00"
-        scrollTime="08:00:00"
-        slotDuration="01:00:00"
-        slotLabelInterval="01:00"
-        slotLabelFormat={{
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-          meridiem: false,
-        }}
+        headerToolbar={commonVietnameseCalendarConfig.headerToolbar}
+        height={commonVietnameseCalendarConfig.height}
+        slotMinTime={commonVietnameseCalendarConfig.slotMinTime}
+        slotMaxTime={commonVietnameseCalendarConfig.slotMaxTime}
+        scrollTime={commonVietnameseCalendarConfig.scrollTime}
+        slotDuration={commonVietnameseCalendarConfig.slotDuration}
+        slotLabelInterval={commonVietnameseCalendarConfig.slotLabelInterval}
+        slotLabelFormat={commonVietnameseCalendarConfig.slotLabelFormat}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
         dateClick={handleDateClick}
         dayHeaderContent={renderDayHeaderContent}
         dayCellClassNames={dayCellClassNames}
-        selectable={true}
+        selectable={commonVietnameseCalendarConfig.selectable}
         select={handleSelect}
         selectAllow={selectAllow}
-        selectMirror={true}
-        unselectAuto={true}
-        allDaySlot={true}
-        allDayText="Cả ngày"
-        nowIndicator={true}
-        editable={false}
+        selectMirror={commonVietnameseCalendarConfig.selectMirror}
+        unselectAuto={commonVietnameseCalendarConfig.unselectAuto}
+        allDaySlot={commonVietnameseCalendarConfig.allDaySlot}
+        allDayText={commonVietnameseCalendarConfig.allDayText}
+        nowIndicator={commonVietnameseCalendarConfig.nowIndicator}
+        editable={commonVietnameseCalendarConfig.editable}
       />
     </div>
   );

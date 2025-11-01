@@ -32,13 +32,18 @@ export function generateRecurringEvents(
   // Determine recurrence end time
   const recurrenceEndTime = event.recurrenceEndTime 
     ? moment(event.recurrenceEndTime) 
-    : viewEnd.clone().add(2, 'years'); // Default: 2 years from view end
+    : null;
   
   let currentStart = eventStart.clone();
   let iterationCount = 0;
   const MAX_ITERATIONS = 1000; // Safety limit
   
-  while (currentStart.isSameOrBefore(recurrenceEndTime) && iterationCount < MAX_ITERATIONS) {
+  while (iterationCount < MAX_ITERATIONS) {
+    // Check if we've passed the recurrence end time (if set)
+    if (recurrenceEndTime && currentStart.isAfter(recurrenceEndTime)) {
+      break;
+    }
+    
     const currentEnd = currentStart.clone().add(eventDuration, 'milliseconds');
     
     // Check if this instance is within the view range
@@ -71,7 +76,7 @@ export function generateRecurringEvents(
         break;
       default:
         // Unknown recurrence type, break loop
-        currentStart = recurrenceEndTime.clone().add(1, 'day');
+        break;
     }
     
     iterationCount++;

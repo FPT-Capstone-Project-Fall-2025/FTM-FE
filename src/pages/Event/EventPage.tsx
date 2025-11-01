@@ -350,7 +350,7 @@ const EventPage: React.FC = () => {
         <div className="flex gap-5 flex-wrap lg:flex-nowrap">
           {/* Sidebar - Filters and Statistics */}
           <div className="w-full lg:w-80">
-            <div className="bg-white rounded-lg shadow-sm sticky top-5 max-h-[calc(100vh-40px)] overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-sm sticky top-5 max-h-[calc(100vh-100px)] overflow-y-auto">
               <EventSidebar
                 handleFilter={handleFilter}
                 setIsShowLunarDay={setIsShowLunarDay}
@@ -361,22 +361,22 @@ const EventPage: React.FC = () => {
           </div>
 
           {/* Main Content - Calendar or My Events */}
-          <div className="bg-white rounded-lg p-5 shadow-sm max-h-[calc(100vh-60px)] w-full overflow-auto flex flex-col">
+          <div className="bg-white rounded-lg p-5 shadow-sm max-h-[calc(100vh-100px)] w-full overflow-auto flex flex-col">
             <div className="flex-1 w-full min-w-0">
               <>
                 {/* Header Section */}
                 <div className="mb-3 flex-shrink-0">
                     {/* Title */}
-                    <h2 className="text-2xl font-semibold mb-3 text-gray-900">
+                    {/* <h2 className="text-2xl font-semibold mb-3 text-gray-900">
                       Lịch sự kiện gia phả
-                    </h2>
+                    </h2> */}
 
                     {/* Search Bar */}
                     <div className="relative mb-3">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="text"
-                        placeholder="Tìm kiếm sự kiện..."
+                        placeholder="Tìm kiếm..."
                         value={search}
                         onChange={handleSearchChange}
                         onKeyPress={handleSearchKeyPress}
@@ -391,7 +391,7 @@ const EventPage: React.FC = () => {
                         type="button"
                       >
                         <CornerDownLeft className="w-3 h-3" />
-                        <span>Enter</span>
+                       
                       </button>
                       
                       {search && (
@@ -470,7 +470,7 @@ const EventPage: React.FC = () => {
                           </Radio.Group>
 
                           {/* Weather Toggle */}
-                          <button
+                          {/* <button
                             onClick={() => setViewWeather(!viewWeather)}
                             className={`p-2.5 rounded-lg transition-colors ${viewWeather
                               ? 'bg-blue-500 text-white border-blue-500'
@@ -480,7 +480,7 @@ const EventPage: React.FC = () => {
                             aria-label="Toggle weather"
                           >
                             <CloudSun className="w-4 h-4" />
-                          </button>
+                          </button> */}
                         </div>
                       </div>
                     </div>
@@ -519,7 +519,14 @@ const EventPage: React.FC = () => {
         <GPEventInfoModal
           isOpenModal={isOpenGPEventInfoModal}
           setIsOpenModal={setIsOpenGPEventInfoModal}
-          defaultValues={eventSelected}
+          defaultValues={{
+            ...eventSelected,
+            onEventDeleted: () => {
+              setReload((prev) => !prev);
+              setEventSelected(null);
+              setIsOpenGPEventInfoModal(false);
+            },
+          }}
           setConfirmDeleteModal={() => { }}
           setConfirmDeleteAllModal={() => { }}
           setIsOpenGPEventDetailsModal={setIsOpenGPEventDetailsModal}

@@ -1,9 +1,11 @@
 // @ts-nocheck
-import { useEffect } from "react";
+import { useState } from "react";
 import { Input, Select } from "antd";
-import { X, Calendar, MapPin, Repeat, User, Users, FileText, Trash2, ChevronDown } from "lucide-react";
+import { X, Calendar, MapPin, Repeat, User, Users, FileText, Trash2, ChevronDown, CalendarPlus, Loader2 } from "lucide-react";
 import "moment/locale/vi";
 import moment from "moment";
+import eventService from "../../services/eventService";
+import { toast } from 'react-toastify';
 
 // API Base URL for images
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
@@ -29,6 +31,7 @@ const GPEventInfoModal = ({
 }) => {
   const {
     name,
+    title,
     start,
     end,
     recurrence,
@@ -40,16 +43,25 @@ const GPEventInfoModal = ({
     type,
     address,
     isLunar,
+    id,
+    onEventDeleted,
+    onEventUpdated,
+    extendedProps,
   } = defaultValues;
 
-  const startTimeText = start ? moment(start).format("dddd, DD/MM/YYYY - HH:mm") : "";
-  const endTimeText = end ? moment(end).format("dddd, DD/MM/YYYY - HH:mm") : "";
+  // Use name or title (title is used by holiday events)
+  const eventName = name || title || 'Sự kiện';
+
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Check if this is a Vietnamese holiday event
+  const isVietnameseHoliday = extendedProps?.isHoliday === true || (id && id.toString().startsWith('holiday-'));
+
+  const startTimeText = start ? moment(start).locale("vi").format("dddd, DD/MM/YYYY - HH:mm") : "";
+  const endTimeText = end ? moment(end).locale("vi").format("dddd, DD/MM/YYYY - HH:mm") : "";
   const memberNamesJoin = Array.isArray(memberNames) ? memberNames.join(", ") : "";
   const gpNamesJoin = Array.isArray(gpNames) ? gpNames.join(", ") : "";
-
-  useEffect(() => {
-    // Nếu cần load thêm dữ liệu khác, có thể gọi ở đây
-  }, []);
 
   const handleMenuClick = (e) => {
     if (e.key === "1") {
@@ -57,6 +69,38 @@ const GPEventInfoModal = ({
     }
     if (e.key === "2") {
       setConfirmDeleteAllModal(true);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) {
+      toast.error('Không tìm thấy ID sự kiện');
+      return;
+    }
+
+    if (isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await eventService.deleteEventById(id);
+      
+      if (response?.data || response?.data?.data) {
+        toast.success('Xóa sự kiện thành công!');
+        setIsOpenModal(false);
+        setEventSelected(null);
+        
+        // Call callback if provided
+        if (onEventDeleted && typeof onEventDeleted === 'function') {
+          onEventDeleted();
+        }
+      } else {
+        throw new Error('Delete failed');
+      }
+    } catch (error: any) {
+      console.error('Error deleting event:', error);
+      toast.error(error?.response?.data?.message || 'Xóa sự kiện thất bại. Vui lòng thử lại!');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -68,6 +112,39 @@ const GPEventInfoModal = ({
   const handleOnCancel = () => {
     setEventSelected(null);
     setIsOpenModal(false);
+  };
+
+  const handleAddToGoogleCalendar = () => {
+    // Format dates for Google Calendar (YYYYMMDDTHHMMSS)
+    const formatGoogleDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+    };
+
+    const startDateTime = start ? formatGoogleDate(new Date(start)) : '';
+    const endDateTime = end ? formatGoogleDate(new Date(end)) : '';
+
+    // Build Google Calendar URL
+    const details = [];
+    if (description) details.push(`📝 ${decodeHTML(description)}`);
+    if (memberNamesJoin) details.push(`👥 Thành viên: ${memberNamesJoin}`);
+    if (gpNamesJoin) details.push(`👨‍👩‍👧‍👦 Gia phả: ${gpNamesJoin}`);
+    if (isLunar) details.push(`🌙 Sự kiện theo lịch âm`);
+
+    const googleCalendarUrl = new URL('https://calendar.google.com/calendar/render');
+    googleCalendarUrl.searchParams.set('action', 'TEMPLATE');
+    googleCalendarUrl.searchParams.set('text', eventName);
+    googleCalendarUrl.searchParams.set('dates', `${startDateTime}/${endDateTime}`);
+    if (address) googleCalendarUrl.searchParams.set('location', address);
+    if (details.length > 0) googleCalendarUrl.searchParams.set('details', details.join('\n\n'));
+
+    // Open Google Calendar in new tab
+    window.open(googleCalendarUrl.toString(), '_blank');
   };
 
   const items = [
@@ -91,7 +168,7 @@ const GPEventInfoModal = ({
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <h2 className="text-xl font-bold text-gray-900">Chi tiết sự kiện: {name}</h2>
+            <h2 className="text-xl font-bold text-gray-900">Chi tiết sự kiện: {eventName}</h2>
           </div>
           <button
             onClick={() => setIsOpenModal(false)}
@@ -123,34 +200,40 @@ const GPEventInfoModal = ({
           {/* Thông tin sự kiện dạng text display (không thể chỉnh sửa) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
             {/* Thời gian */}
-            <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
-              <Calendar className="w-5 h-5 text-blue-500 flex-shrink-0" />
-              <span className="font-medium text-sm">{startTimeText} - {endTimeText}</span>
-            </div>
+            {(startTimeText || endTimeText) && (
+              <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+                <Calendar className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                <span className="font-medium text-sm">{startTimeText} {startTimeText && endTimeText ? '-' : ''} {endTimeText}</span>
+              </div>
+            )}
             
             {/* Địa chỉ */}
-            <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
-              <MapPin className="w-5 h-5 text-green-500 flex-shrink-0" />
-              <span className="text-sm">{address || "Không có địa chỉ"}</span>
-            </div>
+            {address && (
+              <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+                <MapPin className="w-5 h-5 text-green-500 flex-shrink-0" />
+                <span className="text-sm">{address}</span>
+              </div>
+            )}
             
             {/* Lặp lại */}
-            <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
-              <Repeat className="w-5 h-5 text-orange-500 flex-shrink-0" />
-              <span className="text-sm">
-                {recurrence === "ONCE"
-                  ? "Không lặp lại"
-                  : recurrence === "DAILY"
-                  ? "Mỗi ngày"
-                  : recurrence === "WEEKLY"
-                  ? "Mỗi tuần"
-                  : recurrence === "MONTHLY"
-                  ? "Mỗi tháng"
-                  : recurrence === "YEARLY"
-                  ? "Mỗi năm"
-                  : "Khác"}
-              </span>
-            </div>
+            {recurrence && (
+              <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+                <Repeat className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                <span className="text-sm">
+                  {recurrence === "ONCE"
+                    ? "Không lặp lại"
+                    : recurrence === "DAILY"
+                    ? "Mỗi ngày"
+                    : recurrence === "WEEKLY"
+                    ? "Mỗi tuần"
+                    : recurrence === "MONTHLY"
+                    ? "Mỗi tháng"
+                    : recurrence === "YEARLY"
+                    ? "Mỗi năm"
+                    : "Khác"}
+                </span>
+              </div>
+            )}
             
             {/* Lịch âm */}
             {isLunar && (
@@ -197,48 +280,92 @@ const GPEventInfoModal = ({
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
-          {isOwner ? (
+          {isVietnameseHoliday ? (
+            // For Vietnamese holidays, only show "Add to Google Calendar" button
             <>
               <button
-                onClick={handleOnCancel}
+                onClick={handleAddToGoogleCalendar}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="4" width="18" height="18" rx="2" fill="#4285F4" opacity="0.1"/>
+                  <path d="M19 4H5C3.89 4 3 4.9 3 6V20C3 21.1 3.89 22 5 22H19C20.1 22 21 21.1 21 20V6C21 4.9 20.1 4 19 4Z" stroke="#4285F4" strokeWidth="2" fill="none"/>
+                  <path d="M16 2V6M8 2V6M3 10H21" stroke="#4285F4" strokeWidth="1.5"/>
+                  <rect x="7" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
+                  <rect x="11" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
+                  <rect x="15" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
+                  <rect x="7" y="16" width="2" height="2" rx="0.5" fill="#4285F4"/>
+                  <rect x="11" y="16" width="2" height="2" rx="0.5" fill="#4285F4"/>
+                  <circle cx="18" cy="6" r="2.5" fill="white"/>
+                  <path d="M18 4L16.5 5.5L18 7L19.5 5.5L18 4Z" fill="#4285F4"/>
+                </svg>
+                <span>Thêm vào Google Calendar</span>
+              </button>
+              <button
+                onClick={() => setIsOpenModal(false)}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                Hủy
+                Đóng
+              </button>
+            </>
+          ) : (
+            // For regular events, show all buttons
+            <>
+              <button
+                onClick={handleAddToGoogleCalendar}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2"
+              >
+                <CalendarPlus className="w-4 h-4" />
+                <span>Thêm vào Google Calendar</span>
               </button>
 
               {recurrence === "ONCE" ? (
                 <button
-                  onClick={() => setConfirmDeleteModal(true)}
-                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2"
+                  onClick={handleDelete}
+                  disabled={isDeleting || isEditing}
+                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Xóa</span>
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang xóa...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Xóa</span>
+                    </>
+                  )}
                 </button>
               ) : (
                 <button
-                  onClick={() => setConfirmDeleteModal(true)}
-                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2"
+                  onClick={handleDelete}
+                  disabled={isDeleting || isEditing}
+                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  <ChevronDown className="w-4 h-4" />
-                  <span>Xóa</span>
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang xóa...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <ChevronDown className="w-4 h-4" />
+                      <span>Xóa</span>
+                    </>
+                  )}
                 </button>
               )}
 
               <button
                 onClick={handelOnUpdate}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+                disabled={isDeleting || isEditing}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Chỉnh sửa
               </button>
             </>
-          ) : (
-            <button
-              onClick={() => setIsOpenModal(false)}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              Đóng
-            </button>
           )}
         </div>
       </div>

@@ -8,6 +8,8 @@ import mapIcon from '@/assets/img/icon/Map.svg';
 import mapOtherIcon from '@/assets/img/icon/Map-Other.svg';
 import NonCategorizedIcon from '@/assets/img/icon/Non-categorized.svg';
 import celebrationIcon from '@/assets/img/icon/celebration.svg';
+import calendarIcon from '@/assets/img/icon/calendar_today.svg';
+import locationIcon from '@/assets/img/icon/location.svg';
 
 export const EVENT_TYPE_CONFIG: EventTypeConfigMap = {
   [EventType.FUNERAL]: {
@@ -21,7 +23,7 @@ export const EVENT_TYPE_CONFIG: EventTypeConfigMap = {
     color: '#52c41a',
   },
   [EventType.BIRTHDAY]: {
-    label: 'Sinh nhật',
+    label: 'Mừng thọ',
     icon: NonCategorizedIcon,
     color: '#1677FF',
   },
@@ -32,12 +34,12 @@ export const EVENT_TYPE_CONFIG: EventTypeConfigMap = {
   },
   [EventType.MEMORIAL]: {
     label: 'Tưởng niệm',
-    icon: mapIcon,
+    icon: calendarIcon,
     color: '#722ED1',
   },
   [EventType.MEETING]: {
     label: 'Họp mặt',
-    icon: celebrationIcon,
+    icon: locationIcon,
     color: '#13C2C2',
   },
   [EventType.GATHERING]: {

@@ -344,6 +344,76 @@ class EventService {
   }
 
   /**
+   * Update an existing event with file upload (using FormData)
+   */
+  async updateEventWithFiles(eventId: string, data: {
+    name: string;
+    eventType: number;
+    startTime: string;
+    endTime: string;
+    location?: string | null;
+    locationName?: string | null;
+    recurrenceType: number;
+    ftId: string;
+    description?: string | null;
+    file?: File | null;
+    referenceEventId?: string | null;
+    address?: string | null;
+    isAllDay: boolean;
+    recurrenceEndTime?: string | null;
+    isLunar: boolean;
+    targetMemberId?: string | null;
+    isPublic: boolean;
+    memberIds: string[];
+  }): Promise<ApiResponse<ApiEventResponse>> {
+    const formData = new FormData();
+    
+    // Add all fields to FormData
+    formData.append('Name', data.name);
+    formData.append('EventType', data.eventType.toString());
+    formData.append('StartTime', data.startTime);
+    formData.append('EndTime', data.endTime);
+    formData.append('RecurrenceType', data.recurrenceType.toString());
+    formData.append('FTId', data.ftId);
+    formData.append('IsAllDay', data.isAllDay.toString());
+    formData.append('IsLunar', data.isLunar.toString());
+    formData.append('IsPublic', data.isPublic.toString());
+    
+    // Add optional fields
+    if (data.location) formData.append('Location', data.location);
+    if (data.locationName) formData.append('LocationName', data.locationName);
+    if (data.description) formData.append('Description', data.description);
+    if (data.address) formData.append('Address', data.address);
+    if (data.recurrenceEndTime) formData.append('RecurrenceEndTime', data.recurrenceEndTime);
+    if (data.targetMemberId) formData.append('TargetMemberId', data.targetMemberId);
+    if (data.referenceEventId) formData.append('ReferenceEventId', data.referenceEventId);
+    
+    // Add member IDs
+    data.memberIds.forEach(memberId => {
+      formData.append('MemberIds', memberId);
+    });
+    
+    // Add image file if provided
+    if (data.file) {
+      formData.append('File', data.file);
+      console.log('✅ Adding image file to FormData for update:', data.file.name);
+    }
+    
+    console.log('📤 Sending event update with FormData (with file)');
+    
+    const response = await apiService.put<ApiResponse<ApiEventResponse>>(
+      `/ftfamilyevent/${eventId}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response;
+  }
+
+  /**
    * Build filter parameters for API requests
    */
   private buildFilterParams(filters?: EventFilters): Record<string, any> {

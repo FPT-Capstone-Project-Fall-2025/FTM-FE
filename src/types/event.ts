@@ -101,10 +101,14 @@ export interface EventFilterRequest {
   ftId?: string;
   startDate?: string; // ISO date string
   endDate?: string;   // ISO date string
+  ftMemberId?: string; // Family tree member ID for filtering events by specific member
   eventType?: string; // EventType enum value
+  searchTerm?: string; // Search term for event name/description
   isLunar?: boolean;
-  pageIndex?: number;
-  pageSize?: number;
+  skip?: number; // Page offset (for pagination)
+  take?: number; // Page size (for pagination)
+  pageIndex?: number; // Legacy pagination
+  pageSize?: number; // Legacy pagination
 }
 
 // Base Event Interface
@@ -310,6 +314,7 @@ export interface ApiEventResponse {
   targetMemberId?: string | null;
   targetMemberName?: string | null;
   isPublic: boolean;
+  isOwner?: boolean; // Whether current user is the owner of this event
   createdOn: string;
   lastModifiedOn: string;
   eventMembers: any[];
