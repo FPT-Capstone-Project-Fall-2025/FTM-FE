@@ -12,9 +12,8 @@ import provinceService from "../../services/provinceService";
 import familyTreeService from "../../services/familyTreeService";
 import familyTreeMemberService from "../../services/familyTreeMemberService";
 import userService from "../../services/userService";
-import { Calendar, X, Image as ImageIcon } from "lucide-react";
+import { X, Image as ImageIcon } from "lucide-react";
 import { EVENT_TYPE, EVENT_TYPE_CONFIG } from "./EventTypeLabel";
-import type { ApiCreateEventPayload } from "../../types/event";
 import { toast } from 'react-toastify';
 import { formatLunarDate } from "../../utils/lunarUtils";
 
@@ -122,7 +121,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   handleCreatedEvent,
 }) => {
   const { id: familyTreeId } = useParams<{ id: string }>();
-  
+
   const [isAllDay, setIsAllDay] = useState<boolean>(false);
   const [listCity, setListCity] = useState<CityOption[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -230,7 +229,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           description: tree.description,
         }));
         setFamilyTrees(treeOptions);
-        
+
         // Auto-select the first family tree if available or use URL param
         if (familyTreeId) {
           setSelectedFamilyTreeId(familyTreeId);
@@ -254,22 +253,22 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
     const fetchMembers = async () => {
       try {
         console.log('📋 Fetching members for family tree:', selectedFamilyTreeId);
-        
+
         // Use the new member tree API
         const res: any = await familyTreeService.getMemberTree(selectedFamilyTreeId);
-        
+
         console.log('📋 Member tree API response:', res);
-        
+
         // Extract member data from the datalist
         const datalist = res?.data?.datalist || [];
-        
+
         // Map the datalist to member options
         const memberOptions: MemberOption[] = datalist.map((item: any) => ({
           id: item.value.id,
           fullname: item.value.name,
           ftId: selectedFamilyTreeId,
         }));
-        
+
         console.log('📋 Mapped members:', memberOptions.length, 'members found');
         setMembers(memberOptions);
       } catch (error) {
@@ -332,14 +331,14 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
     if (isOpenModal && eventSelected && (eventSelected as any).id && (eventSelected as any).id !== '') {
       // This is edit mode - populate form with existing data
       const event = eventSelected as any;
-      
+
       // Helper to format date for datetime-local input
       const formatDateTime = (dateValue: any) => {
         if (!dateValue) return '';
         const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
         return format(date, "yyyy-MM-dd'T'HH:mm");
       };
-      
+
       // Set basic form fields
       reset({
         name: event.name || '',
@@ -398,11 +397,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
     } else if (isOpenModal) {
       // This is create mode (new event or eventSelected.id is empty)
       const event = eventSelected as any;
-      
+
       console.log('🆕 Create mode - eventSelected:', event);
       console.log('🆕 Create mode - startTime:', event?.startTime);
       console.log('🆕 Create mode - endTime:', event?.endTime);
-      
+
       // Helper to format date for datetime-local input
       const formatDateTime = (dateValue: any) => {
         if (!dateValue) return '';
@@ -411,28 +410,28 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         console.log('📅 formatDateTime:', dateValue, '→', formatted);
         return formatted;
       };
-      
+
       // Auto-fill start and end times if not provided
       const now = new Date();
       const defaultStartTime = new Date(now);
       defaultStartTime.setDate(now.getDate() + 1); // Tomorrow
       defaultStartTime.setHours(9, 0, 0, 0); // 9:00 AM
-      
+
       const defaultEndTime = new Date(now);
       defaultEndTime.setDate(now.getDate() + 2); // Day after tomorrow
       defaultEndTime.setHours(17, 0, 0, 0); // 5:00 PM
-      
-      const startTimeValue = event?.startTime 
-        ? formatDateTime(event.startTime) 
+
+      const startTimeValue = event?.startTime
+        ? formatDateTime(event.startTime)
         : format(defaultStartTime, "yyyy-MM-dd'T'HH:mm");
-        
-      const endTimeValue = event?.endTime 
-        ? formatDateTime(event.endTime) 
+
+      const endTimeValue = event?.endTime
+        ? formatDateTime(event.endTime)
         : format(defaultEndTime, "yyyy-MM-dd'T'HH:mm");
-      
+
       console.log('🕐 Auto-filled startTime:', startTimeValue);
       console.log('🕐 Auto-filled endTime:', endTimeValue);
-      
+
       reset({
         name: event?.name || '',
         eventType: event?.eventType || 'OTHER',
@@ -452,7 +451,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       setIsAllDay(event?.isAllDay || false);
       setIsPublic(event?.isPublic !== undefined ? event.isPublic : true);
       setIsLunar(event?.isLunar || false);
-      
+
       // Set target member ID - default to '' (group event) for new events
       if (event?.targetMemberId) {
         // If matches current user's GPMemberId, show as 'self'
@@ -464,7 +463,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       } else {
         setTargetMemberId(''); // Default to group event
       }
-      
+
       setSelectedMembers([]);
       setPreviewImage(event?.imageUrl || null);
       if (!event?.imageUrl) {
@@ -490,11 +489,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       // Get the ftId (Family Tree ID)
       // Priority: selectedFamilyTreeId -> eventSelected.ftId -> URL params -> fallback
       const isEditMode = eventSelected && (eventSelected as any).id;
-      const ftId = selectedFamilyTreeId || 
-                   (isEditMode ? (eventSelected as any).ftId : null) ||
-                   familyTreeId || 
-                   "822994d5-7acd-41f8-b12b-e0a634d74440";
-      
+      const ftId = selectedFamilyTreeId ||
+        (isEditMode ? (eventSelected as any).ftId : null) ||
+        familyTreeId ||
+        "822994d5-7acd-41f8-b12b-e0a634d74440";
+
       if (!ftId) {
         toast.error("Không tìm thấy ID gia phả");
         setIsSubmit(false);
@@ -505,15 +504,15 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       // "self" → currentUserGPMemberId
       // "" → null (group event)
       // other → actual member ID
-      const actualTargetMemberId = targetMemberId === "self" 
-        ? currentUserGPMemberId 
-        : targetMemberId === "" 
-          ? null 
+      const actualTargetMemberId = targetMemberId === "self"
+        ? currentUserGPMemberId
+        : targetMemberId === ""
+          ? null
           : targetMemberId;
 
       // Get image file if selected
-      const imageFile = fileList.length > 0 && fileList[0]?.originFileObj 
-        ? fileList[0].originFileObj 
+      const imageFile = fileList.length > 0 && fileList[0]?.originFileObj
+        ? fileList[0].originFileObj
         : null;
 
       console.log('📸 Image file:', imageFile ? `${imageFile.name} (${(imageFile.size / 1024).toFixed(2)} KB)` : 'None');
@@ -521,8 +520,13 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       // Call the appropriate API
       let response;
       if (isEditMode) {
-        // For edit mode, use the JSON API (no file upload support yet)
-        const payload: ApiCreateEventPayload = {
+        // For edit mode, use the FormData API to support file upload
+        if (imageFile) {
+          setIsUploadingImage(true);
+          toast.info("Đang cập nhật sự kiện với ảnh...", { autoClose: 2000 });
+        }
+
+        response = await eventService.updateEventWithFiles((eventSelected as any).id, {
           name: data.name,
           eventType: convertEventTypeToNumber(data.eventType),
           startTime: data.startTime,
@@ -532,7 +536,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           recurrenceType: convertRecurrenceToNumber(data.recurrence),
           ftId: ftId,
           description: data.description || null,
-          imageUrl: null, // TODO: Support image update
+          file: imageFile, // Pass file directly
           referenceEventId: null,
           address: data.address || null,
           isAllDay: isAllDay,
@@ -541,16 +545,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           targetMemberId: actualTargetMemberId || null,
           isPublic: isPublic,
           memberIds: selectedMembers.map(m => m.id),
-        };
-        
-        response = await eventService.updateEventById((eventSelected as any).id, payload);
+        });
+
+        setIsUploadingImage(false);
       } else {
         // For create mode, use FormData API to support file upload
         if (imageFile) {
           setIsUploadingImage(true);
           toast.info("Đang tạo sự kiện với ảnh...", { autoClose: 2000 });
         }
-        
+
         response = await eventService.createEventWithFiles({
           name: data.name,
           eventType: convertEventTypeToNumber(data.eventType),
@@ -571,16 +575,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           isPublic: isPublic,
           memberIds: selectedMembers.map(m => m.id),
         });
-        
+
         setIsUploadingImage(false);
       }
-      
+
       console.log('API Response:', response);
 
       if (response.data && response.data.id) {
         const successMessage = isEditMode ? "Cập nhật sự kiện thành công!" : "Tạo sự kiện thành công!";
         toast.success(successMessage);
-        
+
         setIsOpenModal(false);
         if (handleCreatedEvent) {
           handleCreatedEvent();
@@ -606,10 +610,10 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   const handleUploadChange = (info: UploadChangeParam<UploadFile>, onChange?: (value: string | null) => void) => {
     console.log('Upload onChange triggered, fileList length:', info.fileList.length);
     setFileList(info.fileList);
-    
+
     // Get the latest file
     const file = info.fileList[info.fileList.length - 1];
-    
+
     if (file && file.originFileObj) {
       console.log('Processing file:', file.name, 'type:', file.type);
       const reader = new FileReader();
@@ -647,346 +651,23 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   return (
     <Modal
-      title={
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-blue-500" />
-          <span>{eventSelected ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}</span>
-        </div>
-      }
+      // title={
+      //   <div className="flex items-center gap-2">
+      //     <Calendar className="w-5 h-5 text-blue-500" />
+      //     <span>{eventSelected ?  'Tạo sự kiện mới' : 'Chỉnh sửa sự kiện'}</span>
+      //   </div>
+      // }
       open={isOpenModal}
       onCancel={handleCancel}
       footer={null}
       width={700}
       closeIcon={<X className="w-5 h-5" />}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
-        {/* Event Name */}
-        <div>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    {/* Family Tree Selection */}
+    <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tên sự kiện <span className="text-red-500">*</span>
-          </label>
-          <Controller
-            name="name"
-            control={control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                placeholder="Nhập tên sự kiện"
-                size="large"
-                status={errors.name ? 'error' : ''}
-              />
-            )}
-          />
-          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
-        </div>
-
-        {/* Event Type */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Loại sự kiện <span className="text-red-500">*</span>
-          </label>
-          <Controller
-            name="eventType"
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                placeholder="Chọn loại sự kiện"
-                size="large"
-                style={{ width: '100%' }}
-                getPopupContainer={(trigger) => trigger.parentElement || document.body}
-                options={eventTypes}
-                status={errors.eventType ? 'error' : ''}
-              />
-            )}
-          />
-          {errors.eventType && <p className="text-red-500 text-sm mt-1">{errors.eventType.message}</p>}
-        </div>
-
-        {/* All Day Checkbox */}
-        <div>
-          <Checkbox
-            checked={isAllDay}
-            onChange={(e) => setIsAllDay(e.target.checked)}
-          >
-            Sự kiện cả ngày
-          </Checkbox>
-        </div>
-
-        {/* Start Date Time */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Ngày bắt đầu <span className="text-red-500">*</span>
-          </label>
-          {isLunar && startTime && (
-            <div className="mb-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
-              🌙 {formatLunarDate(startTime)}
-            </div>
-          )}
-          <Controller
-            name="startTime"
-            control={control}
-            render={({ field }) => (
-              <div className="flex flex-col gap-1">
-                <input
-                  type="datetime-local"
-                  value={
-                    field.value 
-                      ? format(new Date(field.value), "yyyy-MM-dd'T'HH:mm")
-                      : ''
-                  }
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    const date = new Date(e.target.value);
-                    field.onChange(date.toISOString());
-                  }}
-                  min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
-                  className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                    errors.startTime ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {isLunar && field.value && (
-                  <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
-                    <div className="flex items-start gap-2 mb-1">
-                      <span className="text-gray-500">📅</span>
-                      <span><strong>Dương lịch:</strong> {format(new Date(field.value), 'dd/MM/yyyy HH:mm')}</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-blue-600">🌙</span>
-                      <span><strong className="text-blue-700">Âm lịch:</strong> {formatLunarDate(field.value)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          />
-          {errors.startTime && <p className="text-red-500 text-sm mt-1">{errors.startTime.message}</p>}
-        </div>
-
-        {/* End Date Time - Hidden when All Day is selected */}
-        {!isAllDay && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ngày kết thúc <span className="text-red-500">*</span>
-            </label>
-            {isLunar && endTime && (
-              <div className="mb-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
-                🌙 {formatLunarDate(endTime)}
-              </div>
-            )}
-            <Controller
-              name="endTime"
-              control={control}
-              render={({ field }) => (
-                <div className="flex flex-col gap-1">
-                  <input
-                    type="datetime-local"
-                    value={
-                      field.value 
-                        ? format(new Date(field.value), "yyyy-MM-dd'T'HH:mm")
-                        : ''
-                    }
-                    onChange={(e) => {
-                      if (!e.target.value) return;
-                      const date = new Date(e.target.value);
-                      field.onChange(date.toISOString());
-                    }}
-                    min={startTime ? format(new Date(startTime), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm")}
-                    className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                      errors.endTime ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {isLunar && field.value && (
-                    <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
-                      <div className="flex items-start gap-2 mb-1">
-                        <span className="text-gray-500">📅</span>
-                        <span><strong>Dương lịch:</strong> {format(new Date(field.value), 'dd/MM/yyyy HH:mm')}</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="text-blue-600">🌙</span>
-                        <span><strong className="text-blue-700">Âm lịch:</strong> {formatLunarDate(field.value)}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            />
-            {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime.message}</p>}
-          </div>
-        )}
-
-        {/* Helper text for All Day events */}
-        {isAllDay && (
-          <p className="text-xs text-gray-500 -mt-2">
-            Sự kiện cả ngày sẽ tự động kết thúc vào cuối ngày đã chọn
-          </p>
-        )}
-
-       
-
-        {/* Recurrence */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lặp lại
-          </label>
-          <Controller
-            name="recurrence"
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                size="large"
-                style={{ width: '100%' }}
-                getPopupContainer={(trigger) => trigger.parentElement || document.body}
-                options={[
-                  { label: 'Một lần', value: 'ONCE' },
-                  { label: 'Hàng ngày', value: 'DAILY' },
-                  { label: 'Hàng tuần', value: 'WEEKLY' },
-                  { label: 'Hàng tháng', value: 'MONTHLY' },
-                  { label: 'Hàng năm', value: 'YEARLY' },
-                ]}
-              />
-            )}
-          />
-        </div>
-
-        {/* Recurrence End Time (only show if recurrence is not ONCE) */}
-        {showRecurrenceEndTime && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ngày kết thúc lặp lại
-            </label>
-            <Controller
-              name="recurrenceEndTime"
-              control={control}
-              render={({ field }) => (
-                <input
-                  type="date"
-                  value={field.value ? format(new Date(field.value), 'yyyy-MM-dd') : ''}
-                  onChange={(e) => {
-                    const date = e.target.value ? new Date(e.target.value) : null;
-                    field.onChange(date ? date.toISOString() : null);
-                  }}
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              )}
-            />
-          </div>
-        )}
-
-        {/* Location Name (Province) */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tỉnh/Thành phố
-          </label>
-          <Controller
-            name="locationName"
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value || undefined}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                ref={field.ref}
-                placeholder="Chọn tỉnh/thành phố"
-                size="large"
-                style={{ width: '100%' }}
-                getPopupContainer={(trigger) => trigger.parentElement || document.body}
-                options={listCity}
-                showSearch
-                filterOption={(input, option) =>
-                  (option?.label?.toString() ?? '').toLowerCase().includes(input.toLowerCase())
-                }
-              />
-            )}
-          />
-        </div>
-
-        {/* Address */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Địa chỉ cụ thể
-          </label>
-          <Controller
-            name="address"
-            control={control}
-            render={({ field }) => (
-              <Input
-                {...field}
-                value={field.value || ''}
-                placeholder="Nhập địa chỉ cụ thể"
-                size="large"
-              />
-            )}
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Mô tả
-          </label>
-          <Controller
-            name="description"
-            control={control}
-            render={({ field }) => (
-              <Input.TextArea
-                {...field}
-                value={field.value || ''}
-                placeholder="Nhập mô tả sự kiện"
-                rows={4}
-              />
-            )}
-          />
-        </div>
-
-        {/* Image Upload */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Hình ảnh
-          </label>
-          <Controller
-            name="imageUrl"
-            control={control}
-            render={({ field }) => (
-              <>
-                <input type="hidden" {...field} value={field.value || ''} />
-                <Upload
-                  listType="picture-card"
-                  fileList={fileList}
-                  onChange={(info) => handleUploadChange(info, field.onChange)}
-                  beforeUpload={(file) => {
-                    console.log('Before upload:', file.name, 'size:', file.size, 'bytes');
-                    return false; // Prevent auto upload
-                  }}
-                  onRemove={() => {
-                    setFileList([]);
-                    setPreviewImage(null);
-                    field.onChange(null);
-                    console.log('Image removed from form');
-                    return true;
-                  }}
-                  accept="image/*"
-                  maxCount={1}
-                >
-                  {fileList.length === 0 && uploadButton}
-                </Upload>
-                {previewImage && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-gray-500">Xem trước:</p>
-                    <img src={previewImage} alt="Preview" className="w-32 h-32 object-cover rounded border" />
-                  </div>
-                )}
-              </>
-            )}
-          />
-        </div>
-
-        {/* Family Tree Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Chọn Gia phả <span className="text-red-500">*</span>
+            Sự kiện gia phả của <span className="text-red-500">*</span>
           </label>
           <Select
             value={selectedFamilyTreeId}
@@ -999,6 +680,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             placeholder="Chọn gia phả"
             getPopupContainer={(trigger) => trigger.parentElement || document.body}
             showSearch
+            disabled={!!(eventSelected && (eventSelected as any).id)} // Disable when editing
             filterOption={(input, option) =>
               (option?.label?.toString() || '').toLowerCase().includes(input.toLowerCase())
             }
@@ -1008,13 +690,13 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             }))}
           />
         </div>
-
+        
         {/* Target Member - Sự kiện cho ai */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Sự kiện cho <span className="text-red-500">*</span>
           </label>
-          
+
           {/* Radio buttons */}
           <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1030,7 +712,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
               />
               <span className="text-sm font-medium text-gray-700">👤 Sự kiện của tôi</span>
             </label>
-            
+
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
@@ -1045,7 +727,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
               <span className="text-sm font-medium text-gray-700">👥 Sự kiện gia phả</span>
             </label>
           </div>
-          
+
           <div className="mt-2 text-xs text-gray-500">
             "Sự kiện của tôi" dành riêng cho bạn, "Sự kiện gia phả" dành cho cả gia đình
           </div>
@@ -1132,25 +814,347 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           </div>
         </div>
 
-        {/* Public/Private */}
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">
-            Công khai sự kiện
+        
+        {/* Event Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tên sự kiện <span className="text-red-500">*</span>
           </label>
-          <Switch
-            checked={isPublic}
-            onChange={(checked) => setIsPublic(checked)}
+          <Controller
+            name="name"
+            control={control}
+            render={({ field }) => (
+              <Input
+                {...field}
+                placeholder="Nhập tên sự kiện"
+                size="large"
+                status={errors.name ? 'error' : ''}
+              />
+            )}
           />
+          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
         </div>
 
+        {/* Event Type */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Loại sự kiện <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="eventType"
+            control={control}
+            render={({ field }) => (
+              <Select
+                {...field}
+                placeholder="Chọn loại sự kiện"
+                size="large"
+                style={{ width: '100%' }}
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                options={eventTypes}
+                status={errors.eventType ? 'error' : ''}
+              />
+            )}
+          />
+          {errors.eventType && <p className="text-red-500 text-sm mt-1">{errors.eventType.message}</p>}
+        </div>
+
+        {/* All Day Checkbox */}
+        <div>
+          <Checkbox
+            checked={isAllDay}
+            onChange={(e) => setIsAllDay(e.target.checked)}
+          >
+            Sự kiện cả ngày
+          </Checkbox>
+        </div>
+        
         {/* Lunar Calendar */}
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">
+        <div className="flex items-center">
+          <label className="text-sm font-medium text-gray-700 mr-2">
             Sử dụng lịch âm
           </label>
           <Switch
             checked={isLunar}
             onChange={(checked) => setIsLunar(checked)}
+          />
+        </div>
+        {/* Start Date Time */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Ngày bắt đầu <span className="text-red-500">*</span>
+          </label>
+          {isLunar && startTime && (
+            <div className="mb-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
+              🌙 {formatLunarDate(startTime)}
+            </div>
+          )}
+          <Controller
+            name="startTime"
+            control={control}
+            render={({ field }) => (
+              <div className="flex flex-col gap-1">
+                <input
+                  type="datetime-local"
+                  value={
+                    field.value
+                      ? format(new Date(field.value), "yyyy-MM-dd'T'HH:mm")
+                      : ''
+                  }
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const date = new Date(e.target.value);
+                    field.onChange(date.toISOString());
+                  }}
+                  min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+                  className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${errors.startTime ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                />
+                {isLunar && field.value && (
+                  <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
+                    <div className="flex items-start gap-2 mb-1">
+                      <span className="text-gray-500">📅</span>
+                      <span><strong>Dương lịch:</strong> {format(new Date(field.value), 'dd/MM/yyyy HH:mm')}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600">🌙</span>
+                      <span><strong className="text-blue-700">Âm lịch:</strong> {formatLunarDate(field.value)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          />
+          {errors.startTime && <p className="text-red-500 text-sm mt-1">{errors.startTime.message}</p>}
+        </div>
+
+        {/* End Date Time - Hidden when All Day is selected */}
+        {!isAllDay && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày kết thúc <span className="text-red-500">*</span>
+            </label>
+            {isLunar && endTime && (
+              <div className="mb-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
+                🌙 {formatLunarDate(endTime)}
+              </div>
+            )}
+            <Controller
+              name="endTime"
+              control={control}
+              render={({ field }) => (
+                <div className="flex flex-col gap-1">
+                  <input
+                    type="datetime-local"
+                    value={
+                      field.value
+                        ? format(new Date(field.value), "yyyy-MM-dd'T'HH:mm")
+                        : ''
+                    }
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const date = new Date(e.target.value);
+                      field.onChange(date.toISOString());
+                    }}
+                    min={startTime ? format(new Date(startTime), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+                    className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${errors.endTime ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                  />
+                  {isLunar && field.value && (
+                    <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
+                      <div className="flex items-start gap-2 mb-1">
+                        <span className="text-gray-500">📅</span>
+                        <span><strong>Dương lịch:</strong> {format(new Date(field.value), 'dd/MM/yyyy HH:mm')}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-blue-600">🌙</span>
+                        <span><strong className="text-blue-700">Âm lịch:</strong> {formatLunarDate(field.value)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            />
+            {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime.message}</p>}
+          </div>
+        )}
+
+        {/* Helper text for All Day events */}
+        {isAllDay && (
+          <p className="text-xs text-gray-500 -mt-2">
+            Sự kiện cả ngày sẽ tự động kết thúc vào cuối ngày đã chọn
+          </p>
+        )}
+
+
+
+        {/* Recurrence */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Lặp lại
+          </label>
+          <Controller
+            name="recurrence"
+            control={control}
+            render={({ field }) => (
+              <Select
+                {...field}
+                size="large"
+                style={{ width: '100%' }}
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                options={[
+                  { label: 'Một lần', value: 'ONCE' },
+                  { label: 'Hàng ngày', value: 'DAILY' },
+                  { label: 'Hàng tuần', value: 'WEEKLY' },
+                  { label: 'Hàng tháng', value: 'MONTHLY' },
+                  { label: 'Hàng năm', value: 'YEARLY' },
+                ]}
+              />
+            )}
+          />
+        </div>
+
+        {/* Recurrence End Time (only show if recurrence is not ONCE) */}
+        {showRecurrenceEndTime && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày kết thúc lặp lại
+            </label>
+            <Controller
+              name="recurrenceEndTime"
+              control={control}
+              render={({ field }) => (
+                <input
+                  type="date"
+                  value={field.value ? format(new Date(field.value), 'yyyy-MM-dd') : ''}
+                  onChange={(e) => {
+                    const date = e.target.value ? new Date(e.target.value) : null;
+                    field.onChange(date ? date.toISOString() : null);
+                  }}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              )}
+            />
+          </div>
+        )}
+
+        {/* Location Name (Province) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tỉnh/Thành phố
+          </label>
+          <Controller
+            name="locationName"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value || undefined}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                placeholder="Chọn tỉnh/thành phố"
+                size="large"
+                style={{ width: '100%' }}
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                options={listCity}
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.label?.toString() ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+              />
+            )}
+          />
+        </div>
+
+        {/* Address */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Địa chỉ
+          </label>
+          <Controller
+            name="address"
+            control={control}
+            render={({ field }) => (
+              <Input
+                {...field}
+                value={field.value || ''}
+                placeholder="Nhập địa chỉ"
+                size="large"
+              />
+            )}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Mô tả
+          </label>
+          <Controller
+            name="description"
+            control={control}
+            render={({ field }) => (
+              <Input.TextArea
+                {...field}
+                value={field.value || ''}
+                placeholder="Nhập mô tả sự kiện"
+                rows={4}
+              />
+            )}
+          />
+        </div>
+
+        {/* Image Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Hình ảnh
+          </label>
+          <Controller
+            name="imageUrl"
+            control={control}
+            render={({ field }) => (
+              <>
+                <input type="hidden" {...field} value={field.value || ''} />
+                <Upload
+                  listType="picture-card"
+                  fileList={fileList}
+                  onChange={(info) => handleUploadChange(info, field.onChange)}
+                  beforeUpload={(file) => {
+                    console.log('Before upload:', file.name, 'size:', file.size, 'bytes');
+                    return false; // Prevent auto upload
+                  }}
+                  onRemove={() => {
+                    setFileList([]);
+                    setPreviewImage(null);
+                    field.onChange(null);
+                    console.log('Image removed from form');
+                    return true;
+                  }}
+                  accept="image/*"
+                  maxCount={1}
+                >
+                  {fileList.length === 0 && uploadButton}
+                </Upload>
+                {previewImage && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-gray-500">Xem trước:</p>
+                    <img src={previewImage} alt="Preview" className="w-32 h-32 object-cover rounded border" />
+                  </div>
+                )}
+              </>
+            )}
+          />
+        </div>
+
+
+        {/* Public/Private */}
+        <div className="flex items-center">
+          <label className="text-sm font-medium text-gray-700 mr-2">
+            Công khai sự kiện
+          </label>
+          <Switch
+            checked={isPublic}
+            onChange={(checked) => setIsPublic(checked)}
           />
         </div>
 
@@ -1169,10 +1173,10 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             disabled={isSubmit || isUploadingImage}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmit || isUploadingImage 
-              ? (fileList.length > 0 ? '📤 Đang tạo sự kiện với ảnh...' : '💾 Đang lưu...') 
-              : eventSelected 
-                ? 'Cập nhật' 
+            {isSubmit || isUploadingImage
+              ? (fileList.length > 0 ? '📤 Đang tạo sự kiện với ảnh...' : '💾 Đang lưu...')
+              : eventSelected
+                ? 'Cập nhật'
                 : 'Tạo sự kiện'}
           </button>
         </div>

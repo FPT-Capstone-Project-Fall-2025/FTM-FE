@@ -5,16 +5,18 @@ import interactionPlugin from '@fullcalendar/interaction';
 import moment from "moment";
 import "moment/locale/vi";
 // import "moment-lunar"; // Temporarily disabled due to compatibility issues
-import viLocale from "@fullcalendar/core/locales/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
+import { processRecurringEvents } from "../../utils/recurringEventUtils";
+import { vietnameseCalendarLocale, commonVietnameseCalendarConfig } from "../../utils/vietnameseCalendarConfig";
 import './Calendar.css';
 
 // Add lunar stub to moment
 addLunarToMoment(moment);
 
+// Configure moment for Vietnamese (already done in vietnameseCalendarConfig, but ensure it's set)
 moment.locale("vi");
 moment.updateLocale("vi", { week: { dow: 1, doy: 4 } });
 
@@ -55,19 +57,19 @@ const DayCalendar = ({
     try {
       let allEvents: any[] = [];
 
+      // Calculate start and end dates for the day view (outside conditional)
+      const currentDay = moment(filters.date);
+      const dayStart = currentDay.clone().startOf('day');
+      const dayEnd = currentDay.clone().endOf('day');
+      
+      const startDate = dayStart.toDate();
+      const endDate = dayEnd.toDate();
+      
+      console.log('📅 DayCalendar - Date range:', startDate, 'to', endDate);
+
       // Check if family groups are selected
       if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
         console.log('📅 DayCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
-        
-        // Calculate start and end dates for the day view
-        const currentDay = moment(filters.date);
-        const dayStart = currentDay.clone().startOf('day');
-        const dayEnd = currentDay.clone().endOf('day');
-        
-        const startDate = dayStart.toDate();
-        const endDate = dayEnd.toDate();
-        
-        console.log('📅 DayCalendar - Date range:', startDate, 'to', endDate);
         
         // Fetch events for each selected family group using getEventsByGp API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
@@ -107,8 +109,34 @@ const DayCalendar = ({
         allEvents = [];
       }
 
+      // Process recurring events to generate instances within the day view
+      const eventsWithRecurrence = allEvents.map((event: any) => {
+        // Normalize recurrenceType first
+        let normalizedRecurrence = 'ONCE';
+        if (event.recurrenceType) {
+          if (typeof event.recurrenceType === 'string') {
+            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
+              ? 'ONCE' 
+              : event.recurrenceType.toUpperCase();
+          } else if (typeof event.recurrenceType === 'number') {
+            normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
+              : event.recurrenceType === 1 ? 'DAILY'
+              : event.recurrenceType === 2 ? 'WEEKLY'
+              : event.recurrenceType === 3 ? 'MONTHLY'
+              : event.recurrenceType === 4 ? 'YEARLY'
+              : 'ONCE';
+          }
+        }
+        return { ...event, recurrence: normalizedRecurrence };
+      });
+      
+      // Generate recurring event instances for the day view
+      const expandedEvents = processRecurringEvents(eventsWithRecurrence, startDate, endDate);
+      
+      console.log('📅 DayCalendar - Expanded events (with recurring):', expandedEvents.length);
+
       // @ts-ignore - API response needs proper type definition
-      const mappedEvents = allEvents
+      const mappedEvents = expandedEvents
         .filter((event: any) => {
           // Normalize eventType to uppercase for comparison
           const normalizedEventType = typeof event.eventType === 'string' 
@@ -164,15 +192,19 @@ const DayCalendar = ({
           // Extract member names from eventMembers array
           const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
           
-          const start = moment(event.startTime);
-          const end = moment(event.endTime);
+          // Use start/end from recurring instances if available, otherwise parse from startTime/endTime
+          const eventStartTime = event.start || event.startTime;
+          const eventEndTime = event.end || event.endTime;
+          
+          const start = moment(eventStartTime);
+          const end = moment(eventEndTime);
           const durationDays = end.diff(start, "days", true);
           const isAllDay =
             event.isAllDay ||
             durationDays >= 1 ||
             (start.format("HH:mm:ss") === "00:00:00" && end.format("HH:mm:ss") === "23:59:59");
 
-          // Nếu allDay và kéo dài >1 ngày, map sang date-only và cho end = ngày kế tiếp
+          // Format dates for FullCalendar
           let startStr = start.format("YYYY-MM-DDTHH:mm:ss");
           let endStr = end.format("YYYY-MM-DDTHH:mm:ss");
           if (isAllDay) {
@@ -224,7 +256,7 @@ const DayCalendar = ({
       console.error("Error fetching events:", error);
       setEvents([]);
     }
-  }, [eventFilters]);
+  }, [filterEvents, eventFilters]);
 
   useEffect(() => {
     const updatedFilters = {
@@ -336,32 +368,27 @@ const DayCalendar = ({
         ref={calendarRef}
         plugins={[timeGridPlugin, interactionPlugin]}
         initialView="timeGridDay"
-        locale={viLocale}
-        headerToolbar={false}
+        locale={vietnameseCalendarLocale}
+        headerToolbar={commonVietnameseCalendarConfig.headerToolbar}
         events={events}
-        height="auto"
-        contentHeight="auto"
-        slotMinTime="00:00:00"
-        slotMaxTime="24:00:00"
-        scrollTime="08:00:00"
-        slotDuration="01:00:00"
-        slotLabelInterval="01:00"
-        slotLabelFormat={{
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-          meridiem: false,
-        }}
+        height={commonVietnameseCalendarConfig.height}
+        contentHeight={commonVietnameseCalendarConfig.contentHeight}
+        slotMinTime={commonVietnameseCalendarConfig.slotMinTime}
+        slotMaxTime={commonVietnameseCalendarConfig.slotMaxTime}
+        scrollTime={commonVietnameseCalendarConfig.scrollTime}
+        slotDuration={commonVietnameseCalendarConfig.slotDuration}
+        slotLabelInterval={commonVietnameseCalendarConfig.slotLabelInterval}
+        slotLabelFormat={commonVietnameseCalendarConfig.slotLabelFormat}
         eventContent={renderEventContent}
         eventClick={handleEventClick}
         dateClick={handleDateClick}
         dayHeaderContent={renderDayHeaderContent}
-        selectable={true}
+        selectable={commonVietnameseCalendarConfig.selectable}
         select={handleSelect}
-        nowIndicator={true}
-        allDaySlot={true}
-        allDayText="Cả ngày"
-        editable={false}
+        nowIndicator={commonVietnameseCalendarConfig.nowIndicator}
+        allDaySlot={commonVietnameseCalendarConfig.allDaySlot}
+        allDayText={commonVietnameseCalendarConfig.allDayText}
+        editable={commonVietnameseCalendarConfig.editable}
       />
     </div>
   );

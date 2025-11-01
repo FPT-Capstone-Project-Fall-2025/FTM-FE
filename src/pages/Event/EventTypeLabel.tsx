@@ -1,41 +1,64 @@
+import { EventType } from '@/types/event';
 import heartHandshakeIcon from '@/assets/img/icon/heart-handshake.svg';
 import mapIcon from '@/assets/img/icon/Map.svg';
 import mapOtherIcon from '@/assets/img/icon/Map-Other.svg';
 import NonCategorizedIcon from '@/assets/img/icon/Non-categorized.svg';
 import celebrationIcon from '@/assets/img/icon/celebration.svg';
+import calendarIcon from '@/assets/img/icon/calendar_today.svg';
+import locationIcon from '@/assets/img/icon/location.svg';
 
+// Re-export EventType for convenience
+export type { EventType };
+
+// Helper object to access enum values as strings
 export const EVENT_TYPE = {
-  FUNERAL: "FUNERAL",
-  WEDDING: "WEDDING",
-  BIRTHDAY: "BIRTHDAY",
-  HOLIDAY: "HOLIDAY",
-  OTHER: "OTHER",
+  FUNERAL: EventType.FUNERAL,
+  WEDDING: EventType.WEDDING,
+  BIRTHDAY: EventType.BIRTHDAY,
+  HOLIDAY: EventType.HOLIDAY,
+  MEMORIAL: EventType.MEMORIAL,
+  MEETING: EventType.MEETING,
+  GATHERING: EventType.GATHERING,
+  OTHER: EventType.OTHER,
 } as const;
 
-export type EventType = typeof EVENT_TYPE[keyof typeof EVENT_TYPE];
-
 export const EVENT_TYPE_CONFIG: Record<EventType, { label: string; icon: string; color: string }> = {
-  FUNERAL: {
+  [EventType.FUNERAL]: {
     label: "Ma chay, giỗ",
     icon: mapIcon,
     color: "#9B51E0",
   },
-  WEDDING: {
+  [EventType.WEDDING]: {
     label: "Cưới hỏi",
     icon: heartHandshakeIcon,
     color: "#52c41a",
   },
-  BIRTHDAY: {
-    label: "Sinh nhật",
+  [EventType.BIRTHDAY]: {
+    label: "Mừng thọ",
     icon: NonCategorizedIcon,
     color: "#1677FF",
   },
-  HOLIDAY: {
+  [EventType.HOLIDAY]: {
     label: "Ngày lễ",
     icon: celebrationIcon,
     color: "#fa8c16",
   },
-  OTHER: {
+  [EventType.MEMORIAL]: {
+    label: "Tưởng niệm",
+    icon: calendarIcon,
+    color: "#722ED1",
+  },
+  [EventType.MEETING]: {
+    label: "Họp mặt",
+    icon: locationIcon,
+    color: "#13C2C2",
+  },
+  [EventType.GATHERING]: {
+    label: "Sum họp",
+    icon: heartHandshakeIcon,
+    color: "#EB2F96",
+  },
+  [EventType.OTHER]: {
     label: "Khác",
     icon: mapOtherIcon,
     color: "#FAAD14",
@@ -59,7 +82,7 @@ export default function EventTypeLabel({
   allDay = false,
   durationDays = 1,
 }: EventTypeLabelProps) {
-  const { icon, color } = EVENT_TYPE_CONFIG[type as EventType] || EVENT_TYPE_CONFIG.OTHER;
+  const { icon, color } = EVENT_TYPE_CONFIG[type as EventType] || EVENT_TYPE_CONFIG[EventType.OTHER];
 
   return (
     <div

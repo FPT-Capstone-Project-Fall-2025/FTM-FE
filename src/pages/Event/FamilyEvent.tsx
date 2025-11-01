@@ -371,7 +371,14 @@ export default function FamilyEvent() {
               <GPEventInfoModal
                 isOpenModal={isOpenGPEventInfoModal}
                 setIsOpenModal={setIsOpenGPEventInfoModal}
-                defaultValues={eventSelected}
+                defaultValues={{
+                  ...eventSelected,
+                  onEventDeleted: () => {
+                    setReload((prev) => !prev);
+                    setEventSelected(null);
+                    setIsOpenGPEventInfoModal(false);
+                  },
+                }}
                 setConfirmDeleteModal={() => {}}
                 setConfirmDeleteAllModal={() => {}}
                 setIsOpenGPEventDetailsModal={setIsOpenGPEventDetailsModal}

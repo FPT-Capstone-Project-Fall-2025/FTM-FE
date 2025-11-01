@@ -79,6 +79,8 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   } | null>(null);
   const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState<boolean>(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // Toggle checkbox selection
   const toggleCheckbox = <T,>(list: T[], setList: (value: T[]) => void, value: T) => {
@@ -108,13 +110,38 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
           lon: p.lon,
         }));
         const fallback = MOCK_CITIES;
-        setListCity(listCityMapped.length > 0 ? listCityMapped : fallback);
+        const finalList = listCityMapped.length > 0 ? listCityMapped : fallback;
+        setListCity(finalList);
         setInputValue("");
         setEventLocation("");
+
+        // Set default to Đà Nẵng
+        const daNangCity = finalList.find(c => 
+          c.name.toLowerCase().includes('đà nẵng') || 
+          c.name.toLowerCase().includes('da nang') ||
+          c.code === 'dn'
+        );
+        
+        if (daNangCity) {
+          setEventLocation(daNangCity.code);
+          // Fetch weather for Đà Nẵng by default
+          setTimeout(() => {
+            fetchWeatherForCity(daNangCity);
+          }, 500);
+        }
       } catch (error) {
         console.error("Error preparing sidebar data:", error);
         // Use fallback on error
         setListCity(MOCK_CITIES);
+        
+        // Set default to Đà Nẵng from MOCK_CITIES
+        const daNangCity = MOCK_CITIES.find(c => c.code === 'dn');
+        if (daNangCity) {
+          setEventLocation(daNangCity.code);
+          setTimeout(() => {
+            fetchWeatherForCity(daNangCity);
+          }, 500);
+        }
       }
     };
     fetchData();
@@ -128,14 +155,14 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
       try {
         const response: any = await familyTreeService.getAllFamilyTrees(1, 100);
         const familyTrees = response?.data?.data?.data || response?.data?.data || [];
-        
+
         const mappedGps: GPItem[] = familyTrees.map((tree: any) => ({
           label: tree.name || 'Gia phả',
           value: tree.id,
         }));
-        
+
         setEventGp(mappedGps);
-        
+
         // Auto-select all family groups on initialization
         const allGroupIds = mappedGps.map(gp => gp.value);
         setEventGroups(allGroupIds);
@@ -171,6 +198,176 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
     },
     itemToString: (item) => (item ? item.name : ""),
   });
+
+  // Get current location using Geolocation API
+  const getCurrentLocation = async (): Promise<{ lat: number; lon: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setLocationError('Trình duyệt không hỗ trợ Geolocation');
+        resolve(null);
+        return;
+      }
+
+      setLocationLoading(true);
+      setLocationError(null);
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocationLoading(false);
+          resolve({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+          });
+        },
+        (error) => {
+          setLocationLoading(false);
+          console.error('Geolocation error:', error);
+          let errorMessage = 'Không thể lấy vị trí hiện tại';
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = 'Quyền truy cập vị trí bị từ chối';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = 'Thông tin vị trí không khả dụng';
+              break;
+            case error.TIMEOUT:
+              errorMessage = 'Hết thời gian chờ lấy vị trí';
+              break;
+          }
+          setLocationError(errorMessage);
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        }
+      );
+    });
+  };
+
+  // Fetch weather by coordinates
+  const fetchWeatherByCoordinates = async (lat: number, lon: number) => {
+    setWeather(null);
+    setWeatherError(null);
+    setWeatherLoading(true);
+
+    try {
+      const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
+      if (!apiKey) {
+        setWeatherError('Missing weather API key');
+        setWeatherLoading(false);
+        return;
+      }
+
+      // Get city name from reverse geocoding
+      const reverseGeoUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=5&appid=${apiKey}`;
+      const reverseGeoRes = await fetch(reverseGeoUrl);
+      let cityName = '';
+      let stateName = '';
+      
+      if (reverseGeoRes.ok) {
+        const reverseGeoData = await reverseGeoRes.json();
+        if (Array.isArray(reverseGeoData) && reverseGeoData.length > 0) {
+          const location = reverseGeoData[0];
+          cityName = location.name || '';
+          stateName = location.state || '';
+        }
+      }
+
+      // Fetch weather data
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}&lang=vi`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Weather fetch failed: ${res.status}`);
+
+      const data = await res.json();
+      const icon = data.weather?.[0]?.icon;
+      const description = data.weather?.[0]?.description || '';
+      const temp = typeof data.main?.temp === 'number' ? data.main.temp : NaN;
+
+      const displayCityName = cityName || data.name || 'Vị trí hiện tại';
+      
+      setWeather({
+        temp,
+        icon: icon ? `https://openweathermap.org/img/wn/${icon}@2x.png` : '',
+        description,
+        cityName: displayCityName,
+      });
+
+      // Update event location to show in dropdown (only if listCity is loaded)
+      if (listCity.length > 0) {
+        let foundCity: CityItem | undefined;
+        
+        // First try: exact name match
+        if (cityName) {
+          foundCity = listCity.find(c => {
+            const cityNameLower = cityName.toLowerCase().trim();
+            const cityListNameLower = c.name.toLowerCase().trim();
+            // Exact match
+            if (cityNameLower === cityListNameLower) return true;
+            // Remove common suffixes like "Thành phố", "Tỉnh", etc.
+            const cleanCityName = cityNameLower.replace(/^(thành phố|tỉnh|thị xã|huyện)\s+/i, '').trim();
+            const cleanListName = cityListNameLower.replace(/^(thành phố|tỉnh|thị xã|huyện)\s+/i, '').trim();
+            if (cleanCityName === cleanListName) return true;
+            // Partial match (contains)
+            return cityNameLower.includes(cityListNameLower) || cityListNameLower.includes(cityNameLower);
+          });
+        }
+        
+        // Second try: find by coordinates (find nearest city)
+        if (!foundCity) {
+          let nearestCity: CityItem | undefined;
+          let nearestDistance = Infinity;
+          
+          listCity.forEach(city => {
+            if (typeof city.lat === 'number' && typeof city.lon === 'number') {
+              const distance = Math.sqrt(
+                Math.pow(city.lat - lat, 2) + Math.pow(city.lon - lon, 2)
+              );
+              
+              if (distance < nearestDistance && distance < 0.5) { // Within ~50km
+                nearestDistance = distance;
+                nearestCity = city;
+              }
+            }
+          });
+          
+          foundCity = nearestCity;
+        }
+        
+        // Third try: find by state/province name if available
+        if (!foundCity && stateName) {
+          foundCity = listCity.find(c => {
+            const stateNameLower = stateName.toLowerCase().trim();
+            const cityNameLower = c.name.toLowerCase().trim();
+            return cityNameLower.includes(stateNameLower) || stateNameLower.includes(cityNameLower);
+          });
+        }
+        
+        if (foundCity) {
+          setEventLocation(foundCity.code);
+          console.log('✅ Tự động chọn dropdown:', foundCity.name, '(Code:', foundCity.code + ')');
+        } else {
+          console.log('⚠️ Không tìm thấy thành phố khớp trong danh sách. Tên từ API:', cityName);
+        }
+      } else {
+        console.log('⚠️ Danh sách thành phố chưa được load');
+      }
+    } catch (err: any) {
+      console.error('Error fetching weather by coordinates:', err);
+      setWeatherError(err?.message || 'Lỗi khi lấy thời tiết');
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
+  // Handle use current location button click
+  const handleUseCurrentLocation = async () => {
+    const location = await getCurrentLocation();
+    if (location) {
+      await fetchWeatherByCoordinates(location.lat, location.lon);
+    }
+  };
 
   // Fetch weather data
   const fetchWeatherForCity = async (city: CityItem) => {
@@ -244,7 +441,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         <Plus className="w-5 h-5" />
         <span>Thêm sự kiện mới</span>
       </button>
-      
+
       {/* Event Type Section */}
       <div>
         <div
@@ -425,24 +622,48 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
             <div className="text-sm text-gray-500">Chọn địa điểm để xem thời tiết</div>
           )}
         </div>
-        {/* Province dropdown */}
-        <div className="relative">
-          <select
-            value={eventLocation}
-            onChange={e => {
-              const code = e.target.value;
-              setEventLocation(code);
-              const found = listCity.find(x => x.code === code);
-              if (found) fetchWeatherForCity(found);
-            }}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+ 
+        
+        {/* Province dropdown and location button in one row */}
+        <div className="flex gap-2 mb-2">
+          <div className="relative flex-1">
+            <select
+              value={eventLocation}
+              onChange={e => {
+                const code = e.target.value;
+                setEventLocation(code);
+                const found = listCity.find(x => x.code === code);
+                if (found) fetchWeatherForCity(found);
+              }}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="">Chọn địa điểm...</option>
+              {listCity.map(city => (
+                <option key={city.code} value={city.code}>{city.name}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Use current location button */}
+          <button
+            onClick={handleUseCurrentLocation}
+            disabled={locationLoading}
+            className="px-2 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            title={locationLoading ? 'Đang lấy vị trí...' : 'Sử dụng vị trí hiện tại'}
           >
-            <option value="">Chọn địa điểm...</option>
-            {listCity.map(city => (
-              <option key={city.code} value={city.code}>{city.name}</option>
-            ))}
-          </select>
+            {locationLoading ? (
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <MapPin className="w-4 h-4" />
+            )}
+          </button>
         </div>
+        
+        {/* Location error message */}
+        {locationError && (
+          <div className="text-xs text-red-500 mb-2">{locationError}</div>
+        )}
       </div>
 
       {/* Statistics */}

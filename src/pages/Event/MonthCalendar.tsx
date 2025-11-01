@@ -4,13 +4,13 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from '@fullcalendar/interaction';
 import moment from "moment";
 import "moment/locale/vi";
-import viLocale from "@fullcalendar/core/locales/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import { processRecurringEvents } from "../../utils/recurringEventUtils";
 import { getHolidaysForYear, formatHolidayForCalendar } from "../../utils/vietnameseHolidays";
+import { vietnameseCalendarLocale, commonVietnameseCalendarConfig, formatVietnameseDateTime } from "../../utils/vietnameseCalendarConfig";
 import type { EventClickArg, EventContentArg, DayCellContentArg } from '@fullcalendar/core';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import './Calendar.css';
@@ -18,6 +18,7 @@ import './Calendar.css';
 // Add lunar stub to moment
 addLunarToMoment(moment);
 
+// Configure moment for Vietnamese (already done in vietnameseCalendarConfig, but ensure it's set)
 moment.locale("vi");
 moment.updateLocale("vi", { week: { dow: 1, doy: 4 } });
 
@@ -244,8 +245,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
             id: event.id,
             name: event.name,
             title: event.name,
-            start: event.startTime,
-            end: event.endTime,
+            // Use start/end from recurring instances if available, otherwise use startTime/endTime from API
+            start: event.start || event.startTime,
+            end: event.end || event.endTime,
             eventType: normalizedEventType,
             type: normalizedEventType,
             allDay: event.isAllDay || false,
@@ -510,9 +512,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
         plugins={[dayGridPlugin, interactionPlugin]}
         initialView="dayGridMonth"
         initialDate={initialDate}
-        locale={viLocale}
-        firstDay={1}
-        headerToolbar={false}
+        locale={vietnameseCalendarLocale}
+        firstDay={commonVietnameseCalendarConfig.firstDay}
+        headerToolbar={commonVietnameseCalendarConfig.headerToolbar}
         dayHeaderFormat={{
           weekday: 'short'
         }}
@@ -524,14 +526,14 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
         dateClick={handleDateClick}
         dayCellContent={renderDayCellContent}
         dayCellClassNames={dayCellClassNames}
-        height="auto"
-        contentHeight="auto"
-        selectable={true}
+        height={commonVietnameseCalendarConfig.height}
+        contentHeight={commonVietnameseCalendarConfig.contentHeight}
+        selectable={commonVietnameseCalendarConfig.selectable}
         select={handleSelect}
         selectAllow={selectAllow}
-        selectMirror={true}
-        unselectAuto={true}
-        editable={false}
+        selectMirror={commonVietnameseCalendarConfig.selectMirror}
+        unselectAuto={commonVietnameseCalendarConfig.unselectAuto}
+        editable={commonVietnameseCalendarConfig.editable}
       />
 
       {/* Hover Tooltip */}
@@ -548,7 +550,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-200">
               <CalendarIcon className="w-4 h-4 text-blue-500" />
               <span className="font-semibold text-sm text-gray-900">
-                {moment(hoveredDay.date).format("dddd, DD/MM/YYYY")}
+                {formatVietnameseDateTime(hoveredDay.date, 'dddd, DD/MM/YYYY')}
               </span>
             </div>
 

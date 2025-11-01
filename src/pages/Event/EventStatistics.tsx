@@ -2,7 +2,10 @@ import React, { useEffect, useState, useCallback } from "react";
 import eventService from "../../services/eventService";
 import familyTreeService from "../../services/familyTreeService";
 import moment from "moment";
+import "moment/locale/vi";
 import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
+
+moment.locale("vi");
 
 const unitMap: { [key: string]: string } = {
   days: "ngày",
@@ -316,27 +319,24 @@ const EventStatistics: React.FC = () => {
                 // Use real-time countdown state
                 const value = countdown[seg as keyof typeof countdown] || 0;
                 const isCurrent = idx === 1;
-                const isTop = idx === 0;
-                const isBottom = idx === 2;
+                
+                // Only show current segment, hide others
+                if (!isCurrent) {
+                  return null;
+                }
                 
                 return (
                   <div
                     key={seg}
                     onClick={() => handleSegmentClick(seg)}
-                    className={`cursor-pointer transition-all duration-300 ${
-                      isCurrent
-                        ? 'text-center scale-100'
-                        : 'text-center scale-75 opacity-60'
-                    } ${isTop ? '-mb-2' : ''} ${isBottom ? '-mt-2' : ''}`}
+                    className="cursor-pointer transition-all duration-300 text-center scale-100"
                   >
-                    <div className={`${isCurrent ? 'text-5xl' : 'text-2xl'} font-bold text-white leading-none`}>
+                    <div className="text-5xl font-bold text-white leading-none">
                       {value}
                     </div>
-                    {isCurrent && (
-                      <div className="mt-1 bg-white/30 backdrop-blur-sm px-2 py-0.5 rounded-full inline-block">
-                        <span className="text-white text-xs font-medium">{unitMap[seg]}</span>
-                      </div>
-                    )}
+                    <div className="mt-1 bg-white/30 backdrop-blur-sm px-2 py-0.5 rounded-full inline-block">
+                      <span className="text-white text-xs font-medium">{unitMap[seg]}</span>
+                    </div>
                   </div>
                 );
               })}
