@@ -38,6 +38,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [selectedFileIndex, setSelectedFileIndex] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const avatarInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const fetchMemberDetail = async () => {
@@ -45,12 +46,33 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             setLoading(true);
             setError(null);
             try {
-                const { data } = await familyTreeService.getFamilyTreeMemberById(
-                    ftId,
-                    memberId
-                );
-                setMember(data);
-                setEditedMember({ ...data });
+                const { data } = await familyTreeService.getFamilyTreeMemberById(ftId, memberId);
+
+                // Extract avatar & other files
+                let avatarFilePath: string | null = null;
+                let otherFiles = data.ftMemberFiles || [];
+
+                if (Array.isArray(data.ftMemberFiles)) {
+                    const avatarFile = data.ftMemberFiles.find(
+                        (f: any) =>
+                            typeof f.title === 'string' &&
+                            f.title.trim().toLowerCase() === `avatar${data.id}`.toLowerCase()
+                    );
+
+                    if (avatarFile) {
+                        avatarFilePath = avatarFile.filePath || null;
+                        otherFiles = data.ftMemberFiles.filter((f: any) => f !== avatarFile);
+                    }
+                }
+
+                const processedData = {
+                    ...data,
+                    picture: avatarFilePath || data.picture || null,
+                    ftMemberFiles: otherFiles,
+                };
+
+                setMember(processedData);
+                setEditedMember({ ...processedData });
             } catch (err) {
                 console.error(err);
                 setError('Không thể tải thông tin thành viên');
@@ -58,8 +80,43 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                 setLoading(false);
             }
         };
+
         fetchMemberDetail();
     }, [ftId, memberId]);
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !editedMember || !memberId) return;
+
+        // Revoke previous blob URL if any
+        if (editedMember.picture?.startsWith('blob:')) {
+            URL.revokeObjectURL(editedMember.picture);
+        }
+
+        // Create new avatar file object
+        const newUrl = URL.createObjectURL(file);
+        const avatarFile: FileProps = {
+            title: `Avatar${memberId}`,
+            description: '',
+            fileType: file.type,
+            file,
+            thumbnail: newUrl,
+            content: '',
+        };
+
+        // Replace existing avatar in ftMemberFiles or append it
+        const updatedFiles = editedMember.ftMemberFiles.filter(
+            (f) => f.title !== `Avatar${memberId}`
+        );
+        updatedFiles.push(avatarFile);
+
+        setEditedMember((prev) =>
+            prev ? { ...prev, picture: newUrl, ftMemberFiles: updatedFiles } : prev
+        );
+
+        // Reset input
+        if (avatarInputRef.current) avatarInputRef.current.value = '';
+    };
 
     const startEdit = () => {
         setIsEditing(true);
@@ -67,6 +124,10 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
     };
 
     const cancelEdit = () => {
+        // Revoke blob URLs
+        if (editedMember?.picture?.startsWith('blob:')) {
+            URL.revokeObjectURL(editedMember.picture);
+        }
         editedMember?.ftMemberFiles.forEach((f) => {
             if (f.thumbnail?.startsWith('blob:')) {
                 URL.revokeObjectURL(f.thumbnail);
@@ -78,40 +139,29 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
     };
 
     const handleSave = async () => {
-        if (!ftId || !member || !editedMember) return;
-
+        if (!ftId || !member || !editedMember || !memberId) return;
+    
         setLoading(true);
         setError(null);
-
+    
         try {
-            const processedFiles: FileProps[] = await Promise.all(
-                editedMember.ftMemberFiles.map(async (fileItem) => {
-                    if (fileItem.file instanceof File) {
-                        // const { data } = await familyTreeService.uploadFamilyMemberFile(
-                        //     ftId,
-                        //     editedMember.id,
-                        //     fileItem.file
-                        // );
-
-                        // if (fileItem.thumbnail?.startsWith('blob:')) {
-                        //     URL.revokeObjectURL(fileItem.thumbnail);
-                        // }
-
-                        // return {
-                        //     ...fileItem,
-                        //     file: data.file,
-                        //     thumbnail: data.thumbnail ?? null,
-                        //     fileType: data.fileType,
-                        // };
-                    }
-                    return fileItem;
-                })
-            );
-
+            // Detect field changes (excluding files, id, picture)
+            const excludedKeys = ['ftMemberFiles', 'id', 'picture', 'avatar'] as const;
+            const fieldDiff: Partial<FamilyNode> = {};
+    
+            for (const key in member) {
+                if (excludedKeys.includes(key as any)) continue;
+                const k = key as keyof Omit<FamilyNode, 'ftMemberFiles' | 'id' | 'picture' | 'avatar'>;
+                if (JSON.stringify(member[k]) !== JSON.stringify(editedMember[k])) {
+                    (fieldDiff as any)[k] = editedMember[k];
+                }
+            }
+    
+            // Detect media file changes (including avatar in ftMemberFiles)
             const originalFiles = member.ftMemberFiles || [];
             const hasFileChanges =
-                processedFiles.length !== originalFiles.length ||
-                processedFiles.some((edited, idx) => {
+                editedMember.ftMemberFiles.length !== originalFiles.length ||
+                editedMember.ftMemberFiles.some((edited, idx) => {
                     const original = originalFiles[idx];
                     if (!original) return true;
                     return (
@@ -123,43 +173,88 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                         edited.content !== original.content
                     );
                 });
-
-            const excludedKeys = ['ftMemberFiles', 'id', 'picture'] as const;
-            const fieldDiff: Partial<FamilyNode> = {};
-
-            for (const key in member) {
-                if (excludedKeys.includes(key as any)) continue;
-                const k = key as keyof Omit<FamilyNode, 'ftMemberFiles' | 'id' | 'picture'>;
-                if (JSON.stringify(member[k]) !== JSON.stringify(editedMember[k])) {
-                    (fieldDiff as any)[k] = editedMember[k];
-                }
-            }
-
+    
+            // Detect avatar change
+            const hasAvatarChange = editedMember.ftMemberFiles.some(
+                (f) => f.title === `Avatar${memberId}` && f.file && typeof f.file !== 'string'
+            );
+    
             const hasFieldChanges = Object.keys(fieldDiff).length > 0;
-
-            if (!hasFieldChanges && !hasFileChanges) {
+    
+            if (!hasFieldChanges && !hasFileChanges && !hasAvatarChange) {
                 toast.info('Không có thay đổi nào được lưu.');
                 setIsEditing(false);
                 return;
             }
-
-            const payload: Partial<UpdateFamilyNode> = { ftMemberId: editedMember.id,  ...fieldDiff };
-            if (hasFileChanges) {
-                payload.ftMemberFiles = processedFiles;
+    
+            // Build payload
+            const payload: Partial<UpdateFamilyNode> = {
+                ftMemberId: editedMember.id,
+                ...fieldDiff,
+            };
+    
+            // Include ftMemberFiles (including avatar)
+            if (hasFileChanges || hasAvatarChange) {
+                payload.ftMemberFiles = editedMember.ftMemberFiles.map((file) => {
+                    // Check if file.file is a File-like object
+                    const isNewFile = file.file && typeof file.file === 'object' && 'name' in file.file && 'type' in file.file && 'size' in file.file;
+                    return {
+                        ...file,
+                        file: isNewFile ? file.file : undefined,
+                        content: "string",
+                        filePath: isNewFile ? undefined : file.filePath || (typeof file.file === 'string' ? file.file : undefined),
+                    };
+                });
             }
-
-            const response = await familyTreeService.updateFamilyNode(
-                ftId,
-                payload
-            );
-
-            toast.success(response.message);
-            console.log(response); 
-            setMember((prev) => (prev ? { ...prev, ...payload } : prev));
-            setEditedMember((prev) => (prev ? { ...prev, ...payload } : prev));
-
-            
-
+    
+            console.log('Payload:', JSON.stringify(payload, (_, value) => {
+                if (value && typeof value === 'object' && 'name' in value && 'type' in value && 'size' in value) {
+                    return '[File object]';
+                }
+                return value;
+            }, 2));
+    
+            const response = await familyTreeService.updateFamilyNode(ftId, payload);
+            const updatedData = response.data;
+    
+            // Separate avatar and other media
+            let avatarFilePath: string | null = null;
+            let otherFiles = updatedData.ftMemberFiles || [];
+    
+            if (Array.isArray(updatedData.ftMemberFiles)) {
+                const avatarFile = updatedData.ftMemberFiles.find(
+                    (f: any) =>
+                        typeof f.title === 'string' &&
+                        f.title.trim().toLowerCase() === `avatar${updatedData.id}`.toLowerCase()
+                );
+    
+                if (avatarFile) {
+                    avatarFilePath = avatarFile.filePath || null;
+                    otherFiles = updatedData.ftMemberFiles.filter((f: any) => f !== avatarFile);
+                }
+            }
+    
+            // Clean up old blobs
+            if (editedMember.picture?.startsWith('blob:')) {
+                URL.revokeObjectURL(editedMember.picture);
+            }
+            editedMember.ftMemberFiles.forEach((f) => {
+                if (f.thumbnail?.startsWith('blob:')) {
+                    URL.revokeObjectURL(f.thumbnail);
+                }
+            });
+    
+            // Update state
+            const updatedMember = {
+                ...updatedData,
+                picture: avatarFilePath || updatedData.picture || null,
+                ftMemberFiles: otherFiles,
+            };
+    
+            setMember(updatedMember);
+            setEditedMember({ ...updatedMember });
+    
+            toast.success(response.message || 'Cập nhật thành công');
             setIsEditing(false);
         } catch (err: any) {
             console.error('Save error:', err);
@@ -263,9 +358,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
     const borderColor = member.gender === 1 ? 'border-pink-200' : 'border-blue-200';
     const data = isEditing ? editedMember : member;
 
-    /* ------------------------------------------------------------------ */
-    /*  MAIN RENDER                                                       */
-    /* ------------------------------------------------------------------ */
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div
@@ -274,17 +366,36 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                 {/* Header */}
                 <div className={`${accentColor} text-white p-6 flex justify-between items-center`}>
                     <div className="flex items-center gap-4">
-                        <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
-                            {data.picture ? (
-                                <img
-                                    src={data.picture}
-                                    alt={data.fullname}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <User className="w-10 h-10 text-white" />
+                        <div className="relative">
+                            <div
+                                className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center overflow-hidden cursor-pointer"
+                                onClick={() => isEditing && avatarInputRef.current?.click()}
+                            >
+                                {data.picture ? (
+                                    <img
+                                        src={data.picture}
+                                        alt={data.fullname}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <User className="w-10 h-10 text-white" />
+                                )}
+                            </div>
+
+                            {isEditing && (
+                                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                                    <Edit className="w-6 h-6 text-white" />
+                                </div>
                             )}
                         </div>
+
+                        <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleAvatarChange}
+                        />
                         <div>
                             <h1 className="text-2xl font-bold">{data.fullname}</h1>
                             <p className="text-white/90">{data.ftRole}</p>
@@ -362,7 +473,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
-                    {/* Global error banner */}
                     {error && (
                         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
                             <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -381,10 +491,8 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                         </div>
                     )}
 
-                    {/* ---------- INFO TAB ---------- */}
                     {activeTab === 'info' && (
                         <div className="grid grid-cols-2 gap-6">
-                            {/* Basic */}
                             <div className={`col-span-2 bg-white rounded-lg p-6 border ${borderColor}`}>
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                                     <User className="w-5 h-5" />
@@ -470,7 +578,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                 </div>
                             </div>
 
-                            {/* Contact */}
                             <div className={`bg-white rounded-lg p-6 border ${borderColor}`}>
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                                     <Phone className="w-5 h-5" />
@@ -515,7 +622,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                 </div>
                             </div>
 
-                            {/* Identification */}
                             <div className={`bg-white rounded-lg p-6 border ${borderColor}`}>
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
@@ -554,7 +660,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                 </div>
                             </div>
 
-                            {/* Death (show when checked or editing) */}
                             {(data.isDeath || isEditing) && (
                                 <div className="col-span-2 bg-gray-100 rounded-lg p-6 border border-gray-300">
                                     <h3 className="text-lg font-semibold mb-4 text-gray-800">
@@ -573,38 +678,47 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                 Đã qua đời
                                             </label>
                                         </div>
+
                                         {data.isDeath && (
                                             <>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Ngày mất
-                                                    </label>
-                                                    {isEditing ? (
-                                                        <input
-                                                            type="date"
-                                                            value={data.deathDate ?? ''}
-                                                            onChange={(e) => setField('deathDate', e.target.value || '')}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                        />
-                                                    ) : (
-                                                        <p className="text-gray-900">{data.deathDate ?? '-'}</p>
-                                                    )}
-                                                </div>
                                                 <div className="col-span-2">
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Mô tả nguyên nhân
-                                                    </label>
-                                                    {isEditing ? (
-                                                        <textarea
-                                                            rows={2}
-                                                            value={data.deathDescription ?? ''}
-                                                            onChange={(e) => setField('deathDescription', e.target.value || '')}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    <label className="flex items-center text-sm font-medium text-gray-700">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={data.deathDateUnknown ?? false}
+                                                            disabled={!isEditing}
+                                                            onChange={(e) => {
+                                                                setField('deathDateUnknown', e.target.checked);
+                                                                if (e.target.checked) setField('deathDate', '');
+                                                            }}
+                                                            className="mr-2"
                                                         />
-                                                    ) : (
-                                                        <p className="text-gray-900">{data.deathDescription ?? '-'}</p>
-                                                    )}
+                                                        Không rõ ngày mất
+                                                    </label>
                                                 </div>
+
+                                                {!data.deathDateUnknown && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                            Ngày mất
+                                                        </label>
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="date"
+                                                                value={data.deathDate ?? ''}
+                                                                onChange={(e) => setField('deathDate', e.target.value || '')}
+                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                            />
+                                                        ) : (
+                                                            <p className="text-gray-900">
+                                                                {data.deathDate
+                                                                    ? new Date(data.deathDate).toLocaleDateString('en-GB')
+                                                                    : '-'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+
                                                 <div className="col-span-2">
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                                         Địa chỉ an táng
@@ -628,7 +742,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                         </div>
                     )}
 
-                    {/* ---------- MEDIA TAB ---------- */}
                     {activeTab === 'media' && (
                         <div className="space-y-6">
                             <div className={`bg-white rounded-lg p-6 border ${borderColor}`}>
@@ -665,7 +778,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                 className={`bg-gray-50 rounded-lg p-4 border ${borderColor}`}
                                             >
                                                 <div className="flex gap-4">
-                                                    {/* Preview */}
                                                     <div className="flex-shrink-0">
                                                         {file.thumbnail ? (
                                                             <img
@@ -681,7 +793,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                         )}
                                                     </div>
 
-                                                    {/* Details */}
                                                     <div className="flex-1 space-y-3">
                                                         {isEditing ? (
                                                             <>
@@ -768,7 +879,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                 )}
                             </div>
 
-                            {/* Preview Modal */}
                             {selectedFileIndex !== null && data.ftMemberFiles?.[selectedFileIndex] && (
                                 <div
                                     className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
@@ -812,13 +922,12 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                         </div>
                     )}
 
-                    {/* ---------- STORY TAB ---------- */}
                     {activeTab === 'story' && (
                         <div className="space-y-6">
                             <div className={`bg-white rounded-lg p-6 border ${borderColor}`}>
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
-                                    Câu chuyện cuộc đời
+                                    Tiểu sử
                                 </h3>
                                 {isEditing ? (
                                     <textarea

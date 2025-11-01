@@ -69,7 +69,7 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
             {data.name || 'Unknown'}
           </div>
           {data.birthday && (
-            <div className={`text-xs ${birthdayTextStyles}`}>
+            <div className={`text-xs ${birthdayTextStyles} mt-1`}>
               {new Date(data.birthday).toLocaleDateString('en-GB')}
             </div>
           )}

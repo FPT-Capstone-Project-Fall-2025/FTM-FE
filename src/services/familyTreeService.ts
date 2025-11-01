@@ -122,7 +122,7 @@ const familyTreeService = {
     });
   },
   
-  updateFamilyNode(ftId: string, props: UpdateFamilyNode): Promise<ApiResponse<string>> {
+  updateFamilyNode(ftId: string, props: UpdateFamilyNode): Promise<ApiResponse<FamilyNode>> {
     return api.put(`/ftmember/${ftId}`, props, {
       headers: {
           "Content-Type": "multipart/form-data"
