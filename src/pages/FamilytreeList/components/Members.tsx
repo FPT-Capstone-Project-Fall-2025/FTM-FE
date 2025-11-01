@@ -68,7 +68,7 @@ const Members: React.FC = () => {
     };
 
     const getGenderLabel = (gender: number) => {
-        return gender === 1 ? "Nam" : "Nữ";
+        return gender === 0 ? "Nam" : "Nữ";
     };
 
     /**
@@ -147,7 +147,7 @@ const Members: React.FC = () => {
                                                     alt={member.fullname}
                                                     className="w-10 h-10 rounded-full object-cover"
                                                     onError={(e) => {
-                                                        console.log('❌ Failed to load avatar for', member.fullname, ':', avatarUrl);
+                                                        console.log('Failed to load avatar for', member.fullname, ':', avatarUrl);
                                                         // Fallback to UI Avatars
                                                         (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                                                             member.fullname

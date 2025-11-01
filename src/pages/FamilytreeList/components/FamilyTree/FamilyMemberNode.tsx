@@ -68,15 +68,16 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
           <div className={`font-semibold text-sm ${nameTextStyles}`}>
             {data.name || 'Unknown'}
           </div>
-          {data.birthday && (
-            <div className={`text-xs ${birthdayTextStyles} mt-1`}>
-              {new Date(data.birthday).toLocaleDateString('en-GB')}
-            </div>
-          )}
-          {/* Optional: Small "Deleted" label */}
-          {isDeleted && (
-            <div className="text-xs italic text-red-500 mt-1">Cha mẹ tạm thời</div>
-          )}
+          {/* Always render this block to maintain consistent height */}
+          <div className="text-xs h-4 flex items-center justify-center">
+            {data.birthday ? (
+              <span className={birthdayTextStyles}>
+                {new Date(data.birthday).toLocaleDateString('en-GB')}
+              </span>
+            ) : (
+              <span className="invisible">00/00/0000</span>
+            )}
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import familyTreeService from "@/services/familyTreeService";
-import { removeFamilyTree } from "@/stores/slices/familyTreeMetaDataSlice";
+import { removeFamilyTree, setSelectedFamilyTree } from "@/stores/slices/familyTreeMetaDataSlice";
 import type { FamilytreeUpdateProps } from "@/types/familytree";
 import { Edit2 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -25,8 +25,9 @@ const BasicInfo: React.FC = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [tempImage, setTempImage] = useState<string | null>(null);
     const [tempFile, setTempFile] = useState<File | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
-        
+
     const hasChanges = () => {
         return (
             formData.Name !== (selectedTree?.name || '') ||
@@ -69,6 +70,7 @@ const BasicInfo: React.FC = () => {
             return;
         }
 
+        setIsSaving(true);
         try {
             const updateData: FamilytreeUpdateProps = {
                 Name: formData.Name,
@@ -77,35 +79,34 @@ const BasicInfo: React.FC = () => {
                 GPModeCode: formData.GPModeCode,
             };
 
-            // Add file if there's a new one
             if (tempFile) {
                 updateData.File = tempFile;
             }
 
             const response = await familyTreeService.updateFamilyTree(selectedTree?.id || '', updateData);
-            
-            if (response.success) {
-                toast.success('Cập nhật gia phả thành công!');
-                
-                // Update current image if there was a new file
-                if (tempFile && tempImage) {
-                    setCurrentImage(tempImage);
-                }
-                
-                setIsEditMode(false);
-                setTempFile(null);
-                setTempImage(null);
-                
-                // Optionally dispatch an action to update Redux store
-                // dispatch(updateFamilyTree(response.data));
-            } else {
-                toast.error(response.message || 'Cập nhật thất bại!');
+
+            toast.success('Cập nhật gia phả thành công!');
+
+            // Update Redux state
+            dispatch(setSelectedFamilyTree(response.data));
+
+            // Update local states
+            if (tempFile && tempImage) {
+                setCurrentImage(tempImage);
             }
+
+            setIsEditMode(false);
+            setTempFile(null);
+            setTempImage(null);
+
         } catch (error: any) {
             console.error('Error saving:', error);
             toast.error(error?.message || 'Có lỗi xảy ra khi cập nhật!');
+        } finally {
+            setIsSaving(false);
         }
     };
+
 
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -116,7 +117,7 @@ const BasicInfo: React.FC = () => {
                 toast.error('Định dạng file không hợp lệ. Vui lòng chọn file JPG, JPEG, PNG hoặc GIF.');
                 return;
             }
-            
+
             // Validate file size (25MB)
             const maxSize = 25 * 1024 * 1024; // 25MB in bytes
             if (file.size > maxSize) {
@@ -171,7 +172,7 @@ const BasicInfo: React.FC = () => {
             setShowDeleteConfirm(false);
             navigate('/family-trees');
             dispatch(removeFamilyTree(selectedTree.id));
-           
+
         } catch (error: any) {
             console.error('Error deleting:', error);
             toast.error(error?.message || 'Có lỗi xảy ra khi xóa gia phả!');
@@ -186,17 +187,16 @@ const BasicInfo: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Family Tree Image */}
                 <div className="lg:col-span-1">
-                    <div 
+                    <div
                         onClick={() => isEditMode && setShowImagePopup(true)}
-                        className={`bg-white rounded-lg border-2 border-dashed border-gray-300 aspect-square flex items-center justify-center transition-colors relative group overflow-hidden ${
-                            isEditMode ? 'cursor-pointer hover:border-blue-500' : 'cursor-default'
-                        }`}
+                        className={`bg-white rounded-lg border-2 border-dashed border-gray-300 aspect-square flex items-center justify-center transition-colors relative group overflow-hidden ${isEditMode ? 'cursor-pointer hover:border-blue-500' : 'cursor-default'
+                            }`}
                     >
                         {displayImage ? (
                             <>
-                                <img 
-                                    src={displayImage} 
-                                    alt="Family tree" 
+                                <img
+                                    src={displayImage}
+                                    alt="Family tree"
                                     className="w-full h-full object-cover"
                                 />
                                 {isEditMode && (
@@ -234,9 +234,8 @@ const BasicInfo: React.FC = () => {
                             value={formData.Name}
                             onChange={handleChange}
                             disabled={!isEditMode}
-                            className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
-                                !isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
-                            }`}
+                            className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${!isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
+                                }`}
                             placeholder="Nhập tên gia phả"
                         />
                     </div>
@@ -252,9 +251,8 @@ const BasicInfo: React.FC = () => {
                             value={formData.OwnerId}
                             onChange={handleChange}
                             disabled={!isEditMode}
-                            className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${
-                                !isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
-                            }`}
+                            className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${!isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
+                                }`}
                             placeholder="Nhập mã người sở hữu"
                         />
                     </div>
@@ -270,9 +268,8 @@ const BasicInfo: React.FC = () => {
                             onChange={handleChange}
                             disabled={!isEditMode}
                             rows={6}
-                            className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none ${
-                                !isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
-                            }`}
+                            className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none ${!isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
+                                }`}
                             placeholder="Nhập ghi chú"
                         />
                     </div>
@@ -307,15 +304,15 @@ const BasicInfo: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={handleSave}
-                                    disabled={!hasChanges()}
-                                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                                        hasChanges()
-                                            ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    }`}
+                                    disabled={!hasChanges() || isSaving}
+                                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${hasChanges() && !isSaving
+                                        ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        }`}
                                 >
-                                    Lưu
+                                    {isSaving ? 'Đang lưu...' : 'Lưu'}
                                 </button>
+
                             </>
                         )}
                     </div>
@@ -356,7 +353,7 @@ const BasicInfo: React.FC = () => {
                         />
 
                         <div className="space-y-3 mb-6">
-                            <button 
+                            <button
                                 onClick={openFileSelector}
                                 className="w-full px-4 py-3 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
                             >
@@ -367,7 +364,7 @@ const BasicInfo: React.FC = () => {
                             </button>
 
                             {displayImage && (
-                                <button 
+                                <button
                                     onClick={handleImageDelete}
                                     className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                                 >
@@ -406,10 +403,10 @@ const BasicInfo: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                         </div>
-                        
+
                         <h2 className="text-xl font-semibold text-center mb-2">Xác nhận xóa gia phả</h2>
                         <p className="text-sm text-gray-600 text-center mb-6">
-                            Bạn có chắc chắn muốn xóa gia phả <span className="font-semibold">"{selectedTree?.name}"</span>? 
+                            Bạn có chắc chắn muốn xóa gia phả <span className="font-semibold">"{selectedTree?.name}"</span>?
                             <br />
                             Hành động này không thể hoàn tác!
                         </p>
