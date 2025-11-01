@@ -184,33 +184,6 @@ const GroupPostPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Recent Family Trees */}
-            <div className="bg-white rounded-lg shadow-sm">
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-900">Gia phả gần đây</h3>
-                </div>
-                
-                <div className="space-y-3">
-                  {familyTrees.slice(0, 6).map((familyTree) => (
-                    <div 
-                      key={familyTree.id} 
-                      className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
-                      onClick={() => handleViewGroup(familyTree.id)}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold">
-                        {familyTree.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{familyTree.name}</p>
-                        <p className="text-xs text-gray-500">Cập nhật: {familyTree.lastModifiedAt ? formatDate(familyTree.lastModifiedAt) : 'N/A'}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
             {/* All Family Trees */}
             <div className="bg-white rounded-lg shadow-sm">
               <div className="p-4">

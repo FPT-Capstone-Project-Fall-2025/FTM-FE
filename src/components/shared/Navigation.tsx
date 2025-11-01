@@ -6,15 +6,14 @@ import {
   LogOut,
   UserCircle,
   Bell,
-  ChevronRight,
-  Sun,
-  Moon,
+  Settings,
 } from 'lucide-react';
-import { useAppDispatch } from '@/hooks/redux';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '@/assets/img/logo.svg';
 import { logout } from '@/stores/slices/authSlice';
 import userService from '@/services/userService';
+import NotificationPopup from './NotificationPopup';
 
 interface NavigationProps {
   onMenuClick: () => void;
@@ -22,10 +21,12 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { minimizeHeader } = useAppSelector((state) => state.settings);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationButtonRef = useRef<HTMLButtonElement>(null);
 
   const [userData, setUserData] = useState({ name: '', picture: '' });
 
@@ -66,35 +67,55 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
     navigate('/login', { replace: true })
   }
 
+  const handleNotificationClick = () => {
+    setIsNotificationOpen(!isNotificationOpen);
+    setIsDropdownOpen(false); // Close user dropdown if open
+  };
+
   return (
     <header className="bg-blue-600 text-white shadow-md">
       <div className="mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className={`flex items-center justify-between transition-all duration-300 ${minimizeHeader ? 'h-12' : 'h-16'}`}>
           {/* Left side */}
           <div className="flex items-center space-x-4">
             <button onClick={onMenuClick} className="p-2 rounded-md hover:bg-blue-700">
-              <Menu size={24} />
+              <Menu size={minimizeHeader ? 20 : 24} />
             </button>
             <Link to="/" className="flex items-center space-x-2 ml-4">
-              <img src={logo} alt="Logo" className="h-8 w-8" />
-              <span className="text-lg font-semibold">ỨNG DỤNG GIA PHẢ</span>
+              <img src={logo} alt="Logo" className={minimizeHeader ? "h-6 w-6" : "h-8 w-8"} />
+              <span className={minimizeHeader ? "text-base font-semibold" : "text-lg font-semibold"}>ỨNG DỤNG GIA PHẢ</span>
             </Link>
           </div>
 
           {/* Right side */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            {/* Notification Button */}
+            <button
+              ref={notificationButtonRef}
+              onClick={handleNotificationClick}
+              className="relative p-2 rounded-md hover:bg-blue-700 transition-colors"
+              title="Thông báo"
+            >
+              <Bell size={minimizeHeader ? 18 : 20} />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-blue-600"></span>
+            </button>
+
+            {/* User Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center space-x-2 p-2 rounded-md hover:bg-blue-700"
+                onClick={() => {
+                  setIsDropdownOpen(!isDropdownOpen);
+                  setIsNotificationOpen(false); // Close notification popup if open
+                }}
+                className="flex items-center space-x-2 p-2 rounded-md hover:bg-blue-700 transition-colors"
               >
                 {
                   userData.picture ?
-                    <img src={userData.picture} alt="Avatar" className='w-[30px] h-[30px] rounded-full' />
+                    <img src={userData.picture} alt="Avatar" className={minimizeHeader ? 'w-[24px] h-[24px] rounded-full' : 'w-[30px] h-[30px] rounded-full'} />
                     :
-                    <User size={20} />
+                    <User size={minimizeHeader ? 18 : 20} />
                 }
-                <span className="ml-2">{userData?.name || 'User'}</span>
+                {!minimizeHeader && <span className="ml-2">{userData?.name || 'User'}</span>}
               </button>
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-60 bg-white rounded-md shadow-lg py-2 z-50 text-gray-800">
@@ -105,15 +126,19 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
                     <UserCircle size={20} className="mr-3" />
                     Tài khoản của bạn
                   </Link>
-                  <button className="w-full text-left flex items-center px-4 py-2 text-sm hover:bg-gray-100">
-                    <Bell size={20} className="mr-3" />
-                    Thông báo
-                  </button>
+                  <Link
+                    to="/settings"
+                    className="flex items-center px-4 py-2 text-sm hover:bg-gray-100"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    <Settings size={20} className="mr-3" />
+                    Cài đặt
+                  </Link>
                   <button className="w-full text-left flex items-center px-4 py-2 text-sm hover:bg-gray-100">
                     <HelpCircle size={20} className="mr-3" />
                     Trợ giúp và hỗ trợ
                   </button>
-                  <button className="w-full text-left flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-100">
+                  {/* <button className="w-full text-left flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-100">
                     <div className="flex items-center">
                       <HelpCircle size={20} className="mr-3" />
                       Ngôn ngữ
@@ -122,27 +147,7 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
                       Tiếng Việt
                       <ChevronRight size={16} className="ml-1" />
                     </div>
-                  </button>
-                  <div className="flex items-center justify-between px-4 py-2 text-sm">
-                    <div className="flex items-center">
-                      {isDarkMode ? (
-                        <Moon size={20} className="mr-3" />
-                      ) : (
-                        <Sun size={20} className="mr-3" />
-                      )}
-                      Chủ đề
-                    </div>
-                    <div
-                      className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer ${isDarkMode ? 'bg-blue-600' : 'bg-gray-300'
-                        }`}
-                      onClick={() => setIsDarkMode(!isDarkMode)}
-                    >
-                      <div
-                        className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${isDarkMode ? 'translate-x-6' : ''
-                          }`}
-                      ></div>
-                    </div>
-                  </div>
+                  </button> */}
                   <button
                     onClick={handleLogout}
                     className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
@@ -156,6 +161,15 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
           </div>
         </div>
       </div>
+
+      {/* Notification Popup */}
+      {notificationButtonRef.current && (
+        <NotificationPopup
+          isOpen={isNotificationOpen}
+          onClose={() => setIsNotificationOpen(false)}
+          anchorRef={notificationButtonRef}
+        />
+      )}
     </header>
   );
 };

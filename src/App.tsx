@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 import { store, persistor } from './stores'
@@ -6,14 +6,28 @@ import { AppRouter } from './routes/AppRouter';
 import { useAuthInitialization } from './hooks/useAuth';
 import { ToastContainer } from 'react-toastify';
 import LoadingScreen from './components/ui/LoadingScreen'
+import { useAppSelector } from './hooks/redux';
 import "@fontsource/montserrat";
 import "@fontsource/montserrat/500.css";
 import "@fontsource/montserrat/700.css";
 
 
-// App content component that uses auth hooks
+// App content component that uses auth hooks and applies settings
 const AppContent: React.FC = () => {
   useAuthInitialization()
+  const { fontSize } = useAppSelector((state) => state.settings);
+
+  // Apply font size to document
+  useEffect(() => {
+    const root = document.documentElement;
+    const fontSizeMap = {
+      small: '14px',
+      medium: '16px',
+      large: '18px',
+    };
+    root.style.fontSize = fontSizeMap[fontSize];
+  }, [fontSize]);
+
   return <AppRouter />
 }
 
