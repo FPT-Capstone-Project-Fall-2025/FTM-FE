@@ -140,15 +140,15 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
 
     const handleSave = async () => {
         if (!ftId || !member || !editedMember || !memberId) return;
-    
+
         setLoading(true);
         setError(null);
-    
+
         try {
-            // Detect field changes (excluding files, id, picture)
+            // ---------- 1. Detect field-level changes ----------
             const excludedKeys = ['ftMemberFiles', 'id', 'picture', 'avatar'] as const;
             const fieldDiff: Partial<FamilyNode> = {};
-    
+
             for (const key in member) {
                 if (excludedKeys.includes(key as any)) continue;
                 const k = key as keyof Omit<FamilyNode, 'ftMemberFiles' | 'id' | 'picture' | 'avatar'>;
@@ -156,12 +156,14 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                     (fieldDiff as any)[k] = editedMember[k];
                 }
             }
-    
-            // Detect media file changes (including avatar in ftMemberFiles)
+
+            // ---------- 2. Detect file/media changes ----------
             const originalFiles = member.ftMemberFiles || [];
+            const editedFiles = editedMember.ftMemberFiles || [];
+
             const hasFileChanges =
-                editedMember.ftMemberFiles.length !== originalFiles.length ||
-                editedMember.ftMemberFiles.some((edited, idx) => {
+                editedFiles.length !== originalFiles.length ||
+                editedFiles.some((edited, idx) => {
                     const original = originalFiles[idx];
                     if (!original) return true;
                     return (
@@ -173,68 +175,123 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                         edited.content !== original.content
                     );
                 });
-    
-            // Detect avatar change
-            const hasAvatarChange = editedMember.ftMemberFiles.some(
-                (f) => f.title === `Avatar${memberId}` && f.file && typeof f.file !== 'string'
+
+            // ---------- 3. Detect avatar change (two possible sources) ----------
+            // a) editedMember.avatar field contains a File-like object
+            const avatarFromField =
+                editedMember.avatar &&
+                    typeof editedMember.avatar === 'object' &&
+                    'name' in editedMember.avatar &&
+                    'type' in editedMember.avatar &&
+                    'size' in editedMember.avatar
+                    ? (editedMember.avatar as File)
+                    : null;
+
+            // b) avatar may be present as a special entry inside editedMember.ftMemberFiles (title === `Avatar${memberId}`)
+            const avatarFileEntry = editedFiles.find(
+                f => typeof f.title === 'string' && f.title.trim().toLowerCase() === `avatar${memberId}`.toLowerCase()
             );
-    
+
+            const avatarFromFileEntry =
+                avatarFileEntry &&
+                    avatarFileEntry.file &&
+                    typeof avatarFileEntry.file === 'object' &&
+                    'name' in avatarFileEntry.file &&
+                    'type' in avatarFileEntry.file &&
+                    'size' in avatarFileEntry.file
+                    ? (avatarFileEntry.file as File)
+                    : null;
+
+            // If either source has a new File, we consider avatar changed.
+            const hasAvatarChange = !!(avatarFromField || avatarFromFileEntry);
+
             const hasFieldChanges = Object.keys(fieldDiff).length > 0;
-    
+
             if (!hasFieldChanges && !hasFileChanges && !hasAvatarChange) {
                 toast.info('Không có thay đổi nào được lưu.');
                 setIsEditing(false);
                 return;
             }
-    
-            // Build payload
+
+            // ---------- 4. Build payload ----------
             const payload: Partial<UpdateFamilyNode> = {
                 ftMemberId: editedMember.id,
                 ...fieldDiff,
             };
-    
-            // Include ftMemberFiles (including avatar)
-            if (hasFileChanges || hasAvatarChange) {
-                payload.ftMemberFiles = editedMember.ftMemberFiles.map((file) => {
-                    // Check if file.file is a File-like object
-                    const isNewFile = file.file && typeof file.file === 'object' && 'name' in file.file && 'type' in file.file && 'size' in file.file;
-                    return {
-                        ...file,
-                        file: isNewFile ? file.file : undefined,
-                        content: "string",
-                        filePath: isNewFile ? undefined : file.filePath || (typeof file.file === 'string' ? file.file : undefined),
-                    };
-                });
+
+            // Build ftMemberFiles payload BUT exclude avatar entry (if present)
+            if (hasFileChanges) {
+                const filesToSend = editedFiles
+                    // Filter out avatar entry by title (title may be Avatar{memberId})
+                    .filter(file => {
+                        if (!file || typeof file.title !== 'string') return true;
+                        return file.title.trim().toLowerCase() !== `avatar${memberId}`.toLowerCase();
+                    })
+                    .map((file) => {
+                        const isNewFile =
+                            file.file &&
+                            typeof file.file === 'object' &&
+                            'name' in file.file &&
+                            'type' in file.file &&
+                            'size' in file.file;
+
+                        return {
+                            ...file,
+                            // send File objects for new files only
+                            file: isNewFile ? file.file : undefined,
+                            content: "string",
+                            filePath: isNewFile
+                                ? undefined
+                                : file.filePath || (typeof file.file === 'string' ? file.file : undefined),
+                        };
+                    });
+
+                // Only include if non-empty
+                if (filesToSend.length > 0) {
+                    payload.ftMemberFiles = filesToSend;
+                } else {
+                    // If there are no other files but fileChanges was true because avatar was added/removed,
+                    // optionally set empty array so server knows files were cleared.
+                    payload.ftMemberFiles = [];
+                }
             }
-    
+
+            // Include avatar as standalone binary if there is a new avatar (prefer explicit avatar field first)
+            if (avatarFromField) {
+                payload.avatar = avatarFromField;
+            } else if (avatarFromFileEntry) {
+                payload.avatar = avatarFromFileEntry;
+            }
+
             console.log('Payload:', JSON.stringify(payload, (_, value) => {
                 if (value && typeof value === 'object' && 'name' in value && 'type' in value && 'size' in value) {
                     return '[File object]';
                 }
                 return value;
             }, 2));
-    
+
+            // ---------- 5. Send update ----------
             const response = await familyTreeService.updateFamilyNode(ftId, payload);
             const updatedData = response.data;
-    
-            // Separate avatar and other media
+
+            // ---------- 6. Separate avatar and other media from response ----------
             let avatarFilePath: string | null = null;
             let otherFiles = updatedData.ftMemberFiles || [];
-    
+
             if (Array.isArray(updatedData.ftMemberFiles)) {
                 const avatarFile = updatedData.ftMemberFiles.find(
                     (f: any) =>
                         typeof f.title === 'string' &&
                         f.title.trim().toLowerCase() === `avatar${updatedData.id}`.toLowerCase()
                 );
-    
+
                 if (avatarFile) {
                     avatarFilePath = avatarFile.filePath || null;
                     otherFiles = updatedData.ftMemberFiles.filter((f: any) => f !== avatarFile);
                 }
             }
-    
-            // Clean up old blobs
+
+            // ---------- 7. Clean up old blobs ----------
             if (editedMember.picture?.startsWith('blob:')) {
                 URL.revokeObjectURL(editedMember.picture);
             }
@@ -243,17 +300,18 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                     URL.revokeObjectURL(f.thumbnail);
                 }
             });
-    
-            // Update state
+
+            // ---------- 8. Update state ----------
             const updatedMember = {
                 ...updatedData,
+                // prefer explicit avatar from response if provided, otherwise fallback to picture
                 picture: avatarFilePath || updatedData.picture || null,
                 ftMemberFiles: otherFiles,
             };
-    
+
             setMember(updatedMember);
             setEditedMember({ ...updatedMember });
-    
+
             toast.success(response.message || 'Cập nhật thành công');
             setIsEditing(false);
         } catch (err: any) {
@@ -265,6 +323,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             setLoading(false);
         }
     };
+
 
     const setField = <K extends keyof FamilyNode>(field: K, value: FamilyNode[K]) => {
         setEditedMember((prev) => (prev ? { ...prev, [field]: value } : prev));
