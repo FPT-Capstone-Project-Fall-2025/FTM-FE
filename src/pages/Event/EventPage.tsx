@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { DatePicker, Radio } from 'antd';
-import { Search, Calendar, ChevronLeft, ChevronRight, CloudSun, CornerDownLeft } from 'lucide-react';
+import { Search, Calendar, ChevronLeft, ChevronRight, CornerDownLeft } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import moment from 'moment';
 import debounce from 'lodash/debounce';
@@ -47,7 +47,7 @@ const EventPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(now);
   const [reload, setReload] = useState<boolean>(false);
   const [isShowLunarDay, setIsShowLunarDay] = useState<boolean>(true);
-  const [viewWeather, setViewWeather] = useState<boolean>(true);
+  const [viewWeather] = useState<boolean>(true);
   const [eventFilters, setEventFilters] = useState<EventFilters | null>(null);
   const [search, setSearch] = useState<string>('');
   const [openDatePicker, setOpenDatePicker] = useState<boolean>(false);

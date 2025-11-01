@@ -12,7 +12,7 @@ import provinceService from "../../services/provinceService";
 import familyTreeService from "../../services/familyTreeService";
 import familyTreeMemberService from "../../services/familyTreeMemberService";
 import userService from "../../services/userService";
-import { Calendar, X, Image as ImageIcon } from "lucide-react";
+import { X, Image as ImageIcon } from "lucide-react";
 import { EVENT_TYPE, EVENT_TYPE_CONFIG } from "./EventTypeLabel";
 import { toast } from 'react-toastify';
 import { formatLunarDate } from "../../utils/lunarUtils";
