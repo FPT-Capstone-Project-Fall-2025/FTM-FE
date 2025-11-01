@@ -4,12 +4,14 @@ import { FLUSH, PAUSE, PERSIST, persistReducer, persistStore, PURGE, REGISTER, R
 import authReducer from "./slices/authSlice";
 import familyTreeReducer from "./slices/familyTreeSlice";
 import familyTreeMetaReducer from "./slices/familyTreeMetaDataSlice";
+import settingsReducer from "./slices/settingsSlice";
 
 const rootReducer = combineReducers({
     // more reducers go here
     auth: authReducer,
     familyTree: familyTreeReducer,
     familyTreeMetaData: familyTreeMetaReducer,
+    settings: settingsReducer,
 });
 
 const persistConfig = {
@@ -18,7 +20,8 @@ const persistConfig = {
     whitelist: [
         // reducers to persist
         'auth',
-        'familyTreeMetaData'
+        'familyTreeMetaData',
+        'settings'
     ],
     blacklist: [
         // reducers not to persist

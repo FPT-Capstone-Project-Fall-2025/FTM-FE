@@ -4,18 +4,18 @@ import {
   LayoutGrid,
   BarChart2,
   Newspaper,
-  MessageSquare,
+  // MessageSquare,
   Settings,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 const sidebarItems = [
-  { to: '/home', icon: Home, text: 'Home' },
+  { to: '/home', icon: Home, text: 'Trang chủ' },
   { to: '/dashboard', icon: User, text: 'Tài khoản của tôi' },
   { to: '/family-trees', icon: LayoutGrid, text: 'Quản lí gia phả' },
   { to: '/events', icon: BarChart2, text: 'Sự Kiện' },
   { to: '/group', icon: Newspaper, text: 'Tin tức' },
-  { to: '/contact', icon: MessageSquare, text: 'Liên hệ' },
+  // { to: '/contact', icon: MessageSquare, text: 'Liên hệ' },
   { to: '/settings', icon: Settings, text: 'Cài đặt' },
 ];
 

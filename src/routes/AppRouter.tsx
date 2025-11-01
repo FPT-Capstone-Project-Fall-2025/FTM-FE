@@ -17,6 +17,8 @@ import PostPage from '@/pages/Post/PostPage'
 import FamilyTreePage from '@/pages/FamilytreeList/FamilyTreePage'
 import FamilyTreeSelection from '@/pages/FamilytreeList/FamilyTreeSelection'
 import EventPage from '@/pages/Event/EventPage'
+import SettingPage from '@/pages/Settings/SettingPage'
+import NotificationPage from '@/pages/Notification/NotificationPage'
 // PostDetailPage is used as a modal in PostPage, not a standalone route
 // import PostDetailPage from '@/pages/Post/PostDetailPage'
 
@@ -100,16 +102,6 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: '/events',
-    element: (
-      <ProtectedRoute>
-        <MainLayout>
-          <EventPage />
-        </MainLayout>
-      </ProtectedRoute>
-    ),
-  },
-  {
     path: '/group',
     element: (
       <ProtectedRoute>
@@ -140,6 +132,26 @@ const router = createBrowserRouter([
   //     </ProtectedRoute>
   //   ),
   // },
+  {
+    path: '/settings',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <SettingPage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/notification',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <NotificationPage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
+  },
   {
     path: '/admin',
     element: (
