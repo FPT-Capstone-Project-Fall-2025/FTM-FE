@@ -146,6 +146,7 @@ const AddNewNode = ({
   const [burialWards, setBurialWards] = useState<Ward[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [formData, setFormData] = useState<AddingNodeProps>({
     fullname: "",
@@ -462,12 +463,14 @@ const AddNewNode = ({
 
   const handleSave = async () => {
     if (onSelectType) {
+      setIsSaving(true);
       const updatedFormData = {
         ...formData,
         fromFTMemberPartnerId: selectedPartnerId || undefined,
       };
       console.log(updatedFormData);
       await onSelectType(updatedFormData);
+      setIsSaving(false);
     }
     onClose?.();
   };
@@ -775,20 +778,20 @@ const AddNewNode = ({
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Tỉnh/Thành phố chôn cất
                       </label>
-                        <select
-                          name="province"
-                          value={selectedBurialProvinceId || ""}
-                          onChange={handleBurialProvinceChange}
-                          disabled={isLoadingLocation}
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
-                        >
-                          <option value="">Chọn tỉnh/thành phố</option>
-                          {provinces.map(province => (
-                            <option key={province.id} value={province.id}>
-                              {province.nameWithType}
-                            </option>
-                          ))}
-                        </select>
+                      <select
+                        name="province"
+                        value={selectedBurialProvinceId || ""}
+                        onChange={handleBurialProvinceChange}
+                        disabled={isLoadingLocation}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        <option value="">Chọn tỉnh/thành phố</option>
+                        {provinces.map(province => (
+                          <option key={province.id} value={province.id}>
+                            {province.nameWithType}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     {/* Ward */}
                     <div>
@@ -922,48 +925,48 @@ const AddNewNode = ({
                 <div className="grid grid-cols-2 gap-4">
                   {/* Province */}
                   <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Tỉnh/Thành phố
-                      </label>
-                        <select
-                          name="province"
-                          value={selectedProvinceId || ""}
-                          onChange={handleProvinceChange}
-                          disabled={isLoadingLocation}
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
-                        >
-                          <option value="">Chọn tỉnh/thành phố</option>
-                          {provinces.map(province => (
-                            <option key={province.id} value={province.id}>
-                              {province.nameWithType}
-                            </option>
-                          ))}
-                        </select>
-                    </div>
-                    {/* Ward */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Quận/Huyện
-                      </label>
-                      <select
-                        name="ward"
-                        value={formData.wardId || ""}
-                        onChange={handleWardChange}
-                        disabled={isLoadingLocation || !selectedProvinceId}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
-                      >
-                        <option value="">
-                          {!selectedProvinceId
-                            ? 'Chọn tỉnh/thành phố trước'
-                            : 'Chọn quận/huyện'}
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Tỉnh/Thành phố
+                    </label>
+                    <select
+                      name="province"
+                      value={selectedProvinceId || ""}
+                      onChange={handleProvinceChange}
+                      disabled={isLoadingLocation}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                      <option value="">Chọn tỉnh/thành phố</option>
+                      {provinces.map(province => (
+                        <option key={province.id} value={province.id}>
+                          {province.nameWithType}
                         </option>
-                        {wards.map(ward => (
-                          <option key={ward.code} value={ward.id}>
-                            {ward.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Ward */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Quận/Huyện
+                    </label>
+                    <select
+                      name="ward"
+                      value={formData.wardId || ""}
+                      onChange={handleWardChange}
+                      disabled={isLoadingLocation || !selectedProvinceId}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                      <option value="">
+                        {!selectedProvinceId
+                          ? 'Chọn tỉnh/thành phố trước'
+                          : 'Chọn quận/huyện'}
+                      </option>
+                      {wards.map(ward => (
+                        <option key={ward.code} value={ward.id}>
+                          {ward.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Contact */}
@@ -1033,9 +1036,14 @@ const AddNewNode = ({
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              disabled={isSaving}
+              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold ${!isSaving
+                ? 'hover:bg-blue-700 transition-colors'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
             >
-              Lưu
+              {
+                isSaving ? 'Đang lưu...' : 'Lưu'
+              }
             </button>
           </div>
         </div>

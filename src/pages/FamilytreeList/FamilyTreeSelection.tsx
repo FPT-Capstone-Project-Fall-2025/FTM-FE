@@ -285,7 +285,7 @@ const FamilyTreeSelection: React.FC = () => {
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-t-2xl">
+                        <div className="sticky z-50 top-0 bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-t-2xl">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
