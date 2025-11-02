@@ -94,28 +94,7 @@ const familyTreeService = {
   },
 
   createFamilyNode(props: AddingNodeProps): Promise<ApiResponse<string>> {
-
-    const formData = new FormData();
-    
-    // Append all non-file fields
-    Object.entries(props).forEach(([key, value]) => {
-      if (key !== 'ftMemberFiles' && value !== undefined && value !== null) {
-        formData.append(key, value.toString());
-      }
-    });
-
-    // Append files if present
-    if (props.ftMemberFiles && props.ftMemberFiles.length > 0) {
-      props.ftMemberFiles.forEach((fileProp, index) => {
-        if (fileProp.file) {
-          formData.append(`ftMemberFiles[${index}]`, fileProp.file); // Append the actual File object
-          if (fileProp.title) formData.append(`ftMemberFilesTitles[${index}]`, fileProp.title);
-          if (fileProp.fileType) formData.append(`ftMemberFilesTypes[${index}]`, fileProp.fileType);
-          // Append other FileProps fields if needed, e.g., description, content, thumbnail
-        }
-      });
-    }
-    return api.post(`/ftmember/${props.ftId}`, formData, {
+    return api.post(`/ftmember/${props.ftId}`, props, {
       headers: {
           "Content-Type": "multipart/form-data"
         }

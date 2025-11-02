@@ -1,6 +1,6 @@
 import dataService from "@/services/dataService";
 import familyTreeService from "@/services/familyTreeService";
-import { CategoryCode, type AddingNodeProps, type FamilyNode } from "@/types/familytree";
+import { CategoryCode, type AddingNodeProps, type FamilyMember, type FamilyNode } from "@/types/familytree";
 import type { Province, Ward } from "@/types/user";
 import { X, Users, User, Baby } from "lucide-react";
 import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
@@ -118,7 +118,7 @@ const allRelationships: Relationship[] = [
   },
 ];
 
-// Sample options for select fields (you can expand these as needed)
+// Sample options for select fields
 const selectOptions = {
   EthnicId: ["Kinh", "Tày", "Thái"],
   ReligionId: ["Phật giáo", "Thiên chúa giáo", "Không"],
@@ -148,34 +148,12 @@ const AddNewNode = ({
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [formData, setFormData] = useState<AddingNodeProps>({
-    fullname: "",
-    gender: 0 as 0 | 1,
-    birthday: "",
-    birthplace: "",
-    isDeath: false,
-    deathDescription: "",
-    deathDate: "",
-    burialAddress: "",
-    burialWardId: undefined,
-    burialProvinceId: undefined,
-    identificationType: "",
-    identificationNumber: undefined,
-    ethnicId: undefined,
-    religionId: undefined,
-    categoryCode: isFirstNode ? CategoryCode.FirstNode : undefined,
-    address: "",
-    wardId: undefined,
-    provinceId: undefined,
-    email: "",
-    phoneNumber: "",
-    content: "",
-    storyDescription: "",
-    ftId: "",
+  const [formData, setFormData] = useState<Partial<AddingNodeProps>>({
+    ftId: ftId,
     rootId: parentMember?.id || "",
+    isDeath: false,
     fromFTMemberId: parentMember?.id,
-    fromFTMemberPartnerId: undefined,
-    ftMemberFiles: [],
+    categoryCode: isFirstNode ? CategoryCode.FirstNode : undefined,
   });
 
   // Filter out existing relationships
@@ -308,7 +286,7 @@ const AddNewNode = ({
         }
       }
     }
-  }
+  };
 
   const loadDefaultData = async () => {
     setIsLoadingLocation(true);
@@ -336,7 +314,7 @@ const AddNewNode = ({
       } catch (error) {
         console.error('Error loading wards data:', error);
       }
-    }
+    };
     loadWardData();
   }, [selectedProvinceId]);
 
@@ -349,7 +327,7 @@ const AddNewNode = ({
       } catch (error) {
         console.error('Error loading wards data:', error);
       }
-    }
+    };
     loadWardData();
   }, [selectedBurialProvinceId]);
 
@@ -359,7 +337,7 @@ const AddNewNode = ({
     setFormData((prev) => ({
       ...prev,
       categoryCode: selectedElement?.code,
-      gender: selectedElement?.gender || 0
+      gender: selectedElement?.gender || 0,
     }));
 
     // Trigger partner selection for child types if parent has partners
@@ -379,6 +357,10 @@ const AddNewNode = ({
   const handlePartnerSelect = (partnerId: string) => {
     setSelectedPartnerId(partnerId);
     setShowPartnerSelection(false);
+    setFormData((prev) => ({
+      ...prev,
+      fromFTMemberPartnerId: partnerId,
+    }));
   };
 
   const handleFormChange = (
@@ -387,13 +369,34 @@ const AddNewNode = ({
     >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name === "isDeath") {
+      setFormData((prev) => ({
+        ...prev,
+        isDeath: !(e.target as HTMLInputElement).checked,
+      }));
+    } else if (name === "gender") {
+      setFormData((prev) => ({
+        ...prev,
+        gender: value === "1" ? 1 : 0,
+      }));
+    } else if (name === "identificationNumber") {
+      setFormData((prev) => ({
+        ...prev,
+        identificationNumber: value ? parseInt(value) : undefined,
+      }));
+    } else if (name === "ethnicId" || name === "religionId") {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value ? parseInt(value) : undefined,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value || undefined,
+      }));
+    }
   };
 
-  // Handle image selection
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -411,104 +414,122 @@ const AddNewNode = ({
       return;
     }
 
-    // Update formData with the file
+    // Revoke previous blob URL if any
+    if (previewImage?.startsWith("blob:")) {
+      URL.revokeObjectURL(previewImage);
+    }
+
+    // Create new blob URL for preview
+    const newUrl = URL.createObjectURL(file);
+
+    // Update formData with new avatar and picture
     setFormData((prev) => ({
       ...prev,
-      file: file,
+      picture: newUrl,
+      avatar: file,
     }));
 
-    // Generate preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setPreviewImage(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    // Set preview image
+    setPreviewImage(newUrl);
+
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const provinceId = e.target.value;
     setSelectedProvinceId(provinceId);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      provinceId: provinceId
+      provinceId: provinceId || undefined,
+      wardId: undefined, // Reset ward when province changes
     }));
   };
 
   const handleBurialProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const provinceId = e.target.value;
     setSelectedBurialProvinceId(provinceId);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      burialProvinceId: provinceId
+      burialProvinceId: provinceId || undefined,
+      burialWardId: undefined, // Reset ward when province changes
     }));
   };
 
   const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const wardId = e.target.value;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      wardId: wardId
+      wardId: wardId || undefined,
     }));
   };
 
   const handleBurialWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const wardId = e.target.value;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      burialWardId: wardId
+      burialWardId: wardId || undefined,
     }));
   };
 
   const openFileSelector = () => fileInputRef.current?.click();
 
   const handleSave = async () => {
-    if (onSelectType) {
-      setIsSaving(true);
-      const updatedFormData = {
-        ...formData,
-        fromFTMemberPartnerId: selectedPartnerId || undefined,
-      };
-      console.log(updatedFormData);
-      await onSelectType(updatedFormData);
-      setIsSaving(false);
+    if (!onSelectType) return;
+
+    setIsSaving(true);
+    // Build payload with only changed fields
+    const payload: Partial<AddingNodeProps> = {
+      ftId,
+      ...formData,
+      fromFTMemberPartnerId: selectedPartnerId || undefined,
+    };
+
+    // Remove fields that are undefined or empty strings to ensure only changed fields are sent
+    Object.keys(payload).forEach((key) => {
+      if (payload[key as keyof typeof payload] === undefined || payload[key as keyof typeof payload] === "") {
+        delete payload[key as keyof typeof payload];
+      }
+    });
+
+    console.log("Payload:", JSON.stringify(payload, (_, value) => {
+      if (value && typeof value === "object" && "name" in value && "type" in value && "size" in value) {
+        return "[File object]";
+      }
+      return value;
+    }, 2));
+
+    // Call onSelectType with the payload
+    await onSelectType(payload);
+
+    // Clean up blobs
+    if (previewImage?.startsWith("blob:")) {
+      URL.revokeObjectURL(previewImage);
     }
-    onClose?.();
+    setIsSaving(false);
+    handleCancel();
   };
 
   const handleCancel = () => {
+    // Revoke blob URLs
+    if (previewImage?.startsWith("blob:")) {
+      URL.revokeObjectURL(previewImage);
+    }
+
     setSelectedType(null);
     setShowPartnerSelection(false);
     setSelectedPartnerId(null);
     setShowExtendedForm(false);
     setPreviewImage(null);
+    setSelectedProvinceId("");
+    setSelectedBurialProvinceId("");
+    setWards([]);
+    setBurialWards([]);
     setFormData({
-      fullname: "",
-      gender: 0,
-      birthday: "",
-      birthplace: "",
-      isDeath: false,
-      deathDescription: "",
-      deathDate: "",
-      burialAddress: "",
-      burialWardId: undefined,
-      burialProvinceId: undefined,
-      identificationType: "",
-      identificationNumber: undefined,
-      ethnicId: undefined,
-      religionId: undefined,
-      categoryCode: undefined,
-      address: "",
-      wardId: undefined,
-      provinceId: undefined,
-      email: "",
-      phoneNumber: "",
-      content: "",
-      storyDescription: "",
-      ftId: "",
-      rootId: "",
-      fromFTMemberId: undefined,
-      fromFTMemberPartnerId: undefined,
-      ftMemberFiles: [],
+      ftId,
+      rootId: parentMember?.id || "",
+      fromFTMemberId: parentMember?.id,
+      categoryCode: isFirstNode ? CategoryCode.FirstNode : undefined,
     });
   };
 
@@ -532,7 +553,7 @@ const AddNewNode = ({
         <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-0 animate-in fade-in zoom-in">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-500 to-cyan-400 px-6 py-4 flex justify-between items-center">
-            <h2 className="text-lg font-bold text-white uppercase">
+            <h2 className="text-lg pluripotent-bold text-white uppercase">
               CHỌN VỢ/CHỒNG
             </h2>
             <button
@@ -642,7 +663,7 @@ const AddNewNode = ({
               <input
                 type="text"
                 name="fullname"
-                value={formData.fullname}
+                value={formData.fullname || ""}
                 onChange={handleFormChange}
                 placeholder={parentMember?.name || "Nhập họ tên"}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -657,15 +678,11 @@ const AddNewNode = ({
                 </label>
                 <select
                   name="gender"
-                  value={formData.gender}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      gender: e.target.value === "1" ? 1 : 0,
-                    }))
-                  }
+                  value={formData.gender ?? ""}
+                  onChange={handleFormChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                 >
+                  <option value="">Chọn giới tính</option>
                   <option value="0">Nam</option>
                   <option value="1">Nữ</option>
                 </select>
@@ -677,7 +694,7 @@ const AddNewNode = ({
                 <input
                   type="date"
                   name="birthday"
-                  value={formData.birthday}
+                  value={formData.birthday || ""}
                   onChange={handleFormChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                 />
@@ -692,7 +709,7 @@ const AddNewNode = ({
               <input
                 type="text"
                 name="birthplace"
-                value={formData.birthplace}
+                value={formData.birthplace || ""}
                 onChange={handleFormChange}
                 placeholder="Bệnh Viện A, TP Đà Nẵng, VN"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -706,12 +723,7 @@ const AddNewNode = ({
                   type="checkbox"
                   name="isDeath"
                   checked={!formData.isDeath}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      isDeath: !e.target.checked,
-                    }))
-                  }
+                  onChange={handleFormChange}
                   className="w-4 h-4"
                 />
                 <span className="text-sm text-gray-700">Đang sống</span>
@@ -744,7 +756,7 @@ const AddNewNode = ({
                       <input
                         type="text"
                         name="deathDescription"
-                        value={formData.deathDescription}
+                        value={formData.deathDescription || ""}
                         onChange={handleFormChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                       />
@@ -756,7 +768,7 @@ const AddNewNode = ({
                       <input
                         type="date"
                         name="deathDate"
-                        value={formData.deathDate}
+                        value={formData.deathDate || ""}
                         onChange={handleFormChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                       />
@@ -768,7 +780,7 @@ const AddNewNode = ({
                       <input
                         type="text"
                         name="burialAddress"
-                        value={formData.burialAddress}
+                        value={formData.burialAddress || ""}
                         onChange={handleFormChange}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                       />
@@ -779,7 +791,7 @@ const AddNewNode = ({
                         Tỉnh/Thành phố chôn cất
                       </label>
                       <select
-                        name="province"
+                        name="burialProvinceId"
                         value={selectedBurialProvinceId || ""}
                         onChange={handleBurialProvinceChange}
                         disabled={isLoadingLocation}
@@ -799,7 +811,7 @@ const AddNewNode = ({
                         Quận/Huyện chôn cất
                       </label>
                       <select
-                        name="ward"
+                        name="burialWardId"
                         value={formData.burialWardId || ""}
                         onChange={handleBurialWardChange}
                         disabled={isLoadingLocation || !selectedBurialProvinceId}
@@ -828,7 +840,7 @@ const AddNewNode = ({
                     </label>
                     <select
                       name="identificationType"
-                      value={formData.identificationType}
+                      value={formData.identificationType || ""}
                       onChange={handleFormChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     >
@@ -848,12 +860,7 @@ const AddNewNode = ({
                       type="number"
                       name="identificationNumber"
                       value={formData.identificationNumber || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          identificationNumber: e.target.value ? parseInt(e.target.value) : undefined,
-                        }))
-                      }
+                      onChange={handleFormChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     />
                   </div>
@@ -868,12 +875,7 @@ const AddNewNode = ({
                     <select
                       name="ethnicId"
                       value={formData.ethnicId || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          ethnicId: e.target.value ? parseInt(e.target.value) : undefined,
-                        }))
-                      }
+                      onChange={handleFormChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     >
                       <option value="">Chọn dân tộc</option>
@@ -891,12 +893,7 @@ const AddNewNode = ({
                     <select
                       name="religionId"
                       value={formData.religionId || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          religionId: e.target.value ? parseInt(e.target.value) : undefined,
-                        }))
-                      }
+                      onChange={handleFormChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     >
                       <option value="">Chọn tôn giáo</option>
@@ -917,7 +914,7 @@ const AddNewNode = ({
                   <input
                     type="text"
                     name="address"
-                    value={formData.address}
+                    value={formData.address || ""}
                     onChange={handleFormChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                   />
@@ -929,7 +926,7 @@ const AddNewNode = ({
                       Tỉnh/Thành phố
                     </label>
                     <select
-                      name="province"
+                      name="provinceId"
                       value={selectedProvinceId || ""}
                       onChange={handleProvinceChange}
                       disabled={isLoadingLocation}
@@ -949,7 +946,7 @@ const AddNewNode = ({
                       Quận/Huyện
                     </label>
                     <select
-                      name="ward"
+                      name="wardId"
                       value={formData.wardId || ""}
                       onChange={handleWardChange}
                       disabled={isLoadingLocation || !selectedProvinceId}
@@ -977,7 +974,7 @@ const AddNewNode = ({
                   <input
                     type="email"
                     name="email"
-                    value={formData.email}
+                    value={formData.email || ""}
                     onChange={handleFormChange}
                     placeholder="SampleEmail123@Example.com"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -990,7 +987,7 @@ const AddNewNode = ({
                   <input
                     type="tel"
                     name="phoneNumber"
-                    value={formData.phoneNumber}
+                    value={formData.phoneNumber || ""}
                     onChange={handleFormChange}
                     placeholder="012345678"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -1004,7 +1001,7 @@ const AddNewNode = ({
                   </label>
                   <textarea
                     name="content"
-                    value={formData.content}
+                    value={formData.content || ""}
                     onChange={handleFormChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     rows={3}
@@ -1016,7 +1013,7 @@ const AddNewNode = ({
                   </label>
                   <textarea
                     name="storyDescription"
-                    value={formData.storyDescription}
+                    value={formData.storyDescription || ""}
                     onChange={handleFormChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     rows={3}
@@ -1041,9 +1038,7 @@ const AddNewNode = ({
                 ? 'hover:bg-blue-700 transition-colors'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
             >
-              {
-                isSaving ? 'Đang lưu...' : 'Lưu'
-              }
+              {isSaving ? 'Đang lưu...' : 'Lưu'}
             </button>
           </div>
         </div>
@@ -1115,18 +1110,3 @@ const AddNewNode = ({
 };
 
 export default AddNewNode;
-export interface FamilyMember {
-  id: string;
-  name: string;
-  birthday?: string;
-  gender: number;
-  avatar?: string;
-  bio?: string;
-  images?: string[];
-  gpMemberFiles?: string[];
-  partners?: string[];
-  children?: any[];
-  isRoot: boolean;
-  isCurrentMember: boolean;
-  isPartner: boolean;
-}

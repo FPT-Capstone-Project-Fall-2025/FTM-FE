@@ -10,6 +10,7 @@ const MemberDetailPanel = ({
   onClose: () => void;
   onShowMemberDetail?: () => void;
 }) => {
+  console.log(member);
   
   const bgColor = member?.gender === 1 ? 'bg-pink-200' : 'bg-blue-200';
 

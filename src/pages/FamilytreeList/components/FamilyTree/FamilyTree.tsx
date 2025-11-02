@@ -166,7 +166,7 @@ const FamilyTreeContent = () => {
       dispatch(fetchFamilyTree(selectedFamilyTree!.id));
     } catch (error: any) {
       console.error("Error adding new node:", error);
-      toast.error(error?.response?.data?.Message)
+      toast.error(error?.response?.data?.message)
     } finally {
       setIsAddingNewNode(false);
       setSelectedParent(null);
