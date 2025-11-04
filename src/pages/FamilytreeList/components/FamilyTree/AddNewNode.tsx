@@ -73,18 +73,7 @@ const allRelationships: Relationship[] = [
     gender: 0,
   },
   {
-    id: "sibling-brother",
-    code: CategoryCode.Sibling,
-    label: "THÊM ANH/EM TRAI",
-    icon: User,
-    row: 1,
-    color: "bg-blue-50",
-    textColor: "text-blue-600",
-    borderColor: "border-blue-300",
-    gender: 0,
-  },
-  {
-    id: "sibling-sister",
+    id: "sibling",
     code: CategoryCode.Sibling,
     label: "THÊM ANH/CHỊ/EM",
     icon: User,
@@ -133,6 +122,8 @@ const AddNewNode = ({
   onClose,
   onSelectType,
 }: AddNewNodeProps) => {
+  console.log(existingRelationships);
+  
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showPartnerSelection, setShowPartnerSelection] = useState(false);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
@@ -147,7 +138,6 @@ const AddNewNode = ({
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
   const [formData, setFormData] = useState<Partial<AddingNodeProps>>({
     ftId: ftId,
     rootId: parentMember?.id || "",
@@ -158,7 +148,7 @@ const AddNewNode = ({
 
   // Filter out existing relationships
   const availableRelationships = allRelationships.filter(
-    (rel) => !existingRelationships.includes(rel.id)
+    (rel) =>  !existingRelationships.includes(rel.id)
   );
 
   // Group by row
@@ -176,12 +166,41 @@ const AddNewNode = ({
   const createNodePosition = (
     row: number,
     indexInRow: number,
-    totalInRow: number
+    totalInRow: number,
+    isParent: boolean = false,
+    hasParentInRow: boolean = false
   ) => {
-    const horizontalSpacing = 180;
-    const verticalSpacing = 150;
+
+    const horizontalSpacing = 250;
+    const verticalSpacing = 180;
+    const parentWidth = 160; // Width of parent node
 
     const y = row * verticalSpacing;
+
+    // Center the parent node at x: 0
+    if (isParent) {
+      return { x: 0, y };
+    }
+
+    // For nodes in the same row as parent, position them on the sides
+    if (hasParentInRow) {
+      // Split nodes: left side and right side of parent
+      const nodesPerSide = Math.ceil((totalInRow - 1) / 2);
+
+      if (indexInRow < nodesPerSide) {
+        // Left side nodes
+        const leftIndex = nodesPerSide - 1 - indexInRow;
+        const x = -(parentWidth / 2 + horizontalSpacing + leftIndex * horizontalSpacing);
+        return { x, y };
+      } else {
+        // Right side nodes
+        const rightIndex = indexInRow - nodesPerSide;
+        const x = parentWidth / 2 + horizontalSpacing + rightIndex * horizontalSpacing;
+        return { x, y };
+      }
+    }
+
+    // For other rows, calculate positions around the center
     const totalWidth = (totalInRow - 1) * horizontalSpacing;
     const x = indexInRow * horizontalSpacing - totalWidth / 2;
 
@@ -193,34 +212,47 @@ const AddNewNode = ({
       return [];
     }
 
+    // Group relationship nodes by row (excluding parent)
+    const relationshipsByRow: { [key: number]: typeof availableRelationships } = {};
+    availableRelationships.forEach((rel) => {
+      if (!relationshipsByRow[rel.row]) {
+        relationshipsByRow[rel.row] = [];
+      }
+      relationshipsByRow[rel.row]?.push(rel);
+    });
+
+    const parentRow = 1;
+
     return [
       {
         id: parentMember.id,
         data: {
           label: (
             <div className="text-center">
-              <div className="text-sm font-semibold text-gray-900">
+              <div className="text-base font-bold text-white mb-1">
                 {parentMember.name}
               </div>
-              <div className="text-xs text-gray-600">{parentMember.birthday}</div>
+              <div className="text-xs text-white font-medium opacity-90">{parentMember.birthday}</div>
             </div>
           ),
         },
-        position: { x: 0, y: 150 },
+        position: createNodePosition(parentRow, 0, 1, true, false), // Center position for parent
         style: {
-          background: "white",
-          border: "2px solid #d1d5db",
-          borderRadius: "8px",
-          padding: "18px",
-          minWidth: "140px",
-          fontSize: "12px",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          border: "3px solid #5a67d8",
+          borderRadius: "12px",
+          padding: "20px 24px",
+          minWidth: "160px",
+          fontSize: "13px",
           zIndex: 100,
+          boxShadow: "0 8px 16px rgba(0, 0, 0, 0.3), 0 0 0 4px rgba(102, 126, 234, 0.2)",
         },
       },
       ...availableRelationships.map((rel) => {
-        const sameRowCount = rowGroups[rel.row]!.length;
-        const sameRowIndex = rowGroups[rel.row]!.findIndex((r) => r.id === rel.id);
-        const pos = createNodePosition(rel.row, sameRowIndex, sameRowCount);
+        const sameRowCount = relationshipsByRow[rel.row]!.length;
+        const sameRowIndex = relationshipsByRow[rel.row]!.findIndex((r) => r.id === rel.id);
+        const hasParentInThisRow = rel.row === parentRow;
+        const pos = createNodePosition(rel.row, sameRowIndex, sameRowCount, false, hasParentInThisRow);
         const IconComponent = rel.icon;
 
         return {

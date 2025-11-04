@@ -1,15 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, X, Check, Trash2, Clock } from 'lucide-react';
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  isRead: boolean;
-  type: 'info' | 'success' | 'warning' | 'error';
-}
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
 
 interface NotificationPopupProps {
   isOpen: boolean;
@@ -20,52 +13,9 @@ interface NotificationPopupProps {
 const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, anchorRef }) => {
   const navigate = useNavigate();
   const popupRef = useRef<HTMLDivElement>(null);
+  const { notifications } = useAppSelector(state => state.notifications);
+  const dispatch = useAppDispatch();
 
-  // Demo data
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      title: 'Sự kiện mới được tạo',
-      message: 'Sự kiện "Sinh nhật ông nội" đã được tạo bởi Nguyễn Văn A',
-      time: '5 phút trước',
-      isRead: false,
-      type: 'info'
-    },
-    {
-      id: '2',
-      title: 'Thành viên mới tham gia',
-      message: 'Nguyễn Thị B đã tham gia gia phả "Gia đình Nguyễn"',
-      time: '1 giờ trước',
-      isRead: false,
-      type: 'success'
-    },
-    {
-      id: '3',
-      title: 'Nhắc nhở sự kiện',
-      message: 'Sự kiện "Giỗ tổ" sẽ diễn ra sau 2 ngày nữa',
-      time: '3 giờ trước',
-      isRead: true,
-      type: 'warning'
-    },
-    {
-      id: '4',
-      title: 'Cập nhật gia phả',
-      message: 'Gia phả "Dòng họ Trần" đã được cập nhật thông tin',
-      time: '1 ngày trước',
-      isRead: true,
-      type: 'info'
-    },
-    {
-      id: '5',
-      title: 'Tin tức mới',
-      message: 'Có bài viết mới trong nhóm "Gia đình Nguyễn"',
-      time: '2 ngày trước',
-      isRead: true,
-      type: 'info'
-    }
-  ]);
-
-  // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -92,34 +42,28 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
     if (isOpen && anchorRef.current && popupRef.current) {
       const anchorRect = anchorRef.current.getBoundingClientRect();
       const popup = popupRef.current;
-      
+
       // Position popup below and aligned to the right of anchor
       popup.style.top = `${anchorRect.bottom + 8}px`;
       popup.style.right = `${window.innerWidth - anchorRect.right}px`;
     }
   }, [isOpen, anchorRef]);
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
-  };
+  const handleMarkAsRead = (id: string) => {
+    dispatch(markAsRead(id));
+  }
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notif => ({ ...notif, isRead: true }))
-    );
+  const handleMarkAllAsRead = () => {
+    dispatch(markAllRead());
   };
 
   const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== id));
+    // setNotifications(prev => prev.filter(notif => notif.id !== id));
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const getTypeColor = (type: string) => {
+  const getTypeColor = (type?: string) => {
     switch (type) {
       case 'success':
         return 'bg-green-100 text-green-800';
@@ -154,7 +98,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
               <button
-                onClick={markAllAsRead}
+                onClick={handleMarkAllAsRead}
                 className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded transition-colors"
                 title="Đánh dấu tất cả đã đọc"
               >
@@ -182,19 +126,16 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 hover:bg-gray-50 transition-colors ${
-                    !notification.isRead ? 'bg-blue-50' : ''
-                  }`}
+                  className={`p-4 hover:bg-gray-50 transition-colors ${!notification.isRead ? 'bg-blue-50' : ''
+                    }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
-                      !notification.isRead ? 'bg-blue-500' : 'bg-gray-300'
-                    }`} />
+                    <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${!notification.isRead ? 'bg-blue-500' : 'bg-gray-300'
+                      }`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <h4 className={`text-sm font-medium ${
-                          !notification.isRead ? 'text-gray-900' : 'text-gray-700'
-                        }`}>
+                        <h4 className={`text-sm font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'
+                          }`}>
                           {notification.title}
                         </h4>
                         <span className={`px-2 py-0.5 text-xs rounded ${getTypeColor(notification.type)}`}>
@@ -205,12 +146,12 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1 text-xs text-gray-500">
                           <Clock className="w-3 h-3" />
-                          <span>{notification.time}</span>
+                          <span>{notification.createdAt}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {!notification.isRead && (
                             <button
-                              onClick={() => markAsRead(notification.id)}
+                              onClick={() => handleMarkAsRead(notification.id)}
                               className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                               title="Đánh dấu đã đọc"
                             >
@@ -237,7 +178,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
         {/* Footer */}
         {notifications.length > 0 && (
           <div className="border-t border-gray-200 p-3 text-center">
-            <button 
+            <button
               onClick={() => {
                 onClose();
                 navigate('/notification');

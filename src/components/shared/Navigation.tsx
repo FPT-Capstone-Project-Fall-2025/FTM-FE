@@ -14,6 +14,7 @@ import logo from '@/assets/img/logo.svg';
 import { logout } from '@/stores/slices/authSlice';
 import userService from '@/services/userService';
 import NotificationPopup from './NotificationPopup';
+import { markAllRead } from '@/stores/slices/notificationSlice';
 
 interface NavigationProps {
   onMenuClick: () => void;
@@ -29,6 +30,7 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
   const notificationButtonRef = useRef<HTMLButtonElement>(null);
 
   const [userData, setUserData] = useState({ name: '', picture: '' });
+  const { unreadCount } = useAppSelector(state => state.notifications);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -38,13 +40,13 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
           ...pre,
           name: response.data.name,
           picture: response.data.picture
-        }))
+        }));
       } catch (error) {
         console.log(error);
       }
-    }
+    };
     fetchInitialData();
-  }, [])
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -63,13 +65,18 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
   }, [isDropdownOpen]);
 
   const handleLogout = async () => {
-    dispatch(logout())
-    navigate('/login', { replace: true })
-  }
+    dispatch(logout());
+    navigate('/login', { replace: true });
+  };
 
   const handleNotificationClick = () => {
-    setIsNotificationOpen(!isNotificationOpen);
+    const willOpen = !isNotificationOpen;
+    setIsNotificationOpen(willOpen);
     setIsDropdownOpen(false); // Close user dropdown if open
+
+    if (willOpen) {
+      dispatch(markAllRead());
+    }
   };
 
   return (
@@ -97,7 +104,14 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
               title="Thông báo"
             >
               <Bell size={minimizeHeader ? 18 : 20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-blue-600"></span>
+              {/* badge: keep original small dot when 0, show count when >0 */}
+              {unreadCount > 0 ? (
+                <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full px-1.5 border-2 border-blue-600">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              ) : (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-blue-600"></span>
+              )}
             </button>
 
             {/* User Dropdown */}
@@ -138,16 +152,6 @@ const Navigation: React.FC<NavigationProps> = ({ onMenuClick }) => {
                     <HelpCircle size={20} className="mr-3" />
                     Trợ giúp và hỗ trợ
                   </button>
-                  {/* <button className="w-full text-left flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-100">
-                    <div className="flex items-center">
-                      <HelpCircle size={20} className="mr-3" />
-                      Ngôn ngữ
-                    </div>
-                    <div className="flex items-center text-gray-500">
-                      Tiếng Việt
-                      <ChevronRight size={16} className="ml-1" />
-                    </div>
-                  </button> */}
                   <button
                     onClick={handleLogout}
                     className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"

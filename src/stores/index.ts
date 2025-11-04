@@ -5,6 +5,8 @@ import authReducer from "./slices/authSlice";
 import familyTreeReducer from "./slices/familyTreeSlice";
 import familyTreeMetaReducer from "./slices/familyTreeMetaDataSlice";
 import settingsReducer from "./slices/settingsSlice";
+import notificationReducer from "./slices/notificationSlice";
+import connectionReducer from "./slices/connectionSlice";
 
 const rootReducer = combineReducers({
     // more reducers go here
@@ -12,6 +14,8 @@ const rootReducer = combineReducers({
     familyTree: familyTreeReducer,
     familyTreeMetaData: familyTreeMetaReducer,
     settings: settingsReducer,
+    notifications: notificationReducer,
+    connection: connectionReducer,
 });
 
 const persistConfig = {
@@ -21,7 +25,8 @@ const persistConfig = {
         // reducers to persist
         'auth',
         'familyTreeMetaData',
-        'settings'
+        'settings',
+        'notifications'
     ],
     blacklist: [
         // reducers not to persist
