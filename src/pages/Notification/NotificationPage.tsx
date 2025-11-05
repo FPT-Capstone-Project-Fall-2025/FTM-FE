@@ -1,108 +1,38 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, CheckCheck, Trash2, Clock, ArrowLeft } from 'lucide-react';
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  isRead: boolean;
-  type: 'info' | 'success' | 'warning' | 'error';
-}
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
+import parse from 'html-react-parser';
 
 const NotificationPage: React.FC = () => {
   const navigate = useNavigate();
-  
-  // Demo data - trong thực tế sẽ fetch từ API
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      title: 'Sự kiện mới được tạo',
-      message: 'Sự kiện "Sinh nhật ông nội" đã được tạo bởi Nguyễn Văn A',
-      time: '5 phút trước',
-      isRead: false,
-      type: 'info'
-    },
-    {
-      id: '2',
-      title: 'Thành viên mới tham gia',
-      message: 'Nguyễn Thị B đã tham gia gia phả "Gia đình Nguyễn"',
-      time: '1 giờ trước',
-      isRead: false,
-      type: 'success'
-    },
-    {
-      id: '3',
-      title: 'Nhắc nhở sự kiện',
-      message: 'Sự kiện "Giỗ tổ" sẽ diễn ra sau 2 ngày nữa',
-      time: '3 giờ trước',
-      isRead: true,
-      type: 'warning'
-    },
-    {
-      id: '4',
-      title: 'Cập nhật gia phả',
-      message: 'Gia phả "Dòng họ Trần" đã được cập nhật thông tin',
-      time: '1 ngày trước',
-      isRead: true,
-      type: 'info'
-    },
-    {
-      id: '5',
-      title: 'Tin tức mới',
-      message: 'Có bài viết mới trong nhóm "Gia đình Nguyễn"',
-      time: '2 ngày trước',
-      isRead: true,
-      type: 'info'
-    },
-    {
-      id: '6',
-      title: 'Thông báo hệ thống',
-      message: 'Hệ thống sẽ bảo trì vào đêm mai từ 2h đến 4h',
-      time: '3 ngày trước',
-      isRead: true,
-      type: 'warning'
-    },
-    {
-      id: '7',
-      title: 'Lời mời tham gia gia phả',
-      message: 'Bạn được mời tham gia gia phả "Họ Lê" bởi Lê Văn C',
-      time: '5 ngày trước',
-      isRead: false,
-      type: 'info'
-    }
-  ]);
+  const dispatch = useAppDispatch();
+  const { notifications } = useAppSelector(state => state.notifications);
 
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
-  };
+  const handleMarkAsRead = (id: string) => {
+    dispatch(markAsRead(id));
+  }
 
-  const markAsUnread = (id: string) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, isRead: false } : notif
-      )
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notif => ({ ...notif, isRead: true }))
-    );
+  const handleMarkAllAsRead = () => {
+    dispatch(markAllRead());
   };
 
   const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== id));
+    // setNotifications(prev => prev.filter(notif => notif.id !== id));
   };
 
-  const getTypeColor = (type: string) => {
+  const markAsUnread = (id: string) => {
+    // setNotifications(prev =>
+    //   prev.map(notif =>
+    //     notif.id === id ? { ...notif, isRead: false } : notif
+    //   )
+    // );
+  };
+
+  const getTypeColor = (type?: string) => {
     switch (type) {
       case 'success':
         return 'bg-green-100 text-green-800 border-green-200';
@@ -115,7 +45,7 @@ const NotificationPage: React.FC = () => {
     }
   };
 
-  const filteredNotifications = activeTab === 'unread' 
+  const filteredNotifications = activeTab === 'unread'
     ? notifications.filter(n => !n.isRead)
     : notifications;
 
@@ -153,11 +83,10 @@ const NotificationPage: React.FC = () => {
           <div className="flex border-b border-gray-200">
             <button
               onClick={() => setActiveTab('all')}
-              className={`flex-1 py-4 px-6 font-semibold text-sm transition-colors border-b-2 ${
-                activeTab === 'all'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`flex-1 py-4 px-6 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'all'
+                ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
             >
               Tất cả
               {activeTab === 'all' && notifications.length > 0 && (
@@ -168,11 +97,10 @@ const NotificationPage: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('unread')}
-              className={`flex-1 py-4 px-6 font-semibold text-sm transition-colors border-b-2 ${
-                activeTab === 'unread'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`flex-1 py-4 px-6 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'unread'
+                ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
             >
               Chưa đọc
               {unreadCount > 0 && (
@@ -187,13 +115,13 @@ const NotificationPage: React.FC = () => {
           {filteredNotifications.length > 0 && (
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <div className="text-sm text-gray-600">
-                {activeTab === 'unread' 
+                {activeTab === 'unread'
                   ? `${unreadCount} thông báo chưa đọc`
                   : `${notifications.length} thông báo`}
               </div>
               {activeTab === 'unread' && unreadCount > 0 && (
                 <button
-                  onClick={markAllAsRead}
+                  onClick={handleMarkAllAsRead}
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                 >
                   <CheckCheck className="w-4 h-4" />
@@ -215,7 +143,7 @@ const NotificationPage: React.FC = () => {
                 {activeTab === 'unread' ? 'Không có thông báo chưa đọc' : 'Không có thông báo nào'}
               </h3>
               <p className="text-gray-600 text-center max-w-md">
-                {activeTab === 'unread' 
+                {activeTab === 'unread'
                   ? 'Bạn đã đọc tất cả thông báo'
                   : 'Chưa có thông báo nào được gửi đến bạn'}
               </p>
@@ -225,23 +153,20 @@ const NotificationPage: React.FC = () => {
               {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-6 hover:bg-gray-50 transition-colors ${
-                    !notification.isRead ? 'bg-blue-50/50' : ''
-                  }`}
+                  className={`p-6 hover:bg-gray-50 transition-colors ${!notification.isRead ? 'bg-blue-50/50' : ''
+                    }`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`flex-shrink-0 w-3 h-3 rounded-full mt-2 ${
-                      !notification.isRead ? 'bg-blue-500' : 'bg-gray-300'
-                    }`} />
+                    <div className={`flex-shrink-0 w-3 h-3 rounded-full mt-2 ${!notification.isRead ? 'bg-blue-500' : 'bg-gray-300'
+                      }`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="flex-1 min-w-0">
-                          <h4 className={`text-base font-semibold mb-1 ${
-                            !notification.isRead ? 'text-gray-900' : 'text-gray-700'
-                          }`}>
+                          <h4 className={`text-base font-semibold mb-1 ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'
+                            }`}>
                             {notification.title}
                           </h4>
-                          <p className="text-sm text-gray-600 mb-3">{notification.message}</p>
+                          <p className="text-sm text-gray-600 mb-3">{parse(notification.message)}</p>
                         </div>
                         <span className={`px-3 py-1 text-xs font-medium rounded-lg border ${getTypeColor(notification.type)} whitespace-nowrap flex-shrink-0`}>
                           {notification.type}
@@ -250,7 +175,7 @@ const NotificationPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <Clock className="w-3.5 h-3.5" />
-                          <span>{notification.time}</span>
+                          <span>{notification.createdAt}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {notification.isRead ? (
@@ -263,7 +188,7 @@ const NotificationPage: React.FC = () => {
                             </button>
                           ) : (
                             <button
-                              onClick={() => markAsRead(notification.id)}
+                              onClick={() => handleMarkAsRead(notification.id)}
                               className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Đánh dấu đã đọc"
                             >

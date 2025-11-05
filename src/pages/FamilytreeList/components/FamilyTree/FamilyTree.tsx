@@ -31,6 +31,7 @@ import familyTreeService from '@/services/familyTreeService';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import { toast } from 'react-toastify';
 import MemberDetailPage from '../../FamilyMemberDetail';
+import FamilyTreeInviteModal from './InviteMember';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -74,6 +75,7 @@ const FamilyTreeContent = () => {
   const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   const [isAddingNewNode, setIsAddingNewNode] = useState(false);
   const [isDeletingNode, setIsDeletingNode] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(true);
   const [isLoadingRelationships, setIsLoadingRelationships] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
   const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
@@ -336,6 +338,18 @@ const FamilyTreeContent = () => {
               {/* Toolbar */}
               <FamilyTreeToolbar />
 
+              <button
+                onClick={() => setIsInviteModalOpen(true)}
+                className="absolute top-4 right-8 z-10 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold"
+              >
+                Open Invite Modal
+              </button>
+
+              <FamilyTreeInviteModal
+                isOpen={isInviteModalOpen}
+                onClose={() => setIsInviteModalOpen(false)}
+              />
+
               {/* Search Bar */}
               <div className="absolute top-4 right-4 z-10">
                 <SearchBar onSelectMember={handleSearchSelect} />
@@ -359,15 +373,15 @@ const FamilyTreeContent = () => {
 
           {
             isLoadingRelationships && (
-            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-8 shadow-2xl">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-gray-600">Đang tải thông tin...</p>
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl p-8 shadow-2xl">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-gray-600">Đang tải thông tin...</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Add New Node Modal */}
           {!isLoadingRelationships && isAddingNewNode && (

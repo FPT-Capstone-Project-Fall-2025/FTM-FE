@@ -39,6 +39,7 @@
     "dayjs": "^1.11.18",
     "downshift": "^9.0.10",
     "google-auth-library": "^10.3.0",
+    "html-react-parser": "^5.2.8",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, X, Check, Trash2, Clock } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
+import parse from 'html-react-parser';
 
 interface NotificationPopupProps {
   isOpen: boolean;
@@ -142,7 +143,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
                           {notification.type}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
+                      <p className="text-sm text-gray-600 mb-2">{parse(notification.message)}</p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1 text-xs text-gray-500">
                           <Clock className="w-3 h-3" />
