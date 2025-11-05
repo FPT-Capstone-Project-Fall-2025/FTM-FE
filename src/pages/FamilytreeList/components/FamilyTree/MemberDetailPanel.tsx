@@ -10,9 +10,7 @@ const MemberDetailPanel = ({
   onClose: () => void;
   onShowMemberDetail?: () => void;
 }) => {
-  
   const bgColor = member?.gender === 1 ? 'bg-pink-200' : 'bg-blue-200';
-
   return (
     <>
       {/* Backdrop overlay */}

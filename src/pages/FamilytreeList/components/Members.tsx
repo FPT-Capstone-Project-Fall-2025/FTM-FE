@@ -19,6 +19,11 @@ const Members: React.FC = () => {
                 name: "FTId",
                 operation: "EQUAL",
                 value: selectedFamilyTree ? selectedFamilyTree.id : ''
+            },
+            {
+                name: "isDeleted",
+                operation: "EQUAL",
+                value: 'false'
             }
         ],
         totalItems: 0,

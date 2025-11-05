@@ -76,15 +76,10 @@ const familyTreeService = {
     });
   },
 
-  /**
-   * Get member tree for event tagging
-   * This returns all members in a family tree for the event member tagging feature
-   */
   getMemberTree(ftId: string): Promise<ApiResponse<FamilytreeDataResponse>> {
     return api.get(`/ftmember/member-tree?ftId=${ftId}`);
   },
 
-  // [{"name":"name","operation":"EQUAL","value":"a8ab2642-8fb3-4496-8444-2d704011f938"}]
   getFamilyTreeMemberById(ftId: string, memberId: string): Promise<ApiResponse<FamilyNode>> {
     return api.get(`/ftmember/${ftId}/get-by-memberid`, {
       params: {
@@ -94,28 +89,7 @@ const familyTreeService = {
   },
 
   createFamilyNode(props: AddingNodeProps): Promise<ApiResponse<string>> {
-
-    const formData = new FormData();
-    
-    // Append all non-file fields
-    Object.entries(props).forEach(([key, value]) => {
-      if (key !== 'ftMemberFiles' && value !== undefined && value !== null) {
-        formData.append(key, value.toString());
-      }
-    });
-
-    // Append files if present
-    if (props.ftMemberFiles && props.ftMemberFiles.length > 0) {
-      props.ftMemberFiles.forEach((fileProp, index) => {
-        if (fileProp.file) {
-          formData.append(`ftMemberFiles[${index}]`, fileProp.file); // Append the actual File object
-          if (fileProp.title) formData.append(`ftMemberFilesTitles[${index}]`, fileProp.title);
-          if (fileProp.fileType) formData.append(`ftMemberFilesTypes[${index}]`, fileProp.fileType);
-          // Append other FileProps fields if needed, e.g., description, content, thumbnail
-        }
-      });
-    }
-    return api.post(`/ftmember/${props.ftId}`, formData, {
+    return api.post(`/ftmember/${props.ftId}`, props, {
       headers: {
           "Content-Type": "multipart/form-data"
         }
@@ -128,6 +102,10 @@ const familyTreeService = {
           "Content-Type": "multipart/form-data"
         }
     });
+  },
+
+  getAddableRelationships(ftMemberId: string): Promise<ApiResponse<any>> {
+    return api.get(`/ftmember/${ftMemberId}/relationship`);
   },
 
   deleteFamilyNode(ftMemberId: string): Promise<ApiResponse<string>> {

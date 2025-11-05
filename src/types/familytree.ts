@@ -87,6 +87,7 @@ export interface AddingNodeProps {
   categoryCode: CategoryCode | undefined;
   ftId: string;
   birthday?: string;
+  isDivorced?: boolean;
   birthplace: string;
   deathDescription?: string | undefined;
   deathDate?: string | undefined;
@@ -120,6 +121,7 @@ export interface FamilyNode {
   fullname: string;
   gender: 0 | 1;
   isDeath: boolean;
+  isDivorced: boolean;
   deathDateUnknown?: boolean;
   birthday: string;
   deathDescription: string;
@@ -152,6 +154,7 @@ export interface UpdateFamilyNode {
   fullname?: string;
   gender?: 0 | 1;
   isDeath?: boolean;
+  isDivorced?: boolean;
   birthday?: string;
   deathDescription?: string;
   deathDate?: string;

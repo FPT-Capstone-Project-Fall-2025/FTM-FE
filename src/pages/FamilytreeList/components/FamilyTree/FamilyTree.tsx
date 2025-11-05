@@ -31,6 +31,7 @@ import familyTreeService from '@/services/familyTreeService';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import { toast } from 'react-toastify';
 import MemberDetailPage from '../../FamilyMemberDetail';
+import FamilyTreeInviteModal from './InviteMember';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -74,8 +75,11 @@ const FamilyTreeContent = () => {
   const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   const [isAddingNewNode, setIsAddingNewNode] = useState(false);
   const [isDeletingNode, setIsDeletingNode] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isLoadingRelationships, setIsLoadingRelationships] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
   const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
+  const [existingRelationships, setExistingRelationships] = useState<string[]>([]);
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
   const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
@@ -160,13 +164,12 @@ const FamilyTreeContent = () => {
         ...formData,
         ftId: selectedFamilyTree?.id || "",
       });
-      console.log("API Response:", response);
       toast.success(response.message)
       // Re-fetch the family tree to sync with the new node
       dispatch(fetchFamilyTree(selectedFamilyTree!.id));
     } catch (error: any) {
       console.error("Error adding new node:", error);
-      toast.error(error?.response?.data?.Message)
+      toast.error(error?.response?.data?.message)
     } finally {
       setIsAddingNewNode(false);
       setSelectedParent(null);
@@ -207,6 +210,37 @@ const FamilyTreeContent = () => {
     setIsDeletingNode(false);
   }, []);
 
+  const fetchAddableRelationships = async (ftMemberId: string) => {
+    try {
+      setIsLoadingRelationships(true);
+      const response = await familyTreeService.getAddableRelationships(ftMemberId);
+      const data = response?.data;
+
+      if (data) {
+        const mappedRelationships: (
+          | "father"
+          | "mother"
+          | "spouse"
+          | "sibling"
+          | "child-son"
+          | "child-daughter"
+        )[] = [];
+
+        if (data.hasFather) mappedRelationships.push("father");
+        if (data.hasMother) mappedRelationships.push("mother");
+        if (data.hasSiblings) mappedRelationships.push("sibling");
+        if (data.hasPartner) mappedRelationships.push("spouse");
+        if (data.hasChildren) mappedRelationships.push("child-son", "child-daughter");
+
+        setExistingRelationships(mappedRelationships);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Không thể lấy dữ liệu mối quan hệ");
+    } finally {
+      setIsLoadingRelationships(false);
+    }
+  };
+
   // Memoize enhanced nodes - only recreate when nodes or handler changes
   const enhancedNodes = useMemo(() => {
     return nodes.map(node => ({
@@ -218,6 +252,7 @@ const FamilyTreeContent = () => {
           const member = members[node.id];
           if (member) {
             setSelectedParent(member);
+            fetchAddableRelationships(member.id);
             setIsAddingNewNode(true);
           }
         },
@@ -301,7 +336,14 @@ const FamilyTreeContent = () => {
               />
 
               {/* Toolbar */}
-              <FamilyTreeToolbar />
+              <FamilyTreeToolbar
+                handleInviteUser={() => setIsInviteModalOpen(true)}
+              />
+
+              <FamilyTreeInviteModal
+                isOpen={isInviteModalOpen}
+                onClose={() => setIsInviteModalOpen(false)}
+              />
 
               {/* Search Bar */}
               <div className="absolute top-4 right-4 z-10">
@@ -310,11 +352,11 @@ const FamilyTreeContent = () => {
             </div>
 
             {/* Side Panel */}
-              <MemberDetailPanel
-                member={selectedMember}
-                onClose={handleClosePanel}
-                onShowMemberDetail={handleOpenMemberDetailPage}
-              />
+            <MemberDetailPanel
+              member={selectedMember}
+              onClose={handleClosePanel}
+              onShowMemberDetail={handleOpenMemberDetailPage}
+            />
           </>
 
           {/* Add New Node - Outside ReactFlow to prevent re-renders */}
@@ -324,13 +366,25 @@ const FamilyTreeContent = () => {
             </div>
           )}
 
+          {
+            isLoadingRelationships && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl p-8 shadow-2xl">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-gray-600">Đang tải thông tin...</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
           {/* Add New Node Modal */}
-          {isAddingNewNode && (
+          {!isLoadingRelationships && isAddingNewNode && (
             <AddNewNode
               ftId={selectedFamilyTree?.id || ""}
               isFirstNode={nodes.length === 0}
               parentMember={selectedParent}
-              existingRelationships={[]}
+              existingRelationships={existingRelationships}
               onSelectType={handleAddNewNode}
               onClose={() => {
                 setIsAddingNewNode(false);

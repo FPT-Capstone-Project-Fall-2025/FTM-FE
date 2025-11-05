@@ -37,8 +37,6 @@ const FamilyTreeSelection: React.FC = () => {
         try {
             setLoading(true);
             const response = await familytreeService.getMyFamilytrees();
-            console.log(response);
-            
             dispatch(setAvailableFamilyTrees(response.data.data));
         } catch (error) {
             console.error('Error fetching family trees:', error);

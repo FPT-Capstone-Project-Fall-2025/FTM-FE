@@ -6,7 +6,8 @@ import {
     Image,
     Maximize2,
     Minimize2,
-    Loader2
+    Loader2,
+    UserPlus
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import {
@@ -17,7 +18,13 @@ import { exportFamilyTree, importFamilyTree } from '@/utils/exportUtils';
 import { toPng } from 'html-to-image';
 import { useReactFlow, getNodesBounds, getViewportForBounds } from 'reactflow';
 
-const FamilyTreeToolbar = () => {
+interface FamilyTreeToolbarProps {
+    handleInviteUser: () => void;
+}
+
+const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({
+    handleInviteUser
+}) => {
     const dispatch = useAppDispatch();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { getNodes } = useReactFlow();
@@ -201,6 +208,15 @@ const FamilyTreeToolbar = () => {
                     title="Nhập cây gia phả"
                 >
                     <Upload className="w-5 h-5" />
+                </button>
+
+                {/* Invite user */}
+                <button
+                    onClick={handleInviteUser}
+                    className="p-2 hover:bg-gray-100 rounded transition-colors"
+                    title="Mời thành viên vào gia phả"
+                >
+                    <UserPlus className="w-5 h-5" />
                 </button>
 
                 <div className="w-px bg-gray-300" />
