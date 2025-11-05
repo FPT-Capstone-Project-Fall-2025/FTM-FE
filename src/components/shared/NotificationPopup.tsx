@@ -59,6 +59,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
   };
 
   const deleteNotification = (id: string) => {
+    console.log(id);
     // setNotifications(prev => prev.filter(notif => notif.id !== id));
   };
 

@@ -122,7 +122,6 @@ const AddNewNode = ({
   onClose,
   onSelectType,
 }: AddNewNodeProps) => {
-  console.log(existingRelationships);
   
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showPartnerSelection, setShowPartnerSelection] = useState(false);

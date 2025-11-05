@@ -149,12 +149,10 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             const excludedKeys = ['ftMemberFiles', 'id', 'picture', 'avatar'] as const;
             const fieldDiff: Partial<FamilyNode> = {};
 
-            for (const key in member) {
+            const allKeys = new Set([...Object.keys(member), ...Object.keys(editedMember)]);
+            for (const key of allKeys) {
                 if (excludedKeys.includes(key as any)) continue;
                 const k = key as keyof Omit<FamilyNode, 'ftMemberFiles' | 'id' | 'picture' | 'avatar'>;
-                // if (JSON.stringify(member[k]) !== JSON.stringify(editedMember[k])) {
-                //     (fieldDiff as any)[k] = editedMember[k];
-                // }
                 if (member[k] !== editedMember[k]) {
                     (fieldDiff as any)[k] = editedMember[k];
                 }
@@ -459,7 +457,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                         />
                         <div>
                             <h1 className="text-2xl font-bold">{data.fullname}</h1>
-                            <p className="text-white/90">{data.ftRole}</p>
+                            <p className="text-white/90">{data.ftRole === 'FTMember' ? 'Thành viên' : data.ftRole}</p>
                             <p className="text-sm text-white/80">ID: {data.id}</p>
                         </div>
                     </div>
@@ -631,24 +629,15 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                             ? data[field]
                                                                 ? new Date(data[field] as string).toLocaleDateString('en-GB')
                                                                 : '-'
-                                                            : data[field] ?? '-'}
+                                                            : field === 'ftRole'
+                                                                ? data[field] === 'FTMember'
+                                                                    ? 'Thành viên'
+                                                                    : data[field] ?? '-'
+                                                                : data[field] ?? '-'}
                                                 </p>
                                             )}
                                         </div>
                                     ))}
-                                    {/* New isDivorced checkbox */}
-                                    <div className="col-span-2">
-                                        <label className="flex items-center text-sm font-medium text-gray-700">
-                                            <input
-                                                type="checkbox"
-                                                checked={data.isDivorced ?? false}
-                                                disabled={!isEditing}
-                                                onChange={(e) => setField('isDivorced', e.target.checked)}
-                                                className="mr-2"
-                                            />
-                                            Đã ly hôn
-                                        </label>
-                                    </div>
                                 </div>
                             </div>
 
@@ -696,43 +685,24 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                 </div>
                             </div>
 
-                            {/* <div className={`bg-white rounded-lg p-6 border ${borderColor}`}>
+                            <div className={`bg-white rounded-lg p-6 border ${borderColor}`}>
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
-                                    Giấy tờ tùy thân
+                                    Tình trạng hôn nhân
                                 </h3>
-                                <div className="space-y-4">
-                                    {[
-                                        { label: 'Loại giấy tờ', field: 'identificationType' as const },
-                                        {
-                                            label: 'Số giấy tờ',
-                                            field: 'identificationNumber' as const,
-                                            type: 'number',
-                                        },
-                                    ].map(({ label, field, type }) => (
-                                        <div key={field}>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                {label}
-                                            </label>
-                                            {isEditing ? (
-                                                <input
-                                                    type={type ?? 'text'}
-                                                    value={data[field] ?? ''}
-                                                    onChange={(e) =>
-                                                        setField(
-                                                            field,
-                                                            type === 'number' ? Number(e.target.value) : e.target.value
-                                                        )
-                                                    }
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                />
-                                            ) : (
-                                                <p className="text-gray-900">{data[field] ?? '-'}</p>
-                                            )}
-                                        </div>
-                                    ))}
+                                <div className="col-span-2">
+                                    <label className="flex items-center text-sm font-medium text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.isDivorced ?? false}
+                                            disabled={!isEditing}
+                                            onChange={(e) => setField('isDivorced', e.target.checked)}
+                                            className="mr-2"
+                                        />
+                                        Đã ly hôn
+                                    </label>
                                 </div>
-                            </div> */}
+                            </div>
 
                             {(data.isDeath || isEditing) && (
                                 <div className="col-span-2 bg-gray-100 rounded-lg p-6 border border-gray-300">

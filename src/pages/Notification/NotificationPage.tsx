@@ -21,10 +21,14 @@ const NotificationPage: React.FC = () => {
   };
 
   const deleteNotification = (id: string) => {
+    console.log(id);
+    
     // setNotifications(prev => prev.filter(notif => notif.id !== id));
   };
 
   const markAsUnread = (id: string) => {
+    console.log(id);
+
     // setNotifications(prev =>
     //   prev.map(notif =>
     //     notif.id === id ? { ...notif, isRead: false } : notif
