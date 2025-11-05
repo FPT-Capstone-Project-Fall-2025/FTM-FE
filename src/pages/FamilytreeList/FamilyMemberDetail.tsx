@@ -152,7 +152,10 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             for (const key in member) {
                 if (excludedKeys.includes(key as any)) continue;
                 const k = key as keyof Omit<FamilyNode, 'ftMemberFiles' | 'id' | 'picture' | 'avatar'>;
-                if (JSON.stringify(member[k]) !== JSON.stringify(editedMember[k])) {
+                // if (JSON.stringify(member[k]) !== JSON.stringify(editedMember[k])) {
+                //     (fieldDiff as any)[k] = editedMember[k];
+                // }
+                if (member[k] !== editedMember[k]) {
                     (fieldDiff as any)[k] = editedMember[k];
                 }
             }
@@ -323,7 +326,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             setLoading(false);
         }
     };
-
 
     const setField = <K extends keyof FamilyNode>(field: K, value: FamilyNode[K]) => {
         setEditedMember((prev) => (prev ? { ...prev, [field]: value } : prev));
@@ -634,6 +636,19 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                             )}
                                         </div>
                                     ))}
+                                    {/* New isDivorced checkbox */}
+                                    <div className="col-span-2">
+                                        <label className="flex items-center text-sm font-medium text-gray-700">
+                                            <input
+                                                type="checkbox"
+                                                checked={data.isDivorced ?? false}
+                                                disabled={!isEditing}
+                                                onChange={(e) => setField('isDivorced', e.target.checked)}
+                                                className="mr-2"
+                                            />
+                                            Đã ly hôn
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
@@ -681,7 +696,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                 </div>
                             </div>
 
-                            <div className={`bg-white rounded-lg p-6 border ${borderColor}`}>
+                            {/* <div className={`bg-white rounded-lg p-6 border ${borderColor}`}>
                                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                                     <FileText className="w-5 h-5" />
                                     Giấy tờ tùy thân
@@ -717,7 +732,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </div> */}
 
                             {(data.isDeath || isEditing) && (
                                 <div className="col-span-2 bg-gray-100 rounded-lg p-6 border border-gray-300">

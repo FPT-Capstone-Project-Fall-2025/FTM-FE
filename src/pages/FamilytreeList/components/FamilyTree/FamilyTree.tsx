@@ -75,7 +75,7 @@ const FamilyTreeContent = () => {
   const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   const [isAddingNewNode, setIsAddingNewNode] = useState(false);
   const [isDeletingNode, setIsDeletingNode] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(true);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isLoadingRelationships, setIsLoadingRelationships] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
   const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
@@ -336,14 +336,9 @@ const FamilyTreeContent = () => {
               />
 
               {/* Toolbar */}
-              <FamilyTreeToolbar />
-
-              <button
-                onClick={() => setIsInviteModalOpen(true)}
-                className="absolute top-4 right-8 z-10 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold"
-              >
-                Open Invite Modal
-              </button>
+              <FamilyTreeToolbar
+                handleInviteUser={() => setIsInviteModalOpen(true)}
+              />
 
               <FamilyTreeInviteModal
                 isOpen={isInviteModalOpen}

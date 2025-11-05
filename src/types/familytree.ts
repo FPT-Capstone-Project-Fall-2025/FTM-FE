@@ -121,7 +121,7 @@ export interface FamilyNode {
   fullname: string;
   gender: 0 | 1;
   isDeath: boolean;
-  isDivorced?: boolean;
+  isDivorced: boolean;
   deathDateUnknown?: boolean;
   birthday: string;
   deathDescription: string;

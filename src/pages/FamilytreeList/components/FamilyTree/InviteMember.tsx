@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
-import { xml } from 'd3';
 
 interface FamilyMember {
     id: string;
@@ -124,7 +123,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-2xl p-8 relative">
                 {/* Header */}
                 <div className="flex justify-between items-start mb-6">
@@ -132,13 +131,10 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                         <h2 className="text-2xl font-bold text-gray-900">
                             Mời thành viên tham gia cây gia phả
                         </h2>
-                        <button className="text-blue-500 hover:text-blue-600 text-sm mt-1">
-                            Quản lí lời mời
-                        </button>
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="cursor-pointer text-gray-400 hover:text-gray-600 transition-colors"
                     >
                         <X size={24} />
                     </button>
@@ -207,20 +203,13 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                     <h3 className="text-base font-semibold text-gray-900 mb-3">
                         Gửi lời mời tham gia cây gia phả tới:
                     </h3>
-                    <div className="flex gap-3">
+                    <div className="flex gap-4">
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Sample.Email@Example.com"
+                            placeholder="user@gmail.com"
                             className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-base"
-                        />
-                        <span className="px-4 py-3 text-gray-400 text-base">Hoặc</span>
-                        <input
-                            type="text"
-                            placeholder="Nhập số điện thoại"
-                            disabled
-                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-400 text-base cursor-not-allowed opacity-50"
                         />
                         <button
                             onClick={handleSendInvite}
