@@ -3,7 +3,10 @@ import { useAppSelector } from '@/hooks/redux';
 import { Wallet, TrendingDown, CheckCircle, Calendar, Megaphone } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { Fund, FundExpense } from '@/types/fund';
-import type { CreateFundPayload } from '@/types/fund';
+import type { CreateFundPayload, CreateFundDonationPayload } from '@/types/fund';
+import { useGPMember } from '@/hooks/useGPMember';
+import { getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
 import {
   useFundManagementData,
   type CampaignCreationInput,
@@ -25,6 +28,7 @@ import FundCampaignModal, { type CampaignFormState } from './Fund/FundCampaignMo
 import FundCampaignDetailModal from './Fund/FundCampaignDetailModal';
 import FundApprovalModal from './Fund/FundApprovalModal';
 import FundCreateModal, { type FundCreateForm, type BankInfo } from './Fund/FundCreateModal';
+import FundDepositModal, { type FundDepositForm } from './Fund/FundDepositModal';
 import { LoadingState, EmptyState } from './Fund/FundLoadingEmpty';
 import bankList from '@/assets/fund/bank/json/bank.json';
 
@@ -233,6 +237,7 @@ const FundManagement: React.FC = () => {
     campaignDetailLoading,
     campaignsLoading,
     creatingFund,
+    donating,
     error,
     activeFund,
     donations,
@@ -245,6 +250,7 @@ const FundManagement: React.FC = () => {
     loadCampaignDetail,
     refreshCampaigns,
     createFund,
+    donateToFund,
   } = useFundManagementData({
     familyTreeId: selectedTree?.id ?? null,
     currentUserId: auth.user?.userId ?? null,
@@ -254,6 +260,7 @@ const FundManagement: React.FC = () => {
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [showCampaignDetailModal, setShowCampaignDetailModal] = useState(false);
   const [showCreateFundModal, setShowCreateFundModal] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
   const [campaignDetail, setCampaignDetail] = useState<CampaignDetail | null>(null);
   const [pendingExpense, setPendingExpense] = useState<FundExpense | null>(null);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
@@ -458,6 +465,23 @@ const FundManagement: React.FC = () => {
     });
     return Array.from(map.values()).sort((a, b) => a.bankName.localeCompare(b.bankName));
   }, []);
+
+  const currentFamilyTreeId = selectedTree?.id ?? null;
+  const tokenUserId = getUserIdFromToken(auth.token || '') || null;
+  const derivedUserId = tokenUserId || auth.user?.userId || null;
+  const {
+    gpMemberId,
+    gpMember,
+    loading: gpMemberLoading,
+  } = useGPMember(currentFamilyTreeId, derivedUserId);
+
+  const donorName = useMemo(() => {
+    if (gpMember) {
+      const display = getDisplayNameFromGPMember(gpMember);
+      if (display) return display;
+    }
+    return auth.user?.name || 'Thành viên';
+  }, [gpMember, auth.user?.name]);
 
   const handleSectionChange = (section: SectionKey) => {
     setActiveSection(section);
@@ -735,6 +759,59 @@ const FundManagement: React.FC = () => {
     }
   };
 
+  const handleDepositSubmit = async (form: FundDepositForm) => {
+    if (!activeFund?.id) {
+      toast.error('Chưa xác định được quỹ hiện tại.');
+      return;
+    }
+    if (gpMemberLoading) {
+      toast.info('Đang tải thông tin thành viên. Vui lòng thử lại sau.');
+      return;
+    }
+    if (!gpMemberId) {
+      toast.error('Bạn cần tham gia gia phả để nạp tiền.');
+      return;
+    }
+
+    const payload: CreateFundDonationPayload = {
+      memberId: gpMemberId,
+      donorName,
+      amount: form.amount,
+      paymentMethod: form.paymentMethod,
+      returnUrl: window.location.href,
+      cancelUrl: window.location.href,
+    };
+
+    if (form.paymentNotes) {
+      payload.paymentNotes = form.paymentNotes;
+    }
+
+    try {
+      await donateToFund(activeFund.id, payload);
+      toast.success('Nạp tiền vào quỹ thành công.');
+      setShowDepositModal(false);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || 'Không thể nạp tiền vào quỹ.';
+      toast.error(message);
+    }
+  };
+
+  const handleOpenDeposit = () => {
+    if (!activeFund) {
+      toast.error('Chưa có quỹ để nạp tiền.');
+      return;
+    }
+    if (gpMemberLoading) {
+      toast.info('Đang tải thông tin thành viên. Vui lòng thử lại sau.');
+      return;
+    }
+    if (!gpMemberId) {
+      toast.error('Bạn cần tham gia gia phả để nạp tiền.');
+      return;
+    }
+    setShowDepositModal(true);
+  };
+
   const shouldShowCreatePrompt = !activeFund;
 
   const renderCreateFundPrompt = () => (
@@ -819,6 +896,9 @@ const FundManagement: React.FC = () => {
                   formatDate={formatDate}
                   onNavigateHistory={handleNavigateHistory}
                   loading={fundDataLoading}
+                  onDeposit={handleOpenDeposit}
+                  depositDisabled={donating}
+                  showDepositButton={!shouldShowCreatePrompt}
                 />
               )}
 
@@ -928,6 +1008,15 @@ const FundManagement: React.FC = () => {
         onClose={() => setShowCreateFundModal(false)}
         onSubmit={handleFundCreation}
         submitting={creatingFund}
+      />
+
+      <FundDepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        onSubmit={handleDepositSubmit}
+        submitting={donating}
+        donorName={donorName}
+        fund={activeFund ?? null}
       />
     </div>
   );
