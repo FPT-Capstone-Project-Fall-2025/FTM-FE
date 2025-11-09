@@ -15,6 +15,7 @@ import type {
   ApproveCampaignExpensePayload,
   RejectCampaignExpensePayload,
   CreateFundPayload,
+  CreateFundDonationPayload,
 } from '@/types/fund';
 import type { ApiResponse, PaginationResponse } from '@/types/api';
 
@@ -83,7 +84,7 @@ export const fundService = {
     return api.post<ApiResponse<boolean>>(`/donations/${donationId}/reject`, payload);
   },
 
-  async createFundDonation(fundId: string, payload: FormData | Record<string, any>) {
+  async createFundDonation(fundId: string, payload: CreateFundDonationPayload) {
     return api.post<ApiResponse<FundDonation>>(`/funds/${fundId}/donate`, payload);
   },
 

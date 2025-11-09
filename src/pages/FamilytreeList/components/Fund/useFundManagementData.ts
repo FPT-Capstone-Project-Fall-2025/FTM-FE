@@ -11,6 +11,7 @@ import type {
   CreateCampaignPayload,
   CreateFundExpensePayload,
   CreateFundPayload,
+  CreateFundDonationPayload,
 } from '@/types/fund';
 
 export type CampaignDetail = {
@@ -58,6 +59,7 @@ export interface UseFundManagementDataReturn {
   campaignDetailLoading: boolean;
   campaignsLoading: boolean;
   creatingFund: boolean;
+  donating: boolean;
   error: string | null;
   funds: Fund[];
   activeFund: Fund | null;
@@ -75,6 +77,7 @@ export interface UseFundManagementDataReturn {
   loadCampaignDetail: (campaignId: string) => Promise<CampaignDetail | null>;
   refreshCampaigns: () => Promise<void>;
   createFund: (payload: CreateFundPayload) => Promise<Fund | null>;
+  donateToFund: (fundId: string, payload: CreateFundDonationPayload) => Promise<void>;
 }
 
 export const useFundManagementData = (
@@ -96,6 +99,7 @@ export const useFundManagementData = (
   const [campaigns, setCampaigns] = useState<FundCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [creatingFund, setCreatingFund] = useState(false);
+  const [donating, setDonating] = useState(false);
 
   const activeFund = useMemo(() => {
     if (!activeFundId) {
@@ -398,6 +402,23 @@ export const useFundManagementData = (
     []
   );
 
+  const donateToFund = useCallback(
+    async (fundId: string, payload: CreateFundDonationPayload) => {
+      setDonating(true);
+      setError(null);
+      try {
+        await fundService.createFundDonation(fundId, payload);
+        await loadFundDetails(fundId);
+      } catch (err) {
+        console.error('Failed to donate to fund', err);
+        throw err;
+      } finally {
+        setDonating(false);
+      }
+    },
+    [loadFundDetails]
+  );
+
   useEffect(() => {
     void loadInitialData();
   }, [loadInitialData]);
@@ -422,6 +443,7 @@ export const useFundManagementData = (
     campaignDetailLoading,
     campaignsLoading,
     creatingFund,
+    donating,
     error,
     funds,
     activeFund: activeFund ?? null,
@@ -439,5 +461,6 @@ export const useFundManagementData = (
     loadCampaignDetail,
     refreshCampaigns,
     createFund,
+    donateToFund,
   };
 };

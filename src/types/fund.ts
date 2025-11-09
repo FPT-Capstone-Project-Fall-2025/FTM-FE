@@ -180,6 +180,16 @@ export interface CreateFundPayload {
   accountHolderName: string;
 }
 
+export interface CreateFundDonationPayload {
+  memberId: string;
+  donorName: string;
+  amount: number;
+  paymentMethod: string;
+  paymentNotes?: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+}
+
 export interface ApproveCampaignExpensePayload {
   approverId: string;
   approvalNotes?: string;

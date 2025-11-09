@@ -34,6 +34,9 @@ interface FundOverviewSectionProps {
   formatDate: (value?: string | null) => string;
   onNavigateHistory: () => void;
   loading?: boolean;
+  onDeposit?: () => void;
+  depositDisabled?: boolean;
+  showDepositButton?: boolean;
 }
 
 const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
@@ -51,6 +54,9 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   formatDate,
   onNavigateHistory,
   loading = false,
+  onDeposit,
+  depositDisabled = false,
+  showDepositButton = true,
 }) => {
   if (loading) {
     return <LoadingState message="Đang cập nhật dữ liệu quỹ" />;
@@ -75,7 +81,19 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
             <h3 className="text-4xl font-bold mb-1">{formatCurrency(computedBalance)}</h3>
             <p className="text-blue-100 text-sm">Cập nhật: {lastUpdated}</p>
           </div>
-          <Wallet className="w-20 h-20 text-blue-200 opacity-50" />
+          <div className="flex items-center gap-4">
+            {showDepositButton && onDeposit && (
+              <button
+                onClick={onDeposit}
+                disabled={depositDisabled}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                type="button"
+              >
+                Nạp tiền
+              </button>
+            )}
+            <Wallet className="w-20 h-20 text-blue-200 opacity-50" />
+          </div>
         </div>
       </div>
 
