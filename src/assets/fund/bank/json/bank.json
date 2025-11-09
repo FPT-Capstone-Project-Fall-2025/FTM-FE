@@ -1,0 +1,534 @@
+[
+    {
+        "no": 1,
+        "bankCode": "VCB",
+        "bankName": "VietcomBank",
+        "fullName": "Ngân hàng TMCP Ngoại Thương Việt Nam",
+        "bin": "970436"
+    },
+    {
+        "no": 2,
+        "bankCode": "CTG",
+        "bankName": "VietinBank",
+        "fullName": "Ngân hàng TMCP Công thương Việt Nam",
+        "bin": "970415"
+    },
+    {
+        "no": 3,
+        "bankCode": "TCB",
+        "bankName": "Techcombank",
+        "fullName": "Ngân hàng TMCP Kỹ thương Việt Nam",
+        "bin": "970407"
+    },
+    {
+        "no": 4,
+        "bankCode": "BIDV",
+        "bankName": "BIDV",
+        "fullName": "Ngân hàng TMCP Đầu tư và Phát triển Việt Nam",
+        "bin": "970418"
+    },
+    {
+        "no": 5,
+        "bankCode": "VARB",
+        "bankName": "AgriBank",
+        "fullName": "Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam",
+        "bin": "970405"
+    },
+    {
+        "no": 6,
+        "bankCode": "NVB",
+        "bankName": "Navibank",
+        "fullName": "Ngân hàng Thương Mại Cổ Phần Quốc Dân",
+        "bin": "970419"
+    },
+    {
+        "no": 7,
+        "bankCode": "STB",
+        "bankName": "Sacombank",
+        "fullName": "Ngân hàng TMCP Sài Gòn Thương Tín",
+        "bin": "970403"
+    },
+    {
+        "no": 8,
+        "bankCode": "ACB",
+        "bankName": "ACB",
+        "fullName": "Ngân hàng TMCP Á Châu",
+        "bin": "970416"
+    },
+    {
+        "no": 9,
+        "bankCode": "MB",
+        "bankName": "MBBank",
+        "fullName": "Ngân hàng TMCP Quân đội",
+        "bin": "970422"
+    },
+    {
+        "no": 10,
+        "bankCode": "TPB",
+        "bankName": "TPBank",
+        "fullName": "Ngân hàng TMCP Tiên Phong",
+        "bin": "970423"
+    },
+    {
+        "no": 11,
+        "bankCode": "SVB",
+        "bankName": "Shinhan Bank",
+        "fullName": "Ngân hàng TNHH MTV Shinhan Việt Nam",
+        "bin": "970424"
+    },
+    {
+        "no": 12,
+        "bankCode": "VIB",
+        "bankName": "VIB Bank",
+        "fullName": "Ngân hàng TMCP Quốc tế Việt Nam",
+        "bin": "970441"
+    },
+    {
+        "no": 13,
+        "bankCode": "VPB",
+        "bankName": "VPBank",
+        "fullName": "Ngân hàng TMCP Việt Nam Thịnh Vượng",
+        "bin": "970432"
+    },
+    {
+        "no": 14,
+        "bankCode": "SHB",
+        "bankName": "SHB",
+        "fullName": "Ngân hàng TMCP Sài Gòn - Hà Nội",
+        "bin": "970443"
+    },
+    {
+        "no": 15,
+        "bankCode": "EIB",
+        "bankName": "Eximbank",
+        "fullName": "Ngân hàng TMCP Xuất Nhập khẩu Việt Nam",
+        "bin": "970431"
+    },
+    {
+        "no": 16,
+        "bankCode": "BVB",
+        "bankName": "BaoVietBank",
+        "fullName": "Ngân hàng TMCP Bảo Việt",
+        "bin": "970438"
+    },
+    {
+        "no": 17,
+        "bankCode": "VCCB",
+        "bankName": "VietcapitalBank",
+        "fullName": "Ngân hàng TMCP Bản Việt",
+        "bin": "970454"
+    },
+    {
+        "no": 18,
+        "bankCode": "SCB",
+        "bankName": "SCB",
+        "fullName": "Ngân hàng TMCP Sài Gòn",
+        "bin": "970429"
+    },
+    {
+        "no": 19,
+        "bankCode": "VRB",
+        "bankName": "VietNam - Russia Bank",
+        "fullName": "Ngân hàng Liên doanh Việt - Nga",
+        "bin": "970421"
+    },
+    {
+        "no": 20,
+        "bankCode": "ABB",
+        "bankName": "ABBank",
+        "fullName": "Ngân hàng TMCP An Bình",
+        "bin": "970425"
+    },
+    {
+        "no": 21,
+        "bankCode": "PVCB",
+        "bankName": "PVCombank",
+        "fullName": "Ngân hàng TMCP Đại Chúng Việt Nam",
+        "bin": "970412"
+    },
+    {
+        "no": 22,
+        "bankCode": "MBV",
+        "bankName": "MBV",
+        "fullName": "Ngân hàng TNHH MTV Việt Nam Hiện Đại",
+        "bin": "970414"
+    },
+    {
+        "no": 23,
+        "bankCode": "NAB",
+        "bankName": "NamA Bank",
+        "fullName": "Ngân hàng TMCP Nam Á",
+        "bin": "970428"
+    },
+    {
+        "no": 24,
+        "bankCode": "HDB",
+        "bankName": "HDBank",
+        "fullName": "Ngân hàng TMCP Phát triển Thành phố Hồ Chí Minh",
+        "bin": "970437"
+    },
+    {
+        "no": 25,
+        "bankCode": "HDB",
+        "bankName": "HDBank",
+        "fullName": "Ngân hàng TMCP Phát triển Thành phố Hồ Chí Minh",
+        "bin": "970420"
+    },
+    {
+        "no": 26,
+        "bankCode": "VB",
+        "bankName": "VietBank",
+        "fullName": "Ngân hàng TMCP Việt Nam Thương Tín",
+        "bin": "970433"
+    },
+    {
+        "no": 27,
+        "bankCode": "CFC",
+        "bankName": "VietCredit",
+        "fullName": "Công ty Tài chính Cổ Phần Tín Việt",
+        "bin": "970460"
+    },
+    {
+        "no": 28,
+        "bankCode": "PBVN",
+        "bankName": "Public Bank",
+        "fullName": "Ngân hàng TNHH MTV Public Việt Nam",
+        "bin": "970439"
+    },
+    {
+        "no": 29,
+        "bankCode": "HLB",
+        "bankName": "Hongleong Bank",
+        "fullName": "Ngân hàng TNHH MTV Hong Leong Việt Nam",
+        "bin": "970442"
+    },
+    {
+        "no": 30,
+        "bankCode": "PGB",
+        "bankName": "PG Bank",
+        "fullName": "Ngân hàng TMCP Xăng dầu Petrolimex",
+        "bin": "970430"
+    },
+    {
+        "no": 31,
+        "bankCode": "COB",
+        "bankName": "Co.op Bank",
+        "fullName": "Ngân hàng Hợp tác xã Việt Nam",
+        "bin": "970446"
+    },
+    {
+        "no": 32,
+        "bankCode": "CIMB",
+        "bankName": "CIMB",
+        "fullName": "Ngân hàng TNHH MTV CIMB Việt Nam",
+        "bin": "422589"
+    },
+    {
+        "no": 33,
+        "bankCode": "IVB",
+        "bankName": "Indovina",
+        "fullName": "Ngân hàng TNHH Indovina",
+        "bin": "970434"
+    },
+    {
+        "no": 34,
+        "bankCode": "Vikki",
+        "bankName": "Vikki Digital Bank",
+        "fullName": "Ngân hàng TNHH MTV Số Vikki",
+        "bin": "970406"
+    },
+    {
+        "no": 35,
+        "bankCode": "GPB",
+        "bankName": "GPBank",
+        "fullName": "Ngân hàng Thương mại TNHH MTV Dầu Khí Toàn Cầu",
+        "bin": "970408"
+    },
+    {
+        "no": 36,
+        "bankCode": "NASB",
+        "bankName": "BacABank",
+        "fullName": "Ngân hàng TMCP Bắc Á",
+        "bin": "970409"
+    },
+    {
+        "no": 37,
+        "bankCode": "VAB",
+        "bankName": "VietABank",
+        "fullName": "Ngân hàng TMCP Việt Á",
+        "bin": "970427"
+    },
+    {
+        "no": 38,
+        "bankCode": "SGB",
+        "bankName": "SaigonBank",
+        "fullName": "Ngân hàng TMCP Sài Gòn Công Thương",
+        "bin": "970400"
+    },
+    {
+        "no": 39,
+        "bankCode": "MSB",
+        "bankName": "MSB",
+        "fullName": "Ngân hàng TMCP Hàng Hải",
+        "bin": "970426"
+    },
+    {
+        "no": 40,
+        "bankCode": "LPB",
+        "bankName": "LPBank",
+        "fullName": "Ngân hàng TMCP Lộc Phát Việt Nam",
+        "bin": "970449"
+    },
+    {
+        "no": 41,
+        "bankCode": "KLB",
+        "bankName": "KienLongBank",
+        "fullName": "Ngân hàng TMCP Kiên Long",
+        "bin": "970452"
+    },
+    {
+        "no": 42,
+        "bankCode": "IBKHN",
+        "bankName": "IBK - Ha Noi",
+        "fullName": "Ngân hàng Công nghiệp Hàn Quốc - Chi nhánh Hà Nội",
+        "bin": "970455"
+    },
+    {
+        "no": 43,
+        "bankCode": "IBKHCM",
+        "bankName": "IBK - TP.HCM",
+        "fullName": "Ngân hàng Công nghiệp Hàn Quốc - Chi nhánh TP. Hồ Chí Minh",
+        "bin": "970456"
+    },
+    {
+        "no": 44,
+        "bankCode": "WOO",
+        "bankName": "Woori Bank",
+        "fullName": "Ngân hàng TNHH MTV Woori Việt Nam",
+        "bin": "970457"
+    },
+    {
+        "no": 45,
+        "bankCode": "SEAB",
+        "bankName": "SeABank",
+        "fullName": "Ngân hàng TMCP Đông Nam Á",
+        "bin": "970440"
+    },
+    {
+        "no": 46,
+        "bankCode": "UOB",
+        "bankName": "UOB",
+        "fullName": "Ngân hàng United Overseas - Chi nhánh TP. Hồ Chí Minh",
+        "bin": "970458"
+    },
+    {
+        "no": 47,
+        "bankCode": "OCB",
+        "bankName": "OCB",
+        "fullName": "Ngân hàng TMCP Phương Đông",
+        "bin": "970448"
+    },
+    {
+        "no": 48,
+        "bankCode": "MAFC",
+        "bankName": "Mirae Asset",
+        "fullName": "Công ty Tài chính TNHH MTV Mirae Asset (Việt Nam)",
+        "bin": "9777777"
+    },
+    {
+        "no": 49,
+        "bankCode": "KEBHANAHCM",
+        "bankName": "Keb Hana - Ho Chi Minh",
+        "fullName": "Ngân hàng Keb Hana - Chi Nhánh TP Hồ Chí Minh",
+        "bin": "970466"
+    },
+    {
+        "no": 50,
+        "bankCode": "KEBHANAHN",
+        "bankName": "Keb Hana - Ha Noi",
+        "fullName": "Ngân hàng Keb Hana - Chi Nhánh Hà Nội",
+        "bin": "970467"
+    },
+    {
+        "no": 51,
+        "bankCode": "STANDARD",
+        "bankName": "Standard Chartered",
+        "fullName": "Ngân hàng TNHH MTV Standard Chartered Bank Việt Nam",
+        "bin": "970410"
+    },
+    {
+        "no": 52,
+        "bankCode": "CAKE",
+        "bankName": "CAKE",
+        "fullName": "TMCP Việt Nam Thịnh Vượng - Ngân hàng số CAKE by VPBank",
+        "bin": "546034"
+    },
+    {
+        "no": 53,
+        "bankCode": "Ubank",
+        "bankName": "Ubank",
+        "fullName": "TMCP Việt Nam Thịnh Vượng - Ngân hàng số Ubank by VPBank",
+        "bin": "546035"
+    },
+    {
+        "no": 54,
+        "bankCode": "NonghyupBankHN",
+        "bankName": "Nonghyup Bank - HN",
+        "fullName": "Ngân hàng Nonghyup - Chi nhánh Hà Nội",
+        "bin": "801011"
+    },
+    {
+        "no": 55,
+        "bankCode": "KBHN",
+        "bankName": "Kookmin - HN",
+        "fullName": "Ngân hàng Kookmin - Chi nhánh Hà Nội",
+        "bin": "970462"
+    },
+    {
+        "no": 56,
+        "bankCode": "KBHCM",
+        "bankName": "Kookmin - HCM",
+        "fullName": "Ngân hàng Kookmin - Chi nhánh TP. Hồ Chí Minh",
+        "bin": "970463"
+    },
+    {
+        "no": 57,
+        "bankCode": "DBS",
+        "bankName": "DBS - HCM",
+        "fullName": "DBS Bank Ltd - Chi nhánh Thành phố Hồ Chí Minh",
+        "bin": "796500"
+    },
+    {
+        "no": 58,
+        "bankCode": "CBB",
+        "bankName": "CBBank",
+        "fullName": "Ngân hàng Thương mại TNHH MTV Xây dựng Việt Nam",
+        "bin": "970444"
+    },
+    {
+        "no": 59,
+        "bankCode": "KBankHCM",
+        "bankName": "KBank - HCM",
+        "fullName": "Ngân hàng Đại chúng TNHH Kasikornbank",
+        "bin": "668888"
+    },
+    {
+        "no": 60,
+        "bankCode": "HSBC",
+        "bankName": "HSBC",
+        "fullName": "Ngân hàng TNHH MTV HSBC (Việt Nam)",
+        "bin": "458761"
+    },
+    {
+        "no": 61,
+        "bankCode": "TIMO",
+        "bankName": "Timo",
+        "fullName": "Ngân hàng số Timo by Bản Việt Bank",
+        "bin": ""
+    },
+    {
+        "no": 62,
+        "bankCode": "CITI",
+        "bankName": "CITI",
+        "fullName": "Ngân hàng Citi",
+        "bin": "533948"
+    },
+    {
+        "no": 63,
+        "bankCode": "UOB",
+        "bankName": "UOB Bank",
+        "fullName": "Ngân hàng UOB Việt Nam",
+        "bin": "970458"
+    },
+    {
+        "no": 64,
+        "bankCode": "HSBC",
+        "bankName": "HSBC",
+        "fullName": "Ngân hàng TNHH MTV HSBC (Việt Nam)",
+        "bin": "458761"
+    },
+    {
+        "no": 65,
+        "bankCode": "CITI",
+        "bankName": "Citibank",
+        "fullName": "Ngân hàng Citibank Việt Nam",
+        "bin": "533948"
+    },
+    {
+        "no": 66,
+        "bankCode": "ANZ",
+        "bankName": "ANZ",
+        "fullName": "Ngân hàng TNHH ANZ Việt Nam",
+        "bin": "970442"
+    },
+    {
+        "no": 67,
+        "bankCode": "DBS",
+        "bankName": "DBS Bank",
+        "fullName": "Ngân hàng TNHH MTV DBS Việt Nam",
+        "bin": "970460"
+    },
+    {
+        "no": 68,
+        "bankCode": "SMBC",
+        "bankName": "SMBC",
+        "fullName": "Ngân hàng Sumitomo Mitsui Banking Corporation - Chi nhánh TP.HCM",
+        "bin": "970461"
+    },
+    {
+        "no": 69,
+        "bankCode": "MIZUHO",
+        "bankName": "Mizuho Bank",
+        "fullName": "Ngân hàng Mizuho - Chi nhánh TP.HCM",
+        "bin": "970462"
+    },
+    {
+        "no": 70,
+        "bankCode": "BNP",
+        "bankName": "BNP Paribas",
+        "fullName": "Ngân hàng BNP Paribas - Chi nhánh Hà Nội",
+        "bin": "970463"
+    },
+    {
+        "no": 71,
+        "bankCode": "DEUTSCHE",
+        "bankName": "Deutsche Bank",
+        "fullName": "Ngân hàng Deutsche Bank - Chi nhánh TP.HCM",
+        "bin": "970464"
+    },
+    {
+        "no": 72,
+        "bankCode": "WOORI",
+        "bankName": "Woori Bank",
+        "fullName": "Ngân hàng TNHH MTV Woori Bank Việt Nam",
+        "bin": "970465"
+    },
+    {
+        "no": 73,
+        "bankCode": "SHINHAN",
+        "bankName": "Shinhan Bank",
+        "fullName": "Ngân hàng TNHH MTV Shinhan Việt Nam",
+        "bin": "970424"
+    },
+    {
+        "no": 74,
+        "bankCode": "PUBLICBANK",
+        "bankName": "Public Bank",
+        "fullName": "Ngân hàng Public Bank Vietnam Limited (PBVN)",
+        "bin": "970439"
+    },
+    {
+        "no": 75,
+        "bankCode": "STANDARDCHARTERED",
+        "bankName": "Standard Chartered",
+        "fullName": "Ngân hàng TNHH MTV Standard Chartered Việt Nam",
+        "bin": "970466"
+    },
+    {
+        "no": 76,
+        "bankCode": "CIMB",
+        "bankName": "CIMB Bank",
+        "fullName": "Ngân hàng TNHH MTV CIMB Việt Nam",
+        "bin": "422589"
+    }
+]
