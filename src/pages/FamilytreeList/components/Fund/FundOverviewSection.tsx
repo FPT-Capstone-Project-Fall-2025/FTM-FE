@@ -89,7 +89,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
                 className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 type="button"
               >
-                Nạp tiền
+                  Nạp
               </button>
             )}
             <Wallet className="w-20 h-20 text-blue-200 opacity-50" />

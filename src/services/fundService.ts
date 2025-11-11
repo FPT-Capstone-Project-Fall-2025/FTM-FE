@@ -76,7 +76,7 @@ export const fundService = {
     return unwrap<FundDonationStats | null>(result) ?? null;
   },
 
-  async confirmDonation(donationId: string, payload: { confirmerId: string; notes?: string }) {
+  async confirmDonation(donationId: string, payload: { confirmedBy: string; notes?: string }) {
     return api.post<ApiResponse<boolean>>(`/donations/${donationId}/confirm`, payload);
   },
 
@@ -126,6 +126,23 @@ export const fundService = {
 
   async rejectCampaignExpense(id: string, payload: RejectCampaignExpensePayload) {
     return api.put<ApiResponse<boolean>>(`/ftcampaignexpense/${id}/reject`, payload);
+  },
+
+  async uploadDonationProof(donationId: string, files: File[]) {
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    return api.post<ApiResponse<{ imageUrls?: string[]; commaSeparated?: string }>>(
+      `/donations/${donationId}/upload-proof`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
   },
 };
 
