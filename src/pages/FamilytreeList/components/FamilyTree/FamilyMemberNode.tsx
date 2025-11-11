@@ -1,21 +1,24 @@
 import { useAppSelector } from "@/hooks/redux";
 import type { FamilyMember } from "@/types/familytree";
-import { User, Plus, Trash2 } from "lucide-react";
+import { User, Plus, Trash2, HeartCrack } from "lucide-react";
 import { Handle, Position, type NodeProps } from "reactflow";
 
 interface FamilyMemberNodeData extends FamilyMember {
   onMemberClick?: (member: FamilyMember) => void;
   onAdd?: () => void;
   onDelete?: () => void;
+  isDivorced?: boolean;
 }
 
 const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
   const highlightedNodeId = useAppSelector(state => state.familyTree.highlightedNodeId);
   const isHighlighted = highlightedNodeId === id;
   const isDeleted = data.statusCode === 4001;
+  const isDivorced = data.isDivorced;
 
   const bgColor = data.gender === 1 ? 'bg-pink-100' : 'bg-blue-100';
   const borderColor = data.gender === 1 ? 'border-pink-300' : 'border-blue-300';
+  const borderStyle = isDivorced ? 'border-dashed' : 'border-solid';
 
   const highlightStyles = isHighlighted
     ? 'ring-4 ring-yellow-400 ring-opacity-75 shadow-2xl scale-110 animate-pulse'
@@ -34,10 +37,14 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
     ? 'text-gray-400'
     : 'text-gray-600';
 
+  const divorcedStyles = isDivorced && !isDeleted
+    ? 'opacity-85'
+    : '';
+
   return (
     <div
       className={`
-        ${bgColor} ${borderColor} ${highlightStyles} ${deletedStyles}
+        ${bgColor} ${borderColor} ${borderStyle} ${highlightStyles} ${deletedStyles} ${divorcedStyles}
         border-2 rounded-lg p-3 min-w-[140px] cursor-pointer 
         hover:shadow-lg transition-all duration-200 relative group
         ${isDeleted ? 'cursor-not-allowed' : ''}
@@ -65,8 +72,11 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
         </div>
 
         <div className="text-center">
-          <div className={`font-semibold text-sm ${nameTextStyles}`}>
+          <div className={`font-semibold text-sm ${nameTextStyles} flex items-center justify-center`}>
             {data.name || 'Unknown'}
+            {isDivorced && !isDeleted && (
+              <HeartCrack className="w-4 h-4 text-red-500 ml-1" />
+            )}
           </div>
           {/* Always render this block to maintain consistent height */}
           <div className="text-xs h-4 flex items-center justify-center">

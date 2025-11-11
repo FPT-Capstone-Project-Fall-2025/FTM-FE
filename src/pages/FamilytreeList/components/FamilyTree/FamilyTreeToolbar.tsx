@@ -22,9 +22,7 @@ interface FamilyTreeToolbarProps {
     handleInviteUser: () => void;
 }
 
-const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({
-    handleInviteUser
-}) => {
+const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({ handleInviteUser }) => {
     const dispatch = useAppDispatch();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { getNodes } = useReactFlow();
@@ -35,9 +33,11 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({
     const edges = useAppSelector(state => state.familyTree.edges);
     const members = useAppSelector(state => state.familyTree.members);
 
-    // Export as Image Handler - Captures entire tree regardless of viewport
+    // Export as Image – safe, non-blocking, one-at-a-time
     const handleExportImage = async () => {
+        if (isExportingImage) return; // Prevent double click
         setIsExportingImage(true);
+
         const reactFlowElement = document.querySelector('.react-flow__viewport') as HTMLElement;
         if (!reactFlowElement) {
             alert('Không tìm thấy cây gia phả để xuất');
@@ -45,11 +45,19 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({
             return;
         }
 
+        // Remove Google Fonts temporarily to avoid CORS
+        const googleFontLinks = Array.from(
+            document.querySelectorAll('link[href*="fonts.googleapis.com"], link[href*="gstatic.com"]')
+        );
+
+        googleFontLinks.forEach(link => link.remove());
+
         try {
             const nodesBounds = getNodesBounds(getNodes());
-            const imageWidth = nodesBounds.width + 200;
-            const imageHeight = nodesBounds.height + 200;
-            
+            const padding = 200;
+            const imageWidth = nodesBounds.width + padding;
+            const imageHeight = nodesBounds.height + padding;
+
             const viewport = getViewportForBounds(
                 nodesBounds,
                 imageWidth,
@@ -59,41 +67,54 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({
                 0.1
             );
 
-            // Generate image with calculated viewport
-            const dataUrl = await toPng(reactFlowElement, {
+            // Clone viewport off-screen to prevent layout thrashing
+            const clone = reactFlowElement.cloneNode(true) as HTMLElement;
+            clone.style.position = 'absolute';
+            clone.style.left = '-9999px';
+            clone.style.top = '-9999px';
+            clone.style.width = `${imageWidth}px`;
+            clone.style.height = `${imageHeight}px`;
+            clone.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
+            clone.style.transformOrigin = 'top left';
+            document.body.appendChild(clone);
+
+            // Use requestIdleCallback to avoid freezing UI
+            await new Promise(resolve => requestIdleCallback(() => resolve(null), { timeout: 5000 }));
+
+            const dataUrl = await toPng(clone, {
                 backgroundColor: '#f9fafb',
                 width: imageWidth,
                 height: imageHeight,
-                style: {
-                    width: `${imageWidth}px`,
-                    height: `${imageHeight}px`,
-                    transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-                },
-                quality: 1,
                 pixelRatio: 2,
+                skipFonts: true,
+                cacheBust: true,
             });
 
-            // Create download link
+            // Trigger download
             const link = document.createElement('a');
             link.download = `gia-pha-${new Date().toISOString().split('T')[0]}.png`;
             link.href = dataUrl;
             link.click();
+
+            // Cleanup
+            document.body.removeChild(clone);
         } catch (error) {
             console.error('Export image failed:', error);
             alert('Không thể xuất ảnh cây gia phả');
         } finally {
+            // Always restore fonts and reset state
+            googleFontLinks.forEach(link => document.head.appendChild(link));
             setIsExportingImage(false);
         }
     };
 
-    // Fullscreen Handler
+    // Fullscreen
     const handleFullscreen = () => {
-        const mainContainer = document.querySelector('.family-tree-main-container') as HTMLElement;
-        if (!mainContainer) return;
+        const container = document.querySelector('.family-tree-main-container') as HTMLElement;
+        if (!container) return;
 
         if (!document.fullscreenElement) {
-            mainContainer.requestFullscreen().catch(err => {
-                console.error('Fullscreen failed:', err);
+            container.requestFullscreen().catch(() => {
                 alert('Không thể vào chế độ toàn màn hình');
             });
         } else {
@@ -101,56 +122,33 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({
         }
     };
 
-    // Listen for fullscreen changes
     useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
-        };
-
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-        };
+        const handler = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', handler);
+        return () => document.removeEventListener('fullscreenchange', handler);
     }, []);
 
-    // Reset Layout Handler - restores original TB layout
-    const handleResetLayout = () => {
-        dispatch(resetToInitialLayout());
-    };
+    // Other handlers
+    const handleResetLayout = () => dispatch(resetToInitialLayout());
+    const handleExport = () => exportFamilyTree(nodes, edges, members);
 
-    // Export Handler
-    const handleExport = () => {
-        try {
-            exportFamilyTree(nodes, edges, members);
-        } catch (error) {
-            console.error('Export failed:', error);
-            alert('Failed to export family tree');
-        }
-    };
-
-    // Import Handler
-    const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         if (!file) return;
 
         try {
             const data = await importFamilyTree(file);
-
             dispatch(importFamilyTreeAction({
                 nodes: data.nodes,
                 edges: data.edges,
                 members: data.members,
             }));
-
-            alert('Family tree imported successfully!');
-        } catch (error) {
-            console.error('Import failed:', error);
-            alert('Failed to import family tree');
-        }
-
-        // Reset file input
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+            alert('Nhập cây gia phả thành công!');
+        } catch (err) {
+            console.error(err);
+            alert('Không thể nhập cây gia phả');
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
@@ -158,79 +156,82 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({
         <>
             {/* Loading Overlay */}
             {isExportingImage && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center">
-                    <div className="bg-white rounded-lg p-6 flex flex-col items-center gap-3">
-                        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                        <p className="text-gray-700 font-medium">Đang xuất ảnh cây gia phả...</p>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 animate-pulse">
+                        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+                        <div className="text-center">
+                            <p className="text-lg font-semibold text-gray-800">Đang tạo ảnh cây gia phả</p>
+                            <p className="text-sm text-gray-500 mt-1">Vui lòng đợi một chút...</p>
+                        </div>
                     </div>
                 </div>
             )}
 
-            <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-2 flex gap-2">
-                {/* Reset Layout */}
+            <div className="absolute top-4 left-4 z-10 bg-white rounded-xl shadow-xl p-3 flex gap-3 items-center border border-gray-200">
+                {/* Reset */}
                 <button
                     onClick={handleResetLayout}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors"
-                    title="Khôi phục cấu trúc gốc"
+                    className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Khôi phục bố cục gốc"
                 >
-                    <RotateCcw className="w-5 h-5" />
+                    <RotateCcw className="w-5 h-5 text-gray-700" />
                 </button>
 
-                <div className="w-px bg-gray-300" />
+                <div className="w-px bg-gray-300 h-8" />
 
                 {/* Export JSON */}
                 <button
                     onClick={handleExport}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors"
-                    title="Xuất cây gia phả (JSON)"
+                    className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Xuất JSON"
                 >
-                    <Download className="w-5 h-5" />
+                    <Download className="w-5 h-5 text-gray-700" />
                 </button>
 
-                {/* Export as Image */}
+                {/* Export Image */}
                 <button
                     onClick={handleExportImage}
                     disabled={isExportingImage}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Xuất ảnh cây gia phả"
+                    className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative"
+                    title="Xuất ảnh PNG"
                 >
                     {isExportingImage ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                     ) : (
-                        <Image className="w-5 h-5" />
+                        <Image className="w-5 h-5 text-gray-700" />
                     )}
                 </button>
 
                 {/* Import */}
                 <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors"
+                    className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors"
                     title="Nhập cây gia phả"
                 >
-                    <Upload className="w-5 h-5" />
+                    <Upload className="w-5 h-5 text-gray-700" />
                 </button>
 
-                {/* Invite user */}
+                {/* Invite */}
                 <button
                     onClick={handleInviteUser}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors"
-                    title="Mời thành viên vào gia phả"
+                    className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Mời thành viên"
                 >
-                    <UserPlus className="w-5 h-5" />
+                    <UserPlus className="w-5 h-5 text-gray-700" />
                 </button>
 
-                <div className="w-px bg-gray-300" />
+                <div className="w-px bg-gray-300 h-8" />
 
                 {/* Fullscreen */}
                 <button
                     onClick={handleFullscreen}
-                    className="p-2 hover:bg-gray-100 rounded transition-colors"
+                    className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors"
                     title={isFullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
                 >
                     {isFullscreen ? (
-                        <Minimize2 className="w-5 h-5" />
+                        <Minimize2 className="w-5 h-5 text-gray-700" />
                     ) : (
-                        <Maximize2 className="w-5 h-5" />
+                        <Maximize2 className="w-5 h-5 text-gray-700" />
                     )}
                 </button>
 

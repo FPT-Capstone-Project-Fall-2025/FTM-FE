@@ -1,32 +1,61 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check } from 'lucide-react';
-
-interface FamilyMember {
-    id: string;
-    name: string;
-    avatar?: string;
-}
+import { X, Check, Loader2 } from 'lucide-react';
+import { useAppSelector } from '@/hooks/redux';
+import type { PaginationProps } from '@/types/api';
+import type { FamilyMemberList } from '@/types/familytree';
+import familyTreeService from '@/services/familyTreeService';
 
 type InviteType = 'guest' | 'family';
 
-// Sample family members data
-const sampleFamilyMembers: FamilyMember[] = [
-    { id: '1', name: 'Nguyễn Văn A', avatar: '' },
-    { id: '2', name: 'Nguyễn Văn An', avatar: '' },
-    { id: '3', name: 'Nguyễn Văn An', avatar: '' },
-    { id: '4', name: 'Nguyễn Văn Anh', avatar: '' },
-    { id: '5', name: 'Nguyễn Văn Anh', avatar: '' },
-];
-
 const MemberDropdown: React.FC<{
     value: string;
-    onChange: (member: FamilyMember | null) => void;
-    members: FamilyMember[];
-}> = ({ value, onChange, members }) => {
+    onChange: (member: FamilyMemberList | null) => void;
+}> = ({ value, onChange }) => {
+    const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree)
     const [isOpen, setIsOpen] = useState(false);
     const [filter, setFilter] = useState(value);
-    const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [selectedMember, setSelectedMember] = useState<FamilyMemberList | null>(null);
+    const [paginationData, setPaginationData] = useState<PaginationProps>({
+        pageIndex: 1,
+        pageSize: 100,
+        propertyFilters: [
+            {
+                name: "FTId",
+                operation: "EQUAL",
+                value: selectedFamilyTree ? selectedFamilyTree.id : ''
+            },
+            {
+                name: "isDeleted",
+                operation: "EQUAL",
+                value: 'false'
+            }
+        ],
+        totalItems: 0,
+        totalPages: 0,
+    });
+    const [familyMemberList, setFamilyMemberList] = useState<FamilyMemberList[]>([]);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const loadMembers = async () => {
+        setLoading(true);
+        try {
+            const res = await familyTreeService.getFamilyTreeMembers(paginationData);
+            setPaginationData(pre => ({
+                ...pre,
+                ...res.data
+            }));
+            setFamilyMemberList(res.data.data);
+        } catch (error) {
+            console.error("Failed to fetch members:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadMembers();
+    }, []);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -39,13 +68,13 @@ const MemberDropdown: React.FC<{
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filteredMembers = members.filter(member =>
-        member.name.toLowerCase().includes(filter.toLowerCase())
+    const filteredMembers = familyMemberList.filter(member =>
+        member.fullname.toLowerCase().includes(filter.toLowerCase())
     );
 
-    const handleSelectMember = (member: FamilyMember) => {
+    const handleSelectMember = (member: FamilyMemberList) => {
         setSelectedMember(member);
-        setFilter(member.name);
+        setFilter(member.fullname);
         onChange(member);
         setIsOpen(false);
     };
@@ -70,24 +99,37 @@ const MemberDropdown: React.FC<{
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-base"
             />
 
-            {isOpen && filteredMembers.length > 0 && (
+            {isOpen && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                    {filteredMembers.map((member) => (
-                        <div
-                            key={member.id}
-                            onClick={() => handleSelectMember(member)}
-                            className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 ${selectedMember?.id === member.id ? 'bg-black text-white hover:bg-black' : ''
-                                }`}
-                        >
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-red-400 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                                {member.name.charAt(0)}
-                            </div>
-                            <span className="flex-1 text-base">{member.name}</span>
-                            {selectedMember?.id === member.id && (
-                                <Check size={20} className="flex-shrink-0" />
-                            )}
+                    {loading ? (
+                        <div className="flex items-center justify-center py-4 text-gray-500">
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Đang tải dữ liệu...
                         </div>
-                    ))}
+                    ) : filteredMembers.length > 0 ? (
+                        filteredMembers.map(member => (
+                            <div
+                                key={member.id}
+                                onClick={() => handleSelectMember(member)}
+                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 ${selectedMember?.id === member.id
+                                        ? 'bg-black text-white hover:bg-black'
+                                        : ''
+                                    }`}
+                            >
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-red-400 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                                    {member.fullname.charAt(0)}
+                                </div>
+                                <span className="flex-1 text-base">{member.fullname}</span>
+                                {selectedMember?.id === member.id && (
+                                    <Check size={20} className="flex-shrink-0" />
+                                )}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="px-4 py-3 text-gray-500 text-center">
+                            Không tìm thấy thành viên
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -100,7 +142,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
 }) => {
     const [inviteType, setInviteType] = useState<InviteType>('guest');
     const [email, setEmail] = useState('');
-    const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+    const [selectedMember, setSelectedMember] = useState<FamilyMemberList | null>(null);
 
     if (!isOpen) return null;
 
@@ -178,23 +220,19 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                                 className="mt-1 w-5 h-5 text-blue-500 flex-shrink-0"
                             />
                             <div className="ml-3 flex-1">
-                                <div className="font-semibold text-gray-900 text-base mb-3">
-                                    Thành viên gia phả
+                                <div className="font-semibold text-gray-900 text-base">Thành viên gia phả</div>
+                                <div className="text-gray-500 text-sm mt-1 mb-1">
+                                    Kết nối với thông tin có sẵn trên cây gia phả của
                                 </div>
                                 {inviteType === 'family' && (
                                     <MemberDropdown
                                         value=""
                                         onChange={setSelectedMember}
-                                        members={sampleFamilyMembers}
                                     />
                                 )}
                             </div>
                         </label>
-                        {inviteType !== 'family' && (
-                            <div className="ml-8 text-gray-500 text-sm">
-                                Kết nối với thông tin có sẵn trên cây gia phả của
-                            </div>
-                        )}
+
                     </div>
                 </div>
 
@@ -215,8 +253,8 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                             onClick={handleSendInvite}
                             disabled={isInviteDisabled()}
                             className={`px-6 py-3 rounded-lg font-semibold text-base transition-colors ${isInviteDisabled()
-                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    : 'bg-black text-white hover:bg-gray-800'
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-black text-white hover:bg-gray-800'
                                 }`}
                         >
                             Gửi lời mời

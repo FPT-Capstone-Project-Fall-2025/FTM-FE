@@ -21,6 +21,14 @@ const apiClient: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
+  // This tells axios not to transform header names
+  transformRequest: [(data) => {
+    // Preserve header case by preventing normalization
+    if (data && typeof data === 'object') {
+      return JSON.stringify(data);
+    }
+    return data;
+  }],
 });
 
 let isRedirecting = false;
@@ -31,13 +39,13 @@ apiClient.interceptors.request.use(
     // Add auth token if available
     // Get token from localStorage (redux-persist stores it here)
     const persistedState = localStorage.getItem('persist:root')
-    
+
     if (persistedState) {
       try {
         const parsed = JSON.parse(persistedState)
         const authState = JSON.parse(parsed.auth) // 'auth' is your slice name
         const token = authState.token
-        
+
         if (token && config.headers) {
           // config.withCredentials = true;
           config.headers.Authorization = `Bearer ${token}`
@@ -46,6 +54,24 @@ apiClient.interceptors.request.use(
         console.error('Error parsing token from persist:', error)
       }
     }
+
+    // Ensure X-FtId header is preserved with correct casing
+    // Axios normalizes header names to lowercase, but backend requires X-FtId
+    // We need to manually preserve the case after axios processes it
+    const headers = config.headers as any;
+
+    // Check if X-FtId or x-ftid exists and ensure it's properly set
+    if (headers['X-FtId']) {
+      const ftId = headers['X-FtId'];
+      // Delete the original and re-add to try to preserve case
+      delete headers['X-FtId'];
+      // Force set with proper casing - Axios will normalize it but backend should accept both
+      headers['X-FtId'] = ftId;
+      console.log('X-FtId header set to:', ftId);
+    } else if (headers['x-ftid']) {
+      console.log('x-ftid header detected (normalized):', headers['x-ftid']);
+    }
+
     // Add request timestamp
     config.metadata = { startTime: new Date().getTime() };
 

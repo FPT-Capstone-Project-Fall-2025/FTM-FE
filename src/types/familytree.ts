@@ -194,3 +194,23 @@ export interface FileProps {
   lastModifiedOn?: string;
 }
 
+export interface FTAuthList {
+  ftId: string;
+  datalist: Array<{
+    key: {
+      id: string;
+      fullname: string;
+  }, value: FTAuthProp[]}>; 
+}
+
+export interface FTAuthProp {
+  featureCode: string;
+  methodsList: string[];
+}
+
+export interface FTAuth {
+  ftId: string;
+  ftMemberId: string;
+  authorizationList: FTAuthProp[]
+}
+

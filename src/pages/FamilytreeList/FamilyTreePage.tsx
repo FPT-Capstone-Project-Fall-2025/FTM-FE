@@ -9,11 +9,16 @@ import { ChevronRight, Users, Minimize2, Maximize2 } from "lucide-react";
 import NotFoundPage from "@/components/shared/NotFoundPage";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { setSelectedFamilyTree } from "@/stores/slices/familyTreeMetaDataSlice";
+import Invitations from "./components/Invitations";
+import ManagePermissions from "./components/Permissions";
+import ftauthorizationService from "@/services/familyTreeAuth";
 
 const tabs = [
   { id: 'basic', label: 'THÔNG TIN CƠ BẢN' },
   { id: 'tree', label: 'GIA PHẢ' },
   { id: 'members', label: 'THÀNH VIÊN' },
+  { id: 'invitations', label: 'LỜI MỜI' },
+  { id: 'permissions', label: 'QUYỀN HẠN' },
   { id: 'honor-board', label: 'THÀNH TÍCH GIA TỘC' },
   { id: 'fund', label: 'QUỸ GIA TỘC' }
 ];
@@ -28,13 +33,13 @@ const FamilyTreePage: React.FC = () => {
   const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
 
   // Get initial tab from URL params or localStorage
-  const getInitialTab = (): 'basic' | 'tree' | 'members' | 'honor-board' | 'fund' => {
-    const paramTab = searchParams.get('tab') as 'basic' | 'tree' | 'members' | 'honor-board' | 'fund' | null;
+  const getInitialTab = (): 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund' => {
+    const paramTab = searchParams.get('tab') as 'basic' | 'tree' | 'members' | 'invitations' | 'honor-board' | 'fund' | null;
     if (paramTab && tabs.some(t => t.id === paramTab)) {
       return paramTab;
     }
     try {
-      const savedTab = localStorage.getItem(STORAGE_KEY) as 'basic' | 'tree' | 'members' | 'honor-board' | 'fund' | null;
+      const savedTab = localStorage.getItem(STORAGE_KEY) as 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund' | null;
       if (savedTab && tabs.some(t => t.id === savedTab)) {
         return savedTab;
       }
@@ -55,11 +60,11 @@ const FamilyTreePage: React.FC = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'tree' | 'members' | 'honor-board' | 'fund'>(getInitialTab());
+  const [activeTab, setActiveTab] = useState<'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund'>(getInitialTab());
   const [isHeaderMinimized, setIsHeaderMinimized] = useState(getInitialHeaderState());
 
   // Update URL and localStorage when tab changes
-  const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'honor-board' | 'fund') => {
+  const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund') => {
     setActiveTab(tabId);
     setSearchParams({ tab: tabId });
     try {
@@ -80,6 +85,14 @@ const FamilyTreePage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    const fetchAuths = async () => {
+      const response = await ftauthorizationService.getFTAuths();
+      console.log(response);
+    }
+    fetchAuths();
+  }, [])
+
   // Save header minimized state to localStorage
   useEffect(() => {
     try {
@@ -97,6 +110,10 @@ const FamilyTreePage: React.FC = () => {
         return <FamilyTreeApp />;
       case 'members':
         return <Members />;
+      case 'invitations':
+        return <Invitations />;
+      case 'permissions':
+        return <ManagePermissions />;
       case 'honor-board':
         return <HonorBoard />;
       case 'fund':
@@ -117,7 +134,7 @@ const FamilyTreePage: React.FC = () => {
           <ChevronRight className="w-4 h-4 rotate-180 mr-1 transition-transform duration-300 group-hover:translate-x-[-2px]" />
           Quay lại danh sách gia phả
         </button>
-        
+
         <button
           onClick={() => setIsHeaderMinimized(!isHeaderMinimized)}
           className="px-3 py-2 hover:bg-gray-100 rounded-lg transition-all duration-300 group flex items-center gap-2 hover:scale-105 active:scale-95"
@@ -137,14 +154,12 @@ const FamilyTreePage: React.FC = () => {
       </div>
 
       {/* Header with selected tree info */}
-      <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
-        isHeaderMinimized 
-          ? 'max-h-0 opacity-0 mb-0' 
+      <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isHeaderMinimized
+          ? 'max-h-0 opacity-0 mb-0'
           : 'max-h-32 opacity-100 mb-2'
-      }`}>
-        <div className={`flex items-center gap-3 transform transition-all duration-500 ${
-          isHeaderMinimized ? 'translate-y-[-20px] scale-95' : 'translate-y-0 scale-100'
         }`}>
+        <div className={`flex items-center gap-3 transform transition-all duration-500 ${isHeaderMinimized ? 'translate-y-[-20px] scale-95' : 'translate-y-0 scale-100'
+          }`}>
           <Users className="w-8 h-8 text-blue-500 transition-all duration-500" />
           <div>
             <h1 className="text-4xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2 transition-all duration-500">
