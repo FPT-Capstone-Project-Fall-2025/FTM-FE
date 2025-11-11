@@ -4,6 +4,8 @@ import { Bell, X, Check, Trash2, Clock } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
 import parse from 'html-react-parser';
+import { formatNotificationTime } from '@/utils/dateUtils';
+import notificationService from '@/services/notificationService';
 
 interface NotificationPopupProps {
   isOpen: boolean;
@@ -64,6 +66,16 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const handleRespond = async (relatedId: string, accepted: boolean) => {
+    try {
+      const response = await notificationService.invitationResponse(relatedId, accepted);
+      console.log(response);
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const getTypeColor = (type?: string) => {
     switch (type) {
@@ -128,27 +140,61 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 hover:bg-gray-50 transition-colors ${!notification.isRead ? 'bg-blue-50' : ''
+                  className={`p-4 hover:bg-gray-50 transition-colors ${!notification.isRead ? "bg-blue-50" : ""
                     }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${!notification.isRead ? 'bg-blue-500' : 'bg-gray-300'
-                      }`} />
+                    <div
+                      className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${!notification.isRead ? "bg-blue-500" : "bg-gray-300"
+                        }`}
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <h4 className={`text-sm font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'
-                          }`}>
+                        <h4
+                          className={`text-sm font-medium ${!notification.isRead ? "text-gray-900" : "text-gray-700"
+                            }`}
+                        >
                           {notification.title}
                         </h4>
-                        <span className={`px-2 py-0.5 text-xs rounded ${getTypeColor(notification.type)}`}>
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded ${getTypeColor(
+                            notification.type
+                          )}`}
+                        >
                           {notification.type}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">{parse(notification.message)}</p>
+
+                      <p className="text-sm text-gray-600 mb-3">
+                        {parse(notification.message)}
+                      </p>
+
+                      {/* Action buttons (only if actionable) */}
+                      {notification.isActionable && (
+                        <div className="flex items-center justify-end gap-2 mb-2">
+                          <button
+                            onClick={() => {
+                              handleRespond(notification.relatedId, true);
+                            }}
+                            className="px-3 py-1 text-sm font-medium rounded-lg bg-black text-white hover:bg-gray-800 transition-colors"
+                          >
+                            Đồng Ý
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleRespond(notification.relatedId, false);
+                            }}
+                            className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+                          >
+                            Từ Chối
+                          </button>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1 text-xs text-gray-500">
                           <Clock className="w-3 h-3" />
-                          <span>{notification.createdAt}</span>
+                          <span>{formatNotificationTime(notification.createdOn)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {!notification.isRead && (
@@ -173,6 +219,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
                   </div>
                 </div>
               ))}
+
             </div>
           )}
         </div>

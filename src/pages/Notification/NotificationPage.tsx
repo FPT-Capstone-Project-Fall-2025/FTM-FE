@@ -4,6 +4,9 @@ import { Bell, Check, CheckCheck, Trash2, Clock, ArrowLeft } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
 import parse from 'html-react-parser';
+import notificationService from '@/services/notificationService';
+import { formatNotificationTime } from '@/utils/dateUtils';
+import { toast } from 'react-toastify';
 
 const NotificationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +25,7 @@ const NotificationPage: React.FC = () => {
 
   const deleteNotification = (id: string) => {
     console.log(id);
-    
+
     // setNotifications(prev => prev.filter(notif => notif.id !== id));
   };
 
@@ -34,6 +37,16 @@ const NotificationPage: React.FC = () => {
     //     notif.id === id ? { ...notif, isRead: false } : notif
     //   )
     // );
+  };
+
+  const handleRespond = async (relatedId: string, accepted: boolean) => {
+    try {
+      const response = await notificationService.invitationResponse(relatedId, accepted);
+      toast.success(response.message)
+      console.log(response);
+    } catch (err: any) {
+      console.error(err?.Message);
+    }
   };
 
   const getTypeColor = (type?: string) => {
@@ -171,6 +184,25 @@ const NotificationPage: React.FC = () => {
                             {notification.title}
                           </h4>
                           <p className="text-sm text-gray-600 mb-3">{parse(notification.message)}</p>
+
+                          {/* Action buttons for actionable notifications */}
+                          {notification.isActionable && (
+                            <div className="flex items-center justify-start gap-2 mb-3">
+                              <button
+                                onClick={() => handleRespond(notification.relatedId, true)}
+                                className="cursor-pointer px-4 py-1.5 text-sm font-medium rounded-lg bg-black text-white hover:bg-gray-800 transition-colors"
+                              >
+                                Đồng Ý
+                              </button>
+                              <button
+                                onClick={() => handleRespond(notification.relatedId, false)}
+                                className="cursor-pointer px-4 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+                              >
+                                Từ Chối
+                              </button>
+                            </div>
+                          )}
+
                         </div>
                         <span className={`px-3 py-1 text-xs font-medium rounded-lg border ${getTypeColor(notification.type)} whitespace-nowrap flex-shrink-0`}>
                           {notification.type}
@@ -179,7 +211,7 @@ const NotificationPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <Clock className="w-3.5 h-3.5" />
-                          <span>{notification.createdAt}</span>
+                          <span>{formatNotificationTime(notification.createdOn)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {notification.isRead ? (

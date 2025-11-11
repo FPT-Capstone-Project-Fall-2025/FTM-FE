@@ -473,6 +473,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
   }
 
   // Step 8: CRITICAL - Recursively recenter ALL children under their parents (top-down for hierarchy)
+  // This must run AFTER Step 7 completes all spouse positioning
   const sortedGens = Array.from(nodesByGen.keys()).sort((a, b) => a - b);
 
   for (let i = 0; i < sortedGens.length - 1; i++) {
@@ -503,41 +504,88 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       childrenByParentSet.get(parentKey)!.push(childId);
     });
 
-    // Position each sibling group under their parents
+    // Create sibling groups with their metadata
+    const siblingGroups: Array<{
+      parentKey: string;
+      children: string[];
+      parentCenterX: number;
+      childSpacing: number;
+    }> = [];
+
     childrenByParentSet.forEach((children, parentKey) => {
       const parentIds = parentKey.split('-').filter(id => members[id]);
 
       if (parentIds.length === 0) return;
 
+      // CRITICAL: Get parent positions AFTER Step 7 spouse adjustments
       const parentPositions = parentIds
         .map(id => positionMap.get(id))
         .filter(pos => pos !== undefined) as { x: number; y: number }[];
 
       if (parentPositions.length === 0) return;
 
+      // Calculate fresh parent center using CURRENT positions
       const parentCenterX =
         parentPositions.reduce((sum, pos) => sum + pos.x, 0) /
         parentPositions.length;
 
-      const sortedChildren = [...children].sort((a, b) => {
+      // Dynamic spacing tied to D3 nodeSize (280 base); compress for large groups to stay under parents
+      let childSpacing = 280; // Match D3 horizontal nodeSize for compatibility
+      if (children.length > 3) {
+        childSpacing = Math.max(150, (280 * 3) / children.length);
+      }
+
+      siblingGroups.push({
+        parentKey,
+        children,
+        parentCenterX,
+        childSpacing,
+      });
+    });
+
+    // Sort sibling groups by parent center X
+    siblingGroups.sort((a, b) => a.parentCenterX - b.parentCenterX);
+
+    // Position each sibling group centered under their parents
+    const MIN_GROUP_GAP = 180; // Minimum gap between sibling groups
+
+    siblingGroups.forEach((group, idx) => {
+      const sortedChildren = [...group.children].sort((a, b) => {
         const posA = positionMap.get(a);
         const posB = positionMap.get(b);
         return (posA?.x || 0) - (posB?.x || 0);
       });
 
-      // Dynamic spacing tied to D3 nodeSize (280 base); compress for large groups to stay under parents
-      let childSpacing = 280; // Match D3 horizontal nodeSize for compatibility
-      if (sortedChildren.length > 3) {
-        childSpacing = Math.max(150, (280 * 3) / sortedChildren.length); 
+      const totalWidth = (sortedChildren.length - 1) * group.childSpacing;
+      let centerX = group.parentCenterX;
+
+      // Check for collision with previous group only
+      if (idx > 0) {
+        const prevGroup = siblingGroups[idx - 1]!;
+        const prevChildren = prevGroup.children;
+
+        // Get rightmost child of previous group from current positions
+        const prevRightX = Math.max(
+          ...prevChildren.map(id => positionMap.get(id)?.x || -Infinity)
+        );
+
+        const currLeftX = centerX - totalWidth / 2;
+        const gap = currLeftX - prevRightX;
+
+        // Only shift if there's actual overlap
+        if (gap < MIN_GROUP_GAP) {
+          centerX += (MIN_GROUP_GAP - gap);
+        }
       }
-      const totalWidth = (sortedChildren.length - 1) * childSpacing;
-      const startX = parentCenterX - totalWidth / 2;
+
+      // Position children symmetrically around center
+      const startX = centerX - totalWidth / 2;
 
       sortedChildren.forEach((childId, index) => {
         const childPos = positionMap.get(childId);
         if (childPos) {
           positionMap.set(childId, {
-            x: startX + index * childSpacing,
+            x: startX + index * group.childSpacing,
             y: childPos.y,
           });
         }
@@ -550,16 +598,22 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     .map(([memberId, member]) => {
       const pos = positionMap.get(memberId) || { x: 0, y: 0 };
 
+      // Check if person is divorced
+      const isDivorced = (member as any)?.isDivorced;
+
       return {
         id: memberId,
         type: 'familyMember',
         data: {
           ...member,
           label: member.name || 'Unknown',
+          isDivorced, // Pass divorce status to node component
         },
         position: pos,
         style: {
           minWidth: '180px',
+          border: isDivorced ? '2px dashed #9ca3af' : undefined, // Dashed border for divorced
+          opacity: isDivorced ? 0.85 : 1,
         },
       };
     });
@@ -567,13 +621,56 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
   const flowEdges: Edge[] = [];
   const processedChildEdges = new Set<string>();
 
+  // Generate colors for polygamy cases
+  const polygamyColors = [
+    '#3b82f6', // blue
+    '#ef4444', // red
+    '#10b981', // green
+    '#f59e0b', // amber
+    '#8b5cf6', // purple
+    '#ec4899', // pink
+  ];
+  // Identify polygamy cases (people with multiple partners)
+  const polygamyMap = new Map<string, string[]>(); // personId -> [partner1, partner2, ...]
+
+  Object.entries(members).forEach(([memberId, member]) => {
+    if (!component.has(memberId)) return;
+    if (member.partners && member.partners.length > 1) {
+      const validPartners = member.partners.filter(p => members[p] && component.has(p));
+      if (validPartners.length > 1) {
+        polygamyMap.set(memberId, validPartners);
+      }
+    }
+  });
+  // Create color map for parent pairs in polygamy situations
+  const parentPairColors = new Map<string, string>();
+
+  polygamyMap.forEach((partners, centerId) => {
+    partners.forEach((partnerId, index) => {
+      const pairKey = [centerId, partnerId].sort().join('-');
+      parentPairColors.set(pairKey, polygamyColors[index % polygamyColors.length]!);
+    });
+  });
+
+  // Parent-child edges with color coding
   parentsOf.forEach((parentIds, childId) => {
     if (!component.has(childId) || !members[childId]) return;
-
     const parents = Array.from(parentIds).filter(
       p => members[p] && component.has(p)
     );
+    // Determine edge color based on parent pair
+    let edgeColor = '#94a3b8'; // default gray
 
+    if (parents.length === 2) {
+      const pairKey = parents.sort().join('-');
+
+      // Check if either parent is in a polygamy situation
+      const isPolygamy = parents.some(p => polygamyMap.has(p));
+
+      if (isPolygamy && parentPairColors.has(pairKey)) {
+        edgeColor = parentPairColors.get(pairKey)!;
+      }
+    }
     parents.forEach(parentId => {
       const edgeId = `child-${parentId}-${childId}`;
       if (!processedChildEdges.has(edgeId)) {
@@ -585,12 +682,12 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
           type: 'smoothstep',
           animated: false,
           style: {
-            stroke: '#94a3b8',
+            stroke: edgeColor,
             strokeWidth: 2,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: '#94a3b8',
+            color: edgeColor,
           },
         });
       }
@@ -611,6 +708,11 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       if (!processedPartnerPairs.has(pair)) {
         processedPartnerPairs.add(pair);
 
+        // Check if either person is divorced (from this specific partner)
+        const member1 = members[memberId];
+        const member2 = members[partnerId];
+        const isDivorced = (member1 as any)?.isDivorced || (member2 as any)?.isDivorced;
+
         flowEdges.push({
           id: `partner-${pair}`,
           source: memberId,
@@ -618,9 +720,10 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
           type: 'straight',
           animated: false,
           style: {
-            stroke: '#e879f9',
+            stroke: isDivorced ? '#9ca3af' : '#e879f9', // gray if divorced, pink if not
             strokeWidth: 2,
-            strokeDasharray: '5,5',
+            strokeDasharray: isDivorced ? '10,5' : '5,5', // different dash pattern
+            opacity: isDivorced ? 0.5 : 1, // faded if divorced
           },
         });
       }

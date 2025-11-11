@@ -33,6 +33,12 @@ const notificationService = {
     getNotifications(): Promise<ApiResponse<Notification[]>> {
         return api.get(`/notifications`);
     },
+
+    invitationResponse(relatedId: string, accepted: boolean): Promise<ApiResponse<any>> {
+        return api.get(`/invitation/respond`, {
+            params: { relatedId, accepted }
+        });
+    },
 };
 
 export default notificationService;
