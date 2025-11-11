@@ -5,6 +5,8 @@ export interface Fund {
   ftId: string;
   fundName: string;
   currentMoney: number;
+  donationCount?: number | null;
+  expenseCount?: number | null;
   fundNote?: string | null;
   description?: string | null;
   lastModifiedOn?: string | null;

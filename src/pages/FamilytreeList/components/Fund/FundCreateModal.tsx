@@ -45,11 +45,13 @@ const FundCreateModal: React.FC<FundCreateModalProps> = ({
 }) => {
   const [form, setForm] = useState<FundCreateForm>(initialForm);
   const [bankSearch, setBankSearch] = useState('');
+  const [errors, setErrors] = useState<Partial<Record<keyof FundCreateForm, string>>>({});
 
   useEffect(() => {
     if (!isOpen) {
       setForm(initialForm);
       setBankSearch('');
+      setErrors({});
     }
   }, [isOpen]);
 
@@ -72,10 +74,24 @@ const FundCreateModal: React.FC<FundCreateModalProps> = ({
       bankCode: bank.bankCode,
       bankName: bank.bankName,
     }));
+    setErrors(prev => {
+      const next = { ...prev };
+      delete next.bankCode;
+      delete next.bankName;
+      return next;
+    });
   };
 
   const handleInputChange = (field: keyof FundCreateForm, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
+    setErrors(prev => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      if (value.trim()) {
+        delete next[field];
+      }
+      return next;
+    });
   };
 
   const getBankLogo = (code: string) => {
@@ -83,9 +99,40 @@ const FundCreateModal: React.FC<FundCreateModalProps> = ({
     return bankLogos[key] || null;
   };
 
+  const validateForm = (): boolean => {
+    const nextErrors: Partial<Record<keyof FundCreateForm, string>> = {};
+    if (!form.fundName.trim()) {
+      nextErrors.fundName = 'Vui lòng nhập tên quỹ.';
+    }
+    if (!form.bankAccountNumber.trim()) {
+      nextErrors.bankAccountNumber = 'Vui lòng nhập số tài khoản.';
+    }
+    if (!form.accountHolderName.trim()) {
+      nextErrors.accountHolderName = 'Vui lòng nhập tên chủ tài khoản.';
+    }
+    if (!form.bankCode.trim() || !form.bankName.trim()) {
+      nextErrors.bankCode = 'Vui lòng chọn ngân hàng.';
+      nextErrors.bankName = 'Vui lòng chọn ngân hàng.';
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSubmit(form);
+    if (!validateForm()) return;
+
+    const sanitizedForm: FundCreateForm = {
+      fundName: form.fundName.trim(),
+      description: form.description.trim(),
+      bankAccountNumber: form.bankAccountNumber.trim(),
+      accountHolderName: form.accountHolderName.trim(),
+      bankCode: form.bankCode.trim(),
+      bankName: form.bankName.trim(),
+    };
+
+    onSubmit(sanitizedForm);
   };
 
   if (!isOpen) return null;
@@ -123,10 +170,13 @@ const FundCreateModal: React.FC<FundCreateModalProps> = ({
                 type="text"
                 value={form.fundName}
                 onChange={e => handleInputChange('fundName', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                  errors.fundName ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Ví dụ: Quỹ gia tộc Nguyễn"
                 required
               />
+              {errors.fundName && <p className="mt-1 text-xs text-red-500">{errors.fundName}</p>}
             </div>
 
             <div>
@@ -149,10 +199,15 @@ const FundCreateModal: React.FC<FundCreateModalProps> = ({
                   type="text"
                   value={form.bankAccountNumber}
                   onChange={e => handleInputChange('bankAccountNumber', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                    errors.bankAccountNumber
+                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-300'
+                  }`}
                   placeholder="Nhập số tài khoản"
                   required
                 />
+                {errors.bankAccountNumber && <p className="mt-1 text-xs text-red-500">{errors.bankAccountNumber}</p>}
               </div>
 
               <div>
@@ -163,10 +218,17 @@ const FundCreateModal: React.FC<FundCreateModalProps> = ({
                   type="text"
                   value={form.accountHolderName}
                   onChange={e => handleInputChange('accountHolderName', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                    errors.accountHolderName
+                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-300'
+                  }`}
                   placeholder="Tên chủ tài khoản"
                   required
                 />
+                {errors.accountHolderName && (
+                  <p className="mt-1 text-xs text-red-500">{errors.accountHolderName}</p>
+                )}
               </div>
             </div>
           </div>
@@ -176,6 +238,9 @@ const FundCreateModal: React.FC<FundCreateModalProps> = ({
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Ngân hàng <span className="text-red-500">*</span>
               </label>
+              {errors.bankCode && (
+                <p className="mb-2 text-xs text-red-500">Vui lòng chọn ngân hàng từ danh sách bên dưới.</p>
+              )}
               <div className="relative mb-3">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
