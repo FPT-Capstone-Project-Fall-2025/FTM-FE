@@ -165,9 +165,9 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
                         </span>
                       </div>
 
-                      <p className="text-sm text-gray-600 mb-3">
+                      <div className="text-sm text-gray-600 mb-3">
                         {parse(notification.message)}
-                      </p>
+                      </div>
 
                       {/* Action buttons (only if actionable) */}
                       {notification.isActionable && (

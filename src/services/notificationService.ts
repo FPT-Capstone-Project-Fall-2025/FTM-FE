@@ -2,25 +2,31 @@ import type { ApiResponse } from "@/types/api";
 import { startConnection, getConnection } from "./signalRService";
 import api from "./apiService";
 import type { Notification } from "@/types/notification";
+import { addNotification } from "@/stores/slices/notificationSlice";
 
 const HUB_URL = "https://be.dev.familytree.io.vn/hubs/notification";
 
 const notificationService = {
-    async init(token: string, onReceive: (notif: any) => void) {
+    async init(token: string, dispatch: any) {
         const connection = await startConnection(HUB_URL, token);
 
         connection?.on("ReceiveNotification", (content) => {
             console.log("Received:", content);
-            onReceive({
-                id: Date.now(),
+            // Convert numeric type to string if needed
+            const normalizedNotification: Notification = {
+                ...content,
+                id: content.id || Date.now().toString(),
                 title: content.title || "Thông báo mới",
                 message: content.message || content,
-                type: content.type || 9003,
+                type: typeof content.type === 'number' ? String(content.type) : (content.type || "9003"),
                 isActionable: content.isActionable ?? false,
-                createdAt: content.createdAt || new Date().toISOString(),
-                relatedId: content.relatedId || null,
-                isRead: false,
-            });
+                createdOn: content.createdOn || new Date().toISOString(),
+                isRead: content.isRead ?? false,
+                userId: content.userId,
+                relatedId: content.relatedId,
+            };
+            // Properly dispatch the Redux action
+            dispatch(addNotification(normalizedNotification));
         });
     },
 

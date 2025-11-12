@@ -46,8 +46,8 @@ const ManagePermissions: React.FC = () => {
 
   const methodsConfig = [
     { label: "Truy cập Đọc", value: "VIEW" },
-    { label: "Quyền Ghi / Sửa", value: "EDIT" },
-    { label: "Quyền Tạo", value: "CREATE" },
+    { label: "Quyền Ghi / Sửa", value: "UPDATE" },
+    { label: "Quyền Tạo", value: "ADD" },
     { label: "Quyền Xóa", value: "DELETE" }
   ];
 
@@ -96,8 +96,24 @@ const ManagePermissions: React.FC = () => {
         authorizationList: member.value
       };
       console.log("Calling updateFTAuth with payload:", updatePayload);
-      await ftauthorizationService.updateFTAuth(updatePayload);
-      console.log("API call successful");
+      const response = await ftauthorizationService.updateFTAuth(updatePayload);
+      console.log("API call successful, response:", response.data);
+
+      // Update the state with the response data
+      if (response.data) {
+        const updatedMemberData = response.data;
+        setAuthList(prevAuthList => {
+          if (!prevAuthList) return prevAuthList;
+          return {
+            ...prevAuthList,
+            datalist: prevAuthList.datalist.map(m =>
+              m.key.id === updatedMemberData.ftMemberId
+                ? { ...m, value: updatedMemberData.authorizationList }
+                : m
+            )
+          };
+        });
+      }
     } catch (error) {
       console.error("Failed to update permission:", error);
       // Revert on error
@@ -151,19 +167,42 @@ const ManagePermissions: React.FC = () => {
       editedAuthList.datalist.forEach((editedMember, memberIndex) => {
         const originalMember = authList.datalist[memberIndex];
         if (originalMember) {
-          const originalStr = JSON.stringify(originalMember.value);
-          const editedStr = JSON.stringify(editedMember.value);
+          // Compare each feature individually to see which ones changed
+          let hasChanges = false;
+          editedMember.value.forEach((editedFeature, featureIndex) => {
+            const originalFeature = originalMember.value[featureIndex];
+            if (!originalFeature) {
+              hasChanges = true; // New feature
+              return;
+            }
 
-          console.log("Comparing member:", editedMember.key.fullname);
-          console.log("Original:", originalStr);
-          console.log("Edited:", editedStr);
-          console.log("Are they equal?", originalStr === editedStr);
+            const originalMethodsStr = JSON.stringify(originalFeature.methodsList.sort());
+            const editedMethodsStr = JSON.stringify(editedFeature.methodsList.sort());
+            const featureChanged = originalMethodsStr !== editedMethodsStr;
 
-          if (originalStr !== editedStr) {
+            if (featureChanged) {
+              console.log(`Feature ${editedFeature.featureCode} changed for ${editedMember.key.fullname}`);
+              console.log(`  Original methods: ${originalMethodsStr}`);
+              console.log(`  Edited methods: ${editedMethodsStr}`);
+              hasChanges = true;
+            }
+          });
+
+          // Also check for deleted features (in original but not in edited)
+          const allChangedFeatures = editedMember.value;
+          const originalFeatureCount = originalMember.value.length;
+          if (editedMember.value.length < originalFeatureCount) {
+            console.log(`Features were deleted for ${editedMember.key.fullname}`);
+            hasChanges = true;
+          }
+
+          if (hasChanges) {
+            // Send the COMPLETE authorizationList for this member (not just changed features)
+            // This ensures all permissions are preserved, including unchanged ones
             const update: FTAuth = {
               ftId: editedAuthList.ftId,
               ftMemberId: editedMember.key.id,
-              authorizationList: editedMember.value
+              authorizationList: allChangedFeatures
             };
             console.log("✓ Detected change for member:", editedMember.key.fullname, "Update:", update);
             updates.push(update);
@@ -174,19 +213,38 @@ const ManagePermissions: React.FC = () => {
       // Execute all updates
       if (updates.length > 0) {
         console.log("Saving", updates.length, "permission updates");
-        await Promise.all(updates.map(update => {
+        const responses = await Promise.all(updates.map(update => {
           console.log("Calling updateFTAuth with:", update);
           return ftauthorizationService.updateFTAuth(update);
         }));
-        console.log("All updates completed successfully");
+        console.log("All updates completed successfully, responses:", responses);
+
+        // Update state with all response data
+        setAuthList(prevAuthList => {
+          if (!prevAuthList) return prevAuthList;
+
+          let updatedAuthList = { ...prevAuthList };
+          responses.forEach(response => {
+            if (response.data) {
+              const updatedMemberData = response.data;
+              updatedAuthList = {
+                ...updatedAuthList,
+                datalist: updatedAuthList.datalist.map(m =>
+                  m.key.id === updatedMemberData.ftMemberId
+                    ? { ...m, value: updatedMemberData.authorizationList }
+                    : m
+                )
+              };
+            }
+          });
+
+          return updatedAuthList;
+        });
       } else {
         console.log("No changes detected");
       }
 
-      setAuthList(editedAuthList);
       setIsEditMode(false);
-      // Reload to ensure we have latest data
-      loadPermissions();
     } catch (error) {
       console.error("Failed to save permissions:", error);
       setConfirmModal({
@@ -253,8 +311,18 @@ const ManagePermissions: React.FC = () => {
             ftMemberId: member.key.id,
             authorizationList: []
           };
-          await ftauthorizationService.updateFTAuth(updatePayload);
-          loadPermissions();
+          const response = await ftauthorizationService.updateFTAuth(updatePayload);
+          console.log("Delete successful, response:", response.data);
+
+          // Update state - remove the member if all permissions are deleted
+          setAuthList(prevAuthList => {
+            if (!prevAuthList) return prevAuthList;
+            return {
+              ...prevAuthList,
+              datalist: prevAuthList.datalist.filter(m => m.key.id !== member.key.id)
+            };
+          });
+
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
           console.error("Failed to delete permission:", error);
@@ -281,9 +349,37 @@ const ManagePermissions: React.FC = () => {
       };
 
       console.log("Adding new member with auth:", newAuth);
-      await ftauthorizationService.addFTAuth(newAuth);
-      console.log("Member added successfully");
-      await loadPermissions();
+      const response = await ftauthorizationService.addFTAuth(newAuth);
+      console.log("Member added successfully, response:", response.data);
+
+      // Update state with the new member data
+      if (response.data) {
+        const newMemberAuth = response.data;
+        setAuthList(prevAuthList => {
+          if (!prevAuthList) return prevAuthList;
+
+          // Check if member already exists and update, or add new
+          const memberExists = prevAuthList.datalist.some(m => m.key.id === newMemberAuth.ftMemberId);
+
+          if (memberExists) {
+            // Update existing member's permissions
+            return {
+              ...prevAuthList,
+              datalist: prevAuthList.datalist.map(m =>
+                m.key.id === newMemberAuth.ftMemberId
+                  ? { ...m, value: newMemberAuth.authorizationList }
+                  : m
+              )
+            };
+          } else {
+            // Add new member - need to fetch the full member details
+            // For now, we'll reload to ensure we have the complete member info
+            loadPermissions();
+            return prevAuthList;
+          }
+        });
+      }
+
       setShowAddMemberModal(false);
     } catch (error) {
       console.error("Failed to add member:", error);

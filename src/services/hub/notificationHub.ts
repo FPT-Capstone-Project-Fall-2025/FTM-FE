@@ -31,7 +31,13 @@ export const initNotificationHub = async (token: string, dispatch: AppDispatch) 
         .build();
 
       connection.on("ReceiveNotification", (payload) => {
-        dispatch(addNotification(payload));
+        // Convert numeric type to string if needed
+        const notification = {
+          ...payload,
+          type: typeof payload.type === 'number' ? String(payload.type) : payload.type
+        };
+        console.log("Notification received:", notification);
+        dispatch(addNotification(notification));
       });
     }
 

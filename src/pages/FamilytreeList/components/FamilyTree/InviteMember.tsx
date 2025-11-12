@@ -1,160 +1,59 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, Loader2 } from 'lucide-react';
-import { useAppSelector } from '@/hooks/redux';
-import type { PaginationProps } from '@/types/api';
+import React, { useState } from 'react';
+import { X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import type { FamilyMemberList } from '@/types/familytree';
 import familyTreeService from '@/services/familyTreeService';
+import { useAppSelector } from '@/hooks/redux';
+import MemberDropdown from './MemberDropDown';
 
 type InviteType = 'guest' | 'family';
-
-const MemberDropdown: React.FC<{
-    value: string;
-    onChange: (member: FamilyMemberList | null) => void;
-}> = ({ value, onChange }) => {
-    const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree)
-    const [isOpen, setIsOpen] = useState(false);
-    const [filter, setFilter] = useState(value);
-    const [loading, setLoading] = useState(false);
-    const [selectedMember, setSelectedMember] = useState<FamilyMemberList | null>(null);
-    const [paginationData, setPaginationData] = useState<PaginationProps>({
-        pageIndex: 1,
-        pageSize: 100,
-        propertyFilters: [
-            {
-                name: "FTId",
-                operation: "EQUAL",
-                value: selectedFamilyTree ? selectedFamilyTree.id : ''
-            },
-            {
-                name: "isDeleted",
-                operation: "EQUAL",
-                value: 'false'
-            }
-        ],
-        totalItems: 0,
-        totalPages: 0,
-    });
-    const [familyMemberList, setFamilyMemberList] = useState<FamilyMemberList[]>([]);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-
-    const loadMembers = async () => {
-        setLoading(true);
-        try {
-            const res = await familyTreeService.getFamilyTreeMembers(paginationData);
-            setPaginationData(pre => ({
-                ...pre,
-                ...res.data
-            }));
-            setFamilyMemberList(res.data.data);
-        } catch (error) {
-            console.error("Failed to fetch members:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        loadMembers();
-    }, []);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const filteredMembers = familyMemberList.filter(member =>
-        member.fullname.toLowerCase().includes(filter.toLowerCase())
-    );
-
-    const handleSelectMember = (member: FamilyMemberList) => {
-        setSelectedMember(member);
-        setFilter(member.fullname);
-        onChange(member);
-        setIsOpen(false);
-    };
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFilter(e.target.value);
-        setIsOpen(true);
-        if (!e.target.value) {
-            setSelectedMember(null);
-            onChange(null);
-        }
-    };
-
-    return (
-        <div ref={dropdownRef} className="relative w-full">
-            <input
-                type="text"
-                value={filter}
-                onChange={handleInputChange}
-                onFocus={() => setIsOpen(true)}
-                placeholder="Nhập tên thành viên..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-base"
-            />
-
-            {isOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                    {loading ? (
-                        <div className="flex items-center justify-center py-4 text-gray-500">
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Đang tải dữ liệu...
-                        </div>
-                    ) : filteredMembers.length > 0 ? (
-                        filteredMembers.map(member => (
-                            <div
-                                key={member.id}
-                                onClick={() => handleSelectMember(member)}
-                                className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 ${selectedMember?.id === member.id
-                                        ? 'bg-black text-white hover:bg-black'
-                                        : ''
-                                    }`}
-                            >
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-red-400 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                                    {member.fullname.charAt(0)}
-                                </div>
-                                <span className="flex-1 text-base">{member.fullname}</span>
-                                {selectedMember?.id === member.id && (
-                                    <Check size={20} className="flex-shrink-0" />
-                                )}
-                            </div>
-                        ))
-                    ) : (
-                        <div className="px-4 py-3 text-gray-500 text-center">
-                            Không tìm thấy thành viên
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
+type ToastType = 'success' | 'error' | null;
 
 const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
     isOpen,
     onClose,
 }) => {
+    const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
     const [inviteType, setInviteType] = useState<InviteType>('guest');
     const [email, setEmail] = useState('');
     const [selectedMember, setSelectedMember] = useState<FamilyMemberList | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState<{ type: ToastType; message: string }>({ type: null, message: '' });
 
     if (!isOpen) return null;
 
-    const handleSendInvite = () => {
-        if (inviteType === 'guest' && email) {
-            console.log('Sending invite to guest:', email);
-            // Handle guest invite
-        } else if (inviteType === 'family' && selectedMember) {
-            console.log('Sending invite to family member:', selectedMember);
-            // Handle family member invite
+    const showToast = (type: ToastType, message: string) => {
+        setToast({ type, message });
+        setTimeout(() => setToast({ type: null, message: '' }), 3000);
+    };
+
+    const handleSendInvite = async () => {
+        if (!selectedFamilyTree?.id) {
+            showToast('error', 'Chưa chọn cây gia phả');
+            return;
         }
-        onClose();
+
+        setLoading(true);
+        try {
+            if (inviteType === 'guest' && email) {
+                console.log('Sending invite to guest:', email);
+                await familyTreeService.inviteGuestToFamilyTree(selectedFamilyTree.id, email);
+                showToast('success', `Gửi lời mời thành công tới ${email}`);
+                setEmail('');
+            } else if (inviteType === 'family' && selectedMember) {
+                console.log('Sending invite to family member:', selectedMember);
+                await familyTreeService.inviteMemberToFamilyTree(selectedFamilyTree.id, selectedMember.id, email);
+                showToast('success', `Gửi lời mời thành công tới ${selectedMember.fullname}`);
+                setEmail('');
+                setSelectedMember(null);
+            }
+            onClose();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || 'Gửi lời mời thất bại. Vui lòng thử lại.';
+            showToast('error', errorMessage);
+            console.error('Failed to send invite:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const isInviteDisabled = () => {
@@ -251,16 +150,35 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                         />
                         <button
                             onClick={handleSendInvite}
-                            disabled={isInviteDisabled()}
-                            className={`px-6 py-3 rounded-lg font-semibold text-base transition-colors ${isInviteDisabled()
+                            disabled={isInviteDisabled() || loading}
+                            className={`px-6 py-3 rounded-lg font-semibold text-base transition-colors flex items-center gap-2 ${isInviteDisabled() || loading
                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 : 'bg-black text-white hover:bg-gray-800'
                                 }`}
                         >
-                            Gửi lời mời
+                            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                            <span>{loading ? 'Đang gửi...' : 'Gửi lời mời'}</span>
                         </button>
                     </div>
                 </div>
+
+                {/* Toast Notification */}
+                {toast.type && (
+                    <div className={`mt-4 p-4 rounded-lg flex items-center gap-3 ${toast.type === 'success'
+                            ? 'bg-green-50 border border-green-200'
+                            : 'bg-red-50 border border-red-200'
+                        }`}>
+                        {toast.type === 'success' ? (
+                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                        ) : (
+                            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                        )}
+                        <span className={`text-sm font-medium ${toast.type === 'success' ? 'text-green-800' : 'text-red-800'
+                            }`}>
+                            {toast.message}
+                        </span>
+                    </div>
+                )}
             </div>
         </div>
     );
