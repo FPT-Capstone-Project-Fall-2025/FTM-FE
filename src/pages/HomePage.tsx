@@ -184,9 +184,6 @@ const HomePage: React.FC = () => {
       'BIRTHDAY': 'Mừng thọ',
       'FUNERAL': 'Tang lễ',
       'HOLIDAY': 'Ngày lễ',
-      'MEMORIAL': 'Tưởng niệm',
-      'MEETING': 'Họp mặt',
-      'GATHERING': 'Sum họp',
       'OTHER': 'Khác',
     };
     return typeMap[type?.toUpperCase()] || 'Sự kiện';

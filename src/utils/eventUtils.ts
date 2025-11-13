@@ -35,17 +35,17 @@ export const EVENT_TYPE_CONFIG: EventTypeConfigMap = {
   [EventType.MEMORIAL]: {
     label: 'Tưởng niệm',
     icon: calendarIcon,
-    color: '#722ED1',
+    color: '#d946ef',
   },
   [EventType.MEETING]: {
     label: 'Họp mặt',
     icon: locationIcon,
-    color: '#13C2C2',
+    color: '#2f54eb',
   },
   [EventType.GATHERING]: {
-    label: 'Sum họp',
+    label: 'Sinh hoạt',
     icon: heartHandshakeIcon,
-    color: '#EB2F96',
+    color: '#13c2c2',
   },
   [EventType.OTHER]: {
     label: 'Khác',
@@ -62,7 +62,7 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   [EventType.HOLIDAY]: 'Ngày lễ',
   [EventType.MEMORIAL]: 'Tưởng niệm',
   [EventType.MEETING]: 'Họp mặt',
-  [EventType.GATHERING]: 'Sum họp',
+  [EventType.GATHERING]: 'Sinh hoạt',
   [EventType.OTHER]: 'Khác',
 };
 

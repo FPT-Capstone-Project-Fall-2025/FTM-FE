@@ -16,6 +16,9 @@ import type {
   RejectCampaignExpensePayload,
   CreateFundPayload,
   CreateFundDonationPayload,
+  MyPendingDonation,
+  CampaignStatistics,
+  CampaignFinancialSummary,
 } from '@/types/fund';
 import type { ApiResponse, PaginationResponse } from '@/types/api';
 
@@ -88,13 +91,82 @@ export const fundService = {
     return api.post<ApiResponse<FundDonation>>(`/funds/${fundId}/donate`, payload);
   },
 
+  async fetchMyPendingDonations(userId: string): Promise<MyPendingDonation[]> {
+    const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/my-pending`, {
+      params: { userId },
+    });
+    return normalizeArray(unwrap<MyPendingDonation[] | MyPendingDonation>(result));
+  },
+
   async createFund(payload: CreateFundPayload) {
     return api.post<ApiResponse<Fund>>(`/funds`, payload);
   },
 
-  async fetchCampaignsByTree(treeId: string): Promise<FundCampaign[]> {
-    const result = await api.get<ApiResponse<FundCampaign[]>>(`/ftcampaign/family-tree/${treeId}`);
-    return normalizeArray(unwrap<FundCampaign[] | FundCampaign>(result));
+  async fetchCampaignsByTree(
+    treeId: string,
+    page = 1,
+    pageSize = 10
+  ): Promise<{
+    items: FundCampaign[];
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    totalCount: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  }> {
+    const response = await api.get<ApiResponse<any>>(`/ftcampaign/family-tree/${treeId}`, {
+      params: {
+        page,
+        pageSize,
+      },
+    });
+
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray(payload?.items);
+
+    const items: FundCampaign[] = rawItems.map((item: any) => {
+      const determineStatus = (): string => {
+        const now = new Date();
+        const endDate = item.endDate ? new Date(item.endDate) : null;
+        const progress = Number(item.progressPercentage ?? 0);
+        if (progress >= 100) return 'completed';
+        if (item.isActive === false && endDate && endDate < now) return 'completed';
+        if (item.isActive) return 'active';
+        return 'upcoming';
+      };
+
+      return {
+        id: item.id,
+        ftId: item.familyTreeId ?? treeId,
+        campaignName: item.name ?? item.campaignName ?? '',
+        campaignDescription: item.description ?? item.purpose ?? null,
+        campaignManagerId: item.campaignManagerId ?? null,
+        startDate: item.startDate ?? null,
+        endDate: item.endDate ?? null,
+        fundGoal: item.targetAmount !== undefined ? Number(item.targetAmount) : null,
+        currentBalance: item.currentAmount !== undefined ? Number(item.currentAmount) : null,
+        status: determineStatus(),
+        lastModifiedOn: item.updatedAt ?? null,
+        createdOn: item.createdAt ?? null,
+        accountHolderName: item.beneficiaryInfo ?? null,
+        progressPercentage:
+          item.progressPercentage !== undefined ? Number(item.progressPercentage) : null,
+        totalDonations: item.totalDonations !== undefined ? Number(item.totalDonations) : null,
+        totalDonors: item.totalDonors !== undefined ? Number(item.totalDonors) : null,
+        isActive: item.isActive ?? null,
+      };
+    });
+
+    return {
+      items,
+      page: payload?.page ?? payload?.pageIndex ?? page,
+      pageSize: payload?.pageSize ?? pageSize,
+      totalPages: payload?.totalPages ?? 1,
+      totalCount: payload?.totalCount ?? payload?.totalItems ?? items.length,
+      hasPrevious: payload?.hasPrevious ?? false,
+      hasNext: payload?.hasNext ?? false,
+    };
   },
 
   async fetchCampaignById(campaignId: string): Promise<FundCampaign | null> {
@@ -114,6 +186,20 @@ export const fundService = {
   async fetchCampaignExpenses(campaignId: string): Promise<CampaignExpense[]> {
     const result = await api.get<ApiResponse<CampaignExpense[]>>(`/ftcampaign/${campaignId}/expenses`);
     return normalizeArray(unwrap<CampaignExpense[] | CampaignExpense>(result));
+  },
+
+  async fetchCampaignStatistics(campaignId: string): Promise<CampaignStatistics | null> {
+    const result = await api.get<ApiResponse<CampaignStatistics>>(
+      `/ftcampaign/${campaignId}/statistics`
+    );
+    return unwrap<CampaignStatistics | null>(result) ?? null;
+  },
+
+  async fetchCampaignFinancialSummary(campaignId: string): Promise<CampaignFinancialSummary | null> {
+    const result = await api.get<ApiResponse<CampaignFinancialSummary>>(
+      `/ftcampaign/${campaignId}/financial-summary`
+    );
+    return unwrap<CampaignFinancialSummary | null>(result) ?? null;
   },
 
   async createCampaignExpense(payload: CreateCampaignExpensePayload) {

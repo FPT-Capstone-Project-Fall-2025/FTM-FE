@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Checkbox } from "antd";
 import { Plus, MapPin, ChevronDown } from "lucide-react";
 import { useCombobox } from "downshift";
@@ -59,7 +59,12 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   setEventSelected
 }) => {
   // --- States ---
-  const [eventTypes, setEventTypes] = useState<EventType[]>([...Object.values(EVENT_TYPE)]);
+  const ALL_EVENT_TYPES = useMemo(
+    () => Object.values(EVENT_TYPE).filter((type) => !!EVENT_TYPE_CONFIG[type]) as EventType[],
+    []
+  );
+
+  const [eventTypes, setEventTypes] = useState<EventType[]>([...ALL_EVENT_TYPES]);
   const [eventGroups, setEventGroups] = useState<string[]>([]);
   const [showLunar, setShowLunar] = useState<boolean>(true);
   const [eventLocation, setEventLocation] = useState<string>("");
@@ -451,7 +456,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
           <div className="flex items-center gap-2">
             <span>Loại sự kiện</span>
             <span className="text-xs text-gray-500 font-normal">
-              ({eventTypes.length}/{Object.values(EVENT_TYPE).length})
+              ({eventTypes.length}/{ALL_EVENT_TYPES.length})
             </span>
           </div>
           <ChevronDown
@@ -467,7 +472,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setEventTypes([...Object.values(EVENT_TYPE)]);
+                  setEventTypes([...ALL_EVENT_TYPES]);
                 }}
                 className="flex-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded border border-blue-200 transition-colors font-medium"
                 type="button"
@@ -487,24 +492,33 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
             </div>
 
             {/* Event Type Checkboxes */}
-            {Object.values(EVENT_TYPE).map((type) => (
-              <div key={type} className="mb-2.5">
-                <Checkbox
-                  checked={eventTypes.includes(type)}
-                  onChange={() => toggleCheckbox(eventTypes, setEventTypes, type)}
-                  className="w-full"
-                >
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={EVENT_TYPE_CONFIG[type].icon}
-                      alt={EVENT_TYPE_CONFIG[type].label}
-                      className="w-5 h-5"
-                    />
-                    <span className="text-sm">{EVENT_TYPE_CONFIG[type].label}</span>
-                  </div>
-                </Checkbox>
-              </div>
-            ))}
+            {ALL_EVENT_TYPES.map((type) => {
+              const config = EVENT_TYPE_CONFIG[type];
+              if (!config) {
+                console.warn('Missing EVENT_TYPE_CONFIG for type:', type);
+                return null;
+              }
+              return (
+                <div key={type} className="mb-2.5">
+                  <Checkbox
+                    checked={eventTypes.includes(type)}
+                    onChange={() => toggleCheckbox(eventTypes, setEventTypes, type)}
+                    className="w-full"
+                  >
+                    <div className="flex items-center gap-2">
+                      {config.icon ? (
+                        <img src={config.icon} alt={config.label} className="w-5 h-5" />
+                      ) : (
+                        <span className="w-5 h-5 inline-flex items-center justify-center text-xs bg-gray-200 rounded">
+                          ?
+                        </span>
+                      )}
+                      <span className="text-sm">{config.label || type}</span>
+                    </div>
+                  </Checkbox>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

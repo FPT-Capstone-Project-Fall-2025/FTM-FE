@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Megaphone, X } from 'lucide-react';
+import bankList from '@/assets/fund/bank/json/bank.json';
 
 export interface CampaignFormState {
   name: string;
@@ -34,6 +35,40 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
   onSubmit,
   submitting = false,
 }) => {
+  const banks = useMemo(
+    () =>
+      (bankList as Array<{
+        bankCode: string;
+        bankName: string;
+        fullName?: string;
+        bin?: string;
+      }>).filter(bank => bank.bankCode && bank.bankName),
+    []
+  );
+
+  const formattedTargetAmount = useMemo(() => {
+    const digitsOnly = formState.targetAmount.replace(/\D/g, '');
+    if (!digitsOnly) return '';
+    return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }, [formState.targetAmount]);
+
+  const handleTargetAmountChange = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    onFormChange('targetAmount', digits);
+  };
+
+  const handleBankSelect = (value: string) => {
+    if (!value) {
+      onFormChange('bankName', '');
+      onFormChange('bankCode', '');
+      return;
+    }
+    const selected = banks.find(bank => bank.bankCode === value);
+    if (!selected) return;
+    onFormChange('bankName', selected.bankName || '');
+    onFormChange('bankCode', selected.bankCode || '');
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -110,12 +145,12 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
                 Số tiền mục tiêu <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                value={formState.targetAmount}
-                onChange={e => onFormChange('targetAmount', e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={formattedTargetAmount}
+                onChange={e => handleTargetAmountChange(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Nhập số tiền"
-                min={0}
+                placeholder="Nhập số tiền (VND)"
                 required
               />
             </div>
@@ -146,45 +181,64 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Số tài khoản nhận</label>
-              <input
-                type="text"
-                value={formState.bankAccountNumber}
-                onChange={e => onFormChange('bankAccountNumber', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Ví dụ: 0123456789"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Chọn ngân hàng</label>
+                <select
+                  value={formState.bankCode}
+                  onChange={e => handleBankSelect(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">-- Chọn nhanh ngân hàng --</option>
+                  {banks.map(bank => (
+                    <option key={bank.bankCode} value={bank.bankCode}>
+                      {bank.bankName} ({bank.bankCode})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Số tài khoản nhận</label>
+                <input
+                  type="text"
+                  value={formState.bankAccountNumber}
+                  onChange={e => onFormChange('bankAccountNumber', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ví dụ: 0123456789"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Ngân hàng</label>
-              <input
-                type="text"
-                value={formState.bankName}
-                onChange={e => onFormChange('bankName', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Tên ngân hàng"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Mã ngân hàng</label>
-              <input
-                type="text"
-                value={formState.bankCode}
-                onChange={e => onFormChange('bankCode', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Ví dụ: VCB"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Chủ tài khoản</label>
-              <input
-                type="text"
-                value={formState.accountHolderName}
-                onChange={e => onFormChange('accountHolderName', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Tên chủ tài khoản"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Ngân hàng</label>
+                <input
+                  type="text"
+                  value={formState.bankName}
+                  onChange={e => onFormChange('bankName', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Tên ngân hàng"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Mã ngân hàng</label>
+                <input
+                  type="text"
+                  value={formState.bankCode}
+                  onChange={e => onFormChange('bankCode', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ví dụ: VCB"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Chủ tài khoản</label>
+                <input
+                  type="text"
+                  value={formState.accountHolderName}
+                  onChange={e => onFormChange('accountHolderName', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Tên chủ tài khoản"
+                />
+              </div>
             </div>
           </div>
 

@@ -940,7 +940,10 @@ const PostPage: React.FC = () => {
 
   // Handle event creation and auto-create linked post
   const handleEventCreated = async () => {
-    
+    if (!currentFamilyTreeId) {
+      return;
+    }
+
     // Fetch the latest events to get the newly created event
     try {
       const response = await postService.getPostsByFamilyTree(currentFamilyTreeId);
