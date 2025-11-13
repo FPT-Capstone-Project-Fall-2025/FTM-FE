@@ -4,8 +4,6 @@ import mapIcon from '@/assets/img/icon/Map.svg';
 import mapOtherIcon from '@/assets/img/icon/Map-Other.svg';
 import NonCategorizedIcon from '@/assets/img/icon/Non-categorized.svg';
 import celebrationIcon from '@/assets/img/icon/celebration.svg';
-import calendarIcon from '@/assets/img/icon/calendar_today.svg';
-import locationIcon from '@/assets/img/icon/location.svg';
 
 // Re-export EventType for convenience
 export type { EventType };
@@ -16,13 +14,10 @@ export const EVENT_TYPE = {
   WEDDING: EventType.WEDDING,
   BIRTHDAY: EventType.BIRTHDAY,
   HOLIDAY: EventType.HOLIDAY,
-  MEMORIAL: EventType.MEMORIAL,
-  MEETING: EventType.MEETING,
-  GATHERING: EventType.GATHERING,
   OTHER: EventType.OTHER,
 } as const;
 
-export const EVENT_TYPE_CONFIG: Record<EventType, { label: string; icon: string; color: string }> = {
+export const EVENT_TYPE_CONFIG: Partial<Record<EventType, { label: string; icon: string; color: string }>> = {
   [EventType.FUNERAL]: {
     label: "Ma chay, giỗ",
     icon: mapIcon,
@@ -34,7 +29,7 @@ export const EVENT_TYPE_CONFIG: Record<EventType, { label: string; icon: string;
     color: "#52c41a",
   },
   [EventType.BIRTHDAY]: {
-    label: "Mừng thọ",
+    label: "Sinh nhật - Mừng thọ",
     icon: NonCategorizedIcon,
     color: "#1677FF",
   },
@@ -42,21 +37,6 @@ export const EVENT_TYPE_CONFIG: Record<EventType, { label: string; icon: string;
     label: "Ngày lễ",
     icon: celebrationIcon,
     color: "#fa8c16",
-  },
-  [EventType.MEMORIAL]: {
-    label: "Tưởng niệm",
-    icon: calendarIcon,
-    color: "#d946ef",
-  },
-  [EventType.MEETING]: {
-    label: "Họp mặt",
-    icon: locationIcon,
-    color: "#2f54eb",
-  },
-  [EventType.GATHERING]: {
-    label: "Sinh hoạt",
-    icon: heartHandshakeIcon,
-    color: "#13c2c2",
   },
   [EventType.OTHER]: {
     label: "Khác",
@@ -82,7 +62,14 @@ export default function EventTypeLabel({
   allDay = false,
   durationDays = 1,
 }: EventTypeLabelProps) {
-  const { icon, color } = EVENT_TYPE_CONFIG[type as EventType] || EVENT_TYPE_CONFIG[EventType.OTHER];
+  const config =
+    ((type ? EVENT_TYPE_CONFIG[type as EventType] : undefined) ??
+      EVENT_TYPE_CONFIG[EventType.OTHER]) as {
+      label: string;
+      icon: string;
+      color: string;
+    };
+  const { icon, color } = config;
 
   return (
     <div

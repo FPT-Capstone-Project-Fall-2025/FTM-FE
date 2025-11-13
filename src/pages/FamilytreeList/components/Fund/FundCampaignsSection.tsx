@@ -18,7 +18,7 @@ interface FundCampaignsSectionProps {
   campaignFilter: CampaignFilter;
   onSearchChange: (value: string) => void;
   onFilterChange: (value: CampaignFilter) => void;
-  onRequestCreate: () => void;
+  onRequestCreate?: () => void;
   onOpenDetail: (id: string) => void;
   formatCurrency: (value?: number | null) => string;
   formatDate: (value?: string | null) => string;
@@ -31,6 +31,10 @@ interface FundCampaignsSectionProps {
   totalCount: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  title?: string;
+  subtitle?: string;
+  showCreateButton?: boolean;
+  showStatusFilter?: boolean;
 }
 
 const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
@@ -52,12 +56,18 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   totalCount,
   pageSize,
   onPageChange,
+  title = 'Chiến dịch gây quỹ',
+  subtitle = 'Quản lý và theo dõi các chiến dịch quyên góp của gia phả',
+  showCreateButton = true,
+  showStatusFilter = true,
 }) => {
   const normalizedSearch = campaignSearch.trim().toLowerCase();
 
+  const effectiveFilter = showStatusFilter ? campaignFilter : 'all';
+
   const filteredCampaigns = campaigns.filter(campaign => {
     const statusKey = getCampaignStatusKey(campaign.status);
-    const matchesFilter = campaignFilter === 'all' || campaignFilter === statusKey;
+    const matchesFilter = effectiveFilter === 'all' || effectiveFilter === statusKey;
     if (!matchesFilter) return false;
 
     if (!normalizedSearch) return true;
@@ -90,18 +100,18 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
     <div className="bg-white rounded-lg shadow p-6 space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h3 className="text-2xl font-bold text-gray-900">Chiến dịch gây quỹ</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Quản lý và theo dõi các chiến dịch quyên góp của gia phả
-          </p>
+          <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
+          <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
         </div>
-        <button
-          onClick={onRequestCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          type="button"
-        >
-          <Megaphone className="w-4 h-4" /> Tạo chiến dịch
-        </button>
+        {showCreateButton && onRequestCreate && (
+          <button
+            onClick={onRequestCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            type="button"
+          >
+            <Megaphone className="w-4 h-4" /> Tạo chiến dịch
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -115,17 +125,19 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-        <select
-          value={campaignFilter}
-          onChange={e => onFilterChange(e.target.value as CampaignFilter)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="all">Tất cả</option>
-          <option value="active">Đang diễn ra</option>
-          <option value="upcoming">Sắp diễn ra</option>
-          <option value="completed">Hoàn thành</option>
-          <option value="cancelled">Đã hủy</option>
-        </select>
+        {showStatusFilter && (
+          <select
+            value={campaignFilter}
+            onChange={e => onFilterChange(e.target.value as CampaignFilter)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">Tất cả</option>
+            <option value="active">Đang diễn ra</option>
+            <option value="upcoming">Sắp diễn ra</option>
+            <option value="completed">Hoàn thành</option>
+            <option value="cancelled">Đã hủy</option>
+          </select>
+        )}
       </div>
 
       {filteredCampaigns.length === 0 ? (

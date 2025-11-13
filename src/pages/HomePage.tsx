@@ -181,7 +181,7 @@ const HomePage: React.FC = () => {
   const getEventTypeLabel = (type: string) => {
     const typeMap: Record<string, string> = {
       'WEDDING': 'Cưới hỏi',
-      'BIRTHDAY': 'Mừng thọ',
+      'BIRTHDAY': 'Sinh nhật - Mừng thọ',
       'FUNERAL': 'Tang lễ',
       'HOLIDAY': 'Ngày lễ',
       'OTHER': 'Khác',
@@ -190,17 +190,19 @@ const HomePage: React.FC = () => {
   };
 
   const getEventTypeColor = (type: string) => {
-    const colorMap: Record<string, string> = {
-      'WEDDING': 'bg-pink-100 text-pink-800',
-      'BIRTHDAY': 'bg-yellow-100 text-yellow-800',
-      'FUNERAL': 'bg-gray-100 text-gray-800',
-      'HOLIDAY': 'bg-red-100 text-red-800',
-      'MEMORIAL': 'bg-purple-100 text-purple-800',
-      'MEETING': 'bg-blue-100 text-blue-800',
-      'GATHERING': 'bg-indigo-100 text-indigo-800',
-      'OTHER': 'bg-gray-100 text-gray-800',
-    };
-    return colorMap[type?.toUpperCase()] || 'bg-gray-100 text-gray-800';
+    const normalizedType = type?.toUpperCase();
+    switch (normalizedType) {
+      case 'WEDDING':
+        return 'bg-pink-100 text-pink-800';
+      case 'BIRTHDAY':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'FUNERAL':
+        return 'bg-gray-100 text-gray-800';
+      case 'HOLIDAY':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   if (loading) {

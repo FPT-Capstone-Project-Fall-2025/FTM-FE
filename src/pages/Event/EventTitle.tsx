@@ -8,7 +8,7 @@ import celebrationIcon from "@/assets/img/icon/celebration.svg";
 const CONFIG = {
   FUNERAL: { label: "Ma chay, giỗ", icon: mapIcon, color: "#9B51E0" },
   WEDDING: { label: "Cưới hỏi", icon: heartHandshakeIcon, color: "#52c41a" },
-  BIRTHDAY: { label: "Sinh nhật", icon: NonCategorizedIcon, color: "#1677FF" },
+  BIRTHDAY: { label: "Sinh nhật - Mừng thọ", icon: NonCategorizedIcon, color: "#1677FF" },
   HOLIDAY: { label: "Ngày lễ", icon: celebrationIcon, color: "#fa8c16" },
   OTHER: { label: "Khác", icon: mapOtherIcon, color: "#FAAD14" },
 };

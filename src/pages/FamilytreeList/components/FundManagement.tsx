@@ -13,22 +13,36 @@ import FundDepositModal, {
 } from './Fund/FundDepositModal';
 import FundProofModal from './Fund/FundProofModal';
 import fundService from '@/services/fundService';
-import type { FundDonation, FundExpense, CreateFundDonationPayload } from '@/types/fund';
+import type {
+  FundDonation,
+  FundExpense,
+  CreateFundDonationPayload,
+} from '@/types/fund';
 import { useGPMember } from '@/hooks/useGPMember';
 import FundCreateModal, {
   type BankInfo,
   type FundCreateForm,
 } from './Fund/FundCreateModal';
 import { getUserIdFromToken } from '@/utils/jwtUtils';
-import FundCampaignsSection, { type CampaignFilter } from './Fund/FundCampaignsSection';
+import FundCampaignsSection, {
+  type CampaignFilter,
+} from './Fund/FundCampaignsSection';
 import FundCampaignDetailModal from './Fund/FundCampaignDetailModal';
-import FundCampaignModal, { type CampaignFormState } from './Fund/FundCampaignModal';
+import FundCampaignModal, {
+  type CampaignFormState,
+} from './Fund/FundCampaignModal';
 import FundHistorySection from './Fund/FundHistorySection';
-import FundWithdrawalSection, { type WithdrawalFormState } from './Fund/FundWithdrawalSection';
+import FundWithdrawalSection, {
+  type WithdrawalFormState,
+} from './Fund/FundWithdrawalSection';
 import FundApprovalsSection from './Fund/FundApprovalsSection';
 import FundDonationHistorySection from './Fund/FundDonationHistorySection';
 import FundPendingDonationsSection from './Fund/FundPendingDonationsSection';
-import type { CampaignCreationInput, CampaignDetail, FundWithdrawalInput } from './Fund/useFundManagementData';
+import type {
+  CampaignCreationInput,
+  CampaignDetail,
+  FundWithdrawalInput,
+} from './Fund/useFundManagementData';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -67,15 +81,26 @@ const INITIAL_CAMPAIGN_FORM: CampaignFormState = {
   isPublic: true,
 };
 
-type FundTab = 'overview' | 'campaigns' | 'donations' | 'history' | 'withdrawal' | 'approvals';
+type FundTab =
+  | 'overview'
+  | 'donations'
+  | 'history'
+  | 'withdrawal'
+  | 'approvals';
 
-const TAB_ITEMS: Array<{ key: FundTab; label: string }> = [
+const FUND_TAB_ITEMS: Array<{ key: FundTab; label: string }> = [
   { key: 'overview', label: 'Tổng quan quỹ' },
-  { key: 'campaigns', label: 'Chiến dịch gây quỹ' },
   { key: 'donations', label: 'Nạp quỹ & yêu cầu của tôi' },
   { key: 'history', label: 'Lịch sử chi tiêu' },
   { key: 'withdrawal', label: 'Tạo yêu cầu rút tiền' },
   { key: 'approvals', label: 'Phê duyệt yêu cầu' },
+];
+
+type CampaignTab = 'list' | 'active';
+
+const CAMPAIGN_TAB_ITEMS: Array<{ key: CampaignTab; label: string }> = [
+  { key: 'list', label: 'Chiến dịch của gia phả' },
+  { key: 'active', label: 'Chiến dịch đang hoạt động' },
 ];
 
 const normalizeStatus = (status: unknown): string => {
@@ -172,6 +197,7 @@ const FundManagement: React.FC = () => {
     fundDataLoading,
     actionLoading,
     campaignsLoading,
+    activeCampaignsLoading,
     campaignDetailLoading,
     error,
     funds,
@@ -182,12 +208,16 @@ const FundManagement: React.FC = () => {
     expenses,
     campaigns,
     campaignPagination,
+    activeCampaigns,
+    activeCampaignPagination,
     changeCampaignPage,
+    changeActiveCampaignPage,
     myPendingDonations,
     myPendingLoading,
     refreshAll,
     refreshFundDetails,
     refreshCampaigns,
+    refreshActiveCampaigns,
     refreshMyPendingDonations,
     loadCampaignDetail,
     createCampaign,
@@ -215,18 +245,25 @@ const FundManagement: React.FC = () => {
   const [recentDonation, setRecentDonation] = useState<FundDonation | null>(
     null
   );
-  const [activeTab, setActiveTab] = useState<FundTab>('overview');
+  const [managementScope, setManagementScope] = useState<'fund' | 'campaign'>(
+    'fund'
+  );
+  const [fundTab, setFundTab] = useState<FundTab>('overview');
+  const [campaignTab, setCampaignTab] = useState<CampaignTab>('list');
   const [campaignSearch, setCampaignSearch] = useState('');
-  const [campaignFilter, setCampaignFilter] =
-    useState<CampaignFilter>('all');
-  const [campaignDetail, setCampaignDetail] =
-    useState<CampaignDetail | null>(null);
+  const [activeCampaignSearch, setActiveCampaignSearch] = useState('');
+  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>('all');
+  const [campaignDetail, setCampaignDetail] = useState<CampaignDetail | null>(
+    null
+  );
   const [isCampaignDetailOpen, setIsCampaignDetailOpen] = useState(false);
-  const [withdrawalForm, setWithdrawalForm] =
-    useState<WithdrawalFormState>(INITIAL_WITHDRAWAL_FORM);
+  const [withdrawalForm, setWithdrawalForm] = useState<WithdrawalFormState>(
+    INITIAL_WITHDRAWAL_FORM
+  );
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
-  const [campaignForm, setCampaignForm] =
-    useState<CampaignFormState>(INITIAL_CAMPAIGN_FORM);
+  const [campaignForm, setCampaignForm] = useState<CampaignFormState>(
+    INITIAL_CAMPAIGN_FORM
+  );
   const [campaignSubmitting, setCampaignSubmitting] = useState(false);
 
   useEffect(() => {
@@ -242,11 +279,30 @@ const FundManagement: React.FC = () => {
   }, [activeFund?.id, refreshFundDetails]);
 
   useEffect(() => {
-    if (activeTab === 'withdrawal' && !withdrawalForm.date) {
+    void refreshActiveCampaigns(1);
+  }, [refreshActiveCampaigns]);
+
+  useEffect(() => {
+    if (managementScope === 'campaign' && campaignTab === 'active') {
+      void refreshActiveCampaigns(activeCampaignPagination.page);
+    }
+  }, [
+    activeCampaignPagination.page,
+    campaignTab,
+    managementScope,
+    refreshActiveCampaigns,
+  ]);
+
+  useEffect(() => {
+    if (
+      managementScope === 'fund' &&
+      fundTab === 'withdrawal' &&
+      !withdrawalForm.date
+    ) {
       const today = new Date().toISOString().slice(0, 10);
       setWithdrawalForm(prev => ({ ...prev, date: today }));
     }
-  }, [activeTab, withdrawalForm.date]);
+  }, [fundTab, managementScope, withdrawalForm.date]);
 
   useEffect(() => {
     console.log('[FundManagement] useGPMember result', {
@@ -670,6 +726,17 @@ const FundManagement: React.FC = () => {
     [changeCampaignPage]
   );
 
+const handleRefreshActiveCampaigns = useCallback(async () => {
+  await refreshActiveCampaigns(activeCampaignPagination.page);
+}, [activeCampaignPagination.page, refreshActiveCampaigns]);
+
+const handleActiveCampaignPageChange = useCallback(
+  async (page: number) => {
+    await changeActiveCampaignPage(page);
+  },
+  [changeActiveCampaignPage]
+);
+
   const getCampaignStatusKey = useCallback(
     (status: unknown): 'active' | 'upcoming' | 'completed' | 'cancelled' => {
       if (status === null || status === undefined) return 'active';
@@ -691,10 +758,7 @@ const FundManagement: React.FC = () => {
       if (normalized.includes('cancel')) return 'cancelled';
       if (normalized.includes('upcoming') || normalized.includes('planned'))
         return 'upcoming';
-      if (
-        normalized.includes('complete') ||
-        normalized.includes('finish')
-      )
+      if (normalized.includes('complete') || normalized.includes('finish'))
         return 'completed';
       return 'active';
     },
@@ -801,34 +865,45 @@ const FundManagement: React.FC = () => {
     return map;
   }, [campaigns]);
 
-  const getExpenseStatusBadge = useCallback(
-    (expense: FundExpense) => {
-      const status = normalizeStatus(expense.status);
-      switch (status) {
-        case 'approved':
-          return {
-            label: 'Đã phê duyệt',
-            className: 'bg-emerald-100 text-emerald-700',
-          };
-        case 'pending':
-          return {
-            label: 'Đang chờ',
-            className: 'bg-amber-100 text-amber-700',
-          };
-        case 'rejected':
-          return {
-            label: 'Đã từ chối',
-            className: 'bg-red-100 text-red-600',
-          };
-        default:
-          return {
-            label: 'Không xác định',
-            className: 'bg-gray-100 text-gray-600',
-          };
-      }
-    },
-    []
-  );
+  const activeCampaignMetrics = useMemo(() => {
+    const map: Record<
+      string,
+      { raisedAmount: number; contributorCount: number }
+    > = {};
+    activeCampaigns.forEach(campaign => {
+      map[campaign.id] = {
+        raisedAmount: Number(campaign.currentBalance ?? 0),
+        contributorCount: Number(campaign.totalDonors ?? 0),
+      };
+    });
+    return map;
+  }, [activeCampaigns]);
+
+  const getExpenseStatusBadge = useCallback((expense: FundExpense) => {
+    const status = normalizeStatus(expense.status);
+    switch (status) {
+      case 'approved':
+        return {
+          label: 'Đã phê duyệt',
+          className: 'bg-emerald-100 text-emerald-700',
+        };
+      case 'pending':
+        return {
+          label: 'Đang chờ',
+          className: 'bg-amber-100 text-amber-700',
+        };
+      case 'rejected':
+        return {
+          label: 'Đã từ chối',
+          className: 'bg-red-100 text-red-600',
+        };
+      default:
+        return {
+          label: 'Không xác định',
+          className: 'bg-gray-100 text-gray-600',
+        };
+    }
+  }, []);
 
   const handleRequestAction = useCallback(
     async (expense: FundExpense, action: 'approve' | 'reject') => {
@@ -983,7 +1058,8 @@ const FundManagement: React.FC = () => {
         await createCampaign(payload);
         toast.success('Đã tạo chiến dịch gây quỹ mới.');
         await changeCampaignPage(1);
-        setActiveTab('campaigns');
+        setManagementScope('campaign');
+        setCampaignTab('list');
         handleCloseCampaignModal();
       } catch (err: any) {
         console.error('Create campaign failed:', err);
@@ -998,11 +1074,12 @@ const FundManagement: React.FC = () => {
     [
       campaignForm,
       changeCampaignPage,
+      setCampaignTab,
+      setManagementScope,
       createCampaign,
       gpMemberId,
       handleCloseCampaignModal,
       selectedTree?.id,
-      setActiveTab,
     ]
   );
 
@@ -1060,297 +1137,404 @@ const FundManagement: React.FC = () => {
     <div className="h-full overflow-y-auto bg-gray-50 space-y-3">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          {canCreateFund && (
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              disabled={!selectedTree?.id}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <PlusCircle className="w-4 h-4" />
-              Tạo quỹ
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={isRefreshing || loading}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          <label className="text-sm font-semibold text-gray-700" htmlFor="management-scope">
+            Chế độ quản lý
+          </label>
+          <select
+            id="management-scope"
+            value={managementScope}
+            onChange={event => {
+              const value = event.target.value as 'fund' | 'campaign';
+              setManagementScope(value);
+              if (value === 'fund') {
+                setFundTab('overview');
+              } else {
+                setCampaignTab('list');
+              }
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
           >
-            <RefreshCw
-              className={`w-4 h-4 ${
-                isRefreshing ? 'animate-spin text-blue-600' : 'text-gray-600'
-              }`}
-            />
-            Làm mới dữ liệu
-          </button>
+            <option value="fund">Quỹ</option>
+            <option value="campaign">Chiến dịch gây quỹ</option>
+          </select>
         </div>
-      </div>
 
-      <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
-        {TAB_ITEMS.map(tab => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
-              activeTab === tab.key
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-600 hover:text-blue-600'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'overview' && (
-        <>
-          <div className="space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFundPage(prev => Math.max(prev - 1, 0))}
-                    disabled={fundPage === 0}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-sm text-gray-500">
-                    {fundPage + 1}/{totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFundPage(prev => Math.min(prev + 1, totalPages - 1))
-                    }
-                    disabled={fundPage >= totalPages - 1}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-            {funds.length === 0 ? (
-              <div className="flex flex-col items-center justify-center bg-white border border-dashed border-gray-200 rounded-xl py-10 text-center">
-                <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                  Gia phả này chưa có quỹ
-                </h4>
-                <p className="text-sm text-gray-500 max-w-sm mb-4">
-                  Hãy khởi tạo quỹ đầu tiên để bắt đầu quản lý tài chính và các
-                  khoản đóng góp của gia đình.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  Tạo quỹ mới
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleFunds.map(fund => {
-                  const isActive = fund.id === activeFund?.id;
-                  return (
-                    <button
-                      key={fund.id}
-                      type="button"
-                      onClick={() => setActiveFundId(fund.id)}
-                      className={`relative text-left p-5 rounded-xl border transition-all duration-200 bg-white shadow-sm hover:shadow-lg ${
-                        isActive
-                          ? 'border-blue-500 ring-2 ring-blue-200'
-                          : 'border-gray-200 hover:border-blue-300'
-                      }`}
-                    >
-                      {isActive && (
-                        <span className="absolute top-3 right-3 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                          Đang xem
-                        </span>
-                      )}
-                      <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
-                        {fund.fundName}
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-                        {fund.description || 'Chưa có mô tả cho quỹ này.'}
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
-                        <div>
-                          <p className="text-gray-500">Số dư hiện tại</p>
-                          <p className="font-semibold text-gray-900">
-                            {formatCurrency(fund.currentMoney)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Lượt đóng góp</p>
-                          <p className="font-semibold text-gray-900">
-                            {fund.donationCount ?? '0'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Lượt chi tiêu</p>
-                          <p className="font-semibold text-gray-900">
-                            {fund.expenseCount ?? '0'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Ngày tạo</p>
-                          <p className="font-semibold text-gray-900">
-                            {formatDate(fund.createdOn)}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+        {managementScope === 'fund' ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {canCreateFund && (
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                disabled={!selectedTree?.id}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Tạo quỹ
+              </button>
             )}
-          </div>
-
-          <FundOverviewSection
-            activeFund={activeFund}
-            computedBalance={computedBalance}
-            totalIncome={totalIncome}
-            totalExpense={totalExpense}
-            uniqueContributorCount={uniqueContributorCount}
-            pendingExpenseCount={pendingExpenses.length}
-            currentFundPurpose={currentFundPurpose}
-            lastUpdated={lastUpdated}
-            recentContributors={recentContributors}
-            transactions={transactions}
-            formatCurrency={formatCurrency}
-            formatDate={formatDate}
-            onNavigateHistory={() => undefined}
-            loading={fundDataLoading}
-            onDeposit={handleOpenDeposit}
-            depositDisabled={depositButtonDisabled}
-            showDepositButton
-          />
-        </>
-      )}
-
-      {activeTab === 'campaigns' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Chiến dịch gây quỹ
-            </h3>
             <button
               type="button"
-              onClick={handleRefreshCampaigns}
-              disabled={campaignsLoading}
-              className="inline-flex items-center gap-2 px-3 py-1 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={handleRefresh}
+              disabled={isRefreshing || loading}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <RefreshCw
                 className={`w-4 h-4 ${
-                  campaignsLoading
+                  isRefreshing ? 'animate-spin text-blue-600' : 'text-gray-600'
+                }`}
+              />
+              Làm mới dữ liệu
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            {campaignTab === 'list' && (
+              <button
+                type="button"
+                onClick={handleOpenCampaignModal}
+                disabled={!selectedTree?.id}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Tạo chiến dịch
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={
+                campaignTab === 'active'
+                  ? handleRefreshActiveCampaigns
+                  : handleRefreshCampaigns
+              }
+              disabled={
+                campaignTab === 'active'
+                  ? activeCampaignsLoading
+                  : campaignsLoading
+              }
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${
+                  (campaignTab === 'active'
+                    ? activeCampaignsLoading
+                    : campaignsLoading)
                     ? 'animate-spin text-blue-600'
                     : 'text-gray-600'
                 }`}
               />
-              Làm mới
+              {campaignTab === 'active'
+                ? 'Làm mới danh sách'
+                : 'Làm mới chiến dịch'}
             </button>
           </div>
-          {campaignsLoading ? (
-            <LoadingState message="Đang tải danh sách chiến dịch..." />
-          ) : (
-            <FundCampaignsSection
-              campaigns={campaigns}
-              campaignSearch={campaignSearch}
-              campaignFilter={campaignFilter}
-              onSearchChange={setCampaignSearch}
-              onFilterChange={setCampaignFilter}
-              onRequestCreate={handleOpenCampaignModal}
-              onOpenDetail={handleOpenCampaignDetail}
-              formatCurrency={formatCurrency}
-              formatDate={formatDate}
-              getCampaignStatusKey={getCampaignStatusKey}
-              getCampaignStatusLabel={getCampaignStatusLabel}
-              getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
-              metrics={campaignMetrics}
-              currentPage={campaignPagination.page}
-              totalPages={campaignPagination.totalPages}
-              totalCount={campaignPagination.totalCount}
-              pageSize={campaignPagination.pageSize}
-              onPageChange={handleCampaignPageChange}
-            />
-          )}
+        )}
+      </div>
+
+      {managementScope === 'fund' && (
+        <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
+          {FUND_TAB_ITEMS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setFundTab(tab.key)}
+              className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+                fundTab === tab.key
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-blue-600'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {activeTab === 'donations' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            {fundDataLoading ? (
-              <LoadingState message="Đang tải lịch sử nạp quỹ..." />
-            ) : (
-              <FundDonationHistorySection
-                donations={donations}
+      {managementScope === 'campaign' && (
+        <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
+          {CAMPAIGN_TAB_ITEMS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setCampaignTab(tab.key)}
+              className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+                campaignTab === tab.key
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-blue-600'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {managementScope === 'fund' && (
+        <>
+          {fundTab === 'overview' && (
+            <div className="space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFundPage(prev => Math.max(prev - 1, 0))}
+                      disabled={fundPage === 0}
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-sm text-gray-500">
+                      {fundPage + 1}/{totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFundPage(prev => Math.min(prev + 1, totalPages - 1))
+                      }
+                      disabled={fundPage >= totalPages - 1}
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {funds.length === 0 ? (
+                <div className="flex flex-col items-center justify-center bg-white border border-dashed border-gray-200 rounded-xl py-10 text-center">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                    Gia phả này chưa có quỹ
+                  </h4>
+                  <p className="text-sm text-gray-500 max-w-sm mb-4">
+                    Hãy khởi tạo quỹ đầu tiên để bắt đầu quản lý tài chính và các
+                    khoản đóng góp của gia đình.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Tạo quỹ mới
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {visibleFunds.map(fund => {
+                      const isActive = fund.id === activeFund?.id;
+                      return (
+                        <button
+                          key={fund.id}
+                          type="button"
+                          onClick={() => setActiveFundId(fund.id)}
+                          className={`relative text-left p-5 rounded-xl border transition-all duration-200 bg-white shadow-sm hover:shadow-lg ${
+                            isActive
+                              ? 'border-blue-500 ring-2 ring-blue-200'
+                              : 'border-gray-200 hover:border-blue-300'
+                          }`}
+                        >
+                          {isActive && (
+                            <span className="absolute top-3 right-3 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                              Đang xem
+                            </span>
+                          )}
+                          <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
+                            {fund.fundName}
+                          </h4>
+                          <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                            {fund.description || 'Chưa có mô tả cho quỹ này.'}
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
+                            <div>
+                              <p className="text-gray-500">Số dư hiện tại</p>
+                              <p className="font-semibold text-gray-900">
+                                {formatCurrency(fund.currentMoney)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Lượt đóng góp</p>
+                              <p className="font-semibold text-gray-900">
+                                {fund.donationCount ?? '0'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Lượt chi tiêu</p>
+                              <p className="font-semibold text-gray-900">
+                                {fund.expenseCount ?? '0'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Ngày tạo</p>
+                              <p className="font-semibold text-gray-900">
+                                {formatDate(fund.createdOn)}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <FundOverviewSection
+                    activeFund={activeFund}
+                    computedBalance={computedBalance}
+                    totalIncome={totalIncome}
+                    totalExpense={totalExpense}
+                    uniqueContributorCount={uniqueContributorCount}
+                    pendingExpenseCount={pendingExpenses.length}
+                    currentFundPurpose={currentFundPurpose}
+                    lastUpdated={lastUpdated}
+                    recentContributors={recentContributors}
+                    transactions={transactions}
+                    formatCurrency={formatCurrency}
+                    formatDate={formatDate}
+                    onNavigateHistory={() => undefined}
+                    loading={fundDataLoading}
+                    onDeposit={handleOpenDeposit}
+                    depositDisabled={depositButtonDisabled}
+                    showDepositButton
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {fundTab === 'donations' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow p-6">
+                {fundDataLoading ? (
+                  <LoadingState message="Đang tải lịch sử nạp quỹ..." />
+                ) : (
+                  <FundDonationHistorySection
+                    donations={donations}
+                    formatCurrency={formatCurrency}
+                    formatDate={formatDate}
+                    getPaymentMethodLabel={getPaymentMethodLabel}
+                    getDonationStatusKey={getDonationStatusKey}
+                  />
+                )}
+              </div>
+              <FundPendingDonationsSection
+                pendingDonations={myPendingDonations}
+                loading={myPendingLoading}
+                onRefresh={handleRefreshMyPending}
                 formatCurrency={formatCurrency}
                 formatDate={formatDate}
                 getPaymentMethodLabel={getPaymentMethodLabel}
-                getDonationStatusKey={getDonationStatusKey}
               />
-            )}
-          </div>
-          <FundPendingDonationsSection
-            pendingDonations={myPendingDonations}
-            loading={myPendingLoading}
-            onRefresh={handleRefreshMyPending}
-            formatCurrency={formatCurrency}
-            formatDate={formatDate}
-            getPaymentMethodLabel={getPaymentMethodLabel}
-          />
-        </div>
-      )}
-
-      {activeTab === 'history' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          {fundDataLoading ? (
-            <LoadingState message="Đang tải lịch sử chi tiêu..." />
-          ) : (
-            <FundHistorySection
-              approvedExpenses={approvedExpenses}
-              formatCurrency={formatCurrency}
-              formatDate={formatDate}
-            />
+            </div>
           )}
-        </div>
-      )}
 
-      {activeTab === 'withdrawal' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <FundWithdrawalSection
-            hasFund={hasAnyFund}
-            computedBalance={computedBalance}
-            campaigns={campaigns}
-            formState={withdrawalForm}
-            onFormChange={handleWithdrawalChange}
-            onSubmit={handleSubmitWithdrawal}
-            actionLoading={actionLoading}
-            formatCurrency={formatCurrency}
-          />
-        </div>
-      )}
-
-      {activeTab === 'approvals' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          {fundDataLoading ? (
-            <LoadingState message="Đang tải yêu cầu rút tiền..." />
-          ) : (
-            <FundApprovalsSection
-              pendingExpenses={pendingExpenses}
-              formatCurrency={formatCurrency}
-              formatDate={formatDate}
-              getStatusBadge={getExpenseStatusBadge}
-              onRequestAction={handleRequestAction}
-            />
+          {fundTab === 'history' && (
+            <div className="bg-white rounded-lg shadow p-6">
+              {fundDataLoading ? (
+                <LoadingState message="Đang tải lịch sử chi tiêu..." />
+              ) : (
+                <FundHistorySection
+                  approvedExpenses={approvedExpenses}
+                  formatCurrency={formatCurrency}
+                  formatDate={formatDate}
+                />
+              )}
+            </div>
           )}
-        </div>
+
+          {fundTab === 'withdrawal' && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <FundWithdrawalSection
+                hasFund={hasAnyFund}
+                computedBalance={computedBalance}
+                campaigns={campaigns}
+                formState={withdrawalForm}
+                onFormChange={handleWithdrawalChange}
+                onSubmit={handleSubmitWithdrawal}
+                actionLoading={actionLoading}
+                formatCurrency={formatCurrency}
+              />
+            </div>
+          )}
+
+          {fundTab === 'approvals' && (
+            <div className="bg-white rounded-lg shadow p-6">
+              {fundDataLoading ? (
+                <LoadingState message="Đang tải yêu cầu rút tiền..." />
+              ) : (
+                <FundApprovalsSection
+                  pendingExpenses={pendingExpenses}
+                  formatCurrency={formatCurrency}
+                  formatDate={formatDate}
+                  getStatusBadge={getExpenseStatusBadge}
+                  onRequestAction={handleRequestAction}
+                />
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {managementScope === 'campaign' && (
+        <>
+          {campaignTab === 'list' &&
+            (campaignsLoading ? (
+              <div className="bg-white rounded-lg shadow p-6">
+                <LoadingState message="Đang tải danh sách chiến dịch..." />
+              </div>
+            ) : (
+              <FundCampaignsSection
+                campaigns={campaigns}
+                campaignSearch={campaignSearch}
+                campaignFilter={campaignFilter}
+                onSearchChange={setCampaignSearch}
+                onFilterChange={setCampaignFilter}
+                onOpenDetail={handleOpenCampaignDetail}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                getCampaignStatusKey={getCampaignStatusKey}
+                getCampaignStatusLabel={getCampaignStatusLabel}
+                getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+                metrics={campaignMetrics}
+                currentPage={campaignPagination.page}
+                totalPages={campaignPagination.totalPages}
+                totalCount={campaignPagination.totalCount}
+                pageSize={campaignPagination.pageSize}
+                onPageChange={handleCampaignPageChange}
+                title="Chiến dịch của gia phả"
+                subtitle="Theo dõi các chiến dịch gây quỹ thuộc gia phả hiện tại"
+                showCreateButton={false}
+              />
+            ))}
+
+          {campaignTab === 'active' &&
+            (activeCampaignsLoading ? (
+              <div className="bg-white rounded-lg shadow p-6">
+                <LoadingState message="Đang tải chiến dịch đang hoạt động..." />
+              </div>
+            ) : (
+              <FundCampaignsSection
+                campaigns={activeCampaigns}
+                campaignSearch={activeCampaignSearch}
+                campaignFilter="all"
+                onSearchChange={setActiveCampaignSearch}
+                onFilterChange={() => undefined}
+                onOpenDetail={handleOpenCampaignDetail}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                getCampaignStatusKey={getCampaignStatusKey}
+                getCampaignStatusLabel={getCampaignStatusLabel}
+                getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+                metrics={activeCampaignMetrics}
+                currentPage={activeCampaignPagination.page}
+                totalPages={activeCampaignPagination.totalPages}
+                totalCount={activeCampaignPagination.totalCount}
+                pageSize={activeCampaignPagination.pageSize}
+                onPageChange={handleActiveCampaignPageChange}
+                title="Chiến dịch đang hoạt động"
+                subtitle="Danh sách chiến dịch đang mở trên toàn bộ hệ thống"
+                showCreateButton={false}
+                showStatusFilter={false}
+              />
+            ))}
+        </>
       )}
 
       <FundCreateModal
