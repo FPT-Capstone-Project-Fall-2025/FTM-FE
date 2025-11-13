@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Input, Select, Upload, Checkbox, Switch } from "antd";
+import { Modal, Input, Select, Upload, Checkbox, Switch, DatePicker } from "antd";
+import dayjs, { Dayjs } from "dayjs";
 import type { UploadFile } from "antd/es/upload/interface";
 import type { UploadChangeParam } from "antd/es/upload";
 import { useParams } from "react-router-dom";
@@ -93,9 +94,6 @@ const convertEventTypeToNumber = (eventType: string): number => {
     'WEDDING': 1,
     'BIRTHDAY': 2,
     'HOLIDAY': 3,
-    'MEMORIAL': 4,
-    'MEETING': 5,
-    'GATHERING': 6,
     'OTHER': 7,
   };
   return typeMap[eventType] ?? 7;
@@ -130,7 +128,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   const [isSubmit, setIsSubmit] = useState<boolean>(false);
   const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
   const [isLunar, setIsLunar] = useState<boolean>(false);
-  const [isPublic, setIsPublic] = useState<boolean>(true);
+  const isPublic = true;
   const [targetMemberId, setTargetMemberId] = useState<string>("");
   const [familyTrees, setFamilyTrees] = useState<FamilyTreeOption[]>([]);
   const [selectedFamilyTreeId, setSelectedFamilyTreeId] = useState<string>("");
@@ -171,6 +169,75 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   // Watch startTime and endTime for validation and lunar display
   const startTime = watch('startTime');
   const endTime = watch('endTime');
+
+  const disablePastHours = (current: Dayjs | null) => {
+    if (!current) return {};
+    const now = dayjs();
+    if (current.isBefore(now, 'day')) {
+      return {
+        disabledHours: () => Array.from({ length: 24 }, (_, i) => i),
+        disabledMinutes: () => Array.from({ length: 60 }, (_, i) => i),
+        disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+      };
+    }
+    if (current.isSame(now, 'day')) {
+      const disabledHours = Array.from({ length: now.hour() }, (_, i) => i);
+      const disabledMinutes =
+        current.hour() === now.hour()
+          ? Array.from({ length: now.minute() }, (_, i) => i)
+          : [];
+      return {
+        disabledHours: () => disabledHours,
+        disabledMinutes: () => disabledMinutes,
+        disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+      };
+    }
+    return {
+      disabledHours: () => [],
+      disabledMinutes: () => [],
+      disabledSeconds: () => [],
+    };
+  };
+
+  const disableEndDate = (current: Dayjs) => {
+    if (!startTime) return false;
+    return current.isBefore(dayjs(startTime).startOf('day'));
+  };
+
+  const disableEndHours = (current: Dayjs | null) => {
+    if (!current || !startTime) {
+      return {
+        disabledHours: () => [],
+        disabledMinutes: () => [],
+        disabledSeconds: () => [],
+      };
+    }
+    const start = dayjs(startTime);
+    if (current.isBefore(start, 'day')) {
+      return {
+        disabledHours: () => Array.from({ length: 24 }, (_, i) => i),
+        disabledMinutes: () => Array.from({ length: 60 }, (_, i) => i),
+        disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+      };
+    }
+    if (current.isSame(start, 'day')) {
+      const disabledHours = Array.from({ length: start.hour() }, (_, i) => i);
+      const disabledMinutes =
+        current.hour() === start.hour()
+          ? Array.from({ length: start.minute() }, (_, i) => i)
+          : [];
+      return {
+        disabledHours: () => disabledHours,
+        disabledMinutes: () => disabledMinutes,
+        disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+      };
+    }
+    return {
+      disabledHours: () => [],
+      disabledMinutes: () => [],
+      disabledSeconds: () => [],
+    };
+  };
 
   // Auto-update endTime when isAllDay is checked or startTime changes
   useEffect(() => {
@@ -381,13 +448,12 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         recurrenceEndTime: event.recurrenceEndTime || null,
         address: event.address || null,
         isAllDay: event.isAllDay || false,
-        isPublic: event.isPublic !== undefined ? event.isPublic : true,
+        isPublic: true,
         isLunar: event.isLunar || false,
       });
 
       // Set state fields
       setIsAllDay(event.isAllDay || false);
-      setIsPublic(event.isPublic !== undefined ? event.isPublic : true);
       setIsLunar(event.isLunar || false);
 
       // Set family tree ID
@@ -473,11 +539,10 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         recurrenceEndTime: event?.recurrenceEndTime || null,
         address: event?.address || null,
         isAllDay: event?.isAllDay || false,
-        isPublic: event?.isPublic !== undefined ? event.isPublic : true,
+        isPublic: true,
         isLunar: event?.isLunar || false,
       });
       setIsAllDay(event?.isAllDay || false);
-      setIsPublic(event?.isPublic !== undefined ? event.isPublic : true);
       setIsLunar(event?.isLunar || false);
 
       // Set target member ID - default to '' (group event) for new events
@@ -679,12 +744,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   return (
     <Modal
-      // title={
-      //   <div className="flex items-center gap-2">
-      //     <Calendar className="w-5 h-5 text-blue-500" />
-      //     <span>{eventSelected ?  'Tạo sự kiện mới' : 'Chỉnh sửa sự kiện'}</span>
-      //   </div>
-      // }
       open={isOpenModal}
       onCancel={handleCancel}
       footer={null}
@@ -695,7 +754,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
     {/* Family Tree Selection */}
     <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Sự kiện gia phả của <span className="text-red-500">*</span>
+            Gia tộc <span className="text-red-500">*</span>
           </label>
           <Select
             value={selectedFamilyTreeId}
@@ -705,7 +764,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             }}
             size="large"
             style={{ width: '100%' }}
-            placeholder="Chọn gia phả"
+            placeholder="Chọn gia tộc"
             getPopupContainer={(trigger) => trigger.parentElement || document.body}
             showSearch
             disabled={!!(eventSelected && (eventSelected as any).id)} // Disable when editing
@@ -734,6 +793,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 checked={targetMemberId === 'self'}
                 onChange={() => {
                   setTargetMemberId('self');
+                  setSelectedMembers([]);
                   console.log('🎯 Selected: Sự kiện của tôi');
                 }}
                 className="w-4 h-4 text-blue-600 focus:ring-blue-500"
@@ -762,85 +822,87 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         </div>
 
         {/* Member Tagging - Tag thêm thành viên tham gia */}
-        <div>
+        {targetMemberId !== 'self' && (
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-gray-700">
-                Tag thành viên tham gia (tùy chọn)
-              </label>
-              {members.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMembers(members);
-                    console.log('✅ Selected all members:', members.length);
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline"
-                >
-                  ⚡ Chọn tất cả ({members.length})
-                </button>
-              )}
-            </div>
-            <Select
-              mode="multiple"
-              value={selectedMembers.map(m => m.id)}
-              onChange={(values) => {
-                const selected = members.filter(m => values.includes(m.id));
-                setSelectedMembers(selected);
-              }}
-              size="large"
-              style={{ width: '100%' }}
-              placeholder="@Nhập tên thành viên để tag..."
-              getPopupContainer={(trigger) => trigger.parentElement || document.body}
-              showSearch
-              filterOption={(input, option) =>
-                (option?.label?.toString() || '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={members.map(member => ({
-                label: member.fullname,
-                value: member.id,
-              }))}
-              disabled={!selectedFamilyTreeId}
-              maxTagCount="responsive"
-            />
-            <div className="mt-1 flex items-center justify-between">
-              <div className="text-xs text-gray-500">
-                Tag thêm thành viên khác tham gia/được thông báo về sự kiện này
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Tag thành viên tham gia (tùy chọn)
+                </label>
+                {members.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMembers(members);
+                      console.log('✅ Selected all members:', members.length);
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                  >
+                    ⚡ Chọn tất cả ({members.length})
+                  </button>
+                )}
+              </div>
+              <Select
+                mode="multiple"
+                value={selectedMembers.map(m => m.id)}
+                onChange={(values) => {
+                  const selected = members.filter(m => values.includes(m.id));
+                  setSelectedMembers(selected);
+                }}
+                size="large"
+                style={{ width: '100%' }}
+                placeholder="@Nhập tên thành viên để tag..."
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.label?.toString() || '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={members.map(member => ({
+                  label: member.fullname,
+                  value: member.id,
+                }))}
+                disabled={!selectedFamilyTreeId}
+                maxTagCount="responsive"
+              />
+              <div className="mt-1 flex items-center justify-between">
+                <div className="text-xs text-gray-500">
+                  Tag thêm thành viên khác tham gia/được thông báo về sự kiện này
+                </div>
+                {selectedMembers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMembers([]);
+                      console.log('🗑️ Cleared all selected members');
+                    }}
+                    className="text-xs text-red-600 hover:text-red-700 font-medium hover:underline"
+                  >
+                    Xóa tất cả
+                  </button>
+                )}
               </div>
               {selectedMembers.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMembers([]);
-                    console.log('🗑️ Cleared all selected members');
-                  }}
-                  className="text-xs text-red-600 hover:text-red-700 font-medium hover:underline"
-                >
-                  Xóa tất cả
-                </button>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {selectedMembers.map(member => (
+                    <span
+                      key={member.id}
+                      className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
+                    >
+                      @{member.fullname}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))}
+                        className="ml-1 text-blue-500 hover:text-blue-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
-            {selectedMembers.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {selectedMembers.map(member => (
-                  <span
-                    key={member.id}
-                    className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
-                  >
-                    @{member.fullname}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))}
-                      className="ml-1 text-blue-500 hover:text-blue-700"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
+        )}
 
         
         {/* Event Name */}
@@ -921,21 +983,22 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             control={control}
             render={({ field }) => (
               <div className="flex flex-col gap-1">
-                <input
-                  type="datetime-local"
-                  value={
-                    field.value
-                      ? format(new Date(field.value), "yyyy-MM-dd'T'HH:mm")
-                      : ''
-                  }
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    const date = new Date(e.target.value);
-                    field.onChange(date.toISOString());
+                <DatePicker
+                  value={field.value ? dayjs(field.value) : null}
+                  onChange={(value) => {
+                    if (!value) {
+                      field.onChange(null);
+                      return;
+                    }
+                    field.onChange(value.toISOString());
                   }}
-                  min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
-                  className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${errors.startTime ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                  format="DD/MM/YYYY HH:mm"
+                  showTime={{ format: 'HH:mm' }}
+                  minuteStep={5}
+                  disabledDate={(current) => !!current && current.isBefore(dayjs().startOf('day'))}
+                  disabledTime={disablePastHours}
+                  className={`w-full ${errors.startTime ? 'border-red-500' : ''}`}
+                  getPopupContainer={(trigger) => trigger.parentElement || document.body}
                 />
                 {isLunar && field.value && (
                   <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
@@ -971,21 +1034,28 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
               control={control}
               render={({ field }) => (
                 <div className="flex flex-col gap-1">
-                  <input
-                    type="datetime-local"
-                    value={
-                      field.value
-                        ? format(new Date(field.value), "yyyy-MM-dd'T'HH:mm")
-                        : ''
-                    }
-                    onChange={(e) => {
-                      if (!e.target.value) return;
-                      const date = new Date(e.target.value);
-                      field.onChange(date.toISOString());
+                  <DatePicker
+                    value={field.value ? dayjs(field.value) : null}
+                    onChange={(value) => {
+                      if (!value) {
+                        field.onChange(null);
+                        return;
+                      }
+                      field.onChange(value.toISOString());
                     }}
-                    min={startTime ? format(new Date(startTime), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm")}
-                    className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${errors.endTime ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                    format="DD/MM/YYYY HH:mm"
+                    showTime={{ format: 'HH:mm' }}
+                    minuteStep={5}
+                    disabledDate={(current) => {
+                      if (!current) return false;
+                      if (!startTime) {
+                        return current.isBefore(dayjs().startOf('day'));
+                      }
+                      return disableEndDate(current);
+                    }}
+                    disabledTime={disableEndHours}
+                    className={`w-full ${errors.endTime ? 'border-red-500' : ''}`}
+                    getPopupContainer={(trigger) => trigger.parentElement || document.body}
                   />
                   {isLunar && field.value && (
                     <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
@@ -1174,17 +1244,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           />
         </div>
 
-
-        {/* Public/Private */}
-        <div className="flex items-center">
-          <label className="text-sm font-medium text-gray-700 mr-2">
-            Công khai sự kiện
-          </label>
-          <Switch
-            checked={isPublic}
-            onChange={(checked) => setIsPublic(checked)}
-          />
-        </div>
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3 pt-4 border-t">

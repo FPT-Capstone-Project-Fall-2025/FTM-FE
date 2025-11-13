@@ -84,6 +84,9 @@ export interface UseFundManagementDataReturn {
   expenses: FundExpense[];
   campaigns: FundCampaign[];
   campaignPagination: CampaignPaginationState;
+  activeCampaigns: FundCampaign[];
+  activeCampaignPagination: CampaignPaginationState;
+  activeCampaignsLoading: boolean;
   myPendingDonations: MyPendingDonation[];
   myPendingLoading: boolean;
   refreshAll: () => Promise<void>;
@@ -95,6 +98,8 @@ export interface UseFundManagementDataReturn {
   loadCampaignDetail: (campaignId: string) => Promise<CampaignDetail | null>;
   refreshCampaigns: (page?: number) => Promise<void>;
   changeCampaignPage: (page: number) => Promise<void>;
+  refreshActiveCampaigns: (page?: number) => Promise<void>;
+  changeActiveCampaignPage: (page: number) => Promise<void>;
   refreshMyPendingDonations: () => Promise<void>;
   createFund: (payload: CreateFundPayload) => Promise<Fund | null>;
   donateToFund: (fundId: string, payload: CreateFundDonationPayload) => Promise<void>;
@@ -119,6 +124,16 @@ export const useFundManagementData = (
   const [campaigns, setCampaigns] = useState<FundCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [campaignPagination, setCampaignPagination] = useState<CampaignPaginationState>({
+    page: 1,
+    pageSize: 10,
+    totalPages: 1,
+    totalCount: 0,
+    hasPrevious: false,
+    hasNext: false,
+  });
+  const [activeCampaigns, setActiveCampaigns] = useState<FundCampaign[]>([]);
+  const [activeCampaignsLoading, setActiveCampaignsLoading] = useState(false);
+  const [activeCampaignPagination, setActiveCampaignPagination] = useState<CampaignPaginationState>({
     page: 1,
     pageSize: 10,
     totalPages: 1,
@@ -270,6 +285,39 @@ export const useFundManagementData = (
     [refreshCampaigns]
   );
 
+  const refreshActiveCampaigns = useCallback(
+    async (page?: number) => {
+      setActiveCampaignsLoading(true);
+      const nextPage = page ?? activeCampaignPagination.page;
+      const nextPageSize = activeCampaignPagination.pageSize;
+      try {
+        const result = await fundService.fetchActiveCampaigns(nextPage, nextPageSize);
+        setActiveCampaigns(result.items);
+        setActiveCampaignPagination({
+          page: result.page ?? nextPage,
+          pageSize: result.pageSize ?? nextPageSize,
+          totalPages: result.totalPages ?? 1,
+          totalCount: result.totalCount ?? result.items.length,
+          hasPrevious: result.hasPrevious ?? false,
+          hasNext: result.hasNext ?? false,
+        });
+      } catch (err) {
+        console.error('Failed to refresh active campaigns', err);
+        setError(prev => prev ?? 'Không thể tải danh sách chiến dịch đang hoạt động.');
+      } finally {
+        setActiveCampaignsLoading(false);
+      }
+    },
+    [activeCampaignPagination.page, activeCampaignPagination.pageSize]
+  );
+
+  const changeActiveCampaignPage = useCallback(
+    async (page: number) => {
+      await refreshActiveCampaigns(page);
+    },
+    [refreshActiveCampaigns]
+  );
+
   const refreshFundDetails = useCallback(async () => {
     if (!activeFund?.id) {
       setDonations([]);
@@ -283,9 +331,19 @@ export const useFundManagementData = (
 
   const refreshAll = useCallback(async () => {
     await loadInitialData();
-    await refreshCampaigns(campaignPagination.page);
-    await refreshMyPendingDonations();
-  }, [campaignPagination.page, loadInitialData, refreshCampaigns, refreshMyPendingDonations]);
+    await Promise.all([
+      refreshCampaigns(campaignPagination.page),
+      refreshActiveCampaigns(activeCampaignPagination.page),
+      refreshMyPendingDonations(),
+    ]);
+  }, [
+    activeCampaignPagination.page,
+    campaignPagination.page,
+    loadInitialData,
+    refreshActiveCampaigns,
+    refreshCampaigns,
+    refreshMyPendingDonations,
+  ]);
 
   const createWithdrawal = useCallback(
     async (input: FundWithdrawalInput) => {
@@ -553,9 +611,14 @@ export const useFundManagementData = (
     createCampaign,
     loadCampaignDetail,
     refreshCampaigns,
-  changeCampaignPage,
+    changeCampaignPage,
+    refreshActiveCampaigns,
+    changeActiveCampaignPage,
     refreshMyPendingDonations,
     createFund,
     donateToFund,
+    activeCampaigns,
+    activeCampaignPagination,
+    activeCampaignsLoading,
   };
 };

@@ -4,6 +4,7 @@ import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent } from "@/types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
+import { normalizeEventType } from "../../utils/eventUtils";
 import { Spin } from "antd";
 import "./Calendar.css";
 
@@ -113,16 +114,7 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
             // Normalize events
             const normalizedEvents: FamilyEvent[] = allEvents.map((event: any) => {
               // Normalize eventType
-              const normalizedEventType = typeof event.eventType === 'string' 
-                ? event.eventType.toUpperCase() 
-                : event.eventType === 0 ? 'FUNERAL'
-                : event.eventType === 1 ? 'WEDDING'
-                : event.eventType === 2 ? 'BIRTHDAY'
-                : event.eventType === 3 ? 'HOLIDAY'
-                : event.eventType === 4 ? 'MEMORIAL'
-                : event.eventType === 5 ? 'MEETING'
-                : event.eventType === 6 ? 'GATHERING'
-                : 'OTHER';
+              const normalizedEventType = normalizeEventType(event.eventType);
 
               const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
 

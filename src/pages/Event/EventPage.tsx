@@ -26,6 +26,7 @@ import type {
   FamilyEvent,
   CalendarSelectInfo,
 } from '@/types/event';
+import { normalizeEventType } from '@/utils/eventUtils';
 
 
 // Configure moment
@@ -597,16 +598,7 @@ const EventPage: React.FC = () => {
                           name: event.name || '',
                           startTime: event.startTime,
                           endTime: event.endTime,
-                          eventType: typeof event.eventType === 'string' 
-                            ? event.eventType.toUpperCase()
-                            : event.eventType === 0 ? 'FUNERAL'
-                            : event.eventType === 1 ? 'WEDDING'
-                            : event.eventType === 2 ? 'BIRTHDAY'
-                            : event.eventType === 3 ? 'HOLIDAY'
-                            : event.eventType === 4 ? 'MEMORIAL'
-                            : event.eventType === 5 ? 'MEETING'
-                            : event.eventType === 6 ? 'GATHERING'
-                            : 'OTHER',
+                          eventType: normalizeEventType(event.eventType),
                           recurrence: event.recurrenceType === 'NONE' || event.recurrenceType === 0 ? 'ONCE'
                             : event.recurrenceType === 1 ? 'DAILY'
                             : event.recurrenceType === 2 ? 'WEEKLY'
@@ -680,7 +672,7 @@ const EventPage: React.FC = () => {
                             {typeof event.eventType === 'string' ? event.eventType : 
                              event.eventType === 0 ? 'Giỗ' :
                              event.eventType === 1 ? 'Cưới' :
-                             event.eventType === 2 ? 'Sinh nhật' :
+                             event.eventType === 2 ? 'Sinh nhật - Mừng thọ' :
                              event.eventType === 3 ? 'Lễ' :
                              'Khác'}
                           </span>

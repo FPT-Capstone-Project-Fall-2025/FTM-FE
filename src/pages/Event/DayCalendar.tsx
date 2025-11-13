@@ -9,6 +9,7 @@ import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters } from "../../types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
+import { normalizeEventType } from "../../utils/eventUtils";
 import { processRecurringEvents } from "../../utils/recurringEventUtils";
 import { vietnameseCalendarLocale, commonVietnameseCalendarConfig } from "../../utils/vietnameseCalendarConfig";
 import './Calendar.css';
@@ -139,16 +140,7 @@ const DayCalendar = ({
       const mappedEvents = expandedEvents
         .filter((event: any) => {
           // Normalize eventType to uppercase for comparison
-          const normalizedEventType = typeof event.eventType === 'string' 
-            ? event.eventType.toUpperCase() 
-            : event.eventType === 0 ? 'FUNERAL'
-            : event.eventType === 1 ? 'WEDDING'
-            : event.eventType === 2 ? 'BIRTHDAY'
-            : event.eventType === 3 ? 'HOLIDAY'
-            : event.eventType === 4 ? 'MEMORIAL'
-            : event.eventType === 5 ? 'MEETING'
-            : event.eventType === 6 ? 'GATHERING'
-            : 'OTHER';
+          const normalizedEventType = normalizeEventType(event.eventType);
           
           // Filter by event type
           if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
@@ -161,16 +153,7 @@ const DayCalendar = ({
         })
         .map((event: any) => {
           // Normalize eventType from API
-          const normalizedEventType = typeof event.eventType === 'string' 
-            ? event.eventType.toUpperCase() 
-            : event.eventType === 0 ? 'FUNERAL'
-            : event.eventType === 1 ? 'WEDDING'
-            : event.eventType === 2 ? 'BIRTHDAY'
-            : event.eventType === 3 ? 'HOLIDAY'
-            : event.eventType === 4 ? 'MEMORIAL'
-            : event.eventType === 5 ? 'MEETING'
-            : event.eventType === 6 ? 'GATHERING'
-            : 'OTHER';
+          const normalizedEventType = normalizeEventType(event.eventType);
           
           // Normalize recurrenceType from API
           let normalizedRecurrence = 'ONCE';
