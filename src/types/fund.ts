@@ -25,6 +25,7 @@ export interface FundDonation {
   ftMemberId?: string | null;
   campaignId?: string | null;
   donationMoney: number;
+  donationAmount?: number | null;
   donorName?: string | null;
   paymentMethod?: string | number | null;
   paymentNotes?: string | null;
@@ -38,6 +39,20 @@ export interface FundDonation {
   createdOn?: string | null;
 }
 
+export interface MyPendingDonation {
+  id: string;
+  donationMoney: number;
+  donorName?: string | null;
+  paymentMethod?: string | number | null;
+  paymentNotes?: string | null;
+  createdDate?: string | null;
+  fundName?: string | null;
+  fundId?: string | null;
+  treeId?: string | null;
+  status?: string | number | null;
+  payOSOrderCode?: string | number | null;
+}
+
 export interface FundDonationStats {
   totalReceived?: number;
   totalPending?: number;
@@ -46,6 +61,7 @@ export interface FundDonationStats {
   recentDonors?: Array<{
     donorName: string;
     donationMoney: number;
+    donationAmount?: number;
     confirmedOn?: string;
   }>;
   [key: string]: any;
@@ -89,6 +105,10 @@ export interface FundCampaign {
   bankAccountNumber?: string | null;
   bankCode?: string | null;
   bankName?: string | null;
+  progressPercentage?: number | null;
+  totalDonations?: number | null;
+  totalDonors?: number | null;
+  isActive?: boolean | null;
 }
 
 export interface CampaignDonation {
@@ -104,6 +124,43 @@ export interface CampaignDonation {
   confirmedBy?: string | null;
   confirmedOn?: string | null;
   createdOn?: string | null;
+}
+
+export interface CampaignStatistics {
+  campaignId: string;
+  campaignName?: string | null;
+  fundGoal?: number | null;
+  currentBalance?: number | null;
+  raisedAmount?: number | null;
+  progressPercentage?: number | null;
+  status?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  daysRemaining?: number | null;
+  isActive?: boolean;
+  isCompleted?: boolean;
+  bankInfo?: {
+    bankAccountNumber?: string | null;
+    bankName?: string | null;
+    bankCode?: string | null;
+    accountHolderName?: string | null;
+  } | null;
+}
+
+export interface CampaignFinancialSummary {
+  campaignId: string;
+  campaignName?: string | null;
+  targetAmount?: number | null;
+  totalDonations?: number | null;
+  totalExpenses?: number | null;
+  approvedExpenses?: number | null;
+  pendingExpenses?: number | null;
+  availableBalance?: number | null;
+  progressPercentage?: number | null;
+  totalDonors?: number | null;
+  totalExpenseRequests?: number | null;
+  lastDonationDate?: string | null;
+  lastExpenseDate?: string | null;
 }
 
 export interface CampaignExpense {

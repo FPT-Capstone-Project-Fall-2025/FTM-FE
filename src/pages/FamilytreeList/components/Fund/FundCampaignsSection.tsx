@@ -1,5 +1,5 @@
 import React from 'react';
-import { Megaphone, Search, Eye } from 'lucide-react';
+import { Megaphone, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { FundCampaign } from '@/types/fund';
 import { EmptyState } from './FundLoadingEmpty';
 
@@ -26,6 +26,11 @@ interface FundCampaignsSectionProps {
   getCampaignStatusLabel: (status: StatusKey) => string;
   getCampaignStatusBadgeClasses: (status: StatusKey) => string;
   metrics: Record<string, CampaignMetricSummary>;
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
 }
 
 const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
@@ -42,6 +47,11 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   getCampaignStatusLabel,
   getCampaignStatusBadgeClasses,
   metrics,
+  currentPage,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPageChange,
 }) => {
   const normalizedSearch = campaignSearch.trim().toLowerCase();
 
@@ -57,12 +67,33 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
     return Boolean(nameMatch || organizerMatch);
   });
 
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      onPageChange(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      onPageChange(currentPage + 1);
+    }
+  };
+
+  const pageStartIndex =
+    totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const pageEndIndex =
+    totalCount === 0
+      ? 0
+      : Math.min(totalCount, pageStartIndex + filteredCampaigns.length - 1);
+
   return (
     <div className="bg-white rounded-lg shadow p-6 space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Chiến dịch gây quỹ</h3>
-          <p className="text-sm text-gray-500 mt-1">Quản lý và theo dõi các chiến dịch quyên góp của gia phả</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Quản lý và theo dõi các chiến dịch quyên góp của gia phả
+          </p>
         </div>
         <button
           onClick={onRequestCreate}
@@ -104,75 +135,122 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
           description="Hãy tạo chiến dịch mới hoặc điều chỉnh bộ lọc tìm kiếm."
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredCampaigns.map(campaign => {
-            const statusKey = getCampaignStatusKey(campaign.status);
-            const metric = metrics[campaign.id] ?? { raisedAmount: campaign.currentBalance ?? 0, contributorCount: 0 };
-            const progress = campaign.fundGoal
-              ? Math.min((Number(metric.raisedAmount) / Number(campaign.fundGoal)) * 100, 100)
-              : 0;
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredCampaigns.map(campaign => {
+              const statusKey = getCampaignStatusKey(campaign.status);
+              const metric =
+                metrics[campaign.id] ?? { raisedAmount: campaign.currentBalance ?? 0, contributorCount: 0 };
+              const progress = campaign.fundGoal
+                ? Math.min((Number(metric.raisedAmount) / Number(campaign.fundGoal)) * 100, 100)
+                : 0;
 
-            return (
-              <div key={campaign.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h4 className="text-xl font-bold text-gray-900 mb-1 line-clamp-2">
-                      {campaign.campaignName}
-                    </h4>
-                    <p className="text-sm text-gray-600">Tổ chức bởi: {campaign.accountHolderName || '—'}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getCampaignStatusBadgeClasses(statusKey)}`}>
-                    {getCampaignStatusLabel(statusKey)}
-                  </span>
-                </div>
-
-                <p className="text-gray-700 mb-4 line-clamp-3">{campaign.campaignDescription || 'Chưa có mô tả'}</p>
-
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2 text-sm text-gray-600">
-                    <span>Tiến độ</span>
-                    <span className="font-semibold text-gray-900">
-                      {formatCurrency(metric.raisedAmount)} / {formatCurrency(campaign.fundGoal ?? 0)}
+              return (
+                <div
+                  key={campaign.id}
+                  className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h4 className="text-xl font-bold text-gray-900 mb-1 line-clamp-2">
+                        {campaign.campaignName}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        Tổ chức bởi: {campaign.accountHolderName || '—'}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getCampaignStatusBadgeClasses(
+                        statusKey
+                      )}`}
+                    >
+                      {getCampaignStatusLabel(statusKey)}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-blue-600 h-3 rounded-full transition-all"
-                      style={{ width: `${Number.isFinite(progress) ? progress : 0}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {Number.isFinite(progress) ? progress.toFixed(1) : '0.0'}% hoàn thành
+
+                  <p className="text-gray-700 mb-4 line-clamp-3">
+                    {campaign.campaignDescription || 'Chưa có mô tả'}
                   </p>
-                </div>
 
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                  <div>
-                    <span>Bắt đầu: </span>
-                    <span className="font-semibold text-gray-900">{formatDate(campaign.startDate)}</span>
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2 text-sm text-gray-600">
+                      <span>Tiến độ</span>
+                      <span className="font-semibold text-gray-900">
+                        {formatCurrency(metric.raisedAmount)} / {formatCurrency(campaign.fundGoal ?? 0)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className="bg-blue-600 h-3 rounded-full transition-all"
+                        style={{ width: `${Number.isFinite(progress) ? progress : 0}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {Number.isFinite(progress) ? progress.toFixed(1) : '0.0'}% hoàn thành
+                    </p>
                   </div>
-                  <div>
-                    <span>Kết thúc: </span>
-                    <span className="font-semibold text-gray-900">{formatDate(campaign.endDate)}</span>
+
+                  <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                    <div>
+                      <span>Bắt đầu: </span>
+                      <span className="font-semibold text-gray-900">{formatDate(campaign.startDate)}</span>
+                    </div>
+                    <div>
+                      <span>Kết thúc: </span>
+                      <span className="font-semibold text-gray-900">{formatDate(campaign.endDate)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      {metric.contributorCount} người đóng góp
+                    </span>
+                    <button
+                      onClick={() => onOpenDetail(campaign.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-semibold"
+                      type="button"
+                    >
+                      <Eye className="w-4 h-4" /> Xem chi tiết
+                    </button>
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">
-                    {metric.contributorCount} người đóng góp
+          {totalPages > 1 && (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-4 border-t border-gray-200">
+              <div className="text-sm text-gray-500">
+                Trang {currentPage} / {Math.max(totalPages, 1)} · Tổng {totalCount} chiến dịch
+                {filteredCampaigns.length > 0 && (
+                  <span>
+                    {' '}
+                    (Hiển thị {pageStartIndex} - {pageEndIndex})
                   </span>
-                  <button
-                    onClick={() => onOpenDetail(campaign.id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-semibold"
-                    type="button"
-                  >
-                    <Eye className="w-4 h-4" /> Xem chi tiết
-                  </button>
-                </div>
+                )}
               </div>
-            );
-          })}
-        </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrevPage}
+                  disabled={currentPage <= 1}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-600 font-semibold">{currentPage}</span>
+                <button
+                  type="button"
+                  onClick={handleNextPage}
+                  disabled={currentPage >= totalPages}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

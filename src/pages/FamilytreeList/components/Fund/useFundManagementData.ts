@@ -8,17 +8,31 @@ import type {
   FundCampaign,
   CampaignDonation,
   CampaignExpense,
+  CampaignStatistics,
+  CampaignFinancialSummary,
   CreateCampaignPayload,
   CreateFundExpensePayload,
   CreateFundPayload,
   CreateFundDonationPayload,
+  MyPendingDonation,
 } from '@/types/fund';
 
 export type CampaignDetail = {
   campaign: FundCampaign;
   donations: CampaignDonation[];
   expenses: CampaignExpense[];
+  statistics: CampaignStatistics | null;
+  financialSummary: CampaignFinancialSummary | null;
 };
+
+interface CampaignPaginationState {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalCount: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
 
 export interface FundWithdrawalInput {
   amount: number;
@@ -50,6 +64,7 @@ export interface CampaignCreationInput {
 export interface UseFundManagementDataOptions {
   familyTreeId?: string | null;
   currentUserId?: string | null;
+  currentMemberId?: string | null;
 }
 
 export interface UseFundManagementDataReturn {
@@ -68,6 +83,9 @@ export interface UseFundManagementDataReturn {
   donationStats: FundDonationStats | null;
   expenses: FundExpense[];
   campaigns: FundCampaign[];
+  campaignPagination: CampaignPaginationState;
+  myPendingDonations: MyPendingDonation[];
+  myPendingLoading: boolean;
   refreshAll: () => Promise<void>;
   refreshFundDetails: () => Promise<void>;
   createWithdrawal: (input: FundWithdrawalInput) => Promise<void>;
@@ -75,7 +93,9 @@ export interface UseFundManagementDataReturn {
   rejectExpense: (expenseId: string, reason?: string, rejectedBy?: string) => Promise<void>;
   createCampaign: (input: CampaignCreationInput) => Promise<void>;
   loadCampaignDetail: (campaignId: string) => Promise<CampaignDetail | null>;
-  refreshCampaigns: () => Promise<void>;
+  refreshCampaigns: (page?: number) => Promise<void>;
+  changeCampaignPage: (page: number) => Promise<void>;
+  refreshMyPendingDonations: () => Promise<void>;
   createFund: (payload: CreateFundPayload) => Promise<Fund | null>;
   donateToFund: (fundId: string, payload: CreateFundDonationPayload) => Promise<void>;
 }
@@ -83,7 +103,7 @@ export interface UseFundManagementDataReturn {
 export const useFundManagementData = (
   options: UseFundManagementDataOptions
 ): UseFundManagementDataReturn => {
-  const { familyTreeId, currentUserId } = options;
+  const { familyTreeId, currentUserId, currentMemberId } = options;
 
   const [loading, setLoading] = useState(false);
   const [fundDataLoading, setFundDataLoading] = useState(false);
@@ -98,6 +118,16 @@ export const useFundManagementData = (
   const [expenses, setExpenses] = useState<FundExpense[]>([]);
   const [campaigns, setCampaigns] = useState<FundCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [campaignPagination, setCampaignPagination] = useState<CampaignPaginationState>({
+    page: 1,
+    pageSize: 10,
+    totalPages: 1,
+    totalCount: 0,
+    hasPrevious: false,
+    hasNext: false,
+  });
+  const [myPendingDonations, setMyPendingDonations] = useState<MyPendingDonation[]>([]);
+  const [myPendingLoading, setMyPendingLoading] = useState(false);
   const [creatingFund, setCreatingFund] = useState(false);
   const [donating, setDonating] = useState(false);
 
@@ -175,23 +205,70 @@ export const useFundManagementData = (
     }
   }, [familyTreeId]);
 
-  const refreshCampaigns = useCallback(async () => {
-    if (!familyTreeId) {
-      setCampaigns([]);
+  const refreshMyPendingDonations = useCallback(async () => {
+    const requesterId = currentMemberId ?? currentUserId;
+    if (!requesterId) {
+      setMyPendingDonations([]);
       return;
     }
 
-    setCampaignsLoading(true);
+    setMyPendingLoading(true);
     try {
-      const list = await fundService.fetchCampaignsByTree(familyTreeId);
-      setCampaigns(list);
+      const list = await fundService.fetchMyPendingDonations(requesterId);
+      setMyPendingDonations(list);
     } catch (err) {
-      console.error('Failed to refresh campaigns', err);
-      setError('Không thể tải danh sách chiến dịch.');
+      console.error('Failed to load my pending donations', err);
+      setError(prev => prev ?? 'Không thể tải danh sách yêu cầu nạp đang chờ.');
     } finally {
-      setCampaignsLoading(false);
+      setMyPendingLoading(false);
     }
-  }, [familyTreeId]);
+  }, [currentMemberId, currentUserId]);
+
+  const refreshCampaigns = useCallback(
+    async (page?: number) => {
+      if (!familyTreeId) {
+        setCampaigns([]);
+        setCampaignPagination(prev => ({
+          ...prev,
+          page: 1,
+          totalPages: 1,
+          totalCount: 0,
+          hasPrevious: false,
+          hasNext: false,
+        }));
+        return;
+      }
+
+      setCampaignsLoading(true);
+      const nextPage = page ?? campaignPagination.page;
+      const nextPageSize = campaignPagination.pageSize;
+      try {
+        const result = await fundService.fetchCampaignsByTree(familyTreeId, nextPage, nextPageSize);
+        setCampaigns(result.items);
+        setCampaignPagination({
+          page: result.page ?? nextPage,
+          pageSize: result.pageSize ?? nextPageSize,
+          totalPages: result.totalPages ?? 1,
+          totalCount: result.totalCount ?? result.items.length,
+          hasPrevious: result.hasPrevious ?? false,
+          hasNext: result.hasNext ?? false,
+        });
+      } catch (err) {
+        console.error('Failed to refresh campaigns', err);
+        setError('Không thể tải danh sách chiến dịch.');
+      } finally {
+        setCampaignsLoading(false);
+      }
+    },
+    [campaignPagination.page, campaignPagination.pageSize, familyTreeId]
+  );
+
+  const changeCampaignPage = useCallback(
+    async (page: number) => {
+      await refreshCampaigns(page);
+    },
+    [refreshCampaigns]
+  );
 
   const refreshFundDetails = useCallback(async () => {
     if (!activeFund?.id) {
@@ -206,8 +283,9 @@ export const useFundManagementData = (
 
   const refreshAll = useCallback(async () => {
     await loadInitialData();
-    await refreshCampaigns();
-  }, [loadInitialData, refreshCampaigns]);
+    await refreshCampaigns(campaignPagination.page);
+    await refreshMyPendingDonations();
+  }, [campaignPagination.page, loadInitialData, refreshCampaigns, refreshMyPendingDonations]);
 
   const createWithdrawal = useCallback(
     async (input: FundWithdrawalInput) => {
@@ -326,23 +404,13 @@ export const useFundManagementData = (
         if (input.isPublic !== undefined) payload.isPublic = input.isPublic;
         if (input.imageUrl) payload.imageUrl = input.imageUrl;
 
-        const response = await fundService.createCampaign(payload);
-        const created = response?.data;
-
-        if (created) {
-          setCampaigns(prev => {
-            const next = prev.filter(c => c.id !== created.id);
-            next.unshift(created);
-            return next;
-          });
-        } else {
-          await refreshCampaigns();
-        }
+        await fundService.createCampaign(payload);
+        await changeCampaignPage(1);
       } finally {
         setActionLoading(false);
       }
     },
-    [familyTreeId, refreshCampaigns]
+    [changeCampaignPage, familyTreeId]
   );
 
   const loadCampaignDetail = useCallback(
@@ -350,10 +418,12 @@ export const useFundManagementData = (
       setCampaignDetailLoading(true);
       setError(null);
       try {
-        const [campaign, donationsRes, expensesRes] = await Promise.all([
+        const [campaign, donationsRes, expensesRes, statisticsRes, summaryRes] = await Promise.all([
           fundService.fetchCampaignById(campaignId),
           fundService.fetchCampaignDonations(campaignId),
           fundService.fetchCampaignExpenses(campaignId),
+          fundService.fetchCampaignStatistics(campaignId),
+          fundService.fetchCampaignFinancialSummary(campaignId),
         ]);
 
         if (!campaign) {
@@ -364,6 +434,8 @@ export const useFundManagementData = (
           campaign,
           donations: donationsRes,
           expenses: expensesRes,
+          statistics: statisticsRes ?? null,
+          financialSummary: summaryRes ?? null,
         };
       } catch (err) {
         console.error('Failed to load campaign detail', err);
@@ -424,10 +496,28 @@ export const useFundManagementData = (
   }, [loadInitialData]);
 
   useEffect(() => {
-    if (activeFund?.id) {
-      void refreshCampaigns();
+    if (familyTreeId) {
+      void refreshCampaigns(1);
+    } else {
+      setCampaigns([]);
+      setCampaignPagination(prev => ({
+        ...prev,
+        page: 1,
+        totalPages: 1,
+        totalCount: 0,
+        hasNext: false,
+        hasPrevious: false,
+      }));
     }
-  }, [activeFund?.id, refreshCampaigns]);
+  }, [campaignPagination.pageSize, familyTreeId, refreshCampaigns]);
+
+  useEffect(() => {
+    if (currentMemberId || currentUserId) {
+      void refreshMyPendingDonations();
+    } else {
+      setMyPendingDonations([]);
+    }
+  }, [currentMemberId, currentUserId, refreshMyPendingDonations]);
 
   useEffect(() => {
     if (!familyTreeId) {
@@ -452,6 +542,9 @@ export const useFundManagementData = (
     donationStats,
     expenses,
     campaigns,
+  campaignPagination,
+    myPendingDonations,
+    myPendingLoading,
     refreshAll,
     refreshFundDetails,
     createWithdrawal,
@@ -460,6 +553,8 @@ export const useFundManagementData = (
     createCampaign,
     loadCampaignDetail,
     refreshCampaigns,
+  changeCampaignPage,
+    refreshMyPendingDonations,
     createFund,
     donateToFund,
   };

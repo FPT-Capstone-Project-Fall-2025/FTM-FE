@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Wallet, CreditCard } from 'lucide-react';
-import type { Fund } from '@/types/fund';
+import { Wallet } from 'lucide-react';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -28,10 +27,8 @@ export interface FundDepositForm {
 interface FundDepositModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (form: FundDepositForm) => void;
+  onSubmit: (form: FundDepositForm) => void | Promise<void>;
   submitting?: boolean;
-  donorName: string;
-  fund?: Fund | null;
 }
 
 const defaultForm: FundDepositForm = {
@@ -45,8 +42,6 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
   onClose,
   onSubmit,
   submitting = false,
-  donorName,
-  fund,
 }) => {
   const [form, setForm] = useState<FundDepositForm>(defaultForm);
   const [amountInput, setAmountInput] = useState('');
@@ -64,11 +59,15 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
     if (!Number.isFinite(amountValue) || amountValue <= 0) {
       return;
     }
-    onSubmit({
+    const payload: FundDepositForm = {
       amount: amountValue,
       paymentMethod: form.paymentMethod,
-      paymentNotes: form.paymentNotes?.trim() ? form.paymentNotes.trim() : undefined,
-    });
+    };
+    const note = form.paymentNotes?.trim();
+    if (note) {
+      payload.paymentNotes = note;
+    }
+    onSubmit(payload);
   };
 
   if (!isOpen) return null;
@@ -97,7 +96,7 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Số tiền nạp <span className="text-red-500">*</span>
@@ -114,17 +113,6 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Ví dụ: 3.000.000"
                 required
-              />
-              <p className="text-xs text-gray-500 mt-1">Số tiền sẽ tự động hiển thị dạng 1.000, 10.000...</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Người nạp</label>
-              <input
-                type="text"
-                value={donorName}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
               />
             </div>
           </div>
@@ -167,31 +155,6 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Thông tin thêm về giao dịch"
               />
-            </div>
-          </div>
-
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <div className="flex items-center gap-2 mb-3">
-              <CreditCard className="w-4 h-4 text-blue-600" />
-              <p className="text-sm font-semibold text-gray-700">Thông tin tài khoản nhận quỹ</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
-              <div>
-                <p className="font-medium text-gray-500">Chủ tài khoản</p>
-                <p className="text-gray-900 font-semibold">{fund?.accountHolderName || 'Chưa cập nhật'}</p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-500">Số tài khoản</p>
-                <p className="text-gray-900 font-semibold">{fund?.bankAccountNumber || 'Chưa cập nhật'}</p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-500">Ngân hàng</p>
-                <p className="text-gray-900 font-semibold">{fund?.bankName || 'Chưa cập nhật'}</p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-500">Mã ngân hàng</p>
-                <p className="text-gray-900 font-semibold">{fund?.bankCode || '—'}</p>
-              </div>
             </div>
           </div>
 
