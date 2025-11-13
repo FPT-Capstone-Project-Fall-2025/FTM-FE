@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, X, Check, Trash2, Clock } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
+import { deleteNotification, markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
 import parse from 'html-react-parser';
 import { formatNotificationTime } from '@/utils/dateUtils';
 import notificationService from '@/services/notificationService';
@@ -60,9 +60,13 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
     dispatch(markAllRead());
   };
 
-  const deleteNotification = (id: string) => {
-    console.log(id);
-    // setNotifications(prev => prev.filter(notif => notif.id !== id));
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      dispatch(deleteNotification(id));
+      await notificationService.deleteNotifications(id);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -165,9 +169,9 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
                         </span>
                       </div>
 
-                      <p className="text-sm text-gray-600 mb-3">
+                      <div className="text-sm text-gray-600 mb-3">
                         {parse(notification.message)}
-                      </p>
+                      </div>
 
                       {/* Action buttons (only if actionable) */}
                       {notification.isActionable && (
@@ -207,7 +211,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
                             </button>
                           )}
                           <button
-                            onClick={() => deleteNotification(notification.id)}
+                            onClick={() => handleDeleteNotification(notification.relatedId)}
                             className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Xóa thông báo"
                           >

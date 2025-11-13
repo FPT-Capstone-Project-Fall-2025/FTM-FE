@@ -346,7 +346,7 @@ const EventPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-10 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-4 py-5">
+      <div className="mx-auto px-4 py-5">
         <div className="flex gap-5 flex-wrap lg:flex-nowrap">
           {/* Sidebar - Filters and Statistics */}
           <div className="w-full lg:w-80">

@@ -145,7 +145,7 @@ const FamilyTreeSelection: React.FC = () => {
 
     return (
         <div className="h-full w-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 overflow-y-auto">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div className="mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 {/* Header */}
                 <div className="mb-10">
                     <div className="flex items-center gap-4 mb-4">
