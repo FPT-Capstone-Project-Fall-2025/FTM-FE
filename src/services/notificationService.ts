@@ -40,6 +40,14 @@ const notificationService = {
         return api.get(`/notifications`);
     },
 
+    deleteNotifications(relatedId: string): Promise<ApiResponse<any>> {
+        return api.delete(`/notifications`, {
+            params: {
+                relatedId
+            }
+        });
+    },
+
     invitationResponse(relatedId: string, accepted: boolean): Promise<ApiResponse<any>> {
         return api.get(`/invitation/respond`, {
             params: { relatedId, accepted }

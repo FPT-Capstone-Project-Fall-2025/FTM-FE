@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, CheckCheck, Trash2, Clock, ArrowLeft } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
+import { deleteNotification, markAllRead, markAsRead } from '@/stores/slices/notificationSlice';
 import parse from 'html-react-parser';
 import notificationService from '@/services/notificationService';
 import { formatNotificationTime } from '@/utils/dateUtils';
@@ -23,10 +23,13 @@ const NotificationPage: React.FC = () => {
     dispatch(markAllRead());
   };
 
-  const deleteNotification = (id: string) => {
-    console.log(id);
-
-    // setNotifications(prev => prev.filter(notif => notif.id !== id));
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      dispatch(deleteNotification(id));
+      await notificationService.deleteNotifications(id);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const markAsUnread = (id: string) => {
@@ -232,7 +235,7 @@ const NotificationPage: React.FC = () => {
                             </button>
                           )}
                           <button
-                            onClick={() => deleteNotification(notification.id)}
+                            onClick={() => handleDeleteNotification(notification.relatedId)}
                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Xóa thông báo"
                           >

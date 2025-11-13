@@ -194,13 +194,29 @@ export interface FileProps {
   lastModifiedOn?: string;
 }
 
+export interface FTInvitation {
+  createdOn: string;
+  email: string;
+  expirationDate: string;
+  ftId: string;
+  ftMemberId: string;
+  ftMemberName: string;
+  ftName: string;
+  invitedName: string;
+  invitedUserId: string;
+  inviterName: string;
+  inviterUserId: string;
+  token: string
+}
+
 export interface FTAuthList {
   ftId: string;
   datalist: Array<{
     key: {
       id: string;
       fullname: string;
-  }, value: FTAuthProp[]}>; 
+    }, value: FTAuthProp[]
+  }>;
 }
 
 export interface FTAuthProp {

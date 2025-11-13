@@ -1,4 +1,4 @@
-import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps, FamilyNode, FamilytreeUpdateProps, UpdateFamilyNode } from '@/types/familytree';
+import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps, FamilyNode, FamilytreeUpdateProps, UpdateFamilyNode, FTInvitation } from '@/types/familytree';
 import type { ApiResponse, PaginationProps, PaginationResponse } from './../types/api';
 import api from './apiService';
 
@@ -110,6 +110,12 @@ const familyTreeService = {
 
   deleteFamilyNode(ftMemberId: string): Promise<ApiResponse<string>> {
     return api.delete(`/ftmember/${ftMemberId}`);
+  },
+
+  getInvitationsList(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FTInvitation[]>>> {
+    return api.get(`/invitation/list`, {
+      params: props
+    });
   },
 
   inviteGuestToFamilyTree(ftId: string, invitedUserEmail: string): Promise<ApiResponse<any>> {
