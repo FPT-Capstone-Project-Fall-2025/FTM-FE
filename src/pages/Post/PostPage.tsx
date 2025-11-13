@@ -51,7 +51,7 @@ const PostPage: React.FC = () => {
 
   // GPMember integration - Get GPMemberId for the current user in this family tree
   const currentUserId = getUserIdFromToken(token || '') || user?.userId;
-  const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
+  const currentFamilyTreeId = familyTreeId || null;
   
   const { 
     gpMemberId, 
@@ -940,7 +940,10 @@ const PostPage: React.FC = () => {
 
   // Handle event creation and auto-create linked post
   const handleEventCreated = async () => {
-    
+    if (!currentFamilyTreeId) {
+      return;
+    }
+
     // Fetch the latest events to get the newly created event
     try {
       const response = await postService.getPostsByFamilyTree(currentFamilyTreeId);

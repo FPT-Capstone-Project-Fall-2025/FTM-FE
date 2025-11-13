@@ -314,16 +314,44 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   // Setup event types
   useEffect(() => {
-    const types = Object.values(EVENT_TYPE).map((type) => ({
-      label: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <img src={EVENT_TYPE_CONFIG[type].icon} alt={type} style={{ width: '20px', height: '20px' }} />
-          <span>{EVENT_TYPE_CONFIG[type].label}</span>
-        </div>
-      ),
-      value: type,
-    }));
-    setEventType(types);
+    const options = Object.values(EVENT_TYPE).reduce((acc: typeof eventTypes, type) => {
+      const config = EVENT_TYPE_CONFIG[type];
+      if (!config) {
+        console.warn('[GPEventDetailsModal] Missing EVENT_TYPE_CONFIG for type:', type);
+        return acc;
+      }
+
+      acc.push({
+        label: (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {config.icon ? (
+              <img src={config.icon} alt={type} style={{ width: '20px', height: '20px' }} />
+            ) : (
+              <span
+                style={{
+                  width: 20,
+                  height: 20,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#E5E7EB',
+                  borderRadius: '50%',
+                  fontSize: 10,
+                  color: '#374151',
+                }}
+              >
+                ?
+              </span>
+            )}
+            <span>{config.label || type}</span>
+          </div>
+        ),
+        value: type,
+      });
+      return acc;
+    }, [] as typeof eventTypes);
+
+    setEventType(options);
   }, []);
 
   // Populate form when editing an existing event

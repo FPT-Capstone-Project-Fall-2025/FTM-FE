@@ -199,15 +199,24 @@ const familyTreeMemberService = {
 
       console.log('Fetching GPMemberId from API...');
       const response: ApiResponse<GPMember> = await api.get(
-        `/ftmember/${gpId}/get-by-userid?userId=${userId}`
+        `/ftmember/${gpId}/get-by-userid`,
+        { params: { userId } }
       );
 
       console.log('GPMember API response:', response);
 
       // Handle nested data structure
-      const memberData = (response.data as any)?.data || response.data;
+      const memberData =
+        (response as any)?.data?.data ??
+        (response as any)?.data ??
+        (response as any);
 
-      if (response.status && memberData?.id) {
+      const isSuccess =
+        response.status === true ||
+        response.success === true ||
+        response.statusCode === 200;
+
+      if (isSuccess && memberData?.id) {
         // Cache the result
         cachedGPMemberId = memberData.id;
         cacheKey = currentCacheKey;
@@ -215,7 +224,7 @@ const familyTreeMemberService = {
         console.log('GPMemberId cached successfully:', cachedGPMemberId);
         return cachedGPMemberId;
       } else {
-        console.error('Failed to get GPMemberId:', response.message);
+        console.error('Failed to get GPMemberId:', response.message || response.statusCode);
         return null;
       }
     } catch (error) {
@@ -236,8 +245,15 @@ const familyTreeMemberService = {
       const response: ApiResponse<GPMember> = await api.get(`/ftmember/${gpId}/get-by-userid`, {
         params: { userId }
       });
-      const memberData = (response.data as any)?.data || response.data;
-      if (response.status && memberData) {
+      const memberData =
+        (response as any)?.data?.data ??
+        (response as any)?.data ??
+        (response as any);
+      const isSuccess =
+        response.status === true ||
+        response.success === true ||
+        response.statusCode === 200;
+      if (isSuccess && memberData) {
         gpMemberCacheByUserId.set(cacheKey, memberData as GPMember);
         return memberData as GPMember;
       }

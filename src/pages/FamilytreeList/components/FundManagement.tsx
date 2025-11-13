@@ -1,1159 +1,1406 @@
-import React, { useState } from 'react';
-import { useAppSelector } from '@/hooks/redux';
-import { 
-  Wallet, 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  Calendar,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Plus,
-  Search,
-  Eye,
-  X,
-  Megaphone,
-  AlertCircle
-} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { RefreshCw, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { useAppSelector } from '@/hooks/redux';
+import FundOverviewSection, {
+  type OverviewContributor,
+  type OverviewTransaction,
+} from './Fund/FundOverviewSection';
+import { LoadingState, EmptyState } from './Fund/FundLoadingEmpty';
+import { useFundManagementData } from './Fund/useFundManagementData';
+import FundDepositModal, {
+  type FundDepositForm,
+} from './Fund/FundDepositModal';
+import FundProofModal from './Fund/FundProofModal';
+import fundService from '@/services/fundService';
+import type { FundDonation, FundExpense, CreateFundDonationPayload } from '@/types/fund';
+import { useGPMember } from '@/hooks/useGPMember';
+import FundCreateModal, {
+  type BankInfo,
+  type FundCreateForm,
+} from './Fund/FundCreateModal';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
+import FundCampaignsSection, { type CampaignFilter } from './Fund/FundCampaignsSection';
+import FundCampaignDetailModal from './Fund/FundCampaignDetailModal';
+import FundCampaignModal, { type CampaignFormState } from './Fund/FundCampaignModal';
+import FundHistorySection from './Fund/FundHistorySection';
+import FundWithdrawalSection, { type WithdrawalFormState } from './Fund/FundWithdrawalSection';
+import FundApprovalsSection from './Fund/FundApprovalsSection';
+import FundDonationHistorySection from './Fund/FundDonationHistorySection';
+import FundPendingDonationsSection from './Fund/FundPendingDonationsSection';
+import type { CampaignCreationInput, CampaignDetail, FundWithdrawalInput } from './Fund/useFundManagementData';
 
-// Mock Types
-interface Contributor {
-  id: string;
-  name: string;
-  amount: number;
-  date: string;
-  avatar?: string;
-}
+const currencyFormatter = new Intl.NumberFormat('vi-VN', {
+  style: 'currency',
+  currency: 'VND',
+  maximumFractionDigits: 0,
+});
 
-interface Transaction {
-  id: string;
-  type: 'income' | 'expense';
-  amount: number;
-  date: string;
-  description: string;
-  status?: 'pending' | 'approved' | 'rejected';
-}
+const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
 
-interface WithdrawalTransaction {
-  id: string;
-  amount: number;
-  reason: string;
-  recipient: string;
-  relatedEvent: string;
-  date: string;
-  requestedBy: string;
-  status: 'pending' | 'approved' | 'rejected';
-  approvedBy?: string;
-}
+const INITIAL_WITHDRAWAL_FORM: WithdrawalFormState = {
+  amount: '',
+  reason: '',
+  recipient: '',
+  relatedEvent: '',
+  date: '',
+  campaignId: '',
+};
 
-interface Campaign {
-  id: string;
-  name: string;
-  purpose: string;
-  organizer: string;
-  startDate: string;
-  endDate: string;
-  targetAmount: number;
-  raisedAmount: number;
-  status: 'active' | 'completed' | 'cancelled';
-  contributors: Contributor[];
-}
+const INITIAL_CAMPAIGN_FORM: CampaignFormState = {
+  name: '',
+  purpose: '',
+  organizer: '',
+  organizerContact: '',
+  startDate: '',
+  endDate: '',
+  targetAmount: '',
+  bankAccountNumber: '',
+  bankName: '',
+  bankCode: '',
+  accountHolderName: '',
+  notes: '',
+  isPublic: true,
+};
 
-interface FundInfo {
-  currentBalance: number;
-  fundPurpose: string;
-  lastUpdated: string;
-  totalIncome: number;
-  totalExpense: number;
-}
+type FundTab = 'overview' | 'campaigns' | 'donations' | 'history' | 'withdrawal' | 'approvals';
+
+const TAB_ITEMS: Array<{ key: FundTab; label: string }> = [
+  { key: 'overview', label: 'Tổng quan quỹ' },
+  { key: 'campaigns', label: 'Chiến dịch gây quỹ' },
+  { key: 'donations', label: 'Nạp quỹ & yêu cầu của tôi' },
+  { key: 'history', label: 'Lịch sử chi tiêu' },
+  { key: 'withdrawal', label: 'Tạo yêu cầu rút tiền' },
+  { key: 'approvals', label: 'Phê duyệt yêu cầu' },
+];
+
+const normalizeStatus = (status: unknown): string => {
+  if (status === null || status === undefined) return 'unknown';
+  if (typeof status === 'number') {
+    switch (status) {
+      case 0:
+        return 'pending';
+      case 1:
+        return 'approved';
+      case 2:
+        return 'rejected';
+      default:
+        return status.toString();
+    }
+  }
+  if (typeof status === 'string') {
+    return status.toLowerCase();
+  }
+  return 'unknown';
+};
+
+const getDateValue = (value?: string | null): number => {
+  if (!value) return 0;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+};
+
+const DEFAULT_BANKS: BankInfo[] = [
+  {
+    bankCode: '970436',
+    bankName: 'Vietcombank',
+    fullName: 'Ngân hàng TMCP Ngoại Thương Việt Nam',
+  },
+  {
+    bankCode: '970418',
+    bankName: 'Techcombank',
+    fullName: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
+  },
+  {
+    bankCode: '970415',
+    bankName: 'BIDV',
+    fullName: 'Ngân hàng TMCP Đầu tư và Phát triển Việt Nam',
+  },
+  {
+    bankCode: '970407',
+    bankName: 'VietinBank',
+    fullName: 'Ngân hàng TMCP Công Thương Việt Nam',
+  },
+  {
+    bankCode: '970422',
+    bankName: 'MB Bank',
+    fullName: 'Ngân hàng TMCP Quân Đội',
+  },
+  {
+    bankCode: '970432',
+    bankName: 'Agribank',
+    fullName: 'Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam',
+  },
+];
+
+const BANK_LOGOS: Record<string, string> = {
+  '970436': 'https://logo.clearbit.com/vietcombank.com.vn',
+  '970418': 'https://logo.clearbit.com/techcombank.com.vn',
+  '970415': 'https://logo.clearbit.com/bidv.com.vn',
+  '970407': 'https://logo.clearbit.com/vietinbank.vn',
+  '970422': 'https://logo.clearbit.com/mbbank.com.vn',
+  '970432': 'https://logo.clearbit.com/agribank.com.vn',
+};
 
 const FundManagement: React.FC = () => {
-  const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
-  
-  const [activeSection, setActiveSection] = useState<'overview' | 'withdrawal' | 'approvals' | 'history' | 'campaigns'>('overview');
-  const [showCampaignModal, setShowCampaignModal] = useState(false);
-  const [showCampaignDetailModal, setShowCampaignDetailModal] = useState(false);
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [showApprovalFeedback, setShowApprovalFeedback] = useState(false);
-  const [pendingTransaction, setPendingTransaction] = useState<WithdrawalTransaction | null>(null);
-  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
+  const selectedTree = useAppSelector(
+    state => state.familyTreeMetaData.selectedFamilyTree
+  );
+  const { user: authUser, token } = useAppSelector(state => state.auth);
+
+  const currentUserId = useMemo(
+    () => authUser?.userId || (token ? getUserIdFromToken(token) : null),
+    [authUser?.userId, token]
+  );
+
+  console.log('[FundManagement] selectedTree', selectedTree);
+  console.log('[FundManagement] currentUserId', currentUserId);
+
+  const {
+    gpMemberId,
+    gpMember,
+    loading: gpMemberLoading,
+    error: gpMemberError,
+  } = useGPMember(selectedTree?.id ?? null, currentUserId ?? null);
+
+  const {
+    loading,
+    fundDataLoading,
+    actionLoading,
+    campaignsLoading,
+    campaignDetailLoading,
+    error,
+    funds,
+    activeFund,
+    setActiveFundId,
+    donations,
+    donationStats,
+    expenses,
+    campaigns,
+    campaignPagination,
+    changeCampaignPage,
+    myPendingDonations,
+    myPendingLoading,
+    refreshAll,
+    refreshFundDetails,
+    refreshCampaigns,
+    refreshMyPendingDonations,
+    loadCampaignDetail,
+    createCampaign,
+    createFund,
+    creatingFund,
+    createWithdrawal,
+    approveExpense,
+    rejectExpense,
+  } = useFundManagementData({
+    familyTreeId: selectedTree?.id ?? null,
+    currentUserId: currentUserId ?? null,
+    currentMemberId: gpMemberId ?? null,
+  });
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fundPage, setFundPage] = useState(0);
+  const itemsPerPage = 3;
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [banks] = useState<BankInfo[]>(DEFAULT_BANKS);
+  const [bankLogos] = useState<Record<string, string>>(BANK_LOGOS);
+  const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+  const [isProofModalOpen, setIsProofModalOpen] = useState(false);
+  const [depositSubmitting, setDepositSubmitting] = useState(false);
+  const [proofSubmitting, setProofSubmitting] = useState(false);
+  const [recentDonation, setRecentDonation] = useState<FundDonation | null>(
+    null
+  );
+  const [activeTab, setActiveTab] = useState<FundTab>('overview');
   const [campaignSearch, setCampaignSearch] = useState('');
-  const [campaignFilter, setCampaignFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all');
+  const [campaignFilter, setCampaignFilter] =
+    useState<CampaignFilter>('all');
+  const [campaignDetail, setCampaignDetail] =
+    useState<CampaignDetail | null>(null);
+  const [isCampaignDetailOpen, setIsCampaignDetailOpen] = useState(false);
+  const [withdrawalForm, setWithdrawalForm] =
+    useState<WithdrawalFormState>(INITIAL_WITHDRAWAL_FORM);
+  const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
+  const [campaignForm, setCampaignForm] =
+    useState<CampaignFormState>(INITIAL_CAMPAIGN_FORM);
+  const [campaignSubmitting, setCampaignSubmitting] = useState(false);
 
-  // Mock Fund Info
-  const [fundInfo, setFundInfo] = useState<FundInfo>({
-    currentBalance: 125000000,
-    fundPurpose: 'Quỹ dành cho việc bảo tồn tài sản gia tộc, hỗ trợ giáo dục thành viên, và tổ chức các hoạt động cộng đồng gia đình.',
-    lastUpdated: '2024-01-15T10:30:00',
-    totalIncome: 250000000,
-    totalExpense: 125000000
-  });
-
-  // Mock Contributors
-  const [contributors] = useState<Contributor[]>([
-    { id: '1', name: 'Nguyễn Văn A', amount: 5000000, date: '2024-01-10', avatar: '' },
-    { id: '2', name: 'Trần Thị B', amount: 3000000, date: '2024-01-12', avatar: '' },
-    { id: '3', name: 'Lê Văn C', amount: 10000000, date: '2024-01-15', avatar: '' },
-    { id: '4', name: 'Phạm Thị D', amount: 2000000, date: '2023-12-20', avatar: '' },
-    { id: '5', name: 'Hoàng Văn E', amount: 7500000, date: '2023-12-25', avatar: '' }
-  ]);
-
-  // Mock Transactions
-  const [transactions] = useState<Transaction[]>([
-    { id: '1', type: 'income', amount: 5000000, date: '2024-01-10', description: 'Đóng góp từ Nguyễn Văn A' },
-    { id: '2', type: 'expense', amount: 3000000, date: '2024-01-08', description: 'Chi phí tổ chức Tết Nguyên Đán' },
-    { id: '3', type: 'income', amount: 3000000, date: '2024-01-12', description: 'Đóng góp từ Trần Thị B' },
-    { id: '4', type: 'expense', amount: 10000000, date: '2024-01-05', description: 'Hỗ trợ học bổng thành viên' },
-    { id: '5', type: 'income', amount: 10000000, date: '2024-01-15', description: 'Đóng góp từ Lê Văn C' }
-  ]);
-
-  // Mock Pending Withdrawals
-  const [pendingWithdrawals, setPendingWithdrawals] = useState<WithdrawalTransaction[]>([
-    { 
-      id: '1', 
-      amount: 5000000, 
-      reason: 'Chi phí sửa chữa nhà thờ tộc', 
-      recipient: 'Nguyễn Văn X',
-      relatedEvent: 'Không',
-      date: '2024-01-20',
-      requestedBy: 'Nguyễn Văn A',
-      status: 'pending'
-    },
-    { 
-      id: '2', 
-      amount: 8000000, 
-      reason: 'Hỗ trợ khẩn cấp cho thành viên ốm nặng', 
-      recipient: 'Trần Thị Y',
-      relatedEvent: 'Không',
-      date: '2024-01-18',
-      requestedBy: 'Trần Thị B',
-      status: 'pending'
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
     }
-  ]);
+  }, [error]);
 
-  // Mock Approved Withdrawals
-  const [approvedWithdrawals] = useState<WithdrawalTransaction[]>([
-    { 
-      id: '3', 
-      amount: 3000000, 
-      reason: 'Chi phí tổ chức Tết Nguyên Đán', 
-      recipient: 'Lê Văn Z',
-      relatedEvent: 'Tết 2024',
-      date: '2024-01-08',
-      requestedBy: 'Lê Văn C',
-      status: 'approved',
-      approvedBy: 'Quản trị viên'
-    },
-    { 
-      id: '4', 
-      amount: 10000000, 
-      reason: 'Hỗ trợ học bổng thành viên', 
-      recipient: 'Phạm Thị W',
-      relatedEvent: 'Học bổng 2024',
-      date: '2024-01-05',
-      requestedBy: 'Phạm Thị D',
-      status: 'approved',
-      approvedBy: 'Quản trị viên'
+  useEffect(() => {
+    if (activeFund?.id) {
+      void refreshFundDetails();
     }
-  ]);
+  }, [activeFund?.id, refreshFundDetails]);
 
-  // Mock Campaigns
-  const [campaigns, setCampaigns] = useState<Campaign[]>([
-    {
-      id: '1',
-      name: 'Xây dựng đình làng',
-      purpose: 'Gây quỹ để xây dựng lại đình làng truyền thống của gia tộc',
-      organizer: 'Nguyễn Văn A',
-      startDate: '2024-01-01',
-      endDate: '2024-06-30',
-      targetAmount: 500000000,
-      raisedAmount: 280000000,
-      status: 'active',
-      contributors: contributors
-    },
-    {
-      id: '2',
-      name: 'Học bổng khuyến học',
-      purpose: 'Hỗ trợ học phí cho các thành viên xuất sắc',
-      organizer: 'Trần Thị B',
-      startDate: '2023-09-01',
-      endDate: '2023-12-31',
-      targetAmount: 100000000,
-      raisedAmount: 95000000,
-      status: 'completed',
-      contributors: contributors.slice(0, 3)
-    },
-    {
-      id: '3',
-      name: 'Quỹ tương trợ khẩn cấp',
-      purpose: 'Hỗ trợ thành viên gặp khó khăn',
-      organizer: 'Lê Văn C',
-      startDate: '2024-02-01',
-      endDate: '2024-12-31',
-      targetAmount: 200000000,
-      raisedAmount: 50000000,
-      status: 'active',
-      contributors: contributors.slice(0, 2)
+  useEffect(() => {
+    if (activeTab === 'withdrawal' && !withdrawalForm.date) {
+      const today = new Date().toISOString().slice(0, 10);
+      setWithdrawalForm(prev => ({ ...prev, date: today }));
     }
-  ]);
+  }, [activeTab, withdrawalForm.date]);
 
-  // Withdrawal Form State
-  const [withdrawalForm, setWithdrawalForm] = useState({
-    amount: '',
-    reason: '',
-    recipient: '',
-    relatedEvent: '',
-    date: new Date().toISOString().split('T')[0]
-  });
-
-  // Campaign Form State
-  const [campaignForm, setCampaignForm] = useState({
-    name: '',
-    purpose: '',
-    organizer: selectedTree?.owner || '',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: '',
-    targetAmount: ''
-  });
-
-  // Format Currency
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(amount);
-  };
-
-  // Format Date
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+  useEffect(() => {
+    console.log('[FundManagement] useGPMember result', {
+      selectedTreeId: selectedTree?.id,
+      currentUserId,
+      gpMemberId,
+      gpMember,
+      gpMemberLoading,
+      gpMemberError,
     });
-  };
+  }, [
+    gpMemberId,
+    gpMember,
+    gpMemberLoading,
+    gpMemberError,
+    selectedTree?.id,
+    currentUserId,
+  ]);
 
-  // Calculate Campaign Progress
-  const calculateProgress = (raised: number, target: number): number => {
-    return Math.min((raised / target) * 100, 100);
-  };
-
-  // Handle Withdrawal Submit
-  const handleWithdrawalSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const amount = parseFloat(withdrawalForm.amount);
-    
-    if (amount <= 0) {
-      toast.error('Số tiền phải lớn hơn 0');
-      return;
+  const formatCurrency = useCallback((value?: number | null) => {
+    if (value === null || value === undefined) {
+      return currencyFormatter.format(0);
     }
-
-    if (amount > fundInfo.currentBalance) {
-      toast.error('Số tiền vượt quá số dư hiện tại');
-      return;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return '—';
     }
+    return currencyFormatter.format(numeric);
+  }, []);
 
-    if (!withdrawalForm.reason || !withdrawalForm.recipient || !withdrawalForm.date) {
-      toast.error('Vui lòng điền đầy đủ thông tin');
-      return;
+  const formatDate = useCallback((value?: string | null) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return '—';
     }
+    return dateFormatter.format(parsed);
+  }, []);
 
-    const newWithdrawal: WithdrawalTransaction = {
-      id: Date.now().toString(),
-      amount: amount,
-      reason: withdrawalForm.reason,
-      recipient: withdrawalForm.recipient,
-      relatedEvent: withdrawalForm.relatedEvent || 'Không',
-      date: withdrawalForm.date,
-      requestedBy: selectedTree?.owner || 'Thành viên',
-      status: 'pending'
-    };
-
-    setPendingWithdrawals([...pendingWithdrawals, newWithdrawal]);
-    toast.success('Yêu cầu rút tiền đã được gửi!');
-    setWithdrawalForm({
-      amount: '',
-      reason: '',
-      recipient: '',
-      relatedEvent: '',
-      date: new Date().toISOString().split('T')[0]
-    });
-  };
-
-  // Handle Campaign Submit
-  const handleCampaignSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const targetAmount = parseFloat(campaignForm.targetAmount);
-    
-    if (targetAmount <= 0) {
-      toast.error('Số tiền mục tiêu phải lớn hơn 0');
-      return;
+  const totalIncome = useMemo(() => {
+    if (
+      donationStats?.totalReceived !== undefined &&
+      donationStats.totalReceived !== null
+    ) {
+      return Number(donationStats.totalReceived) || 0;
     }
+    return donations.reduce((sum, donation) => {
+      const value = Number(
+        donation.donationMoney ?? donation.donationAmount ?? 0
+      );
+      return Number.isFinite(value) ? sum + value : sum;
+    }, 0);
+  }, [donationStats?.totalReceived, donations]);
 
-    if (!campaignForm.name || !campaignForm.purpose || !campaignForm.organizer) {
-      toast.error('Vui lòng điền đầy đủ thông tin');
-      return;
+  const approvedExpenses = useMemo(
+    () =>
+      expenses.filter(
+        expense => normalizeStatus(expense.status) === 'approved'
+      ),
+    [expenses]
+  );
+
+  const pendingExpenses = useMemo(
+    () =>
+      expenses.filter(expense => normalizeStatus(expense.status) === 'pending'),
+    [expenses]
+  );
+
+  const totalExpense = useMemo(
+    () =>
+      approvedExpenses.reduce((sum, expense) => {
+        const value = Number(expense.expenseAmount ?? 0);
+        return Number.isFinite(value) ? sum + value : sum;
+      }, 0),
+    [approvedExpenses]
+  );
+
+  const computedBalance = useMemo(() => {
+    if (
+      activeFund?.currentMoney !== undefined &&
+      activeFund?.currentMoney !== null
+    ) {
+      return Number(activeFund.currentMoney) || 0;
     }
+    return totalIncome - totalExpense;
+  }, [activeFund?.currentMoney, totalIncome, totalExpense]);
 
-    if (!campaignForm.startDate || !campaignForm.endDate) {
-      toast.error('Vui lòng chọn ngày bắt đầu và ngày kết thúc');
-      return;
+  const uniqueContributorCount = useMemo(() => {
+    if (
+      donationStats?.totalDonations !== undefined &&
+      donationStats.totalDonations !== null
+    ) {
+      return Number(donationStats.totalDonations) || 0;
     }
+    const keys = donations.map(
+      donation => donation.ftMemberId || donation.donorName || donation.id
+    );
+    return new Set(keys).size;
+  }, [donationStats?.totalDonations, donations]);
 
-    if (new Date(campaignForm.endDate) <= new Date(campaignForm.startDate)) {
-      toast.error('Ngày kết thúc phải sau ngày bắt đầu');
-      return;
-    }
-
-    const newCampaign: Campaign = {
-      id: Date.now().toString(),
-      name: campaignForm.name,
-      purpose: campaignForm.purpose,
-      organizer: campaignForm.organizer,
-      startDate: campaignForm.startDate,
-      endDate: campaignForm.endDate,
-      targetAmount: targetAmount,
-      raisedAmount: 0,
-      status: 'active',
-      contributors: []
-    };
-
-    setCampaigns([...campaigns, newCampaign]);
-    toast.success('Chiến dịch gây quỹ đã được tạo!');
-    setShowCampaignModal(false);
-    setCampaignForm({
-      name: '',
-      purpose: '',
-      organizer: selectedTree?.owner || '',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: '',
-      targetAmount: ''
-    });
-  };
-
-  // Handle Approval
-  const handleApproval = (transaction: WithdrawalTransaction, action: 'approve' | 'reject') => {
-    setPendingTransaction(transaction);
-    setApprovalAction(action);
-    setShowApprovalFeedback(true);
-  };
-
-  // Confirm Approval
-  const confirmApproval = () => {
-    if (!pendingTransaction || !approvalAction) return;
-
-    // Remove from pending
-    const updatedPending = pendingWithdrawals.filter(t => t.id !== pendingTransaction.id);
-    setPendingWithdrawals(updatedPending);
-
-    // Add to approved if approved
-    if (approvalAction === 'approve') {
-      const approved = {
-        ...pendingTransaction,
-        status: 'approved' as const,
-        approvedBy: 'Quản trị viên'
-      };
-      approvedWithdrawals.push(approved);
-      
-      // Update fund balance
-      setFundInfo(prev => ({
-        ...prev,
-        currentBalance: prev.currentBalance - pendingTransaction.amount,
-        totalExpense: prev.totalExpense + pendingTransaction.amount
+  const recentContributors: OverviewContributor[] = useMemo(() => {
+    if (donationStats?.recentDonors?.length) {
+      return donationStats.recentDonors.map((donor, index) => ({
+        id: `stat-${index}-${donor.donorName}`,
+        name: donor.donorName,
+        amount: Number(donor.donationMoney ?? donor.donationAmount ?? 0) || 0,
+        date: donor.confirmedOn ?? '',
       }));
     }
 
-    toast.success(
-      approvalAction === 'approve' 
-        ? 'Đã phê duyệt yêu cầu rút tiền!' 
-        : 'Đã từ chối yêu cầu rút tiền!'
+    return donations
+      .slice()
+      .sort(
+        (a, b) =>
+          getDateValue(b.confirmedOn || b.createdOn) -
+          getDateValue(a.confirmedOn || a.createdOn)
+      )
+      .slice(0, 6)
+      .map(donation => ({
+        id: donation.id,
+        name: donation.donorName || 'Ẩn danh',
+        amount:
+          Number(donation.donationMoney ?? donation.donationAmount ?? 0) || 0,
+        date: donation.confirmedOn || donation.createdOn || '',
+      }));
+  }, [donationStats?.recentDonors, donations]);
+
+  const transactions: OverviewTransaction[] = useMemo(() => {
+    const donationTransactions: OverviewTransaction[] = donations.map(
+      donation => ({
+        id: `donation-${donation.id}`,
+        type: 'income',
+        amount:
+          Number(donation.donationMoney ?? donation.donationAmount ?? 0) || 0,
+        date: donation.confirmedOn || donation.createdOn || '',
+        description: donation.donorName
+          ? `Đóng góp từ ${donation.donorName}`
+          : 'Đóng góp quỹ',
+        status: normalizeStatus(donation.status),
+      })
     );
 
-    setShowApprovalFeedback(false);
-    setPendingTransaction(null);
-    setApprovalAction(null);
-  };
+    const expenseTransactions: OverviewTransaction[] = expenses.map(
+      expense => ({
+        id: `expense-${expense.id}`,
+        type: 'expense',
+        amount: Number(expense.expenseAmount ?? 0) || 0,
+        date: expense.approvedOn || expense.createdOn || '',
+        description: expense.expenseDescription || 'Chi tiêu quỹ',
+        status: normalizeStatus(expense.status),
+      })
+    );
 
-  // Filter Campaigns
-  const filteredCampaigns = campaigns.filter(campaign => {
-    const matchesSearch = campaign.name.toLowerCase().includes(campaignSearch.toLowerCase()) ||
-                         campaign.organizer.toLowerCase().includes(campaignSearch.toLowerCase());
-    const matchesFilter = campaignFilter === 'all' || campaign.status === campaignFilter;
-    return matchesSearch && matchesFilter;
-  });
+    return [...donationTransactions, ...expenseTransactions].sort(
+      (a, b) => getDateValue(b.date) - getDateValue(a.date)
+    );
+  }, [donations, expenses]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAll();
+      if (activeFund?.id) {
+        await refreshFundDetails();
+      }
+      toast.success('Đã làm mới dữ liệu quỹ');
+    } catch (err) {
+      console.error(err);
+      toast.error('Không thể làm mới dữ liệu quỹ');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [activeFund?.id, refreshAll, refreshFundDetails]);
+
+  const handleCreateFund = useCallback(
+    async (form: FundCreateForm) => {
+      if (!selectedTree?.id) {
+        toast.error('Không xác định được gia phả để tạo quỹ.');
+        return;
+      }
+
+      try {
+        await createFund({
+          familyTreeId: selectedTree.id,
+          fundName: form.fundName,
+          description: form.description,
+          bankAccountNumber: form.bankAccountNumber,
+          bankCode: form.bankCode,
+          bankName: form.bankName,
+          accountHolderName: form.accountHolderName,
+        });
+        toast.success('Tạo quỹ thành công!');
+        setShowCreateModal(false);
+        setFundPage(0);
+        await refreshAll();
+      } catch (error: any) {
+        console.error('Create fund failed:', error);
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          'Không thể tạo quỹ. Vui lòng kiểm tra lại thông tin.';
+        toast.error(message);
+      }
+    },
+    [createFund, refreshAll, selectedTree?.id]
+  );
+
+  const handleOpenDeposit = useCallback(() => {
+    if (!activeFund) {
+      toast.error('Vui lòng chọn quỹ để nạp.');
+      return;
+    }
+    setIsDepositModalOpen(true);
+  }, [activeFund]);
+
+  const handleCloseDeposit = useCallback(() => {
+    setIsDepositModalOpen(false);
+  }, []);
+
+  const handleCloseProof = useCallback(() => {
+    setIsProofModalOpen(false);
+    setRecentDonation(null);
+  }, []);
+
+  const handleSubmitDeposit = useCallback(
+    async (form: FundDepositForm) => {
+      if (!activeFund?.id) {
+        toast.error('Không xác định được quỹ để nạp.');
+        return;
+      }
+      if (!gpMemberId) {
+        toast.error(
+          'Không xác định được thành viên gia phả để ghi nhận khoản nạp.'
+        );
+        return;
+      }
+      if (!currentUserId) {
+        toast.error('Không xác định được người nạp. Vui lòng đăng nhập lại.');
+        return;
+      }
+      if (form.amount <= 0) {
+        toast.error('Số tiền cần lớn hơn 0.');
+        return;
+      }
+      if (form.paymentMethod === 'BankTransfer') {
+        toast.info(
+          'Phương thức chuyển khoản sẽ được cập nhật trong thời gian tới.'
+        );
+        return;
+      }
+
+      setDepositSubmitting(true);
+      try {
+        const payload: CreateFundDonationPayload = {
+          memberId: gpMemberId,
+          donorName: currentUserId,
+          amount: form.amount,
+          paymentMethod:
+            form.paymentMethod === 'Cash' ? '0' : form.paymentMethod,
+        };
+        const trimmedNotes = form.paymentNotes?.trim();
+        if (trimmedNotes) {
+          payload.paymentNotes = trimmedNotes;
+        }
+
+        const response = await fundService.createFundDonation(
+          activeFund.id,
+          payload
+        );
+        const donation = response?.data || null;
+
+        await refreshFundDetails();
+        setIsDepositModalOpen(false);
+
+        if (form.paymentMethod === 'Cash' && donation) {
+          setRecentDonation(donation);
+          setIsProofModalOpen(true);
+          toast.success(
+            'Đã ghi nhận khoản nạp tiền mặt. Vui lòng tải chứng từ xác nhận.'
+          );
+        } else {
+          toast.success('Đã ghi nhận khoản nạp quỹ.');
+        }
+      } catch (error: any) {
+        console.error('Deposit cash failed:', error);
+        toast.error(
+          error?.response?.data?.message ||
+            'Không thể nạp quỹ. Vui lòng thử lại.'
+        );
+      } finally {
+        setDepositSubmitting(false);
+      }
+    },
+    [activeFund?.id, currentUserId, gpMemberId, refreshFundDetails]
+  );
+
+  const handleSubmitProof = useCallback(
+    async ({ files, note }: { files: File[]; note: string }) => {
+      if (!recentDonation?.id) {
+        toast.error('Không tìm thấy thông tin khoản nạp trước đó.');
+        return;
+      }
+      if (!gpMemberId) {
+        toast.error('Không xác định được thành viên xác nhận.');
+        return;
+      }
+      setProofSubmitting(true);
+      try {
+        await fundService.uploadDonationProof(recentDonation.id, files);
+        const payload: { confirmedBy: string; notes?: string } = {
+          confirmedBy: gpMemberId,
+        };
+        const trimmedNote = note.trim();
+        if (trimmedNote) {
+          payload.notes = trimmedNote;
+        }
+        await fundService.confirmDonation(recentDonation.id, payload);
+        toast.success('Đã tải chứng từ và xác nhận khoản nạp quỹ.');
+        await refreshFundDetails();
+        setRecentDonation(null);
+        setIsProofModalOpen(false);
+      } catch (error: any) {
+        console.error('Upload proof failed:', error);
+        toast.error(
+          error?.response?.data?.message ||
+            'Không thể tải chứng từ. Vui lòng thử lại.'
+        );
+      } finally {
+        setProofSubmitting(false);
+      }
+    },
+    [gpMemberId, recentDonation?.id, refreshFundDetails]
+  );
+
+  const handleWithdrawalChange = useCallback(
+    (field: keyof WithdrawalFormState, value: string) => {
+      setWithdrawalForm(prev => ({ ...prev, [field]: value }));
+    },
+    []
+  );
+
+  const handleSubmitWithdrawal = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      if (!activeFund) {
+        toast.error('Vui lòng chọn quỹ trước khi tạo yêu cầu.');
+        return;
+      }
+
+      const amountValue = Number(withdrawalForm.amount);
+      if (!Number.isFinite(amountValue) || amountValue <= 0) {
+        toast.error('Số tiền rút phải lớn hơn 0.');
+        return;
+      }
+
+      if (!withdrawalForm.reason.trim()) {
+        toast.error('Vui lòng nhập lý do chi tiêu.');
+        return;
+      }
+
+      if (!withdrawalForm.recipient.trim()) {
+        toast.error('Vui lòng nhập người nhận.');
+        return;
+      }
+
+      try {
+        const payload: FundWithdrawalInput = {
+          amount: amountValue,
+          description: withdrawalForm.reason.trim(),
+          recipient: withdrawalForm.recipient.trim(),
+        };
+
+        const relatedEvent = withdrawalForm.relatedEvent.trim();
+        if (relatedEvent) {
+          payload.expenseEvent = relatedEvent;
+        }
+
+        if (withdrawalForm.date) {
+          payload.plannedDate = withdrawalForm.date;
+        }
+
+        if (withdrawalForm.campaignId) {
+          payload.campaignId = withdrawalForm.campaignId;
+        }
+
+        await createWithdrawal(payload);
+        toast.success('Đã gửi yêu cầu rút quỹ thành công.');
+        setWithdrawalForm(INITIAL_WITHDRAWAL_FORM);
+        await refreshFundDetails();
+      } catch (error: any) {
+        console.error('Create withdrawal failed:', error);
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            'Không thể tạo yêu cầu rút tiền.'
+        );
+      }
+    },
+    [
+      activeFund,
+      createWithdrawal,
+      refreshFundDetails,
+      withdrawalForm.amount,
+      withdrawalForm.campaignId,
+      withdrawalForm.date,
+      withdrawalForm.reason,
+      withdrawalForm.recipient,
+      withdrawalForm.relatedEvent,
+    ]
+  );
+
+  const handleRefreshCampaigns = useCallback(async () => {
+    await refreshCampaigns(campaignPagination.page);
+  }, [campaignPagination.page, refreshCampaigns]);
+
+  const handleCampaignPageChange = useCallback(
+    async (page: number) => {
+      await changeCampaignPage(page);
+    },
+    [changeCampaignPage]
+  );
+
+  const getCampaignStatusKey = useCallback(
+    (status: unknown): 'active' | 'upcoming' | 'completed' | 'cancelled' => {
+      if (status === null || status === undefined) return 'active';
+      if (typeof status === 'number') {
+        switch (status) {
+          case 0:
+            return 'upcoming';
+          case 1:
+            return 'active';
+          case 2:
+            return 'completed';
+          case 3:
+            return 'cancelled';
+          default:
+            return 'active';
+        }
+      }
+      const normalized = String(status).toLowerCase();
+      if (normalized.includes('cancel')) return 'cancelled';
+      if (normalized.includes('upcoming') || normalized.includes('planned'))
+        return 'upcoming';
+      if (
+        normalized.includes('complete') ||
+        normalized.includes('finish')
+      )
+        return 'completed';
+      return 'active';
+    },
+    []
+  );
+
+  const getCampaignStatusLabel = useCallback(
+    (status: 'active' | 'upcoming' | 'completed' | 'cancelled') => {
+      switch (status) {
+        case 'active':
+          return 'Đang diễn ra';
+        case 'upcoming':
+          return 'Sắp diễn ra';
+        case 'completed':
+          return 'Hoàn thành';
+        case 'cancelled':
+          return 'Đã hủy';
+        default:
+          return 'Không xác định';
+      }
+    },
+    []
+  );
+
+  const getCampaignStatusBadgeClasses = useCallback(
+    (status: 'active' | 'upcoming' | 'completed' | 'cancelled') => {
+      switch (status) {
+        case 'active':
+          return 'bg-emerald-100 text-emerald-700';
+        case 'upcoming':
+          return 'bg-blue-100 text-blue-700';
+        case 'completed':
+          return 'bg-gray-100 text-gray-600';
+        case 'cancelled':
+          return 'bg-red-100 text-red-600';
+        default:
+          return 'bg-gray-100 text-gray-600';
+      }
+    },
+    []
+  );
+
+  const getDonationStatusKey = useCallback(
+    (status: unknown): 'pending' | 'confirmed' | 'rejected' => {
+      if (status === null || status === undefined) return 'pending';
+      if (typeof status === 'number') {
+        switch (status) {
+          case 0:
+            return 'pending';
+          case 1:
+            return 'confirmed';
+          case 2:
+            return 'rejected';
+          default:
+            return 'pending';
+        }
+      }
+      const normalized = String(status).toLowerCase();
+      if (normalized.includes('confirm')) return 'confirmed';
+      if (normalized.includes('reject')) return 'rejected';
+      return 'pending';
+    },
+    []
+  );
+
+  const getPaymentMethodLabel = useCallback((method: unknown) => {
+    if (method === null || method === undefined) return 'Không xác định';
+    const normalized = String(method).toLowerCase();
+    if (normalized === '0' || normalized === 'cash') return 'Tiền mặt';
+    if (normalized === '1' || normalized.includes('bank'))
+      return 'Chuyển khoản';
+    return 'Khác';
+  }, []);
+
+  const handleOpenCampaignDetail = useCallback(
+    async (campaignId: string) => {
+      try {
+        const detail = await loadCampaignDetail(campaignId);
+        setCampaignDetail(detail);
+        setIsCampaignDetailOpen(true);
+      } catch (error) {
+        toast.error('Không thể tải chi tiết chiến dịch.');
+      }
+    },
+    [loadCampaignDetail]
+  );
+
+  const handleCloseCampaignDetail = useCallback(() => {
+    setIsCampaignDetailOpen(false);
+    setCampaignDetail(null);
+  }, []);
+
+  const campaignMetrics = useMemo(() => {
+    const map: Record<
+      string,
+      { raisedAmount: number; contributorCount: number }
+    > = {};
+    campaigns.forEach(campaign => {
+      map[campaign.id] = {
+        raisedAmount: Number(campaign.currentBalance ?? 0),
+        contributorCount: Number(campaign.totalDonors ?? 0),
+      };
+    });
+    return map;
+  }, [campaigns]);
+
+  const getExpenseStatusBadge = useCallback(
+    (expense: FundExpense) => {
+      const status = normalizeStatus(expense.status);
+      switch (status) {
+        case 'approved':
+          return {
+            label: 'Đã phê duyệt',
+            className: 'bg-emerald-100 text-emerald-700',
+          };
+        case 'pending':
+          return {
+            label: 'Đang chờ',
+            className: 'bg-amber-100 text-amber-700',
+          };
+        case 'rejected':
+          return {
+            label: 'Đã từ chối',
+            className: 'bg-red-100 text-red-600',
+          };
+        default:
+          return {
+            label: 'Không xác định',
+            className: 'bg-gray-100 text-gray-600',
+          };
+      }
+    },
+    []
+  );
+
+  const handleRequestAction = useCallback(
+    async (expense: FundExpense, action: 'approve' | 'reject') => {
+      if (!expense?.id) {
+        toast.error('Không tìm thấy yêu cầu hợp lệ.');
+        return;
+      }
+      try {
+        if (action === 'approve') {
+          await approveExpense(expense.id, undefined, gpMemberId ?? undefined);
+          toast.success('Đã phê duyệt yêu cầu rút quỹ.');
+        } else {
+          await rejectExpense(expense.id, undefined, gpMemberId ?? undefined);
+          toast.success('Đã từ chối yêu cầu rút quỹ.');
+        }
+        await refreshFundDetails();
+      } catch (error: any) {
+        console.error('Handle request action failed:', error);
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            'Không thể xử lý yêu cầu.'
+        );
+      }
+    },
+    [approveExpense, gpMemberId, refreshFundDetails, rejectExpense]
+  );
+
+  const handleRefreshMyPending = useCallback(async () => {
+    await refreshMyPendingDonations();
+  }, [refreshMyPendingDonations]);
+
+  const handleOpenCampaignModal = useCallback(() => {
+    if (!selectedTree?.id) {
+      toast.error('Vui lòng chọn gia phả để tạo chiến dịch.');
+      return;
+    }
+    setCampaignForm(prev => ({
+      ...prev,
+      organizer: gpMember?.fullname || prev.organizer,
+    }));
+    setIsCampaignModalOpen(true);
+  }, [gpMember?.fullname, selectedTree?.id]);
+
+  const handleCloseCampaignModal = useCallback(() => {
+    setIsCampaignModalOpen(false);
+    setCampaignForm(INITIAL_CAMPAIGN_FORM);
+    setCampaignSubmitting(false);
+  }, []);
+
+  const handleCampaignFormChange = useCallback(
+    (field: keyof CampaignFormState, value: string | boolean) => {
+      setCampaignForm(prev => ({
+        ...prev,
+        [field]: value,
+      }));
+    },
+    []
+  );
+
+  const handleSubmitCampaign = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!selectedTree?.id) {
+        toast.error('Không xác định được gia phả.');
+        return;
+      }
+
+      const requiredFields: Array<[keyof CampaignFormState, string]> = [
+        ['name', 'Vui lòng nhập tên chiến dịch.'],
+        ['purpose', 'Vui lòng nhập mục tiêu chiến dịch.'],
+        ['organizer', 'Vui lòng nhập người tổ chức.'],
+        ['targetAmount', 'Vui lòng nhập số tiền mục tiêu hợp lệ.'],
+        ['startDate', 'Vui lòng chọn ngày bắt đầu.'],
+        ['endDate', 'Vui lòng chọn ngày kết thúc.'],
+      ];
+
+      for (const [field, message] of requiredFields) {
+        const value = campaignForm[field];
+        if (typeof value === 'string' ? !value.trim() : !value) {
+          toast.error(message);
+          return;
+        }
+      }
+
+      const targetAmountNumber = Number(campaignForm.targetAmount);
+      if (!Number.isFinite(targetAmountNumber) || targetAmountNumber < 0) {
+        toast.error('Số tiền mục tiêu phải lớn hơn hoặc bằng 0.');
+        return;
+      }
+
+      if (campaignForm.endDate && campaignForm.startDate) {
+        const start = new Date(campaignForm.startDate);
+        const end = new Date(campaignForm.endDate);
+        if (end < start) {
+          toast.error('Ngày kết thúc phải sau ngày bắt đầu.');
+          return;
+        }
+      }
+
+      setCampaignSubmitting(true);
+      try {
+        const payload: CampaignCreationInput = {
+          campaignName: campaignForm.name.trim(),
+          campaignDescription: campaignForm.purpose.trim(),
+          organizerName: campaignForm.organizer.trim(),
+          fundGoal: targetAmountNumber,
+          isPublic: campaignForm.isPublic,
+        };
+
+        const organizerContact = campaignForm.organizerContact.trim();
+        if (organizerContact) {
+          payload.organizerContact = organizerContact;
+        }
+
+        if (gpMemberId) {
+          payload.campaignManagerId = gpMemberId;
+        }
+
+        if (campaignForm.startDate) {
+          payload.startDate = new Date(campaignForm.startDate).toISOString();
+        }
+        if (campaignForm.endDate) {
+          payload.endDate = new Date(campaignForm.endDate).toISOString();
+        }
+
+        const bankAccountNumber = campaignForm.bankAccountNumber.trim();
+        if (bankAccountNumber) {
+          payload.bankAccountNumber = bankAccountNumber;
+        }
+
+        const bankName = campaignForm.bankName.trim();
+        if (bankName) {
+          payload.bankName = bankName;
+        }
+
+        const bankCode = campaignForm.bankCode.trim();
+        if (bankCode) {
+          payload.bankCode = bankCode;
+        }
+
+        const accountHolderName = campaignForm.accountHolderName.trim();
+        if (accountHolderName) {
+          payload.accountHolderName = accountHolderName;
+        }
+
+        const notes = campaignForm.notes.trim();
+        if (notes) {
+          payload.notes = notes;
+        }
+
+        await createCampaign(payload);
+        toast.success('Đã tạo chiến dịch gây quỹ mới.');
+        await changeCampaignPage(1);
+        setActiveTab('campaigns');
+        handleCloseCampaignModal();
+      } catch (err: any) {
+        console.error('Create campaign failed:', err);
+        toast.error(
+          err?.response?.data?.message ||
+            err?.message ||
+            'Không thể tạo chiến dịch. Vui lòng thử lại.'
+        );
+        setCampaignSubmitting(false);
+      }
+    },
+    [
+      campaignForm,
+      changeCampaignPage,
+      createCampaign,
+      gpMemberId,
+      handleCloseCampaignModal,
+      selectedTree?.id,
+      setActiveTab,
+    ]
+  );
+
+  useEffect(() => {
+    if (!funds.length) {
+      setFundPage(0);
+      return;
+    }
+    const maxPage = Math.max(Math.ceil(funds.length / itemsPerPage) - 1, 0);
+    setFundPage(prev => Math.min(prev, maxPage));
+  }, [funds.length]);
+
+  useEffect(() => {
+    if (!activeFund) return;
+    const index = funds.findIndex(fund => fund.id === activeFund.id);
+    if (index === -1) return;
+    const page = Math.floor(index / itemsPerPage);
+    setFundPage(page);
+  }, [activeFund, funds, itemsPerPage]);
+
+  if (!selectedTree) {
+    return (
+      <div className="h-full overflow-y-auto bg-gray-50 p-6">
+        <EmptyState
+          title="Chưa chọn gia phả"
+          description="Vui lòng chọn một gia phả trong danh sách để xem thông tin quỹ."
+        />
+      </div>
+    );
+  }
+
+  if (loading && funds.length === 0) {
+    return (
+      <div className="h-full overflow-y-auto bg-gray-50 p-6">
+        <LoadingState message="Đang tải dữ liệu quỹ gia tộc..." />
+      </div>
+    );
+  }
+
+  const lastUpdated = formatDate(
+    activeFund?.lastModifiedOn || activeFund?.createdOn
+  );
+  const hasAnyFund = funds.length > 0;
+  const canCreateFund = !hasAnyFund;
+
+  const currentFundPurpose =
+    activeFund?.description?.trim() ||
+    'Chưa có mô tả cho mục đích sử dụng quỹ này.';
+  const totalPages = Math.ceil(funds.length / itemsPerPage);
+  const startIndex = fundPage * itemsPerPage;
+  const visibleFunds = funds.slice(startIndex, startIndex + itemsPerPage);
+  const depositButtonDisabled = false;
 
   return (
-    <div className="h-full overflow-hidden flex flex-col bg-gray-50">
-      <div className="flex-1 overflow-hidden flex">
-        {/* Left Sidebar Navigation */}
-        <div className="w-64 bg-white border-r border-gray-200 flex-shrink-0">
-        <div className="flex items-center gap-3 px-6 py-4">
-          <Wallet className="w-8 h-8 text-blue-600" />
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Quỹ Gia Tộc</h2>
-            <p className="text-sm text-gray-600">{selectedTree?.name}</p>
-          </div>
-        </div>
-          <div className="p-4 space-y-2">
-            {[
-              { id: 'overview', label: 'Tổng Quan', icon: Wallet },
-              { id: 'withdrawal', label: 'Tạo Yêu Cầu', icon: TrendingDown },
-              { id: 'approvals', label: 'Phê Duyệt', icon: CheckCircle },
-              { id: 'history', label: 'Lịch Sử Giao Dịch', icon: Calendar },
-              { id: 'campaigns', label: 'Chiến Dịch', icon: Megaphone }
-            ].map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveSection(id as any)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all ${
-                  activeSection === id
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Overview Section */}
-          {activeSection === 'overview' && (
-            <div className="space-y-6">
-              {/* Fund Balance Card */}
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-blue-100 text-sm font-medium mb-2">Số dư hiện tại</p>
-                    <h3 className="text-4xl font-bold mb-1">{formatCurrency(fundInfo.currentBalance)}</h3>
-                    <p className="text-blue-100 text-sm">Cập nhật: {formatDate(fundInfo.lastUpdated)}</p>
-                  </div>
-                  <Wallet className="w-20 h-20 text-blue-200 opacity-50" />
-                </div>
-              </div>
-
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-gray-600 text-sm">Tổng thu nhập</p>
-                    <TrendingUp className="w-5 h-5 text-green-500" />
-                  </div>
-                  <h4 className="text-2xl font-bold text-green-600">{formatCurrency(fundInfo.totalIncome)}</h4>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-gray-600 text-sm">Tổng chi tiêu</p>
-                    <TrendingDown className="w-5 h-5 text-red-500" />
-                  </div>
-                  <h4 className="text-2xl font-bold text-red-600">{formatCurrency(fundInfo.totalExpense)}</h4>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-gray-600 text-sm">Người đóng góp</p>
-                    <Users className="w-5 h-5 text-blue-500" />
-                  </div>
-                  <h4 className="text-2xl font-bold text-blue-600">{contributors.length}</h4>
-                </div>
-              </div>
-
-              {/* Fund Purpose */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-3">Mục đích quỹ</h3>
-                <p className="text-gray-700">{fundInfo.fundPurpose}</p>
-              </div>
-
-              {/* Recent Contributors */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Người đóng góp gần đây</h3>
-                <div className="space-y-3">
-                  {contributors.map((contributor) => (
-                    <div key={contributor.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-bold">{contributor.name.charAt(0)}</span>
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{contributor.name}</p>
-                          <p className="text-sm text-gray-500">{formatDate(contributor.date)}</p>
-                        </div>
-                      </div>
-                      <p className="text-green-600 font-bold">{formatCurrency(contributor.amount)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Transaction History */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Lịch sử giao dịch</h3>
-                <div className="space-y-3">
-                  {transactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        {transaction.type === 'income' ? (
-                          <TrendingUp className="w-5 h-5 text-green-500" />
-                        ) : (
-                          <TrendingDown className="w-5 h-5 text-red-500" />
-                        )}
-                        <div>
-                          <p className="font-medium text-gray-900">{transaction.description}</p>
-                          <p className="text-sm text-gray-500">{formatDate(transaction.date)}</p>
-                        </div>
-                      </div>
-                      <p className={`font-bold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                        {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+    <div className="h-full overflow-y-auto bg-gray-50 space-y-3">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {canCreateFund && (
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              disabled={!selectedTree?.id}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <PlusCircle className="w-4 h-4" />
+              Tạo quỹ
+            </button>
           )}
-
-          {/* Create Withdrawal Section */}
-          {activeSection === 'withdrawal' && (
-            <div className="bg-white rounded-lg shadow p-6 max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Tạo yêu cầu rút tiền</h3>
-              
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="w-5 h-5 text-blue-600" />
-                  <p className="font-semibold text-blue-900">Số dư hiện tại</p>
-                </div>
-                <p className="text-2xl font-bold text-blue-600">{formatCurrency(fundInfo.currentBalance)}</p>
-              </div>
-
-              <form onSubmit={handleWithdrawalSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Số tiền <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={withdrawalForm.amount}
-                    onChange={(e) => setWithdrawalForm({ ...withdrawalForm, amount: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Nhập số tiền"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Lý do chi tiêu <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={withdrawalForm.reason}
-                    onChange={(e) => setWithdrawalForm({ ...withdrawalForm, reason: e.target.value })}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Mô tả lý do chi tiêu..."
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Người nhận <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={withdrawalForm.recipient}
-                    onChange={(e) => setWithdrawalForm({ ...withdrawalForm, recipient: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Tên người nhận"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Sự kiện liên quan
-                  </label>
-                  <input
-                    type="text"
-                    value={withdrawalForm.relatedEvent}
-                    onChange={(e) => setWithdrawalForm({ ...withdrawalForm, relatedEvent: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Tên sự kiện (nếu có)"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Ngày yêu cầu <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={withdrawalForm.date}
-                    onChange={(e) => setWithdrawalForm({ ...withdrawalForm, date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  Gửi yêu cầu
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Approvals Section */}
-          {activeSection === 'approvals' && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">Phê duyệt yêu cầu rút tiền</h3>
-                
-                {pendingWithdrawals.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CheckCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">Không có yêu cầu chờ phê duyệt</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {pendingWithdrawals.map((withdrawal) => (
-                      <div key={withdrawal.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h4 className="text-lg font-bold text-gray-900">{formatCurrency(withdrawal.amount)}</h4>
-                            <p className="text-sm text-gray-500">{formatDate(withdrawal.date)}</p>
-                          </div>
-                          <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-semibold flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            Chờ phê duyệt
-                          </span>
-                        </div>
-
-                        <div className="space-y-2 mb-4">
-                          <div>
-                            <span className="text-sm text-gray-600">Lý do: </span>
-                            <span className="font-medium">{withdrawal.reason}</span>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-600">Người nhận: </span>
-                            <span className="font-medium">{withdrawal.recipient}</span>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-600">Sự kiện: </span>
-                            <span className="font-medium">{withdrawal.relatedEvent}</span>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-600">Người yêu cầu: </span>
-                            <span className="font-medium">{withdrawal.requestedBy}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => handleApproval(withdrawal, 'approve')}
-                            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            Phê duyệt
-                          </button>
-                          <button
-                            onClick={() => handleApproval(withdrawal, 'reject')}
-                            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            Từ chối
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* History Section */}
-          {activeSection === 'history' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">Lịch sử chi tiêu</h3>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Số tiền</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ngày</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Người nhận</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Lý do</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Phê duyệt bởi</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {approvedWithdrawals.map((withdrawal) => (
-                      <tr key={withdrawal.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-3 font-bold text-red-600">{formatCurrency(withdrawal.amount)}</td>
-                        <td className="px-4 py-3 text-gray-700">{formatDate(withdrawal.date)}</td>
-                        <td className="px-4 py-3 text-gray-700">{withdrawal.recipient}</td>
-                        <td className="px-4 py-3 text-gray-700">{withdrawal.reason}</td>
-                        <td className="px-4 py-3 text-gray-700">{withdrawal.approvedBy}</td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                            Đã phê duyệt
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Campaigns Section */}
-          {activeSection === 'campaigns' && (
-            <div className="space-y-6">
-              {/* Campaign Header */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900">Chiến dịch gây quỹ</h3>
-                  <button
-                    onClick={() => setShowCampaignModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Tạo chiến dịch
-                  </button>
-                </div>
-
-                {/* Search and Filter */}
-                <div className="flex gap-4 mb-6">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={campaignSearch}
-                      onChange={(e) => setCampaignSearch(e.target.value)}
-                      placeholder="Tìm kiếm theo tên, người tổ chức..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <select
-                    value={campaignFilter}
-                    onChange={(e) => setCampaignFilter(e.target.value as any)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="all">Tất cả</option>
-                    <option value="active">Đang diễn ra</option>
-                    <option value="completed">Hoàn thành</option>
-                    <option value="cancelled">Đã hủy</option>
-                  </select>
-                </div>
-
-                {/* Campaign List */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {filteredCampaigns.map((campaign) => (
-                    <div key={campaign.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h4 className="text-xl font-bold text-gray-900 mb-1">{campaign.name}</h4>
-                          <p className="text-sm text-gray-600">Tổ chức bởi: {campaign.organizer}</p>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          campaign.status === 'active' ? 'bg-green-100 text-green-700' :
-                          campaign.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {campaign.status === 'active' ? 'Đang diễn ra' :
-                           campaign.status === 'completed' ? 'Hoàn thành' : 'Đã hủy'}
-                        </span>
-                      </div>
-
-                      <p className="text-gray-700 mb-4">{campaign.purpose}</p>
-
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-gray-600">Tiến độ</span>
-                          <span className="text-sm font-semibold">
-                            {formatCurrency(campaign.raisedAmount)} / {formatCurrency(campaign.targetAmount)}
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
-                          <div
-                            className="bg-blue-600 h-3 rounded-full transition-all"
-                            style={{ width: `${calculateProgress(campaign.raisedAmount, campaign.targetAmount)}%` }}
-                          />
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {calculateProgress(campaign.raisedAmount, campaign.targetAmount).toFixed(1)}% hoàn thành
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                        <div>
-                          <span>Bắt đầu: </span>
-                          <span className="font-semibold">{formatDate(campaign.startDate)}</span>
-                        </div>
-                        <div>
-                          <span>Kết thúc: </span>
-                          <span className="font-semibold">{formatDate(campaign.endDate)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">
-                          {campaign.contributors.length} người đóng góp
-                        </span>
-                        <button 
-                          onClick={() => {
-                            setSelectedCampaign(campaign);
-                            setShowCampaignDetailModal(true);
-                          }}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-semibold"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Xem chi tiết
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {filteredCampaigns.length === 0 && (
-                  <div className="text-center py-12">
-                    <Megaphone className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">Không tìm thấy chiến dịch nào</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing || loading}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RefreshCw
+              className={`w-4 h-4 ${
+                isRefreshing ? 'animate-spin text-blue-600' : 'text-gray-600'
+              }`}
+            />
+            Làm mới dữ liệu
+          </button>
         </div>
       </div>
 
-      {/* Campaign Modal */}
-      {showCampaignModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">Tạo chiến dịch gây quỹ mới</h3>
-              <button
-                onClick={() => setShowCampaignModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
+        {TAB_ITEMS.map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+              activeTab === tab.key
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:text-blue-600'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'overview' && (
+        <>
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFundPage(prev => Math.max(prev - 1, 0))}
+                    disabled={fundPage === 0}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm text-gray-500">
+                    {fundPage + 1}/{totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFundPage(prev => Math.min(prev + 1, totalPages - 1))
+                    }
+                    disabled={fundPage >= totalPages - 1}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
-
-            <form onSubmit={handleCampaignSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Tên chiến dịch <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={campaignForm.name}
-                  onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="VD: Xây dựng đình làng..."
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Mục đích <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={campaignForm.purpose}
-                  onChange={(e) => setCampaignForm({ ...campaignForm, purpose: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Mô tả mục đích chiến dịch..."
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Người tổ chức <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={campaignForm.organizer}
-                    onChange={(e) => setCampaignForm({ ...campaignForm, organizer: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Số tiền mục tiêu <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={campaignForm.targetAmount}
-                    onChange={(e) => setCampaignForm({ ...campaignForm, targetAmount: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Nhập số tiền"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Ngày bắt đầu <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={campaignForm.startDate}
-                    onChange={(e) => setCampaignForm({ ...campaignForm, startDate: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Ngày kết thúc <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={campaignForm.endDate}
-                    onChange={(e) => setCampaignForm({ ...campaignForm, endDate: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
+            {funds.length === 0 ? (
+              <div className="flex flex-col items-center justify-center bg-white border border-dashed border-gray-200 rounded-xl py-10 text-center">
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                  Gia phả này chưa có quỹ
+                </h4>
+                <p className="text-sm text-gray-500 max-w-sm mb-4">
+                  Hãy khởi tạo quỹ đầu tiên để bắt đầu quản lý tài chính và các
+                  khoản đóng góp của gia đình.
+                </p>
                 <button
                   type="button"
-                  onClick={() => setShowCampaignModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                 >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-                >
-                  Tạo chiến dịch
+                  <PlusCircle className="w-4 h-4" />
+                  Tạo quỹ mới
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Campaign Detail Modal */}
-      {showCampaignDetailModal && selectedCampaign && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Megaphone className="w-6 h-6" />
-                <h3 className="text-xl font-bold">Chi tiết chiến dịch</h3>
-              </div>
-              <button
-                onClick={() => {
-                  setShowCampaignDetailModal(false);
-                  setSelectedCampaign(null);
-                }}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              {/* Campaign Info */}
-              <div className="mb-6 pb-6 border-b border-gray-200">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h4 className="text-3xl font-bold text-gray-900 mb-2">{selectedCampaign.name}</h4>
-                    <p className="text-gray-600">Tổ chức bởi: <span className="font-semibold">{selectedCampaign.organizer}</span></p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    selectedCampaign.status === 'active' ? 'bg-green-100 text-green-700' :
-                    selectedCampaign.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                    'bg-red-100 text-red-700'
-                  }`}>
-                    {selectedCampaign.status === 'active' ? 'Đang diễn ra' :
-                     selectedCampaign.status === 'completed' ? 'Hoàn thành' : 'Đã hủy'}
-                  </span>
-                </div>
-
-                <div className="bg-blue-50 rounded-lg p-4 mb-4">
-                  <h5 className="text-sm font-semibold text-blue-800 mb-2 uppercase tracking-wide">Mục đích chiến dịch</h5>
-                  <p className="text-gray-700">{selectedCampaign.purpose}</p>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-gray-700">Tiến độ gây quỹ</span>
-                    <span className="text-lg font-bold text-blue-600">
-                      {formatCurrency(selectedCampaign.raisedAmount)} / {formatCurrency(selectedCampaign.targetAmount)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 h-4 rounded-full transition-all"
-                      style={{ width: `${calculateProgress(selectedCampaign.raisedAmount, selectedCampaign.targetAmount)}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-sm text-gray-600">
-                      {calculateProgress(selectedCampaign.raisedAmount, selectedCampaign.targetAmount).toFixed(1)}% hoàn thành
-                    </p>
-                    <p className="text-sm font-bold text-gray-900">
-                      Còn lại: {formatCurrency(selectedCampaign.targetAmount - selectedCampaign.raisedAmount)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h5 className="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wide">Ngày bắt đầu</h5>
-                    <p className="text-lg font-bold text-gray-900">{formatDate(selectedCampaign.startDate)}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h5 className="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wide">Ngày kết thúc</h5>
-                    <p className="text-lg font-bold text-gray-900">{formatDate(selectedCampaign.endDate)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Contributors List */}
-              <div>
-                <h5 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Users className="w-6 h-6 text-blue-600" />
-                  Danh sách người đóng góp ({selectedCampaign.contributors.length})
-                </h5>
-                {selectedCampaign.contributors.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">Chưa có người đóng góp</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {selectedCampaign.contributors.map((contributor) => (
-                      <div key={contributor.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 font-bold text-lg">{contributor.name.charAt(0)}</span>
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{contributor.name}</p>
-                            <p className="text-sm text-gray-500">{formatDate(contributor.date)}</p>
-                          </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {visibleFunds.map(fund => {
+                  const isActive = fund.id === activeFund?.id;
+                  return (
+                    <button
+                      key={fund.id}
+                      type="button"
+                      onClick={() => setActiveFundId(fund.id)}
+                      className={`relative text-left p-5 rounded-xl border transition-all duration-200 bg-white shadow-sm hover:shadow-lg ${
+                        isActive
+                          ? 'border-blue-500 ring-2 ring-blue-200'
+                          : 'border-gray-200 hover:border-blue-300'
+                      }`}
+                    >
+                      {isActive && (
+                        <span className="absolute top-3 right-3 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                          Đang xem
+                        </span>
+                      )}
+                      <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
+                        {fund.fundName}
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                        {fund.description || 'Chưa có mô tả cho quỹ này.'}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
+                        <div>
+                          <p className="text-gray-500">Số dư hiện tại</p>
+                          <p className="font-semibold text-gray-900">
+                            {formatCurrency(fund.currentMoney)}
+                          </p>
                         </div>
-                        <p className="text-green-600 font-bold text-lg">{formatCurrency(contributor.amount)}</p>
+                        <div>
+                          <p className="text-gray-500">Lượt đóng góp</p>
+                          <p className="font-semibold text-gray-900">
+                            {fund.donationCount ?? '0'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Lượt chi tiêu</p>
+                          <p className="font-semibold text-gray-900">
+                            {fund.expenseCount ?? '0'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Ngày tạo</p>
+                          <p className="font-semibold text-gray-900">
+                            {formatDate(fund.createdOn)}
+                          </p>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </button>
+                  );
+                })}
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    setShowCampaignDetailModal(false);
-                    setSelectedCampaign(null);
-                  }}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
+            )}
           </div>
+
+          <FundOverviewSection
+            activeFund={activeFund}
+            computedBalance={computedBalance}
+            totalIncome={totalIncome}
+            totalExpense={totalExpense}
+            uniqueContributorCount={uniqueContributorCount}
+            pendingExpenseCount={pendingExpenses.length}
+            currentFundPurpose={currentFundPurpose}
+            lastUpdated={lastUpdated}
+            recentContributors={recentContributors}
+            transactions={transactions}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            onNavigateHistory={() => undefined}
+            loading={fundDataLoading}
+            onDeposit={handleOpenDeposit}
+            depositDisabled={depositButtonDisabled}
+            showDepositButton
+          />
+        </>
+      )}
+
+      {activeTab === 'campaigns' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Chiến dịch gây quỹ
+            </h3>
+            <button
+              type="button"
+              onClick={handleRefreshCampaigns}
+              disabled={campaignsLoading}
+              className="inline-flex items-center gap-2 px-3 py-1 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${
+                  campaignsLoading
+                    ? 'animate-spin text-blue-600'
+                    : 'text-gray-600'
+                }`}
+              />
+              Làm mới
+            </button>
+          </div>
+          {campaignsLoading ? (
+            <LoadingState message="Đang tải danh sách chiến dịch..." />
+          ) : (
+            <FundCampaignsSection
+              campaigns={campaigns}
+              campaignSearch={campaignSearch}
+              campaignFilter={campaignFilter}
+              onSearchChange={setCampaignSearch}
+              onFilterChange={setCampaignFilter}
+              onRequestCreate={handleOpenCampaignModal}
+              onOpenDetail={handleOpenCampaignDetail}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              getCampaignStatusKey={getCampaignStatusKey}
+              getCampaignStatusLabel={getCampaignStatusLabel}
+              getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+              metrics={campaignMetrics}
+              currentPage={campaignPagination.page}
+              totalPages={campaignPagination.totalPages}
+              totalCount={campaignPagination.totalCount}
+              pageSize={campaignPagination.pageSize}
+              onPageChange={handleCampaignPageChange}
+            />
+          )}
         </div>
       )}
 
-      {/* Approval Feedback Modal */}
-      {showApprovalFeedback && pendingTransaction && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center gap-4 mb-4">
-                {approvalAction === 'approve' ? (
-                  <CheckCircle className="w-12 h-12 text-green-600" />
-                ) : (
-                  <XCircle className="w-12 h-12 text-red-600" />
-                )}
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    {approvalAction === 'approve' ? 'Phê duyệt yêu cầu' : 'Từ chối yêu cầu'}
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">Bạn có chắc chắn?</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-gray-600">Số tiền: </span>
-                    <span className="font-bold">{formatCurrency(pendingTransaction.amount)}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Lý do: </span>
-                    <span className="font-medium">{pendingTransaction.reason}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Người nhận: </span>
-                    <span className="font-medium">{pendingTransaction.recipient}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowApprovalFeedback(false);
-                    setPendingTransaction(null);
-                    setApprovalAction(null);
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={confirmApproval}
-                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-colors ${
-                    approvalAction === 'approve'
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-red-600 text-white hover:bg-red-700'
-                  }`}
-                >
-                  Xác nhận
-                </button>
-              </div>
-            </div>
+      {activeTab === 'donations' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            {fundDataLoading ? (
+              <LoadingState message="Đang tải lịch sử nạp quỹ..." />
+            ) : (
+              <FundDonationHistorySection
+                donations={donations}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                getPaymentMethodLabel={getPaymentMethodLabel}
+                getDonationStatusKey={getDonationStatusKey}
+              />
+            )}
           </div>
+          <FundPendingDonationsSection
+            pendingDonations={myPendingDonations}
+            loading={myPendingLoading}
+            onRefresh={handleRefreshMyPending}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            getPaymentMethodLabel={getPaymentMethodLabel}
+          />
         </div>
       )}
+
+      {activeTab === 'history' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          {fundDataLoading ? (
+            <LoadingState message="Đang tải lịch sử chi tiêu..." />
+          ) : (
+            <FundHistorySection
+              approvedExpenses={approvedExpenses}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+            />
+          )}
+        </div>
+      )}
+
+      {activeTab === 'withdrawal' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <FundWithdrawalSection
+            hasFund={hasAnyFund}
+            computedBalance={computedBalance}
+            campaigns={campaigns}
+            formState={withdrawalForm}
+            onFormChange={handleWithdrawalChange}
+            onSubmit={handleSubmitWithdrawal}
+            actionLoading={actionLoading}
+            formatCurrency={formatCurrency}
+          />
+        </div>
+      )}
+
+      {activeTab === 'approvals' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          {fundDataLoading ? (
+            <LoadingState message="Đang tải yêu cầu rút tiền..." />
+          ) : (
+            <FundApprovalsSection
+              pendingExpenses={pendingExpenses}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              getStatusBadge={getExpenseStatusBadge}
+              onRequestAction={handleRequestAction}
+            />
+          )}
+        </div>
+      )}
+
+      <FundCreateModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateFund}
+        submitting={creatingFund}
+        banks={banks}
+        bankLogos={bankLogos}
+      />
+
+      <FundDepositModal
+        isOpen={isDepositModalOpen}
+        onClose={handleCloseDeposit}
+        onSubmit={handleSubmitDeposit}
+        submitting={depositSubmitting}
+      />
+
+      <FundProofModal
+        isOpen={isProofModalOpen}
+        onClose={handleCloseProof}
+        onSubmit={handleSubmitProof}
+        submitting={proofSubmitting}
+        donation={recentDonation}
+      />
+
+      <FundCampaignDetailModal
+        isOpen={isCampaignDetailOpen}
+        detail={campaignDetail}
+        onClose={handleCloseCampaignDetail}
+        loading={campaignDetailLoading}
+        formatCurrency={formatCurrency}
+        formatDate={formatDate}
+        getCampaignStatusKey={getCampaignStatusKey}
+        getCampaignStatusLabel={getCampaignStatusLabel}
+        getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+        getDonationStatusKey={getDonationStatusKey}
+        getPaymentMethodLabel={getPaymentMethodLabel}
+      />
+
+      <FundCampaignModal
+        isOpen={isCampaignModalOpen}
+        formState={campaignForm}
+        onClose={handleCloseCampaignModal}
+        onFormChange={handleCampaignFormChange}
+        onSubmit={handleSubmitCampaign}
+        submitting={campaignSubmitting}
+      />
     </div>
   );
 };
 
 export default FundManagement;
-
