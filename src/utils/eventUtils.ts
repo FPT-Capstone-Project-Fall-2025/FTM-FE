@@ -8,10 +8,8 @@ import mapIcon from '@/assets/img/icon/Map.svg';
 import mapOtherIcon from '@/assets/img/icon/Map-Other.svg';
 import NonCategorizedIcon from '@/assets/img/icon/Non-categorized.svg';
 import celebrationIcon from '@/assets/img/icon/celebration.svg';
-import calendarIcon from '@/assets/img/icon/calendar_today.svg';
-import locationIcon from '@/assets/img/icon/location.svg';
 
-export const EVENT_TYPE_CONFIG: EventTypeConfigMap = {
+export const EVENT_TYPE_CONFIG: Partial<EventTypeConfigMap> = {
   [EventType.FUNERAL]: {
     label: 'Ma chay, giỗ',
     icon: mapIcon,
@@ -23,7 +21,7 @@ export const EVENT_TYPE_CONFIG: EventTypeConfigMap = {
     color: '#52c41a',
   },
   [EventType.BIRTHDAY]: {
-    label: 'Mừng thọ',
+    label: 'Sinh nhật - Mừng thọ',
     icon: NonCategorizedIcon,
     color: '#1677FF',
   },
@@ -32,21 +30,6 @@ export const EVENT_TYPE_CONFIG: EventTypeConfigMap = {
     icon: celebrationIcon,
     color: '#fa8c16',
   },
-  [EventType.MEMORIAL]: {
-    label: 'Tưởng niệm',
-    icon: calendarIcon,
-    color: '#d946ef',
-  },
-  [EventType.MEETING]: {
-    label: 'Họp mặt',
-    icon: locationIcon,
-    color: '#2f54eb',
-  },
-  [EventType.GATHERING]: {
-    label: 'Sinh hoạt',
-    icon: heartHandshakeIcon,
-    color: '#13c2c2',
-  },
   [EventType.OTHER]: {
     label: 'Khác',
     icon: mapOtherIcon,
@@ -54,15 +37,54 @@ export const EVENT_TYPE_CONFIG: EventTypeConfigMap = {
   },
 };
 
+const SUPPORTED_EVENT_TYPES: EventType[] = [
+  EventType.FUNERAL,
+  EventType.WEDDING,
+  EventType.BIRTHDAY,
+  EventType.HOLIDAY,
+  EventType.OTHER,
+];
+
+export const normalizeEventType = (eventType: number | string | null | undefined): EventType => {
+  if (typeof eventType === 'string') {
+    const upper = eventType.toUpperCase();
+    if (SUPPORTED_EVENT_TYPES.includes(upper as EventType)) {
+      return upper as EventType;
+    }
+    switch (upper) {
+      case EventType.MEMORIAL:
+      case EventType.MEETING:
+      case EventType.GATHERING:
+        return EventType.OTHER;
+      default:
+        return EventType.OTHER;
+    }
+  }
+
+  switch (eventType) {
+    case 0:
+      return EventType.FUNERAL;
+    case 1:
+      return EventType.WEDDING;
+    case 2:
+      return EventType.BIRTHDAY;
+    case 3:
+      return EventType.HOLIDAY;
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+    default:
+      return EventType.OTHER;
+  }
+};
+
 // Event Type Labels
-export const EVENT_TYPE_LABELS: Record<EventType, string> = {
+export const EVENT_TYPE_LABELS: Partial<Record<EventType, string>> = {
   [EventType.FUNERAL]: 'Ma chay, giỗ',
   [EventType.WEDDING]: 'Cưới hỏi',
-  [EventType.BIRTHDAY]: 'Sinh nhật',
+  [EventType.BIRTHDAY]: 'Sinh nhật - Mừng thọ',
   [EventType.HOLIDAY]: 'Ngày lễ',
-  [EventType.MEMORIAL]: 'Tưởng niệm',
-  [EventType.MEETING]: 'Họp mặt',
-  [EventType.GATHERING]: 'Sinh hoạt',
   [EventType.OTHER]: 'Khác',
 };
 
@@ -86,17 +108,17 @@ export const VIEW_MODE_LABELS = {
 
 // Get event type color
 export const getEventTypeColor = (eventType: EventType): string => {
-  return EVENT_TYPE_CONFIG[eventType]?.color || EVENT_TYPE_CONFIG[EventType.OTHER].color;
+  return EVENT_TYPE_CONFIG[eventType]?.color || EVENT_TYPE_CONFIG[EventType.OTHER]?.color || '#FAAD14';
 };
 
 // Get event type label
 export const getEventTypeLabel = (eventType: EventType): string => {
-  return EVENT_TYPE_CONFIG[eventType]?.label || 'Khác';
+  return EVENT_TYPE_CONFIG[eventType]?.label || EVENT_TYPE_CONFIG[EventType.OTHER]?.label || 'Khác';
 };
 
 // Get event type icon
 export const getEventTypeIcon = (eventType: EventType): string => {
-  return EVENT_TYPE_CONFIG[eventType]?.icon || EVENT_TYPE_CONFIG[EventType.OTHER].icon;
+  return EVENT_TYPE_CONFIG[eventType]?.icon || EVENT_TYPE_CONFIG[EventType.OTHER]?.icon || mapOtherIcon;
 };
 
 // Check if event is all day

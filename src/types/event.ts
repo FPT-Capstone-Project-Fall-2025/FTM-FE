@@ -55,7 +55,7 @@ export interface EventTypeConfig {
   color: string;
 }
 
-export type EventTypeConfigMap = Record<EventType, EventTypeConfig>;
+export type EventTypeConfigMap = Partial<Record<EventType, EventTypeConfig>>;
 
 // Weather Data
 export interface WeatherData {

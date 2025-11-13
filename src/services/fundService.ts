@@ -169,9 +169,124 @@ export const fundService = {
     };
   },
 
+  async fetchActiveCampaigns(
+    page = 1,
+    pageSize = 10
+  ): Promise<{
+    items: FundCampaign[];
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    totalCount: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  }> {
+    const response = await api.get<ApiResponse<any>>(`/ftcampaign/active`, {
+      params: {
+        page,
+        pageSize,
+      },
+    });
+
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray(payload?.items);
+
+    const items: FundCampaign[] = rawItems.map((item: any) => {
+      const determineStatus = (): string => {
+        const now = new Date();
+        const endDate = item.endDate ? new Date(item.endDate) : null;
+        const progress = Number(item.progressPercentage ?? 0);
+        if (progress >= 100) return 'completed';
+        if (item.isActive === false && endDate && endDate < now) return 'completed';
+        if (item.isActive) return 'active';
+        return 'upcoming';
+      };
+
+      return {
+        id: item.id,
+        ftId: item.familyTreeId ?? '',
+        campaignName: item.name ?? item.campaignName ?? '',
+        campaignDescription: item.description ?? item.purpose ?? null,
+        campaignManagerId: item.campaignManagerId ?? null,
+        startDate: item.startDate ?? null,
+        endDate: item.endDate ?? null,
+        fundGoal: item.targetAmount !== undefined ? Number(item.targetAmount) : null,
+        currentBalance: item.currentAmount !== undefined ? Number(item.currentAmount) : null,
+        status: determineStatus(),
+        lastModifiedOn: item.updatedAt ?? null,
+        createdOn: item.createdAt ?? null,
+        accountHolderName: item.beneficiaryInfo ?? null,
+        progressPercentage:
+          item.progressPercentage !== undefined ? Number(item.progressPercentage) : null,
+        totalDonations: item.totalDonations !== undefined ? Number(item.totalDonations) : null,
+        totalDonors: item.totalDonors !== undefined ? Number(item.totalDonors) : null,
+        isActive: item.isActive ?? null,
+      };
+    });
+
+    return {
+      items,
+      page: payload?.page ?? payload?.pageIndex ?? page,
+      pageSize: payload?.pageSize ?? pageSize,
+      totalPages: payload?.totalPages ?? 1,
+      totalCount: payload?.totalCount ?? payload?.totalItems ?? items.length,
+      hasPrevious: payload?.hasPrevious ?? false,
+      hasNext: payload?.hasNext ?? false,
+    };
+  },
+
   async fetchCampaignById(campaignId: string): Promise<FundCampaign | null> {
-    const result = await api.get<ApiResponse<FundCampaign>>(`/ftcampaign/${campaignId}`);
-    return unwrap<FundCampaign | null>(result) ?? null;
+    const response = await api.get<ApiResponse<any>>(`/ftcampaign/${campaignId}`);
+    const payload = unwrap<any>(response);
+    if (!payload) {
+      return null;
+    }
+
+    const determineStatus = (): string => {
+      if (payload.status) {
+        return String(payload.status).toLowerCase();
+      }
+      const now = new Date();
+      const endDate = payload.endDate ? new Date(payload.endDate) : null;
+      const progress = Number(payload.progressPercentage ?? 0);
+      if (progress >= 100) return 'completed';
+      if (payload.isActive === false && endDate && endDate < now) return 'completed';
+      if (payload.isActive) return 'active';
+      return 'upcoming';
+    };
+
+    return {
+      id: payload.id ?? campaignId,
+      ftId: payload.ftId ?? payload.familyTreeId ?? '',
+      campaignName: payload.campaignName ?? payload.name ?? '',
+      campaignDescription: payload.campaignDescription ?? payload.description ?? payload.purpose ?? null,
+      campaignManagerId: payload.campaignManagerId ?? null,
+      startDate: payload.startDate ?? null,
+      endDate: payload.endDate ?? null,
+      fundGoal: payload.fundGoal !== undefined ? Number(payload.fundGoal) : null,
+      currentBalance: payload.currentBalance !== undefined ? Number(payload.currentBalance) : null,
+      status: determineStatus(),
+      lastModifiedOn: payload.lastModifiedOn ?? payload.updatedAt ?? null,
+      createdOn: payload.createdOn ?? payload.createdAt ?? null,
+      imageUrl: payload.imageUrl ?? null,
+      isPublic: payload.isPublic ?? null,
+      notes: payload.notes ?? null,
+      accountHolderName:
+        payload.accountHolderName ??
+        payload.bankInfo?.accountHolderName ??
+        payload.beneficiaryInfo ??
+        null,
+      bankAccountNumber:
+        payload.bankAccountNumber ?? payload.bankInfo?.bankAccountNumber ?? null,
+      bankCode: payload.bankCode ?? payload.bankInfo?.bankCode ?? null,
+      bankName: payload.bankName ?? payload.bankInfo?.bankName ?? null,
+      progressPercentage:
+        payload.progressPercentage !== undefined ? Number(payload.progressPercentage) : null,
+      totalDonations:
+        payload.totalDonations !== undefined ? Number(payload.totalDonations) : null,
+      totalDonors: payload.totalDonors !== undefined ? Number(payload.totalDonors) : null,
+      isActive: payload.isActive ?? null,
+    };
   },
 
   async createCampaign(payload: CreateCampaignPayload) {
