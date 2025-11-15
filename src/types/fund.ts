@@ -17,6 +17,7 @@ export interface Fund {
   bankCode?: string | null;
   bankName?: string | null;
   isActive?: boolean;
+  fundManagers?: string | null;
 }
 
 export interface FundDonation {
@@ -189,6 +190,17 @@ export interface CreateFundExpensePayload {
   expenseEvent?: string | null;
   recipient: string;
   plannedDate?: string | null;
+  receiptImages?: File[];
+}
+
+export interface CreateFundExpenseResponse {
+  expenseId: string;
+  amount: number;
+  description: string;
+  status: string;
+  receiptCount: number;
+  receiptUrls: string[];
+  warning: string | null;
 }
 
 export interface ApproveFundExpensePayload {
@@ -252,6 +264,14 @@ export interface CreateFundDonationPayload {
 
 export interface FundDonationsResponse {
   donations: FundDonation[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface FundExpensesResponse {
+  expenses: FundExpense[];
   totalCount: number;
   page: number;
   pageSize: number;

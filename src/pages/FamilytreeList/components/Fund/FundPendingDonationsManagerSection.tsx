@@ -28,7 +28,6 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
   formatCurrency,
   formatDate,
   getPaymentMethodLabel,
-  confirmerId,
 }) => {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);

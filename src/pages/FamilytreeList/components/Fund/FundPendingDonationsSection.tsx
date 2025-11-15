@@ -229,10 +229,10 @@ const FundPendingDonationsSection: React.FC<FundPendingDonationsSectionProps> = 
                   {(() => {
                     const itemProofImages = normalizeProofImages(item.proofImages);
                     return itemProofImages.length > 0 && (
-                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                        <Image className="w-3 h-3" />
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <Image className="w-3 h-3" />
                         Đã upload {itemProofImages.length} ảnh chứng từ
-                      </p>
+                    </p>
                     );
                   })()}
                 </div>

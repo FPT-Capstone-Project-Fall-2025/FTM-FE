@@ -85,7 +85,7 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
     if (isOpen && fund) {
       // Parse fundManagers if it's a comma-separated string of IDs
       const managerIds = fund.fundManagers
-        ? fund.fundManagers.split(',').map(id => id.trim()).filter(Boolean)
+        ? fund.fundManagers.split(',').map((id: string) => id.trim()).filter(Boolean)
         : [];
       setSelectedMemberIds(managerIds);
       

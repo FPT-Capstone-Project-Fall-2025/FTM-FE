@@ -1,13 +1,13 @@
 import api from './apiService';
 import type {
   Fund,
-  FundDonation,
   FundDonationStats,
   FundExpense,
   FundCampaign,
   CampaignDonation,
   CampaignExpense,
   CreateFundExpensePayload,
+  CreateFundExpenseResponse,
   ApproveFundExpensePayload,
   RejectFundExpensePayload,
   CreateCampaignPayload,
@@ -18,6 +18,7 @@ import type {
   CreateFundDonationPayload,
   CreateFundDonationResponse,
   FundDonationsResponse,
+  FundExpensesResponse,
   MyPendingDonation,
   CampaignStatistics,
   CampaignFinancialSummary,
@@ -55,22 +56,128 @@ export const fundService = {
     return normalizeArray(unwrap<Fund[] | Fund>(result));
   },
 
-  async fetchFundExpenses(fundId: string): Promise<FundExpense[]> {
-    const result = await api.get<ApiResponse<FundExpense[]>>(`/fund-expenses/fund/${fundId}`);
+  async fetchFundExpenses(
+    fundId: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<FundExpensesResponse> {
+    const response = await api.get<ApiResponse<FundExpensesResponse>>(
+      `/fund-expenses/fund/${fundId}`,
+      {
+        params: {
+          page,
+          pageSize,
+        },
+      }
+    );
+    const data = unwrap<FundExpensesResponse>(response);
+    if (!data) {
+      return {
+        expenses: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: pageSize,
+        totalPages: 1,
+      };
+    }
+    // Handle case where response might be direct array (backward compatibility)
+    if (Array.isArray(data)) {
+      return {
+        expenses: data,
+        totalCount: data.length,
+        page: 1,
+        pageSize: data.length,
+        totalPages: 1,
+      };
+    }
+    // Handle nested structure with expenses array
+    if ('expenses' in data) {
+      const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
+      return {
+        expenses: expensesArray,
+        totalCount: data.totalCount ?? expensesArray.length,
+        page: data.page ?? page,
+        pageSize: data.pageSize ?? pageSize,
+        totalPages: data.totalPages ?? 1,
+      };
+    }
+    // Default fallback
+    return {
+      expenses: [],
+      totalCount: 0,
+      page: page,
+      pageSize: pageSize,
+      totalPages: 1,
+    };
+  },
+
+  async fetchPendingFundExpenses(treeId: string): Promise<FundExpense[]> {
+    const result = await api.get<ApiResponse<FundExpense[]>>(`/fund-expenses/pending`, {
+      params: {
+        treeId,
+      },
+    });
     return normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
   },
 
-  async fetchPendingFundExpenses(): Promise<FundExpense[]> {
-    const result = await api.get<ApiResponse<FundExpense[]>>(`/fund-expenses/pending`);
-    return normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
-  },
+  async createFundExpense(payload: CreateFundExpensePayload): Promise<CreateFundExpenseResponse> {
+    // Always use FormData as the API expects form-data format
+    const formData = new FormData();
+    
+    // Required fields with exact field names as per API
+    formData.append('FundId', payload.fundId);
+    formData.append('Amount', payload.amount.toString());
+    formData.append('Description', payload.description);
+    formData.append('Recipient', payload.recipient);
+    
+    // Optional fields
+    if (payload.campaignId) {
+      formData.append('CampaignId', payload.campaignId);
+    }
+    if (payload.expenseEvent) {
+      formData.append('ExpenseEvent', payload.expenseEvent);
+    }
+    if (payload.plannedDate) {
+      // Format date as ISO string if needed
+      const dateValue = payload.plannedDate.includes('T') 
+        ? payload.plannedDate 
+        : `${payload.plannedDate}T00:00:00Z`;
+      formData.append('PlannedDate', dateValue);
+    }
+    
+    // Append receipt images if provided
+    if (payload.receiptImages && payload.receiptImages.length > 0) {
+      payload.receiptImages.forEach(file => {
+        formData.append('ReceiptImages', file);
+      });
+    }
 
-  async createFundExpense(payload: CreateFundExpensePayload) {
-    return api.post<ApiResponse<FundExpense>>(`/fund-expenses`, payload);
+    // Don't set Content-Type header manually - let axios set it automatically with boundary
+    const response = await api.post<ApiResponse<CreateFundExpenseResponse>>(
+      `/fund-expenses`,
+      formData
+    );
+    
+    const data = unwrap<CreateFundExpenseResponse>(response);
+    if (!data) {
+      throw new Error('Invalid response from server');
+    }
+    return data;
   },
 
   async approveFundExpense(id: string, payload: ApproveFundExpensePayload) {
-    return api.put<ApiResponse<boolean>>(`/fund-expenses/${id}/approve`, payload);
+    // Use POST method and JSON payload (no payment proof images required)
+    const jsonPayload: any = {
+      approverId: payload.approverId,
+    };
+    if (payload.notes) {
+      jsonPayload.notes = payload.notes;
+    }
+
+    return api.post<ApiResponse<boolean>>(
+      `/fund-expenses/${id}/approve`,
+      jsonPayload
+    );
   },
 
   async rejectFundExpense(id: string, payload: RejectFundExpensePayload) {
