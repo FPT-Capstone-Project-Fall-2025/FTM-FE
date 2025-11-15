@@ -561,13 +561,15 @@ export const fundService = {
     }
 
     const determineStatus = (): string => {
+      // API returns status as string: "Active", "Completed", "Cancelled", etc.
       if (payload.status) {
-        const statusStr = String(payload.status);
-        if (statusStr.toLowerCase() === 'active') return 'active';
-        if (statusStr.toLowerCase() === 'completed') return 'completed';
-        if (statusStr.toLowerCase() === 'cancelled') return 'cancelled';
+        const statusStr = String(payload.status).toLowerCase();
+        if (statusStr === 'active') return 'active';
+        if (statusStr === 'completed') return 'completed';
+        if (statusStr === 'cancelled') return 'cancelled';
         return 'upcoming';
       }
+      // Fallback logic if status is not provided
       const now = new Date();
       const endDate = payload.endDate ? new Date(payload.endDate) : null;
       const progress = Number(payload.progressPercentage ?? 0);
@@ -575,6 +577,21 @@ export const fundService = {
       if (payload.isActive === false && endDate && endDate < now) return 'completed';
       if (payload.isActive) return 'active';
       return 'upcoming';
+    };
+
+    // Calculate progress percentage if not provided
+    const calculateProgress = (): number | null => {
+      if (payload.progressPercentage !== undefined) {
+        return Number(payload.progressPercentage);
+      }
+      if (payload.fundGoal && payload.currentBalance !== undefined) {
+        const goal = Number(payload.fundGoal);
+        const current = Number(payload.currentBalance);
+        if (goal > 0) {
+          return Math.min(100, Math.round((current / goal) * 100 * 100) / 100);
+        }
+      }
+      return null;
     };
 
     return {
@@ -593,21 +610,14 @@ export const fundService = {
       imageUrl: payload.imageUrl ?? null,
       isPublic: payload.isPublic ?? null,
       notes: payload.notes ?? null,
-      accountHolderName:
-        payload.accountHolderName ??
-        payload.bankInfo?.accountHolderName ??
-        payload.beneficiaryInfo ??
-        null,
-      bankAccountNumber:
-        payload.bankAccountNumber ?? payload.bankInfo?.bankAccountNumber ?? null,
-      bankCode: payload.bankCode ?? payload.bankInfo?.bankCode ?? null,
-      bankName: payload.bankName ?? payload.bankInfo?.bankName ?? null,
-      progressPercentage:
-        payload.progressPercentage !== undefined ? Number(payload.progressPercentage) : null,
-      totalDonations:
-        payload.totalDonations !== undefined ? Number(payload.totalDonations) : null,
+      accountHolderName: payload.accountHolderName ?? payload.beneficiaryInfo ?? null,
+      bankAccountNumber: payload.bankAccountNumber ?? null,
+      bankCode: payload.bankCode ?? null,
+      bankName: payload.bankName ?? null,
+      progressPercentage: calculateProgress(),
+      totalDonations: payload.totalDonations !== undefined ? Number(payload.totalDonations) : (payload.donations?.length ?? null),
       totalDonors: payload.totalDonors !== undefined ? Number(payload.totalDonors) : null,
-      isActive: payload.isActive ?? null,
+      isActive: ((payload.status?.toLowerCase() === 'active') || payload.isActive) ?? null,
     };
   },
 
