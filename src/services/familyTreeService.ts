@@ -114,7 +114,10 @@ const familyTreeService = {
 
   getInvitationsList(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FTInvitation[]>>> {
     return api.get(`/invitation/list`, {
-      params: props
+      params: {
+        ...props,
+        propertyFilters: JSON.stringify(props?.propertyFilters)
+      },
     });
   },
 

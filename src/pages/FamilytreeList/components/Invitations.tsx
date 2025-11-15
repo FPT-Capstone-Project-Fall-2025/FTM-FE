@@ -15,7 +15,7 @@ const Invitations: React.FC = () => {
         pageSize: 10,
         propertyFilters: [
             {
-                name: "FTId",
+                name: "FtId",
                 operation: "EQUAL",
                 value: selectedFamilyTree ? selectedFamilyTree.id : ''
             }
@@ -61,9 +61,9 @@ const Invitations: React.FC = () => {
         });
     };
 
-    // const getStatusLabel = (status: number) => {
-    //     return status === 0 ? "Chưa duyệt" : status === 1 ? "Đã duyệt" : "Từ chối";
-    // };
+    const getStatusLabel = (status: string) => {
+        return status === 'PENDING' ? "Chưa duyệt" : status === 'ACCEPTED' ? "Đã chấp nhận" : "Từ chối";
+    };
 
     return (
         <div className="h-full overflow-hidden space-y-6 flex flex-col p-6 bg-gray-50">
@@ -88,10 +88,10 @@ const Invitations: React.FC = () => {
                         <tr className="border-b border-gray-200 bg-gray-50">
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Họ Tên</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Thành viên liên kết</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ngày Mời</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ngày hết hạn</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Trạng Thái</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Người mời</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -106,17 +106,16 @@ const Invitations: React.FC = () => {
                                 <tr key={invitation.token} className="border-b border-gray-200 hover:bg-gray-50">
                                     <td className="px-6 py-4 text-sm font-medium text-blue-600">{invitation.invitedName}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{invitation.email}</td>
+                                    <td className="px-6 py-4 text-sm">{invitation.ftMemberName}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{formatDate(invitation.createdOn)}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{formatDate(invitation.expirationDate)}</td>
                                     <td className="px-6 py-4 text-sm">
-                                        {/* <span className={
-                                            invitation.status === 1 ? "text-green-600" :
-                                                invitation.status === 2 ? "text-red-600" : "text-yellow-600"
+                                        <span className={
+                                            invitation.status === 'ACCEPTED' ? "text-green-600" :
+                                                invitation.status === 'REJECTED' ? "text-red-600" : "text-yellow-600"
                                         }>
-                                            {getStatusLabel(invitation.email)}
-                                        </span> */}
+                                            {getStatusLabel(invitation.status)}
+                                        </span>
                                     </td>
-                                    <td className="px-6 py-4 text-sm">{invitation.inviterName}</td>
                                 </tr>
                             ))
                         ) : (
