@@ -20,15 +20,7 @@ const apiClient: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-  },
-  // This tells axios not to transform header names
-  transformRequest: [(data) => {
-    // Preserve header case by preventing normalization
-    if (data && typeof data === 'object') {
-      return JSON.stringify(data);
-    }
-    return data;
-  }],
+  }
 });
 
 let isRedirecting = false;
@@ -43,11 +35,11 @@ apiClient.interceptors.request.use(
     if (persistedState) {
       try {
         const parsed = JSON.parse(persistedState)
-        const authState = JSON.parse(parsed.auth) // 'auth' is your slice name
+        const authState = JSON.parse(parsed.auth) 
         const token = authState.token
 
         if (token && config.headers) {
-          // config.withCredentials = true;
+          config.withCredentials = true;
           config.headers.Authorization = `Bearer ${token}`
         }
       } catch (error) {
@@ -61,13 +53,13 @@ apiClient.interceptors.request.use(
     const headers = config.headers as any;
 
     // Check if X-FtId or x-ftid exists and ensure it's properly set
-    if (headers['X-FtId']) {
-      const ftId = headers['X-FtId'];
+    if (headers['X-Ftid']) {
+      const ftId = headers['X-Ftid'];
       // Delete the original and re-add to try to preserve case
-      delete headers['X-FtId'];
+      delete headers['X-Ftid'];
       // Force set with proper casing - Axios will normalize it but backend should accept both
-      headers['X-FtId'] = ftId;
-      console.log('X-FtId header set to:', ftId);
+      headers['X-Ftid'] = ftId;
+      console.log('X-Ftid header set to:', ftId);
     } else if (headers['x-ftid']) {
       console.log('x-ftid header detected (normalized):', headers['x-ftid']);
     }

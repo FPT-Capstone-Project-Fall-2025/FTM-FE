@@ -1,9 +1,9 @@
 import type { FTAuth, FTAuthList } from '@/types/familytree';
-import type { ApiResponse, PaginationProps } from './../types/api';
+import type { ApiResponse, PaginationProps, PaginationResponse } from './../types/api';
 import api from './apiService';
 
 const ftauthorizationService = {
-  getFTAuths(ftId?: string, props?: PaginationProps): Promise<ApiResponse<FTAuthList>> {
+  getFTAuths(ftId?: string, props?: PaginationProps): Promise<ApiResponse<PaginationResponse<FTAuthList[]>>> {
     return api.get('/ftauthorization/list', {
       params: {
         ...props,
