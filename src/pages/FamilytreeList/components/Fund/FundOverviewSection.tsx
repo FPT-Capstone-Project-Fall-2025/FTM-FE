@@ -6,6 +6,7 @@ import {
   Users,
   Clock,
   Eye,
+  Edit,
 } from 'lucide-react';
 import type { Fund } from '@/types/fund';
 import { EmptyState, LoadingState } from './FundLoadingEmpty';
@@ -44,6 +45,11 @@ interface FundOverviewSectionProps {
   onDeposit?: () => void;
   depositDisabled?: boolean;
   showDepositButton?: boolean;
+  onWithdraw?: () => void;
+  withdrawDisabled?: boolean;
+  showWithdrawButton?: boolean;
+  onEdit?: () => void;
+  isOwner?: boolean;
 }
 
 const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
@@ -64,6 +70,11 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   onDeposit,
   depositDisabled = false,
   showDepositButton = true,
+  onWithdraw,
+  withdrawDisabled = false,
+  showWithdrawButton = true,
+  onEdit,
+  isOwner = false,
 }) => {
   if (loading) {
     return <LoadingState message="Đang cập nhật dữ liệu quỹ" />;
@@ -83,26 +94,51 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-blue-100 text-sm font-medium mb-2">
-              Số dư hiện tại
-            </p>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-blue-100 text-sm font-medium">
+                Số dư hiện tại
+              </p>
+              {isOwner && onEdit && (
+                <button
+                  onClick={onEdit}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-lg transition-colors"
+                  type="button"
+                  title="Chỉnh sửa thông tin Quỹ"
+                >
+                  <Edit className="w-4 h-4" />
+                  Chỉnh sửa thông tin Quỹ
+                </button>
+              )}
+            </div>
             <h3 className="text-4xl font-bold mb-1">
               {formatCurrency(computedBalance)}
             </h3>
             <p className="text-blue-100 text-sm">Cập nhật: {lastUpdated}</p>
           </div>
           <div className="flex items-center gap-4">
-            {showDepositButton && onDeposit && (
-              <button
-                onClick={onDeposit}
-                disabled={depositDisabled}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                type="button"
-              >
-                Nạp
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {showDepositButton && onDeposit && (
+                <button
+                  onClick={onDeposit}
+                  disabled={depositDisabled}
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="button"
+                >
+                  Nạp
+                </button>
+              )}
+              {showWithdrawButton && onWithdraw && (
+                <button
+                  onClick={onWithdraw}
+                  disabled={withdrawDisabled}
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="button"
+                >
+                  Rút
+                </button>
+              )}
+            </div>
             <Wallet className="w-20 h-20 text-blue-200 opacity-50" />
           </div>
         </div>

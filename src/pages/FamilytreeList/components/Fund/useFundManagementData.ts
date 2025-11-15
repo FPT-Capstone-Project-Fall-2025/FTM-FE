@@ -14,6 +14,7 @@ import type {
   CreateFundExpensePayload,
   CreateFundPayload,
   CreateFundDonationPayload,
+  CreateFundDonationResponse,
   MyPendingDonation,
 } from '@/types/fund';
 
@@ -41,6 +42,7 @@ export interface FundWithdrawalInput {
   plannedDate?: string;
   expenseEvent?: string;
   campaignId?: string | null;
+  receiptImages: File[];
 }
 
 export interface CampaignCreationInput {
@@ -89,11 +91,16 @@ export interface UseFundManagementDataReturn {
   activeCampaignsLoading: boolean;
   myPendingDonations: MyPendingDonation[];
   myPendingLoading: boolean;
+  pendingDonations: MyPendingDonation[];
+  pendingDonationsLoading: boolean;
   refreshAll: () => Promise<void>;
   refreshFundDetails: () => Promise<void>;
   createWithdrawal: (input: FundWithdrawalInput) => Promise<void>;
-  approveExpense: (expenseId: string, notes?: string, approverId?: string) => Promise<void>;
+  approveExpense: (expenseId: string, notes?: string, approverId?: string, paymentProofImages?: File[]) => Promise<void>;
   rejectExpense: (expenseId: string, reason?: string, rejectedBy?: string) => Promise<void>;
+  pendingExpenses: FundExpense[];
+  pendingExpensesLoading: boolean;
+  refreshPendingExpenses: () => Promise<void>;
   createCampaign: (input: CampaignCreationInput) => Promise<void>;
   loadCampaignDetail: (campaignId: string) => Promise<CampaignDetail | null>;
   refreshCampaigns: (page?: number) => Promise<void>;
@@ -101,8 +108,15 @@ export interface UseFundManagementDataReturn {
   refreshActiveCampaigns: (page?: number) => Promise<void>;
   changeActiveCampaignPage: (page: number) => Promise<void>;
   refreshMyPendingDonations: () => Promise<void>;
+  refreshPendingDonations: () => Promise<void>;
+  confirmDonation: (donationId: string, confirmerId: string, confirmationNotes?: string) => Promise<void>;
+  rejectDonation: (donationId: string, rejectedBy: string, reason?: string) => Promise<void>;
+  uploadDonationProof: (donationId: string, files: File[]) => Promise<void>;
   createFund: (payload: CreateFundPayload) => Promise<Fund | null>;
-  donateToFund: (fundId: string, payload: CreateFundDonationPayload) => Promise<void>;
+  donateToFund: (
+    fundId: string,
+    payload: CreateFundDonationPayload
+  ) => Promise<CreateFundDonationResponse>;
 }
 
 export const useFundManagementData = (
@@ -121,6 +135,8 @@ export const useFundManagementData = (
   const [donations, setDonations] = useState<FundDonation[]>([]);
   const [donationStats, setDonationStats] = useState<FundDonationStats | null>(null);
   const [expenses, setExpenses] = useState<FundExpense[]>([]);
+  const [pendingExpenses, setPendingExpenses] = useState<FundExpense[]>([]);
+  const [pendingExpensesLoading, setPendingExpensesLoading] = useState(false);
   const [campaigns, setCampaigns] = useState<FundCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [campaignPagination, setCampaignPagination] = useState<CampaignPaginationState>({
@@ -143,6 +159,8 @@ export const useFundManagementData = (
   });
   const [myPendingDonations, setMyPendingDonations] = useState<MyPendingDonation[]>([]);
   const [myPendingLoading, setMyPendingLoading] = useState(false);
+  const [pendingDonations, setPendingDonations] = useState<MyPendingDonation[]>([]);
+  const [pendingDonationsLoading, setPendingDonationsLoading] = useState(false);
   const [creatingFund, setCreatingFund] = useState(false);
   const [donating, setDonating] = useState(false);
 
@@ -160,14 +178,18 @@ export const useFundManagementData = (
       setError(null);
       try {
         const [donationsRes, donationStatsRes, expensesRes] = await Promise.all([
-          fundService.fetchFundDonations(fundId),
+          fundService.fetchFundDonations(fundId, 1, 100), // Fetch first 100 donations
           fundService.fetchFundDonationStats(fundId),
-          fundService.fetchFundExpenses(fundId),
+          fundService.fetchFundExpenses(fundId, 1, 100), // Fetch first 100 expenses
         ]);
 
-        setDonations(donationsRes);
+        // Extract donations array from response
+        const donationsList = donationsRes.donations || [];
+        setDonations(donationsList);
         setDonationStats(donationStatsRes ?? null);
-        setExpenses(expensesRes);
+        // Extract expenses array from response
+        const expensesList = Array.isArray(expensesRes.expenses) ? expensesRes.expenses : [];
+        setExpenses(expensesList);
       } catch (err) {
         console.error('Failed to load fund details', err);
         setError('Không thể tải dữ liệu quỹ. Vui lòng thử lại.');
@@ -238,6 +260,95 @@ export const useFundManagementData = (
       setMyPendingLoading(false);
     }
   }, [currentMemberId, currentUserId]);
+
+  const refreshPendingDonations = useCallback(async () => {
+    setPendingDonationsLoading(true);
+    try {
+      const list = await fundService.fetchPendingDonations();
+      setPendingDonations(list);
+    } catch (err) {
+      console.error('Failed to load pending donations', err);
+      setError(prev => prev ?? 'Không thể tải danh sách đóng góp đang chờ xác nhận.');
+    } finally {
+      setPendingDonationsLoading(false);
+    }
+  }, []);
+
+  const uploadDonationProof = useCallback(
+    async (donationId: string, files: File[]): Promise<void> => {
+      console.log('[useFundManagementData.uploadDonationProof] Starting upload', {
+        donationId,
+        fundDonationId: donationId,
+        filesCount: files.length,
+        fileNames: files.map(f => f.name),
+      });
+
+      setActionLoading(true);
+      setError(null);
+      try {
+        console.log('[useFundManagementData.uploadDonationProof] Calling fundService.uploadDonationProof with donationId:', donationId);
+        await fundService.uploadDonationProof(donationId, files);
+        console.log('[useFundManagementData.uploadDonationProof] Upload successful');
+      } catch (err) {
+        console.error('[useFundManagementData.uploadDonationProof] Failed to upload donation proof', {
+          error: err,
+          donationId,
+          fundDonationId: donationId,
+        });
+        throw err;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    []
+  );
+
+  const confirmDonation = useCallback(
+    async (donationId: string, confirmerId: string, confirmationNotes?: string) => {
+      setActionLoading(true);
+      setError(null);
+      try {
+        await fundService.confirmDonation(donationId, {
+          donationId,
+          confirmedBy: confirmerId,
+          ...(confirmationNotes ? { notes: confirmationNotes } : {}),
+        });
+        // Refresh pending donations and fund details after confirmation
+        await refreshPendingDonations();
+        if (activeFund?.id) {
+          await loadFundDetails(activeFund.id);
+        }
+      } catch (err) {
+        console.error('Failed to confirm donation', err);
+        throw err;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [refreshPendingDonations, activeFund?.id, loadFundDetails]
+  );
+
+  const rejectDonation = useCallback(
+    async (donationId: string, rejectedBy: string, reason?: string) => {
+      setActionLoading(true);
+      setError(null);
+      try {
+        await fundService.rejectDonation(donationId, {
+          rejectedBy,
+          ...(reason ? { reason } : {}),
+        });
+        // Refresh pending donations after rejection
+        await refreshPendingDonations();
+        await refreshMyPendingDonations();
+      } catch (err) {
+        console.error('Failed to reject donation', err);
+        throw err;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [refreshPendingDonations, refreshMyPendingDonations]
+  );
 
   const refreshCampaigns = useCallback(
     async (page?: number) => {
@@ -335,6 +446,7 @@ export const useFundManagementData = (
       refreshCampaigns(campaignPagination.page),
       refreshActiveCampaigns(activeCampaignPagination.page),
       refreshMyPendingDonations(),
+      refreshPendingDonations(),
     ]);
   }, [
     activeCampaignPagination.page,
@@ -343,6 +455,7 @@ export const useFundManagementData = (
     refreshActiveCampaigns,
     refreshCampaigns,
     refreshMyPendingDonations,
+    refreshPendingDonations,
   ]);
 
   const createWithdrawal = useCallback(
@@ -358,6 +471,7 @@ export const useFundManagementData = (
           amount: input.amount,
           description: input.description,
           recipient: input.recipient,
+          receiptImages: input.receiptImages,
         };
 
         if (input.expenseEvent) {
@@ -372,7 +486,16 @@ export const useFundManagementData = (
           payload.campaignId = input.campaignId;
         }
 
-        await fundService.createFundExpense(payload);
+        const response = await fundService.createFundExpense(payload);
+        
+        // Response contains expenseId, status, receiptCount, receiptUrls, warning
+        // We can use this for logging or future enhancements
+        console.log('Expense created:', {
+          expenseId: response.expenseId,
+          status: response.status,
+          receiptCount: response.receiptCount,
+          warning: response.warning,
+        });
 
         await loadFundDetails(activeFund.id);
       } finally {
@@ -382,8 +505,26 @@ export const useFundManagementData = (
     [activeFund?.id, loadFundDetails]
   );
 
+  const refreshPendingExpenses = useCallback(async () => {
+    if (!familyTreeId) {
+      setPendingExpenses([]);
+      return;
+    }
+
+    setPendingExpensesLoading(true);
+    try {
+      const expenses = await fundService.fetchPendingFundExpenses(familyTreeId);
+      setPendingExpenses(Array.isArray(expenses) ? expenses : []);
+    } catch (err) {
+      console.error('Failed to fetch pending expenses', err);
+      setPendingExpenses([]);
+    } finally {
+      setPendingExpensesLoading(false);
+    }
+  }, [familyTreeId]);
+
   const approveExpense = useCallback(
-    async (expenseId: string, notes?: string, approverId?: string) => {
+    async (expenseId: string, notes?: string, approverId?: string, paymentProofImages?: File[]) => {
       if (!activeFund?.id) {
         throw new Error('Không xác định được quỹ hiện tại.');
       }
@@ -395,17 +536,36 @@ export const useFundManagementData = (
 
       setActionLoading(true);
       try {
-        await fundService.approveFundExpense(expenseId, {
+        console.log('[useFundManagementData.approveExpense] Calling approve with:', {
+          expenseId,
+          approverId: approver,
+          notes,
+          paymentProofImagesCount: paymentProofImages?.length || 0,
+          paymentProofImages: paymentProofImages?.map(f => ({ name: f.name, size: f.size, type: f.type })) || [],
+        });
+
+        const response = await fundService.approveFundExpense(expenseId, {
           approverId: approver,
           notes: notes ?? null,
+          paymentProofImages: paymentProofImages && paymentProofImages.length > 0 ? paymentProofImages : [],
+        });
+
+        console.log('[useFundManagementData.approveExpense] Approval successful:', {
+          expenseId: response.id,
+          newFundBalance: response.newFundBalance,
+          paymentProofUrl: response.paymentProofUrl,
         });
 
         await loadFundDetails(activeFund.id);
+        // Refresh pending expenses after approval
+        if (familyTreeId) {
+          await refreshPendingExpenses();
+        }
       } finally {
         setActionLoading(false);
       }
     },
-    [activeFund?.id, currentUserId, loadFundDetails]
+    [activeFund?.id, currentUserId, loadFundDetails, familyTreeId, refreshPendingExpenses]
   );
 
   const rejectExpense = useCallback(
@@ -427,12 +587,21 @@ export const useFundManagementData = (
         });
 
         await loadFundDetails(activeFund.id);
+        // Refresh pending expenses after rejection
+        if (familyTreeId) {
+          await refreshPendingExpenses();
+        }
       } finally {
         setActionLoading(false);
       }
     },
-    [activeFund?.id, currentUserId, loadFundDetails]
+    [activeFund?.id, currentUserId, loadFundDetails, familyTreeId, refreshPendingExpenses]
   );
+
+  // Fetch pending expenses when familyTreeId changes
+  useEffect(() => {
+    refreshPendingExpenses();
+  }, [refreshPendingExpenses]);
 
   const createCampaign = useCallback(
     async (input: CampaignCreationInput) => {
@@ -533,12 +702,23 @@ export const useFundManagementData = (
   );
 
   const donateToFund = useCallback(
-    async (fundId: string, payload: CreateFundDonationPayload) => {
+    async (
+      fundId: string,
+      payload: CreateFundDonationPayload
+    ): Promise<CreateFundDonationResponse> => {
       setDonating(true);
       setError(null);
       try {
-        await fundService.createFundDonation(fundId, payload);
-        await loadFundDetails(fundId);
+        const response = await fundService.createFundDonation(fundId, payload);
+        // Don't refresh fund details immediately
+        // - BankTransfer: Fund details will be refreshed after payment is confirmed
+        // - Cash: If requiresManualConfirmation is true, fund details will be refreshed after manager confirms
+        // - Only refresh if payment doesn't require manual confirmation (shouldn't happen for Cash)
+        const isCashPayment = payload.paymentMethod === 0 || payload.paymentMethod === 'Cash';
+        if (isCashPayment && !response.requiresManualConfirmation) {
+          await loadFundDetails(fundId);
+        }
+        return response;
       } catch (err) {
         console.error('Failed to donate to fund', err);
         throw err;
@@ -578,6 +758,10 @@ export const useFundManagementData = (
   }, [currentMemberId, currentUserId, refreshMyPendingDonations]);
 
   useEffect(() => {
+    void refreshPendingDonations();
+  }, [refreshPendingDonations]);
+
+  useEffect(() => {
     if (!familyTreeId) {
       setFunds([]);
       setActiveFundId(null);
@@ -603,6 +787,8 @@ export const useFundManagementData = (
   campaignPagination,
     myPendingDonations,
     myPendingLoading,
+    pendingDonations,
+    pendingDonationsLoading,
     refreshAll,
     refreshFundDetails,
     createWithdrawal,
@@ -615,10 +801,17 @@ export const useFundManagementData = (
     refreshActiveCampaigns,
     changeActiveCampaignPage,
     refreshMyPendingDonations,
+    refreshPendingDonations,
+    confirmDonation,
+    rejectDonation,
+    uploadDonationProof,
     createFund,
     donateToFund,
     activeCampaigns,
     activeCampaignPagination,
     activeCampaignsLoading,
+    pendingExpenses,
+    pendingExpensesLoading,
+    refreshPendingExpenses,
   };
 };

@@ -1,11 +1,14 @@
 import type { ApiResponse } from '../types/api';
 import api from './apiService';
 
+// Family Tree Member Role type
+export type FTRole = 'FTMember' | 'FTOwner';
+
 // Family Tree Member interfaces
 export interface GPMember {
   id: string;
   ftId: string;
-  ftRole: string;
+  ftRole: FTRole;
   createdBy: string;
   createdOn: string;
   lastModifiedBy: string;
@@ -161,6 +164,22 @@ export const getDisplayNameFromGPMember = (gpMember: GPMember | null): string | 
 };
 
 const familyTreeMemberService = {
+  /**
+   * Get member role (FTRole) by ftId and memberId
+   * @param ftId Family tree ID
+   * @param memberId Member ID
+   * @returns FTRole ('FTMember' | 'FTOwner') or null if not found
+   */
+  async getMemberRole(ftId: string, memberId: string): Promise<FTRole | null> {
+    try {
+      const member = await this.getGPMemberByMemberId(ftId, memberId);
+      return member?.ftRole ?? null;
+    } catch (error) {
+      console.error('Error getting member role:', error);
+      return null;
+    }
+  },
+
   /** Get full GPMember by ftId and memberId (group-specific profile) */
   async getGPMemberByMemberId(ftId: string, memberId: string): Promise<GPMember | null> {
     try {

@@ -1,14 +1,15 @@
 import api from './apiService';
 import type {
   Fund,
-  FundDonation,
   FundDonationStats,
   FundExpense,
   FundCampaign,
   CampaignDonation,
   CampaignExpense,
   CreateFundExpensePayload,
+  CreateFundExpenseResponse,
   ApproveFundExpensePayload,
+  ApproveFundExpenseResponse,
   RejectFundExpensePayload,
   CreateCampaignPayload,
   CreateCampaignExpensePayload,
@@ -16,9 +17,18 @@ import type {
   RejectCampaignExpensePayload,
   CreateFundPayload,
   CreateFundDonationPayload,
+  CreateFundDonationResponse,
+  FundDonationsResponse,
+  FundExpensesResponse,
   MyPendingDonation,
   CampaignStatistics,
   CampaignFinancialSummary,
+  UploadDonationProofResponse,
+  ConfirmDonationResponse,
+  CreateCampaignDonationPayload,
+  CreateCampaignDonationResponse,
+  CampaignDonationProofResponse,
+  ConfirmCampaignDonationResponse,
 } from '@/types/fund';
 import type { ApiResponse, PaginationResponse } from '@/types/api';
 
@@ -47,31 +57,256 @@ export const fundService = {
     return normalizeArray(unwrap<Fund[] | Fund>(result));
   },
 
-  async fetchFundExpenses(fundId: string): Promise<FundExpense[]> {
-    const result = await api.get<ApiResponse<FundExpense[]>>(`/fund-expenses/fund/${fundId}`);
+  async fetchFundExpenses(
+    fundId: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<FundExpensesResponse> {
+    const response = await api.get<ApiResponse<FundExpensesResponse>>(
+      `/fund-expenses/fund/${fundId}`,
+      {
+        params: {
+          page,
+          pageSize,
+        },
+      }
+    );
+    const data = unwrap<FundExpensesResponse>(response);
+    if (!data) {
+      return {
+        expenses: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: pageSize,
+        totalPages: 1,
+      };
+    }
+    // Handle case where response might be direct array (backward compatibility)
+    if (Array.isArray(data)) {
+      // Normalize expenses: map createdDate to createdOn for backward compatibility
+      const normalizedExpenses = data.map((expense: any) => ({
+        ...expense,
+        createdOn: expense.createdOn || expense.createdDate,
+      }));
+      return {
+        expenses: normalizedExpenses,
+        totalCount: data.length,
+        page: 1,
+        pageSize: data.length,
+        totalPages: 1,
+      };
+    }
+    // Handle nested structure with expenses array
+    if ('expenses' in data) {
+      const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
+      // Normalize expenses: map createdDate to createdOn for backward compatibility
+      const normalizedExpenses = expensesArray.map((expense: any) => ({
+        ...expense,
+        createdOn: expense.createdOn || expense.createdDate,
+      }));
+      return {
+        expenses: normalizedExpenses,
+        totalCount: data.totalCount ?? expensesArray.length,
+        page: data.page ?? page,
+        pageSize: data.pageSize ?? pageSize,
+        totalPages: data.totalPages ?? 1,
+      };
+    }
+    // Default fallback
+    return {
+      expenses: [],
+      totalCount: 0,
+      page: page,
+      pageSize: pageSize,
+      totalPages: 1,
+    };
+  },
+
+  async fetchPendingFundExpenses(treeId: string): Promise<FundExpense[]> {
+    const result = await api.get<ApiResponse<FundExpense[]>>(`/fund-expenses/pending`, {
+      params: {
+        treeId,
+      },
+    });
     return normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
   },
 
-  async fetchPendingFundExpenses(): Promise<FundExpense[]> {
-    const result = await api.get<ApiResponse<FundExpense[]>>(`/fund-expenses/pending`);
-    return normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
+  async createFundExpense(payload: CreateFundExpensePayload): Promise<CreateFundExpenseResponse> {
+    // Always use FormData as the API expects form-data format
+    const formData = new FormData();
+    
+    // Required fields with exact field names as per API
+    formData.append('FundId', payload.fundId);
+    formData.append('Amount', payload.amount.toString());
+    formData.append('Description', payload.description);
+    formData.append('Recipient', payload.recipient);
+    
+    // Optional fields
+    if (payload.campaignId) {
+      formData.append('CampaignId', payload.campaignId);
+    }
+    if (payload.expenseEvent) {
+      formData.append('ExpenseEvent', payload.expenseEvent);
+    }
+    if (payload.plannedDate) {
+      // Format date as ISO string if needed
+      const dateValue = payload.plannedDate.includes('T') 
+        ? payload.plannedDate 
+        : `${payload.plannedDate}T00:00:00Z`;
+      formData.append('PlannedDate', dateValue);
+    }
+    
+    // Append receipt images if provided
+    if (payload.receiptImages && payload.receiptImages.length > 0) {
+      payload.receiptImages.forEach(file => {
+        formData.append('ReceiptImages', file);
+      });
+    }
+
+    // Don't set Content-Type header manually - let axios set it automatically with boundary
+    const response = await api.post<ApiResponse<CreateFundExpenseResponse>>(
+      `/fund-expenses`,
+      formData
+    );
+    
+    const data = unwrap<CreateFundExpenseResponse>(response);
+    if (!data) {
+      throw new Error('Invalid response from server');
+    }
+    return data;
   },
 
-  async createFundExpense(payload: CreateFundExpensePayload) {
-    return api.post<ApiResponse<FundExpense>>(`/fund-expenses`, payload);
-  },
+  async approveFundExpense(id: string, payload: ApproveFundExpensePayload): Promise<ApproveFundExpenseResponse> {
+    const hasImages = payload.paymentProofImages && payload.paymentProofImages.length > 0;
+    
+    console.log('[fundService.approveFundExpense] Approving expense:', {
+      expenseId: id,
+      approverId: payload.approverId,
+      notes: payload.notes,
+      hasPaymentProofImages: hasImages,
+      imageCount: payload.paymentProofImages?.length || 0,
+      imageNames: payload.paymentProofImages?.map(f => f.name) || [],
+      imageTypes: payload.paymentProofImages?.map(f => f.type) || [],
+      imageSizes: payload.paymentProofImages?.map(f => f.size) || [],
+    });
 
-  async approveFundExpense(id: string, payload: ApproveFundExpensePayload) {
-    return api.put<ApiResponse<boolean>>(`/fund-expenses/${id}/approve`, payload);
+    if (!hasImages) {
+      throw new Error('Payment proof image is required for approval');
+    }
+
+    // Always use FormData (API requires payment proof images)
+    const formData = new FormData();
+    formData.append('ApproverId', payload.approverId);
+    
+    // Always append Notes (even if empty) to match API expectations
+    formData.append('Notes', payload.notes || '');
+    
+    // Append payment proof images - API requires at least one
+    // Try singular field name first (some APIs use singular for single file, plural for multiple)
+    // If that doesn't work, we can try 'PaymentProofImages' (plural)
+    if (payload.paymentProofImages) {
+      payload.paymentProofImages.forEach(file => {
+        console.log('[fundService.approveFundExpense] Appending file:', {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          isFile: file instanceof File,
+          constructor: file.constructor.name,
+        });
+        // Try singular field name - some .NET APIs expect singular for IFormFile collections
+        formData.append('PaymentProofImage', file);
+      });
+    }
+
+    // Log FormData contents for debugging
+    console.log('[fundService.approveFundExpense] FormData contents:');
+    const formDataEntries: Array<[string, any]> = [];
+    for (const [key, value] of formData.entries()) {
+      formDataEntries.push([key, value]);
+      if (value instanceof File) {
+        console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`  ${key}: ${value}`);
+      }
+    }
+    
+    // Verify files are actually in FormData
+    const fileEntries = formDataEntries.filter(([_, value]) => value instanceof File);
+    console.log('[fundService.approveFundExpense] FormData file entries count:', fileEntries.length);
+    
+    if (fileEntries.length === 0) {
+      console.error('[fundService.approveFundExpense] ERROR: No files found in FormData!');
+      throw new Error('Payment proof images could not be added to request');
+    }
+
+    const response = await api.post<ApiResponse<ApproveFundExpenseResponse>>(
+      `/fund-expenses/${id}/approve`,
+      formData
+    );
+    
+    const data = unwrap<ApproveFundExpenseResponse>(response);
+    if (!data) {
+      throw new Error('Invalid response from server');
+    }
+    return data;
   },
 
   async rejectFundExpense(id: string, payload: RejectFundExpensePayload) {
-    return api.put<ApiResponse<boolean>>(`/fund-expenses/${id}/reject`, payload);
+    return api.post<ApiResponse<boolean>>(`/fund-expenses/${id}/reject`, payload);
   },
 
-  async fetchFundDonations(fundId: string): Promise<FundDonation[]> {
-    const result = await api.get<ApiResponse<FundDonation[]>>(`/donations/fund/${fundId}`);
-    return normalizeArray(unwrap<FundDonation[] | FundDonation>(result));
+  async fetchFundDonations(
+    fundId: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<FundDonationsResponse> {
+    const response = await api.get<ApiResponse<FundDonationsResponse>>(
+      `/donations/fund/${fundId}`,
+      {
+        params: {
+          page,
+          pageSize,
+        },
+      }
+    );
+    const data = unwrap<FundDonationsResponse>(response);
+    if (!data) {
+      return {
+        donations: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: pageSize,
+        totalPages: 1,
+      };
+    }
+    // Handle case where response might be direct array (backward compatibility)
+    if (Array.isArray(data)) {
+      return {
+        donations: data,
+        totalCount: data.length,
+        page: 1,
+        pageSize: data.length,
+        totalPages: 1,
+      };
+    }
+    // Handle nested structure with donations array
+    if ('donations' in data && Array.isArray(data.donations)) {
+      return {
+        donations: data.donations,
+        totalCount: data.totalCount ?? data.donations.length,
+        page: data.page ?? page,
+        pageSize: data.pageSize ?? pageSize,
+        totalPages: data.totalPages ?? 1,
+      };
+    }
+    // Default fallback
+    return {
+      donations: [],
+      totalCount: 0,
+      page: page,
+      pageSize: pageSize,
+      totalPages: 1,
+    };
   },
 
   async fetchFundDonationStats(fundId: string): Promise<FundDonationStats | null> {
@@ -79,16 +314,87 @@ export const fundService = {
     return unwrap<FundDonationStats | null>(result) ?? null;
   },
 
-  async confirmDonation(donationId: string, payload: { confirmedBy: string; notes?: string }) {
-    return api.post<ApiResponse<boolean>>(`/donations/${donationId}/confirm`, payload);
+  async fetchPendingDonations(): Promise<MyPendingDonation[]> {
+    const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/pending`);
+    return normalizeArray(unwrap<MyPendingDonation[] | MyPendingDonation>(result));
+  },
+
+  async confirmDonation(
+    donationId: string,
+    payload: { donationId: string; confirmedBy: string; notes?: string }
+  ) {
+    return api.post<ApiResponse<ConfirmDonationResponse>>(`/donations/${donationId}/confirm`, payload);
+  },
+
+  async uploadDonationProof(donationId: string, files: File[]): Promise<UploadDonationProofResponse> {
+    console.log('[fundService.uploadDonationProof] Starting upload proof', {
+      donationId,
+      filesCount: files.length,
+      fileNames: files.map(f => f.name),
+      fileSizes: files.map(f => f.size),
+    });
+
+    const formData = new FormData();
+    // API expects 'images' key, not 'files'
+    files.forEach(file => {
+      formData.append('images', file);
+    });
+
+    const url = `/donations/${donationId}/upload-proof`;
+    console.log('[fundService.uploadDonationProof] API URL:', url);
+    console.log('[fundService.uploadDonationProof] fundDonationId:', donationId);
+    console.log('[fundService.uploadDonationProof] FormData keys:', Array.from(formData.keys()));
+    console.log('[fundService.uploadDonationProof] FormData entries:', Array.from(formData.entries()).map(([key, value]) => ({
+      key,
+      value: value instanceof File ? { name: value.name, size: value.size, type: value.type } : value,
+    })));
+
+    // Don't set Content-Type header manually - let axios set it automatically with boundary
+    // Setting it manually prevents axios from adding the boundary parameter
+    // When sending FormData, axios will automatically set Content-Type: multipart/form-data; boundary=...
+    const response = await api.post<ApiResponse<UploadDonationProofResponse>>(
+      url,
+      formData
+      // Don't pass headers config - let axios handle FormData automatically
+    );
+
+    console.log('[fundService.uploadDonationProof] API Response:', response);
+
+    const data = unwrap<UploadDonationProofResponse>(response);
+    console.log('[fundService.uploadDonationProof] Unwrapped data:', data);
+
+    if (!data) {
+      console.error('[fundService.uploadDonationProof] Invalid response from server');
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('[fundService.uploadDonationProof] Upload successful', {
+      donationId: data.donationId,
+      imageUrlsCount: data.imageUrls?.length || 0,
+      allProofImagesCount: data.allProofImages?.length || 0,
+      totalProofs: data.totalProofs,
+    });
+
+    return data;
   },
 
   async rejectDonation(donationId: string, payload: { rejectedBy: string; reason?: string }) {
     return api.post<ApiResponse<boolean>>(`/donations/${donationId}/reject`, payload);
   },
 
-  async createFundDonation(fundId: string, payload: CreateFundDonationPayload) {
-    return api.post<ApiResponse<FundDonation>>(`/funds/${fundId}/donate`, payload);
+  async createFundDonation(
+    fundId: string,
+    payload: CreateFundDonationPayload
+  ): Promise<CreateFundDonationResponse> {
+    const response = await api.post<ApiResponse<CreateFundDonationResponse>>(
+      `/funds/${fundId}/donate`,
+      payload
+    );
+    const data = unwrap<CreateFundDonationResponse>(response);
+    if (!data) {
+      throw new Error('Invalid response from server');
+    }
+    return data;
   },
 
   async fetchMyPendingDonations(userId: string): Promise<MyPendingDonation[]> {
@@ -100,6 +406,18 @@ export const fundService = {
 
   async createFund(payload: CreateFundPayload) {
     return api.post<ApiResponse<Fund>>(`/funds`, payload);
+  },
+
+  async updateFund(fundId: string, payload: {
+    fundName: string;
+    description?: string;
+    bankAccountNumber: string;
+    bankCode: string;
+    bankName: string;
+    accountHolderName: string;
+    fundManagers?: string;
+  }) {
+    return api.put<ApiResponse<Fund>>(`/funds/${fundId}`, payload);
   },
 
   async fetchCampaignsByTree(
@@ -244,7 +562,11 @@ export const fundService = {
 
     const determineStatus = (): string => {
       if (payload.status) {
-        return String(payload.status).toLowerCase();
+        const statusStr = String(payload.status);
+        if (statusStr.toLowerCase() === 'active') return 'active';
+        if (statusStr.toLowerCase() === 'completed') return 'completed';
+        if (statusStr.toLowerCase() === 'cancelled') return 'cancelled';
+        return 'upcoming';
       }
       const now = new Date();
       const endDate = payload.endDate ? new Date(payload.endDate) : null;
@@ -307,7 +629,8 @@ export const fundService = {
     const result = await api.get<ApiResponse<CampaignStatistics>>(
       `/ftcampaign/${campaignId}/statistics`
     );
-    return unwrap<CampaignStatistics | null>(result) ?? null;
+    const data = unwrap<CampaignStatistics | null>(result);
+    return data ?? null;
   },
 
   async fetchCampaignFinancialSummary(campaignId: string): Promise<CampaignFinancialSummary | null> {
@@ -329,21 +652,115 @@ export const fundService = {
     return api.put<ApiResponse<boolean>>(`/ftcampaignexpense/${id}/reject`, payload);
   },
 
-  async uploadDonationProof(donationId: string, files: File[]) {
-    const formData = new FormData();
-    files.forEach(file => {
-      formData.append('files', file);
+  // Campaign Donation APIs
+  async createCampaignDonation(
+    campaignId: string,
+    payload: CreateCampaignDonationPayload
+  ): Promise<CreateCampaignDonationResponse> {
+    console.log('[fundService.createCampaignDonation] Starting donation', {
+      campaignId,
+      payload,
     });
 
-    return api.post<ApiResponse<{ imageUrls?: string[]; commaSeparated?: string }>>(
-      `/donations/${donationId}/upload-proof`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+    const response = await api.post<ApiResponse<CreateCampaignDonationResponse>>(
+      `/ftcampaigndonation/campaign/${campaignId}/donate`,
+      payload
     );
+
+    console.log('[fundService.createCampaignDonation] API Response:', response);
+
+    const data = unwrap<CreateCampaignDonationResponse>(response);
+    console.log('[fundService.createCampaignDonation] Unwrapped data:', data);
+
+    if (!data) {
+      console.error('[fundService.createCampaignDonation] Invalid response from server');
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('[fundService.createCampaignDonation] Donation created successfully', {
+      donationId: data.donationId,
+      requiresManualConfirmation: data.requiresManualConfirmation,
+    });
+
+    return data;
+  },
+
+  async uploadCampaignDonationProof(
+    donationId: string,
+    files: File[]
+  ): Promise<CampaignDonationProofResponse> {
+    console.log('[fundService.uploadCampaignDonationProof] Starting upload proof', {
+      donationId,
+      filesCount: files.length,
+      fileNames: files.map(f => f.name),
+      fileSizes: files.map(f => f.size),
+    });
+
+    const formData = new FormData();
+    // API expects 'images' key
+    files.forEach(file => {
+      formData.append('images', file);
+    });
+
+    const url = `/ftcampaigndonation/${donationId}/upload-proof`;
+    console.log('[fundService.uploadCampaignDonationProof] API URL:', url);
+    console.log('[fundService.uploadCampaignDonationProof] donationId:', donationId);
+    console.log('[fundService.uploadCampaignDonationProof] FormData keys:', Array.from(formData.keys()));
+
+    // Don't set Content-Type header manually - let axios set it automatically with boundary
+    const response = await api.post<ApiResponse<CampaignDonationProofResponse>>(url, formData);
+
+    console.log('[fundService.uploadCampaignDonationProof] API Response:', response);
+
+    const data = unwrap<CampaignDonationProofResponse>(response);
+    console.log('[fundService.uploadCampaignDonationProof] Unwrapped data:', data);
+
+    if (!data) {
+      console.error('[fundService.uploadCampaignDonationProof] Invalid response from server');
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('[fundService.uploadCampaignDonationProof] Upload successful', {
+      donationId: data.donationId,
+      imageUrlsCount: data.imageUrls?.length || 0,
+      allProofImagesCount: data.allProofImages?.length || 0,
+      totalProofs: data.totalProofs,
+    });
+
+    return data;
+  },
+
+  async confirmCampaignDonation(
+    donationId: string,
+    payload: { donationId: string; confirmedBy: string; notes?: string }
+  ): Promise<ConfirmCampaignDonationResponse> {
+    console.log('[fundService.confirmCampaignDonation] Starting confirmation', {
+      donationId,
+      payload,
+    });
+
+    const response = await api.post<ApiResponse<ConfirmCampaignDonationResponse>>(
+      `/ftcampaigndonation/${donationId}/confirm`,
+      payload
+    );
+
+    console.log('[fundService.confirmCampaignDonation] API Response:', response);
+
+    const data = unwrap<ConfirmCampaignDonationResponse>(response);
+    console.log('[fundService.confirmCampaignDonation] Unwrapped data:', data);
+
+    if (!data) {
+      console.error('[fundService.confirmCampaignDonation] Invalid response from server');
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('[fundService.confirmCampaignDonation] Confirmation successful', {
+      donationId: data.donationId,
+      status: data.status,
+      newCampaignBalance: data.newCampaignBalance,
+    });
+
+    return data;
   },
 };
 

@@ -1,5 +1,5 @@
-import React from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { CheckCircle, XCircle, X, ZoomIn } from 'lucide-react';
 import type { FundExpense } from '@/types/fund';
 import { EmptyState } from './FundLoadingEmpty';
 
@@ -23,25 +23,41 @@ const FundApprovalsSection: React.FC<FundApprovalsSectionProps> = ({
   getStatusBadge,
   onRequestAction,
 }) => {
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const getReceiptImages = (expense: FundExpense): string[] => {
+    if (!expense.receiptImages) return [];
+    if (Array.isArray(expense.receiptImages)) {
+      return expense.receiptImages.filter(Boolean);
+    }
+    if (typeof expense.receiptImages === 'string') {
+      return [expense.receiptImages];
+    }
+    return [];
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-lg shadow p-6 flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h3 className="text-2xl font-bold text-gray-900">Yêu cầu rút tiền chờ phê duyệt</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Có {pendingExpenses.length} yêu cầu đang chờ xử lý
+          <h3 className="text-lg font-semibold text-gray-900">Rút tiền</h3>
+          <p className="text-sm text-gray-500">
+            {pendingExpenses.length > 0
+              ? `Có ${pendingExpenses.length} yêu cầu đang chờ xử lý`
+              : 'Không có yêu cầu rút tiền đang chờ'}
           </p>
         </div>
       </div>
 
-      {pendingExpenses.length === 0 ? (
-        <EmptyState
-          icon={<CheckCircle className="w-12 h-12 text-gray-300" />}
-          title="Không có yêu cầu nào"
-          description="Tất cả yêu cầu đã được xử lý."
-        />
-      ) : (
-        <div className="space-y-4">
+      <div className="flex-1 min-h-0">
+        {pendingExpenses.length === 0 ? (
+          <EmptyState
+            icon={<CheckCircle className="w-12 h-12 text-gray-300" />}
+            title="Không có yêu cầu rút tiền"
+            description="Tất cả yêu cầu rút tiền đã được xử lý."
+          />
+        ) : (
+          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)] pr-2">
           {pendingExpenses.map(expense => {
             const statusBadge = getStatusBadge(expense);
             return (
@@ -77,6 +93,39 @@ const FundApprovalsSection: React.FC<FundApprovalsSectionProps> = ({
                   </div>
                 </div>
 
+                {/* Receipt Images Section */}
+                {(() => {
+                  const receiptImages = getReceiptImages(expense);
+                  if (receiptImages.length === 0) return null;
+                  
+                  return (
+                    <div className="mb-4">
+                      <span className="text-sm text-gray-500 block mb-2">Ảnh hóa đơn/chứng từ:</span>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {receiptImages.map((imageUrl, index) => (
+                          <div
+                            key={index}
+                            className="relative group cursor-pointer rounded-lg overflow-hidden border border-gray-200 hover:border-blue-500 transition-colors"
+                            onClick={() => setSelectedImage(imageUrl)}
+                          >
+                            <img
+                              src={imageUrl}
+                              alt={`Hóa đơn ${index + 1}`}
+                              className="w-full h-32 object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="12"%3ELỗi tải ảnh%3C/text%3E%3C/svg%3E';
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                              <ZoomIn className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="flex gap-3">
                   <button
                     onClick={() => onRequestAction(expense, 'approve')}
@@ -96,6 +145,35 @@ const FundApprovalsSection: React.FC<FundApprovalsSectionProps> = ({
               </div>
             );
           })}
+          </div>
+        )}
+      </div>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-full">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors z-10"
+              type="button"
+              aria-label="Đóng"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={selectedImage}
+              alt="Hóa đơn phóng to"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="400" height="300" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="16"%3EKhông thể tải ảnh%3C/text%3E%3C/svg%3E';
+              }}
+            />
+          </div>
         </div>
       )}
     </div>
