@@ -206,7 +206,8 @@ export interface FTInvitation {
   invitedUserId: string;
   inviterName: string;
   inviterUserId: string;
-  token: string
+  token: string;
+  status: string;
 }
 
 export interface FTAuthList {

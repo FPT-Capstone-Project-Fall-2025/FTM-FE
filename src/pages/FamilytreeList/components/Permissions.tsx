@@ -55,8 +55,12 @@ const ManagePermissions: React.FC = () => {
     setLoading(true);
     try {
       const res = await ftauthorizationService.getFTAuths(selectedFamilyTree?.id, paginationData);
-      setAuthList(res.data || null);
-      setEditedAuthList(res.data || null);
+      setPaginationData(pre => ({
+        ...pre,
+        ...res.data
+      }));
+      setAuthList(res.data.data[0] || null);
+      setEditedAuthList(res.data.data[0] || null);
     } catch (error) {
       console.error("Failed to fetch permissions:", error);
     } finally {
@@ -387,7 +391,7 @@ const ManagePermissions: React.FC = () => {
     }
   };
 
-  const filteredDatalist = authList?.datalist.filter(item =>
+  const filteredDatalist = authList?.datalist?.filter(item =>
     searchTerm === "" || item.key.fullname.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
@@ -421,7 +425,7 @@ const ManagePermissions: React.FC = () => {
                     setIsEditMode(true);
                     setEditedAuthList(authList);
                   }}
-                  disabled={!authList || authList.datalist.length === 0}
+                  disabled={!authList || authList?.datalist?.length === 0}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -557,7 +561,7 @@ const ManagePermissions: React.FC = () => {
         ftId={selectedFamilyTree?.id}
         onClose={() => setShowAddMemberModal(false)}
         onConfirm={handleAddMember}
-        existingMemberIds={authList?.datalist.map(m => m.key.id) || []}
+        existingMemberIds={authList?.datalist?.map(m => m.key.id) || []}
       />
     </div>
   );
