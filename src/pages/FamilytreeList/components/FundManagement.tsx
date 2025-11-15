@@ -1855,7 +1855,6 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         isOpen={isEditFundModalOpen}
         fund={activeFund}
         ftId={selectedTree?.id ?? null}
-        banks={banks}
         bankLogos={bankLogos}
         onClose={handleCloseEditFund}
         onSubmit={handleSubmitEditFund}
