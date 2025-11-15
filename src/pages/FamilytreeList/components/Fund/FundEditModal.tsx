@@ -3,6 +3,50 @@ import { Wallet, Search, X, ChevronDown } from 'lucide-react';
 import type { Fund } from '@/types/fund';
 import type { BankInfo } from './FundCreateModal';
 import familyTreeService from '@/services/familyTreeService';
+import bankList from '@/assets/fund/bank/json/bank.json';
+
+// Import bank logo images
+import VCB from '@/assets/fund/bank/images/VCB.png';
+import CTG from '@/assets/fund/bank/images/CTG.png';
+import TCB from '@/assets/fund/bank/images/TCB.png';
+import BIDV from '@/assets/fund/bank/images/BIDV.png';
+import VARB from '@/assets/fund/bank/images/VARB.png';
+import NVB from '@/assets/fund/bank/images/NVB.png';
+import STB from '@/assets/fund/bank/images/STB.png';
+import ACB from '@/assets/fund/bank/images/ACB.png';
+import MB from '@/assets/fund/bank/images/MB.png';
+import TPB from '@/assets/fund/bank/images/TPB.png';
+import SVB from '@/assets/fund/bank/images/SVB.png';
+import VIB from '@/assets/fund/bank/images/VIB.png';
+import VPB from '@/assets/fund/bank/images/VPB.png';
+import SHB from '@/assets/fund/bank/images/SHB.png';
+import EIB from '@/assets/fund/bank/images/EIB.png';
+import BVB from '@/assets/fund/bank/images/BVB.png';
+import VCCB from '@/assets/fund/bank/images/VCCB.png';
+import SCB from '@/assets/fund/bank/images/SCB.png';
+import VRB from '@/assets/fund/bank/images/VRB.png';
+import ABB from '@/assets/fund/bank/images/ABB.png';
+import PVCB from '@/assets/fund/bank/images/PVCB.png';
+import NAB from '@/assets/fund/bank/images/NAB.png';
+import HDB from '@/assets/fund/bank/images/HDB.png';
+import VB from '@/assets/fund/bank/images/VB.png';
+import CFC from '@/assets/fund/bank/images/CFC.png';
+import PBVN from '@/assets/fund/bank/images/PBVN.png';
+import PGB from '@/assets/fund/bank/images/PGB.png';
+import IVB from '@/assets/fund/bank/images/IVB.png';
+import GPB from '@/assets/fund/bank/images/GPB.png';
+import NASB from '@/assets/fund/bank/images/NASB.png';
+import VAB from '@/assets/fund/bank/images/VAB.png';
+import SGB from '@/assets/fund/bank/images/SGB.png';
+import MSB from '@/assets/fund/bank/images/MSB.png';
+import LPB from '@/assets/fund/bank/images/LPB.png';
+import KLB from '@/assets/fund/bank/images/KLB.png';
+import WOO from '@/assets/fund/bank/images/WOO.png';
+import UOB from '@/assets/fund/bank/images/UOB.png';
+import OCB from '@/assets/fund/bank/images/OCB.png';
+import Seab from '@/assets/fund/bank/images/Seab.png';
+import KebHana from '@/assets/fund/bank/images/KebHana.png';
+import Mirae from '@/assets/fund/bank/images/Mirae.png';
 
 export interface FundEditForm {
   fundName: string;
@@ -23,8 +67,7 @@ interface FundEditModalProps {
   isOpen: boolean;
   fund: Fund | null;
   ftId: string | null;
-  banks: BankInfo[];
-  bankLogos: Record<string, string>;
+  bankLogos?: Record<string, string>;
   onClose: () => void;
   onSubmit: (form: FundEditForm) => void;
   submitting?: boolean;
@@ -34,12 +77,83 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
   isOpen,
   fund,
   ftId,
-  banks,
-  bankLogos,
+  bankLogos = {},
   onClose,
   onSubmit,
   submitting = false,
 }) => {
+  // Bank logo mapping: bankCode (from bank.json) -> imported image
+  const bankLogoMap: Record<string, string> = useMemo(
+    () => ({
+      VCB,
+      CTG,
+      TCB,
+      BIDV,
+      VARB,
+      NVB,
+      STB,
+      ACB,
+      MB,
+      TPB,
+      SVB,
+      VIB,
+      VPB,
+      SHB,
+      EIB,
+      BVB,
+      VCCB,
+      SCB,
+      VRB,
+      ABB,
+      PVCB,
+      NAB,
+      HDB,
+      VB,
+      CFC,
+      PBVN,
+      PGB,
+      IVB,
+      GPB,
+      NASB,
+      VAB,
+      SGB,
+      MSB,
+      LPB,
+      KLB,
+      WOO,
+      UOB,
+      OCB,
+      SEAB: Seab,
+      KEBHANAHCM: KebHana,
+      KEBHANAHN: KebHana,
+      MAFC: Mirae,
+      WOORI: WOO,
+      SHINHAN: SVB,
+      PUBLICBANK: PBVN,
+      STANDARDCHARTERED: WOO, // Use WOO as placeholder, can be updated if needed
+      STANDARD: WOO, // Use WOO as placeholder
+    }),
+    []
+  );
+
+  // Load banks from bank.json
+  const banks = useMemo(
+    () =>
+      (bankList as Array<{
+        bankCode: string;
+        bankName: string;
+        fullName?: string;
+        bin?: string;
+      }>)
+        .filter(bank => bank.bankCode && bank.bankName)
+        .map(bank => ({
+          bankCode: bank.bin || bank.bankCode, // Use bin as bankCode (API format), fallback to bankCode
+          bankName: bank.bankName,
+          fullName: bank.fullName,
+          originalBankCode: bank.bankCode, // Keep original bankCode for logo mapping
+        })),
+    []
+  );
   const [form, setForm] = useState<FundEditForm>({
     fundName: '',
     description: '',
@@ -187,7 +301,14 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
     });
   };
 
-  const getBankLogo = (code: string) => {
+  const getBankLogo = (code: string, originalBankCode?: string) => {
+    // First try to get from local images using originalBankCode
+    if (originalBankCode) {
+      const logo = bankLogoMap[originalBankCode.toUpperCase()];
+      if (logo) return logo;
+    }
+    
+    // Fallback to bankLogos prop (for backward compatibility)
     const key = code.toUpperCase();
     return bankLogos[key] || null;
   };
@@ -461,7 +582,7 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
                 <div className="space-y-2">
                   {filteredBanks.map(bank => {
                     const isSelected = form.bankCode === bank.bankCode;
-                    const logo = getBankLogo(bank.bankCode);
+                    const logo = getBankLogo(bank.bankCode, (bank as any).originalBankCode);
                     return (
                       <button
                         key={bank.bankCode}
