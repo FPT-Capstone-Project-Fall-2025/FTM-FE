@@ -282,7 +282,7 @@ const FundManagement: React.FC = () => {
   const [fundTab, setFundTab] = useState<FundTab>('overview');
   const [campaignSearch, setCampaignSearch] = useState('');
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>('all');
-  const [showAllCampaigns, setShowAllCampaigns] = useState(false);
+  const [campaignTab, setCampaignTab] = useState<'all' | 'active'>('all');
   const [campaignDetail, setCampaignDetail] = useState<CampaignDetail | null>(
     null
   );
@@ -1041,39 +1041,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
     });
   }, [campaigns, activeCampaigns]);
 
-  // Categorize campaigns into active and inactive
-  const categorizedCampaigns = useMemo(() => {
-    const now = new Date().getTime();
-    const active: FundCampaign[] = [];
-    const inactive: FundCampaign[] = [];
 
-    allCampaigns.forEach(campaign => {
-      const statusKey = getCampaignStatusKey(campaign.status);
-      const startDate = campaign.startDate ? new Date(campaign.startDate).getTime() : null;
-      const endDate = campaign.endDate ? new Date(campaign.endDate).getTime() : null;
-      
-      // Active: status is 'active' and within date range
-      const isActive = statusKey === 'active' && 
-        (!startDate || startDate <= now) && 
-        (!endDate || endDate >= now);
-      
-      if (isActive) {
-        active.push(campaign);
-      } else {
-        inactive.push(campaign);
-      }
-    });
-
-    return { active, inactive };
-  }, [allCampaigns, getCampaignStatusKey]);
-
-  // Display campaigns based on showAllCampaigns toggle
-  const displayedCampaigns = useMemo(() => {
-    if (showAllCampaigns) {
-      return allCampaigns;
-    }
-    return categorizedCampaigns.active;
-  }, [showAllCampaigns, allCampaigns, categorizedCampaigns.active]);
 
   const campaignMetrics = useMemo(() => {
     const map: Record<
@@ -1209,12 +1177,13 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
       toast.error('Vui lòng chọn gia phả để tạo chiến dịch.');
       return;
     }
+    const organizerName = getDisplayNameFromGPMember(gpMember) || gpMember?.fullname || authUser?.name || '';
     setCampaignForm(prev => ({
       ...prev,
-      organizer: gpMember?.fullname || prev.organizer,
+      organizer: organizerName,
     }));
     setIsCampaignModalOpen(true);
-  }, [gpMember?.fullname, selectedTree?.id]);
+  }, [gpMember, authUser?.name, selectedTree?.id, getDisplayNameFromGPMember]);
 
   const handleCloseCampaignModal = useCallback(() => {
     setIsCampaignModalOpen(false);
@@ -1325,7 +1294,8 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
 
                await createCampaign(payload);
                toast.success('Đã tạo chiến dịch gây quỹ mới.');
-               await changeCampaignPage(1);
+               // Refresh campaigns to show the newly created campaign
+               await refreshCampaigns(1);
                setManagementScope('campaign');
                handleCloseCampaignModal();
       } catch (err: any) {
@@ -1346,6 +1316,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
              gpMemberId,
              handleCloseCampaignModal,
              selectedTree?.id,
+             refreshCampaigns,
            ]
   );
 
@@ -1802,64 +1773,95 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
 
              {managementScope === 'campaign' && (
                <>
-                 {(campaignsLoading || activeCampaignsLoading) ? (
-                   <div className="bg-white rounded-lg shadow p-6">
-                     <LoadingState message="Đang tải danh sách chiến dịch..." />
-                   </div>
+                 {/* Campaign Tabs */}
+                 <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
+                   <button
+                     type="button"
+                     onClick={() => setCampaignTab('all')}
+                     className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+                       campaignTab === 'all'
+                         ? 'bg-blue-600 text-white'
+                         : 'text-gray-600 hover:text-blue-600'
+                     }`}
+                   >
+                     Tất cả chiến dịch
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setCampaignTab('active')}
+                     className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+                       campaignTab === 'active'
+                         ? 'bg-blue-600 text-white'
+                         : 'text-gray-600 hover:text-blue-600'
+                     }`}
+                   >
+                     Đang hoạt động
+                   </button>
+                 </div>
+
+                 {campaignTab === 'all' ? (
+                   <>
+                     {campaignsLoading ? (
+                       <div className="bg-white rounded-lg shadow p-6">
+                         <LoadingState message="Đang tải danh sách chiến dịch..." />
+                       </div>
+                     ) : (
+                       <FundCampaignsSection
+                         campaigns={campaigns}
+                         campaignSearch={campaignSearch}
+                         campaignFilter={campaignFilter}
+                         onSearchChange={setCampaignSearch}
+                         onFilterChange={setCampaignFilter}
+                         onOpenDetail={handleOpenCampaignDetail}
+                         formatCurrency={formatCurrency}
+                         formatDate={formatDate}
+                         getCampaignStatusKey={getCampaignStatusKey}
+                         getCampaignStatusLabel={getCampaignStatusLabel}
+                         getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+                         metrics={campaignMetrics}
+                         currentPage={campaignPagination.page}
+                         totalPages={campaignPagination.totalPages}
+                         totalCount={campaignPagination.totalCount}
+                         pageSize={campaignPagination.pageSize}
+                         onPageChange={changeCampaignPage}
+                         title="Tất cả chiến dịch"
+                         subtitle="Danh sách tất cả các chiến dịch gây quỹ"
+                         showCreateButton={false}
+                         showStatusFilter={true}
+                       />
+                     )}
+                   </>
                  ) : (
                    <>
-                     {categorizedCampaigns.inactive.length > 0 && !showAllCampaigns && (
-                       <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-                         <p className="text-sm text-gray-600">
-                           Có {categorizedCampaigns.inactive.length} chiến dịch không hoạt động (chưa bắt đầu hoặc đã kết thúc)
-                         </p>
-                         <button
-                           type="button"
-                           onClick={() => setShowAllCampaigns(true)}
-                           className="px-4 py-2 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                         >
-                           Xem tất cả
-                         </button>
+                     {activeCampaignsLoading ? (
+                       <div className="bg-white rounded-lg shadow p-6">
+                         <LoadingState message="Đang tải danh sách chiến dịch đang hoạt động..." />
                        </div>
+                     ) : (
+                       <FundCampaignsSection
+                         campaigns={activeCampaigns}
+                         campaignSearch={campaignSearch}
+                         campaignFilter={campaignFilter}
+                         onSearchChange={setCampaignSearch}
+                         onFilterChange={setCampaignFilter}
+                         onOpenDetail={handleOpenCampaignDetail}
+                         formatCurrency={formatCurrency}
+                         formatDate={formatDate}
+                         getCampaignStatusKey={getCampaignStatusKey}
+                         getCampaignStatusLabel={getCampaignStatusLabel}
+                         getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+                         metrics={campaignMetrics}
+                         currentPage={activeCampaignPagination.page}
+                         totalPages={activeCampaignPagination.totalPages}
+                         totalCount={activeCampaignPagination.totalCount}
+                         pageSize={activeCampaignPagination.pageSize}
+                         onPageChange={(page) => refreshActiveCampaigns(page)}
+                         title="Chiến dịch đang hoạt động"
+                         subtitle="Danh sách các chiến dịch đang diễn ra"
+                         showCreateButton={false}
+                         showStatusFilter={true}
+                       />
                      )}
-                     {showAllCampaigns && categorizedCampaigns.inactive.length > 0 && (
-                       <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-                         <p className="text-sm text-gray-600">
-                           Đang hiển thị tất cả {allCampaigns.length} chiến dịch
-                         </p>
-                         <button
-                           type="button"
-                           onClick={() => setShowAllCampaigns(false)}
-                           className="px-4 py-2 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                         >
-                           Chỉ hiển thị đang hoạt động
-                         </button>
-                       </div>
-                     )}
-                     <FundCampaignsSection
-                       campaigns={displayedCampaigns}
-                       campaignSearch={campaignSearch}
-                       campaignFilter={campaignFilter}
-                       onSearchChange={setCampaignSearch}
-                       onFilterChange={setCampaignFilter}
-                       onOpenDetail={handleOpenCampaignDetail}
-                       formatCurrency={formatCurrency}
-                       formatDate={formatDate}
-                       getCampaignStatusKey={getCampaignStatusKey}
-                       getCampaignStatusLabel={getCampaignStatusLabel}
-                       getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
-                       metrics={campaignMetrics}
-                       currentPage={1}
-                       totalPages={1}
-                       totalCount={displayedCampaigns.length}
-                       pageSize={displayedCampaigns.length}
-                       onPageChange={() => undefined}
-                       title="Chiến dịch"
-                       subtitle="Danh sách chiến dịch được sắp xếp theo ngày"
-                       showCreateButton={false}
-                       showAllCampaigns={showAllCampaigns}
-                       categorizedCampaigns={categorizedCampaigns}
-                     />
                    </>
                  )}
                </>
@@ -1965,6 +1967,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
       <FundCampaignModal
         isOpen={isCampaignModalOpen}
         formState={campaignForm}
+        organizerName={getDisplayNameFromGPMember(gpMember) || gpMember?.fullname || authUser?.name || ''}
         onClose={handleCloseCampaignModal}
         onFormChange={handleCampaignFormChange}
         onSubmit={handleSubmitCampaign}

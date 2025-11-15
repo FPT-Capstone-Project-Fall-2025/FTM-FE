@@ -632,12 +632,12 @@ export const useFundManagementData = (
         if (input.imageUrl) payload.imageUrl = input.imageUrl;
 
         await fundService.createCampaign(payload);
-        await changeCampaignPage(1);
+        // Note: Campaign refresh is handled by the caller (handleSubmitCampaign)
       } finally {
         setActionLoading(false);
       }
     },
-    [changeCampaignPage, familyTreeId]
+    [familyTreeId]
   );
 
   const loadCampaignDetail = useCallback(
