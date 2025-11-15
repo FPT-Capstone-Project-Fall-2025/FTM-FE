@@ -524,7 +524,7 @@ export const useFundManagementData = (
   }, [familyTreeId]);
 
   const approveExpense = useCallback(
-    async (expenseId: string, notes?: string, approverId?: string) => {
+    async (expenseId: string, notes?: string, approverId?: string, paymentProofImages?: File[]) => {
       if (!activeFund?.id) {
         throw new Error('Không xác định được quỹ hiện tại.');
       }
@@ -536,9 +536,24 @@ export const useFundManagementData = (
 
       setActionLoading(true);
       try {
-        await fundService.approveFundExpense(expenseId, {
+        console.log('[useFundManagementData.approveExpense] Calling approve with:', {
+          expenseId,
+          approverId: approver,
+          notes,
+          paymentProofImagesCount: paymentProofImages?.length || 0,
+          paymentProofImages: paymentProofImages?.map(f => ({ name: f.name, size: f.size, type: f.type })) || [],
+        });
+
+        const response = await fundService.approveFundExpense(expenseId, {
           approverId: approver,
           notes: notes ?? null,
+          paymentProofImages: paymentProofImages && paymentProofImages.length > 0 ? paymentProofImages : [],
+        });
+
+        console.log('[useFundManagementData.approveExpense] Approval successful:', {
+          expenseId: response.id,
+          newFundBalance: response.newFundBalance,
+          paymentProofUrl: response.paymentProofUrl,
         });
 
         await loadFundDetails(activeFund.id);

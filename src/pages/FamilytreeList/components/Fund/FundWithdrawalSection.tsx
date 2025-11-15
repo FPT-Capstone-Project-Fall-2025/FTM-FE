@@ -35,7 +35,7 @@ interface FundWithdrawalSectionProps {
   computedBalance: number;
   campaigns: FundCampaign[];
   formState: WithdrawalFormState;
-  onFormChange: (field: keyof WithdrawalFormState, value: string) => void;
+  onFormChange: (field: keyof WithdrawalFormState, value: string | File[]) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   actionLoading?: boolean;
   formatCurrency: (value?: number | null) => string;
@@ -65,6 +65,21 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formState.amount]);
 
+  // Sync previews with formState.receiptImages when form is reset externally
+  useEffect(() => {
+    const imagesCount = Array.isArray(formState.receiptImages) ? formState.receiptImages.length : 0;
+    const previewsCount = receiptImagePreviews.length;
+    
+    // If formState has fewer images than previews, clear excess previews
+    if (imagesCount < previewsCount) {
+      setReceiptImagePreviews(prev => prev.slice(0, imagesCount));
+    }
+    // If formState is empty, clear all previews
+    if (imagesCount === 0 && previewsCount > 0) {
+      setReceiptImagePreviews([]);
+    }
+  }, [formState.receiptImages, receiptImagePreviews.length]);
+
   const handleReceiptImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -90,7 +105,7 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
     // Add to existing images - ensure receiptImages is an array
     const existingImages = Array.isArray(formState.receiptImages) ? formState.receiptImages : [];
     const newImages = [...existingImages, ...validFiles];
-    onFormChange('receiptImages', newImages as any);
+    onFormChange('receiptImages', newImages);
 
     // Create previews
     validFiles.forEach(file => {
@@ -100,12 +115,17 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
       };
       reader.readAsDataURL(file);
     });
+
+    // Reset file input to allow selecting the same file again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleRemoveReceiptImage = (index: number) => {
     const existingImages = Array.isArray(formState.receiptImages) ? formState.receiptImages : [];
     const newImages = existingImages.filter((_, i) => i !== index);
-    onFormChange('receiptImages', newImages as any);
+    onFormChange('receiptImages', newImages);
     setReceiptImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 

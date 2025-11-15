@@ -9,6 +9,7 @@ import type {
   CreateFundExpensePayload,
   CreateFundExpenseResponse,
   ApproveFundExpensePayload,
+  ApproveFundExpenseResponse,
   RejectFundExpensePayload,
   CreateCampaignPayload,
   CreateCampaignExpensePayload,
@@ -82,8 +83,13 @@ export const fundService = {
     }
     // Handle case where response might be direct array (backward compatibility)
     if (Array.isArray(data)) {
+      // Normalize expenses: map createdDate to createdOn for backward compatibility
+      const normalizedExpenses = data.map((expense: any) => ({
+        ...expense,
+        createdOn: expense.createdOn || expense.createdDate,
+      }));
       return {
-        expenses: data,
+        expenses: normalizedExpenses,
         totalCount: data.length,
         page: 1,
         pageSize: data.length,
@@ -93,8 +99,13 @@ export const fundService = {
     // Handle nested structure with expenses array
     if ('expenses' in data) {
       const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
+      // Normalize expenses: map createdDate to createdOn for backward compatibility
+      const normalizedExpenses = expensesArray.map((expense: any) => ({
+        ...expense,
+        createdOn: expense.createdOn || expense.createdDate,
+      }));
       return {
-        expenses: expensesArray,
+        expenses: normalizedExpenses,
         totalCount: data.totalCount ?? expensesArray.length,
         page: data.page ?? page,
         pageSize: data.pageSize ?? pageSize,
@@ -165,23 +176,83 @@ export const fundService = {
     return data;
   },
 
-  async approveFundExpense(id: string, payload: ApproveFundExpensePayload) {
-    // Use POST method and JSON payload (no payment proof images required)
-    const jsonPayload: any = {
+  async approveFundExpense(id: string, payload: ApproveFundExpensePayload): Promise<ApproveFundExpenseResponse> {
+    const hasImages = payload.paymentProofImages && payload.paymentProofImages.length > 0;
+    
+    console.log('[fundService.approveFundExpense] Approving expense:', {
+      expenseId: id,
       approverId: payload.approverId,
-    };
-    if (payload.notes) {
-      jsonPayload.notes = payload.notes;
+      notes: payload.notes,
+      hasPaymentProofImages: hasImages,
+      imageCount: payload.paymentProofImages?.length || 0,
+      imageNames: payload.paymentProofImages?.map(f => f.name) || [],
+      imageTypes: payload.paymentProofImages?.map(f => f.type) || [],
+      imageSizes: payload.paymentProofImages?.map(f => f.size) || [],
+    });
+
+    if (!hasImages) {
+      throw new Error('Payment proof image is required for approval');
     }
 
-    return api.post<ApiResponse<boolean>>(
+    // Always use FormData (API requires payment proof images)
+    const formData = new FormData();
+    formData.append('ApproverId', payload.approverId);
+    
+    // Always append Notes (even if empty) to match API expectations
+    formData.append('Notes', payload.notes || '');
+    
+    // Append payment proof images - API requires at least one
+    // Try singular field name first (some APIs use singular for single file, plural for multiple)
+    // If that doesn't work, we can try 'PaymentProofImages' (plural)
+    if (payload.paymentProofImages) {
+      payload.paymentProofImages.forEach(file => {
+        console.log('[fundService.approveFundExpense] Appending file:', {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          isFile: file instanceof File,
+          constructor: file.constructor.name,
+        });
+        // Try singular field name - some .NET APIs expect singular for IFormFile collections
+        formData.append('PaymentProofImage', file);
+      });
+    }
+
+    // Log FormData contents for debugging
+    console.log('[fundService.approveFundExpense] FormData contents:');
+    const formDataEntries: Array<[string, any]> = [];
+    for (const [key, value] of formData.entries()) {
+      formDataEntries.push([key, value]);
+      if (value instanceof File) {
+        console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`  ${key}: ${value}`);
+      }
+    }
+    
+    // Verify files are actually in FormData
+    const fileEntries = formDataEntries.filter(([_, value]) => value instanceof File);
+    console.log('[fundService.approveFundExpense] FormData file entries count:', fileEntries.length);
+    
+    if (fileEntries.length === 0) {
+      console.error('[fundService.approveFundExpense] ERROR: No files found in FormData!');
+      throw new Error('Payment proof images could not be added to request');
+    }
+
+    const response = await api.post<ApiResponse<ApproveFundExpenseResponse>>(
       `/fund-expenses/${id}/approve`,
-      jsonPayload
+      formData
     );
+    
+    const data = unwrap<ApproveFundExpenseResponse>(response);
+    if (!data) {
+      throw new Error('Invalid response from server');
+    }
+    return data;
   },
 
   async rejectFundExpense(id: string, payload: RejectFundExpensePayload) {
-    return api.put<ApiResponse<boolean>>(`/fund-expenses/${id}/reject`, payload);
+    return api.post<ApiResponse<boolean>>(`/fund-expenses/${id}/reject`, payload);
   },
 
   async fetchFundDonations(
