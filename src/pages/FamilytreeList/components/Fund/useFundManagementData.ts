@@ -106,6 +106,7 @@ export interface UseFundManagementDataReturn {
   refreshMyPendingDonations: () => Promise<void>;
   refreshPendingDonations: () => Promise<void>;
   confirmDonation: (donationId: string, confirmerId: string, confirmationNotes?: string) => Promise<void>;
+  rejectDonation: (donationId: string, rejectedBy: string, reason?: string) => Promise<void>;
   uploadDonationProof: (donationId: string, files: File[]) => Promise<void>;
   createFund: (payload: CreateFundPayload) => Promise<Fund | null>;
   donateToFund: (
@@ -321,6 +322,28 @@ export const useFundManagementData = (
       }
     },
     [refreshPendingDonations, activeFund?.id, loadFundDetails]
+  );
+
+  const rejectDonation = useCallback(
+    async (donationId: string, rejectedBy: string, reason?: string) => {
+      setActionLoading(true);
+      setError(null);
+      try {
+        await fundService.rejectDonation(donationId, {
+          rejectedBy,
+          reason: reason ?? undefined,
+        });
+        // Refresh pending donations after rejection
+        await refreshPendingDonations();
+        await refreshMyPendingDonations();
+      } catch (err) {
+        console.error('Failed to reject donation', err);
+        throw err;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [refreshPendingDonations, refreshMyPendingDonations]
   );
 
   const refreshCampaigns = useCallback(
@@ -720,6 +743,7 @@ export const useFundManagementData = (
     refreshMyPendingDonations,
     refreshPendingDonations,
     confirmDonation,
+    rejectDonation,
     uploadDonationProof,
     createFund,
     donateToFund,

@@ -35,6 +35,11 @@ interface FundCampaignsSectionProps {
   subtitle?: string;
   showCreateButton?: boolean;
   showStatusFilter?: boolean;
+  showAllCampaigns?: boolean;
+  categorizedCampaigns?: {
+    active: FundCampaign[];
+    inactive: FundCampaign[];
+  };
 }
 
 const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
@@ -60,6 +65,8 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   subtitle = 'Quản lý và theo dõi các chiến dịch quyên góp của gia phả',
   showCreateButton = true,
   showStatusFilter = true,
+  showAllCampaigns = false,
+  categorizedCampaigns,
 }) => {
   const normalizedSearch = campaignSearch.trim().toLowerCase();
 
@@ -157,10 +164,17 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
                 ? Math.min((Number(metric.raisedAmount) / Number(campaign.fundGoal)) * 100, 100)
                 : 0;
 
+              // Check if campaign is inactive
+              const isInactive = categorizedCampaigns 
+                ? categorizedCampaigns.inactive.some(c => c.id === campaign.id)
+                : false;
+
               return (
                 <div
                   key={campaign.id}
-                  className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                  className={`border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow ${
+                    isInactive ? 'bg-gray-50' : ''
+                  }`}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div>

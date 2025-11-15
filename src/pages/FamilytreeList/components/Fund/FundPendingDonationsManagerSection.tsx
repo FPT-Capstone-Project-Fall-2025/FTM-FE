@@ -7,8 +7,10 @@ interface FundPendingDonationsManagerSectionProps {
   pendingDonations: MyPendingDonation[];
   loading?: boolean;
   confirming?: boolean;
+  rejecting?: boolean;
   onRefresh?: () => void;
   onConfirm: (donationId: string, confirmationNotes?: string) => Promise<void>;
+  onReject: (donationId: string, reason?: string) => Promise<void>;
   formatCurrency: (value?: number | null) => string;
   formatDate: (value?: string | null) => string;
   getPaymentMethodLabel: (method: unknown) => string;
@@ -19,17 +21,22 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
   pendingDonations,
   loading = false,
   confirming = false,
+  rejecting = false,
   onRefresh,
   onConfirm,
+  onReject,
   formatCurrency,
   formatDate,
   getPaymentMethodLabel,
   confirmerId,
 }) => {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<MyPendingDonation | null>(null);
   const [confirmationNotes, setConfirmationNotes] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const handleConfirmClick = (donation: MyPendingDonation) => {
     setSelectedDonation(donation);
@@ -59,7 +66,51 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
     setConfirmationNotes('');
   };
 
-  const hasProofImages = selectedDonation?.proofImages && selectedDonation.proofImages.length > 0;
+  const handleRejectClick = (donation: MyPendingDonation) => {
+    setSelectedDonation(donation);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  const handleRejectSubmit = async () => {
+    if (!selectedDonation) return;
+
+    setRejectingId(selectedDonation.id);
+    try {
+      await onReject(selectedDonation.id, rejectionReason.trim() || undefined);
+      setShowRejectModal(false);
+      setSelectedDonation(null);
+      setRejectionReason('');
+    } catch (error) {
+      console.error('Failed to reject donation', error);
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
+  const handleCancelReject = () => {
+    setShowRejectModal(false);
+    setSelectedDonation(null);
+    setRejectionReason('');
+  };
+
+  // Normalize proofImages to always be an array
+  const normalizeProofImages = (proofImages: string[] | string | null | undefined): string[] => {
+    if (!proofImages) return [];
+    if (Array.isArray(proofImages)) return proofImages;
+    if (typeof proofImages === 'string') {
+      // Handle comma-separated string
+      if (proofImages.includes(',')) {
+        return proofImages.split(',').map(url => url.trim()).filter(Boolean);
+      }
+      // Single URL string
+      return [proofImages];
+    }
+    return [];
+  };
+  
+  const proofImagesArray = normalizeProofImages(selectedDonation?.proofImages);
+  const hasProofImages = proofImagesArray.length > 0;
 
   return (
     <>
@@ -150,7 +201,7 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
                     <button
                       type="button"
                       onClick={() => handleConfirmClick(item)}
-                      disabled={confirming || confirmingId === item.id}
+                      disabled={confirming || confirmingId === item.id || rejectingId === item.id}
                       className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {confirmingId === item.id ? (
@@ -162,6 +213,24 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
                         <>
                           <CheckCircle className="w-4 h-4" />
                           Xác nhận
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRejectClick(item)}
+                      disabled={confirming || confirmingId === item.id || rejecting || rejectingId === item.id}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {rejectingId === item.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Đang từ chối...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-4 h-4" />
+                          Từ chối
                         </>
                       )}
                     </button>
@@ -233,7 +302,7 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
                     Ảnh chứng từ đã upload:
                   </label>
                   <div className="grid grid-cols-3 gap-2">
-                    {selectedDonation.proofImages?.map((url, index) => (
+                    {proofImagesArray.map((url, index) => (
                       <div key={index} className="relative group">
                         <img
                           src={url}
@@ -305,6 +374,137 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
                   <>
                     <CheckCircle className="w-4 h-4" />
                     Xác nhận
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && selectedDonation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full my-8 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <XCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Từ chối đóng góp</h3>
+                  <p className="text-sm text-gray-500">Từ chối khoản đóng góp này</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCancelReject}
+                className="text-sm font-semibold text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                type="button"
+                disabled={rejectingId === selectedDonation.id}
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Số tiền:</span>
+                  <span className="text-lg font-bold text-gray-900">
+                    {formatCurrency(selectedDonation.donationMoney)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Người đóng góp:</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {selectedDonation.donorName || 'Ẩn danh'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Phương thức:</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {getPaymentMethodLabel(selectedDonation.paymentMethod)}
+                  </span>
+                </div>
+                {selectedDonation.paymentNotes && (
+                  <div className="pt-2 border-t border-gray-200">
+                    <span className="text-sm text-gray-600">Ghi chú:</span>
+                    <p className="text-sm text-gray-900 mt-1">{selectedDonation.paymentNotes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Proof Images Section - Display only */}
+              {hasProofImages && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Ảnh chứng từ đã upload:
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {proofImagesArray.map((url, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={url}
+                          alt={`Proof ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                        />
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/50 transition-colors rounded-lg"
+                        >
+                          <Image className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Lý do từ chối <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={e => setRejectionReason(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  placeholder="Vui lòng nhập lý do từ chối khoản đóng góp này..."
+                  required
+                  disabled={rejectingId === selectedDonation.id}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Lý do từ chối sẽ được gửi đến người đóng góp
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleCancelReject}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                disabled={rejectingId === selectedDonation.id}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectSubmit}
+                disabled={rejectingId === selectedDonation.id || !rejectionReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {rejectingId === selectedDonation.id ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang từ chối...
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    Từ chối
                   </>
                 )}
               </button>

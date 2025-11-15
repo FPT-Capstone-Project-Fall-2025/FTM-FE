@@ -304,6 +304,47 @@ export interface ConfirmDonationResponse {
   proofImages?: string[] | null;
   confirmedBy?: string | null;
   newFundBalance?: number | null;
+  newCampaignBalance?: number | null;
+  confirmedOn?: string | null;
+}
+
+// Campaign Donation Types
+export interface CreateCampaignDonationPayload {
+  memberId: string;
+  donorName: string;
+  amount: number;
+  paymentMethod: string | number; // "Cash" | "BankTransfer" | 0 | 1
+  paymentNotes?: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+}
+
+export interface CreateCampaignDonationResponse {
+  donationId: string;
+  orderCode?: string | number | null;
+  qrCodeUrl?: string | null;
+  bankInfo?: BankInfo | null;
+  requiresManualConfirmation: boolean;
+  message?: string | null;
+}
+
+export interface CampaignDonationProofResponse {
+  donationId: string;
+  imageUrls?: string[] | null;
+  allProofImages?: string[] | null;
+  commaSeparated?: string | null;
+  count?: number | null;
+  totalProofs?: number | null;
+}
+
+export interface ConfirmCampaignDonationResponse {
+  donationId: string;
+  status?: string | null;
+  amount?: number | null;
+  proofImages?: string[] | null;
+  confirmedBy?: string | null;
+  confirmedOn?: string | null;
+  newCampaignBalance?: number | null;
 }
 
 export type FundApiResponse<T> = ApiResponse<T>;

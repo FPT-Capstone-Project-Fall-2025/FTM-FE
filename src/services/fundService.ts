@@ -23,6 +23,10 @@ import type {
   CampaignFinancialSummary,
   UploadDonationProofResponse,
   ConfirmDonationResponse,
+  CreateCampaignDonationPayload,
+  CreateCampaignDonationResponse,
+  CampaignDonationProofResponse,
+  ConfirmCampaignDonationResponse,
 } from '@/types/fund';
 import type { ApiResponse, PaginationResponse } from '@/types/api';
 
@@ -226,6 +230,18 @@ export const fundService = {
     return api.post<ApiResponse<Fund>>(`/funds`, payload);
   },
 
+  async updateFund(fundId: string, payload: {
+    fundName: string;
+    description?: string;
+    bankAccountNumber: string;
+    bankCode: string;
+    bankName: string;
+    accountHolderName: string;
+    fundManagers?: string;
+  }) {
+    return api.put<ApiResponse<Fund>>(`/funds/${fundId}`, payload);
+  },
+
   async fetchCampaignsByTree(
     treeId: string,
     page = 1,
@@ -368,7 +384,11 @@ export const fundService = {
 
     const determineStatus = (): string => {
       if (payload.status) {
-        return String(payload.status).toLowerCase();
+        const statusStr = String(payload.status);
+        if (statusStr.toLowerCase() === 'active') return 'active';
+        if (statusStr.toLowerCase() === 'completed') return 'completed';
+        if (statusStr.toLowerCase() === 'cancelled') return 'cancelled';
+        return 'upcoming';
       }
       const now = new Date();
       const endDate = payload.endDate ? new Date(payload.endDate) : null;
@@ -431,7 +451,8 @@ export const fundService = {
     const result = await api.get<ApiResponse<CampaignStatistics>>(
       `/ftcampaign/${campaignId}/statistics`
     );
-    return unwrap<CampaignStatistics | null>(result) ?? null;
+    const data = unwrap<CampaignStatistics | null>(result);
+    return data ?? null;
   },
 
   async fetchCampaignFinancialSummary(campaignId: string): Promise<CampaignFinancialSummary | null> {
@@ -451,6 +472,117 @@ export const fundService = {
 
   async rejectCampaignExpense(id: string, payload: RejectCampaignExpensePayload) {
     return api.put<ApiResponse<boolean>>(`/ftcampaignexpense/${id}/reject`, payload);
+  },
+
+  // Campaign Donation APIs
+  async createCampaignDonation(
+    campaignId: string,
+    payload: CreateCampaignDonationPayload
+  ): Promise<CreateCampaignDonationResponse> {
+    console.log('[fundService.createCampaignDonation] Starting donation', {
+      campaignId,
+      payload,
+    });
+
+    const response = await api.post<ApiResponse<CreateCampaignDonationResponse>>(
+      `/ftcampaigndonation/campaign/${campaignId}/donate`,
+      payload
+    );
+
+    console.log('[fundService.createCampaignDonation] API Response:', response);
+
+    const data = unwrap<CreateCampaignDonationResponse>(response);
+    console.log('[fundService.createCampaignDonation] Unwrapped data:', data);
+
+    if (!data) {
+      console.error('[fundService.createCampaignDonation] Invalid response from server');
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('[fundService.createCampaignDonation] Donation created successfully', {
+      donationId: data.donationId,
+      requiresManualConfirmation: data.requiresManualConfirmation,
+    });
+
+    return data;
+  },
+
+  async uploadCampaignDonationProof(
+    donationId: string,
+    files: File[]
+  ): Promise<CampaignDonationProofResponse> {
+    console.log('[fundService.uploadCampaignDonationProof] Starting upload proof', {
+      donationId,
+      filesCount: files.length,
+      fileNames: files.map(f => f.name),
+      fileSizes: files.map(f => f.size),
+    });
+
+    const formData = new FormData();
+    // API expects 'images' key
+    files.forEach(file => {
+      formData.append('images', file);
+    });
+
+    const url = `/ftcampaigndonation/${donationId}/upload-proof`;
+    console.log('[fundService.uploadCampaignDonationProof] API URL:', url);
+    console.log('[fundService.uploadCampaignDonationProof] donationId:', donationId);
+    console.log('[fundService.uploadCampaignDonationProof] FormData keys:', Array.from(formData.keys()));
+
+    // Don't set Content-Type header manually - let axios set it automatically with boundary
+    const response = await api.post<ApiResponse<CampaignDonationProofResponse>>(url, formData);
+
+    console.log('[fundService.uploadCampaignDonationProof] API Response:', response);
+
+    const data = unwrap<CampaignDonationProofResponse>(response);
+    console.log('[fundService.uploadCampaignDonationProof] Unwrapped data:', data);
+
+    if (!data) {
+      console.error('[fundService.uploadCampaignDonationProof] Invalid response from server');
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('[fundService.uploadCampaignDonationProof] Upload successful', {
+      donationId: data.donationId,
+      imageUrlsCount: data.imageUrls?.length || 0,
+      allProofImagesCount: data.allProofImages?.length || 0,
+      totalProofs: data.totalProofs,
+    });
+
+    return data;
+  },
+
+  async confirmCampaignDonation(
+    donationId: string,
+    payload: { donationId: string; confirmedBy: string; notes?: string }
+  ): Promise<ConfirmCampaignDonationResponse> {
+    console.log('[fundService.confirmCampaignDonation] Starting confirmation', {
+      donationId,
+      payload,
+    });
+
+    const response = await api.post<ApiResponse<ConfirmCampaignDonationResponse>>(
+      `/ftcampaigndonation/${donationId}/confirm`,
+      payload
+    );
+
+    console.log('[fundService.confirmCampaignDonation] API Response:', response);
+
+    const data = unwrap<ConfirmCampaignDonationResponse>(response);
+    console.log('[fundService.confirmCampaignDonation] Unwrapped data:', data);
+
+    if (!data) {
+      console.error('[fundService.confirmCampaignDonation] Invalid response from server');
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('[fundService.confirmCampaignDonation] Confirmation successful', {
+      donationId: data.donationId,
+      status: data.status,
+      newCampaignBalance: data.newCampaignBalance,
+    });
+
+    return data;
   },
 };
 
