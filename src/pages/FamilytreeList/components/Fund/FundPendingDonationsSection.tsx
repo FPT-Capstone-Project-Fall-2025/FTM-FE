@@ -153,7 +153,24 @@ const FundPendingDonationsSection: React.FC<FundPendingDonationsSectionProps> = 
   // Find the latest donation data from props to get updated proof images
   const latestDonation = pendingDonations.find(d => d.id === selectedDonation?.id);
   const currentDonation = latestDonation || selectedDonation;
-  const hasProofImages = currentDonation?.proofImages && currentDonation.proofImages.length > 0;
+  
+  // Normalize proofImages to always be an array
+  const normalizeProofImages = (proofImages: string[] | string | null | undefined): string[] => {
+    if (!proofImages) return [];
+    if (Array.isArray(proofImages)) return proofImages;
+    if (typeof proofImages === 'string') {
+      // Handle comma-separated string
+      if (proofImages.includes(',')) {
+        return proofImages.split(',').map(url => url.trim()).filter(Boolean);
+      }
+      // Single URL string
+      return [proofImages];
+    }
+    return [];
+  };
+  
+  const proofImagesArray = normalizeProofImages(currentDonation?.proofImages);
+  const hasProofImages = proofImagesArray.length > 0;
 
   return (
     <>
@@ -209,12 +226,15 @@ const FundPendingDonationsSection: React.FC<FundPendingDonationsSectionProps> = 
                   <p className="text-sm text-gray-600">
                     Ghi chú: {item.paymentNotes?.trim() || 'Không có'}
                   </p>
-                  {item.proofImages && item.proofImages.length > 0 && (
-                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                      <Image className="w-3 h-3" />
-                      Đã upload {item.proofImages.length} ảnh chứng từ
-                    </p>
-                  )}
+                  {(() => {
+                    const itemProofImages = normalizeProofImages(item.proofImages);
+                    return itemProofImages.length > 0 && (
+                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <Image className="w-3 h-3" />
+                        Đã upload {itemProofImages.length} ảnh chứng từ
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="text-sm text-gray-600 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-gray-400" />
@@ -279,7 +299,7 @@ const FundPendingDonationsSection: React.FC<FundPendingDonationsSectionProps> = 
                     Ảnh chứng từ đã upload:
                   </label>
                   <div className="grid grid-cols-3 gap-2">
-                    {currentDonation?.proofImages?.map((url, index) => (
+                    {proofImagesArray.map((url, index) => (
                       <div key={index} className="relative group">
                         <img
                           src={url}

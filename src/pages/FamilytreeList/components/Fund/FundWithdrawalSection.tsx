@@ -95,10 +95,9 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
   return (
     <div className="bg-white rounded-lg shadow p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-gray-900">Tạo yêu cầu rút tiền</h3>
         <span className="inline-flex items-center gap-2 text-sm text-gray-500">
           <RefreshCw className="w-4 h-4" />
-          Số dư: <span className="font-semibold text-gray-900">{formatCurrency(computedBalance)}</span>
+          Số dư khả dụng: <span className="font-semibold text-gray-900">{formatCurrency(computedBalance)}</span>
         </span>
       </div>
 
@@ -130,7 +129,7 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Lý do chi tiêu <span className="text-red-500">*</span>
+            Nội dung chi tiêu <span className="text-red-500">*</span>
           </label>
           <textarea
             value={formState.reason}

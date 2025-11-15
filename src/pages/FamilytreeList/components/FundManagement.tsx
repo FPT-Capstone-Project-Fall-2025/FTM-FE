@@ -22,10 +22,14 @@ import type {
 import { useGPMember } from '@/hooks/useGPMember';
 import { getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
 import familyTreeMemberService, { type FTRole } from '@/services/familyTreeMemberService';
+import fundService from '@/services/fundService';
 import FundCreateModal, {
   type BankInfo,
   type FundCreateForm,
 } from './Fund/FundCreateModal';
+import FundEditModal, {
+  type FundEditForm,
+} from './Fund/FundEditModal';
 import { getUserIdFromToken } from '@/utils/jwtUtils';
 import FundCampaignsSection, {
   type CampaignFilter,
@@ -38,6 +42,7 @@ import FundHistorySection from './Fund/FundHistorySection';
 import FundWithdrawalSection, {
   type WithdrawalFormState,
 } from './Fund/FundWithdrawalSection';
+import FundWithdrawalModal from './Fund/FundWithdrawalModal';
 import FundApprovalsSection from './Fund/FundApprovalsSection';
 import FundDonationHistorySection from './Fund/FundDonationHistorySection';
 import FundPendingDonationsSection from './Fund/FundPendingDonationsSection';
@@ -102,16 +107,10 @@ const FUND_TAB_ITEMS: Array<{ key: FundTab; label: string; requiresOwner?: boole
   { key: 'overview', label: 'Tổng quan quỹ' },
   { key: 'donations', label: 'Nạp quỹ & yêu cầu của tôi' },
   { key: 'history', label: 'Lịch sử giao dịch' },
-  { key: 'withdrawal', label: 'Tạo yêu cầu' },
   { key: 'approvals', label: 'Phê duyệt yêu cầu', requiresOwner: true },
 ];
 
-type CampaignTab = 'list' | 'active';
-
-const CAMPAIGN_TAB_ITEMS: Array<{ key: CampaignTab; label: string }> = [
-  { key: 'list', label: 'Chiến dịch của gia phả' },
-  { key: 'active', label: 'Chiến dịch đang hoạt động' },
-];
+// Campaign tabs removed - now using single unified list
 
 const normalizeStatus = (status: unknown): string => {
   if (status === null || status === undefined) return 'unknown';
@@ -246,6 +245,7 @@ const FundManagement: React.FC = () => {
     createWithdrawal,
     approveExpense,
     rejectExpense,
+    rejectDonation,
   } = useFundManagementData({
     familyTreeId: selectedTree?.id ?? null,
     currentUserId: currentUserId ?? null,
@@ -267,6 +267,9 @@ const FundManagement: React.FC = () => {
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
   const [depositSubmitting, setDepositSubmitting] = useState(false);
   const [proofSubmitting, setProofSubmitting] = useState(false);
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+  const [isEditFundModalOpen, setIsEditFundModalOpen] = useState(false);
+  const [editFundSubmitting, setEditFundSubmitting] = useState(false);
   const [recentDonation, setRecentDonation] = useState<FundDonation | null>(
     null
   );
@@ -274,10 +277,9 @@ const FundManagement: React.FC = () => {
     'fund'
   );
   const [fundTab, setFundTab] = useState<FundTab>('overview');
-  const [campaignTab, setCampaignTab] = useState<CampaignTab>('list');
   const [campaignSearch, setCampaignSearch] = useState('');
-  const [activeCampaignSearch, setActiveCampaignSearch] = useState('');
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>('all');
+  const [showAllCampaigns, setShowAllCampaigns] = useState(false);
   const [campaignDetail, setCampaignDetail] = useState<CampaignDetail | null>(
     null
   );
@@ -308,26 +310,11 @@ const FundManagement: React.FC = () => {
   }, [refreshActiveCampaigns]);
 
   useEffect(() => {
-    if (managementScope === 'campaign' && campaignTab === 'active') {
-      void refreshActiveCampaigns(activeCampaignPagination.page);
-    }
-  }, [
-    activeCampaignPagination.page,
-    campaignTab,
-    managementScope,
-    refreshActiveCampaigns,
-  ]);
-
-  useEffect(() => {
-    if (
-      managementScope === 'fund' &&
-      fundTab === 'withdrawal' &&
-      !withdrawalForm.date
-    ) {
+    if (isWithdrawalModalOpen && !withdrawalForm.date) {
       const today = new Date().toISOString().slice(0, 10);
       setWithdrawalForm(prev => ({ ...prev, date: today }));
     }
-  }, [fundTab, managementScope, withdrawalForm.date]);
+  }, [isWithdrawalModalOpen, withdrawalForm.date]);
 
   useEffect(() => {
     console.log('[FundManagement] useGPMember result', {
@@ -574,6 +561,66 @@ const FundManagement: React.FC = () => {
     refreshFundDetails();
   }, [refreshFundDetails]);
 
+  const handleOpenWithdraw = useCallback(() => {
+    if (!activeFund) {
+      toast.error('Vui lòng chọn quỹ để rút tiền.');
+      return;
+    }
+    setIsWithdrawalModalOpen(true);
+  }, [activeFund]);
+
+  const handleCloseWithdraw = useCallback(() => {
+    setIsWithdrawalModalOpen(false);
+  }, []);
+
+  const handleOpenEditFund = useCallback(() => {
+    if (!activeFund) {
+      toast.error('Vui lòng chọn quỹ để chỉnh sửa.');
+      return;
+    }
+    setIsEditFundModalOpen(true);
+  }, [activeFund]);
+
+  const handleCloseEditFund = useCallback(() => {
+    setIsEditFundModalOpen(false);
+  }, []);
+
+  const handleSubmitEditFund = useCallback(
+    async (form: FundEditForm) => {
+      if (!activeFund) {
+        toast.error('Vui lòng chọn quỹ để chỉnh sửa.');
+        return;
+      }
+
+      setEditFundSubmitting(true);
+      try {
+        await fundService.updateFund(activeFund.id, {
+          fundName: form.fundName,
+          description: form.description || undefined,
+          bankAccountNumber: form.bankAccountNumber,
+          bankCode: form.bankCode,
+          bankName: form.bankName,
+          accountHolderName: form.accountHolderName,
+          fundManagers: form.fundManagers || undefined,
+        });
+        toast.success('Đã cập nhật thông tin quỹ thành công.');
+        setIsEditFundModalOpen(false);
+        await refreshFundDetails();
+        await refreshAll();
+      } catch (error: any) {
+        console.error('Update fund failed:', error);
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            'Không thể cập nhật thông tin quỹ. Vui lòng thử lại.'
+        );
+      } finally {
+        setEditFundSubmitting(false);
+      }
+    },
+    [activeFund, refreshFundDetails, refreshAll]
+  );
+
   const handleCloseProof = useCallback(() => {
     setIsProofModalOpen(false);
     setRecentDonation(null);
@@ -693,7 +740,12 @@ const FundManagement: React.FC = () => {
         }
         await confirmDonation(recentDonation.id, gpMemberId, note.trim() || undefined);
         toast.success('Đã tải chứng từ và xác nhận khoản nạp quỹ.');
+        // Refresh fund details to update balance
         await refreshFundDetails();
+        await refreshAll();
+        // Switch to overview tab
+        setFundTab('overview');
+        setManagementScope('fund');
         setRecentDonation(null);
         setIsProofModalOpen(false);
       } catch (error: any) {
@@ -706,7 +758,7 @@ const FundManagement: React.FC = () => {
         setProofSubmitting(false);
       }
     },
-    [gpMemberId, recentDonation?.id, refreshFundDetails, confirmDonation, uploadDonationProof]
+    [gpMemberId, recentDonation?.id, refreshFundDetails, refreshAll, confirmDonation, uploadDonationProof]
   );
 
   const handleWithdrawalChange = useCallback(
@@ -776,6 +828,7 @@ const FundManagement: React.FC = () => {
         await createWithdrawal(payload);
         toast.success('Đã gửi yêu cầu rút quỹ thành công.');
         setWithdrawalForm(getInitialWithdrawalForm()); // Reset with current date
+        setIsWithdrawalModalOpen(false); // Close modal after success
         await refreshFundDetails();
       } catch (error: any) {
         console.error('Create withdrawal failed:', error);
@@ -935,33 +988,72 @@ const handleActiveCampaignPageChange = useCallback(
     setCampaignDetail(null);
   }, []);
 
+  // Merge and sort all campaigns by date
+  const allCampaigns = useMemo(() => {
+    const merged = [...campaigns, ...activeCampaigns];
+    // Remove duplicates by id
+    const unique = merged.reduce((acc, campaign) => {
+      if (!acc.find(c => c.id === campaign.id)) {
+        acc.push(campaign);
+      }
+      return acc;
+    }, [] as FundCampaign[]);
+    
+    // Sort by startDate (or createdOn if no startDate), newest first
+    return unique.sort((a, b) => {
+      const aDate = getDateValue(a.startDate || a.createdOn);
+      const bDate = getDateValue(b.startDate || b.createdOn);
+      return bDate - aDate;
+    });
+  }, [campaigns, activeCampaigns]);
+
+  // Categorize campaigns into active and inactive
+  const categorizedCampaigns = useMemo(() => {
+    const now = new Date().getTime();
+    const active: FundCampaign[] = [];
+    const inactive: FundCampaign[] = [];
+
+    allCampaigns.forEach(campaign => {
+      const statusKey = getCampaignStatusKey(campaign.status);
+      const startDate = campaign.startDate ? new Date(campaign.startDate).getTime() : null;
+      const endDate = campaign.endDate ? new Date(campaign.endDate).getTime() : null;
+      
+      // Active: status is 'active' and within date range
+      const isActive = statusKey === 'active' && 
+        (!startDate || startDate <= now) && 
+        (!endDate || endDate >= now);
+      
+      if (isActive) {
+        active.push(campaign);
+      } else {
+        inactive.push(campaign);
+      }
+    });
+
+    return { active, inactive };
+  }, [allCampaigns, getCampaignStatusKey]);
+
+  // Display campaigns based on showAllCampaigns toggle
+  const displayedCampaigns = useMemo(() => {
+    if (showAllCampaigns) {
+      return allCampaigns;
+    }
+    return categorizedCampaigns.active;
+  }, [showAllCampaigns, allCampaigns, categorizedCampaigns.active]);
+
   const campaignMetrics = useMemo(() => {
     const map: Record<
       string,
       { raisedAmount: number; contributorCount: number }
     > = {};
-    campaigns.forEach(campaign => {
+    allCampaigns.forEach(campaign => {
       map[campaign.id] = {
         raisedAmount: Number(campaign.currentBalance ?? 0),
         contributorCount: Number(campaign.totalDonors ?? 0),
       };
     });
     return map;
-  }, [campaigns]);
-
-  const activeCampaignMetrics = useMemo(() => {
-    const map: Record<
-      string,
-      { raisedAmount: number; contributorCount: number }
-    > = {};
-    activeCampaigns.forEach(campaign => {
-      map[campaign.id] = {
-        raisedAmount: Number(campaign.currentBalance ?? 0),
-        contributorCount: Number(campaign.totalDonors ?? 0),
-      };
-    });
-    return map;
-  }, [activeCampaigns]);
+  }, [allCampaigns]);
 
   const getExpenseStatusBadge = useCallback((expense: FundExpense) => {
     const status = normalizeStatus(expense.status);
@@ -1139,12 +1231,11 @@ const handleActiveCampaignPageChange = useCallback(
           payload.notes = notes;
         }
 
-        await createCampaign(payload);
-        toast.success('Đã tạo chiến dịch gây quỹ mới.');
-        await changeCampaignPage(1);
-        setManagementScope('campaign');
-        setCampaignTab('list');
-        handleCloseCampaignModal();
+               await createCampaign(payload);
+               toast.success('Đã tạo chiến dịch gây quỹ mới.');
+               await changeCampaignPage(1);
+               setManagementScope('campaign');
+               handleCloseCampaignModal();
       } catch (err: any) {
         console.error('Create campaign failed:', err);
         toast.error(
@@ -1155,16 +1246,15 @@ const handleActiveCampaignPageChange = useCallback(
         setCampaignSubmitting(false);
       }
     },
-    [
-      campaignForm,
-      changeCampaignPage,
-      setCampaignTab,
-      setManagementScope,
-      createCampaign,
-      gpMemberId,
-      handleCloseCampaignModal,
-      selectedTree?.id,
-    ]
+           [
+             campaignForm,
+             changeCampaignPage,
+             setManagementScope,
+             createCampaign,
+             gpMemberId,
+             handleCloseCampaignModal,
+             selectedTree?.id,
+           ]
   );
 
   useEffect(() => {
@@ -1251,9 +1341,8 @@ const handleActiveCampaignPageChange = useCallback(
               setManagementScope(value);
               if (value === 'fund') {
                 setFundTab('overview');
-              } else {
-                setCampaignTab('list');
               }
+              // Campaign scope doesn't need tab switching anymore
             }}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
           >
@@ -1262,75 +1351,64 @@ const handleActiveCampaignPageChange = useCallback(
           </select>
         </div>
 
-        {managementScope === 'fund' ? (
-          <div className="flex flex-wrap items-center gap-3">
-            {canCreateFund && (
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(true)}
-                disabled={!selectedTree?.id}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <PlusCircle className="w-4 h-4" />
-                Tạo quỹ
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing || loading}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${
-                  isRefreshing ? 'animate-spin text-blue-600' : 'text-gray-600'
-                }`}
-              />
-              Làm mới dữ liệu
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-3">
-            {campaignTab === 'list' && (
-              <button
-                type="button"
-                onClick={handleOpenCampaignModal}
-                disabled={!selectedTree?.id}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <PlusCircle className="w-4 h-4" />
-                Tạo chiến dịch
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={
-                campaignTab === 'active'
-                  ? handleRefreshActiveCampaigns
-                  : handleRefreshCampaigns
-              }
-              disabled={
-                campaignTab === 'active'
-                  ? activeCampaignsLoading
-                  : campaignsLoading
-              }
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${
-                  (campaignTab === 'active'
-                    ? activeCampaignsLoading
-                    : campaignsLoading)
-                    ? 'animate-spin text-blue-600'
-                    : 'text-gray-600'
-                }`}
-              />
-              {campaignTab === 'active'
-                ? 'Làm mới danh sách'
-                : 'Làm mới chiến dịch'}
-            </button>
-          </div>
-        )}
+               {managementScope === 'fund' ? (
+                 <div className="flex flex-wrap items-center gap-3">
+                   {canCreateFund && (
+                     <button
+                       type="button"
+                       onClick={() => setShowCreateModal(true)}
+                       disabled={!selectedTree?.id}
+                       className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                     >
+                       <PlusCircle className="w-4 h-4" />
+                       Tạo quỹ
+                     </button>
+                   )}
+                   <button
+                     type="button"
+                     onClick={handleRefresh}
+                     disabled={isRefreshing || loading}
+                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                   >
+                     <RefreshCw
+                       className={`w-4 h-4 ${
+                         isRefreshing ? 'animate-spin text-blue-600' : 'text-gray-600'
+                       }`}
+                     />
+                     Làm mới dữ liệu
+                   </button>
+                 </div>
+               ) : (
+                 <div className="flex flex-wrap items-center gap-3">
+                   <button
+                     type="button"
+                     onClick={handleOpenCampaignModal}
+                     disabled={!selectedTree?.id}
+                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                   >
+                     <PlusCircle className="w-4 h-4" />
+                     Tạo chiến dịch
+                   </button>
+                   <button
+                     type="button"
+                     onClick={async () => {
+                       await handleRefreshCampaigns();
+                       await handleRefreshActiveCampaigns();
+                     }}
+                     disabled={campaignsLoading || activeCampaignsLoading}
+                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                   >
+                     <RefreshCw
+                       className={`w-4 h-4 ${
+                         (campaignsLoading || activeCampaignsLoading)
+                           ? 'animate-spin text-blue-600'
+                           : 'text-gray-600'
+                       }`}
+                     />
+                     Làm mới chiến dịch
+                   </button>
+                 </div>
+               )}
       </div>
 
       {managementScope === 'fund' && (
@@ -1366,24 +1444,7 @@ const handleActiveCampaignPageChange = useCallback(
         </div>
       )}
 
-      {managementScope === 'campaign' && (
-        <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
-          {CAMPAIGN_TAB_ITEMS.map(tab => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setCampaignTab(tab.key)}
-              className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
-                campaignTab === tab.key
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:text-blue-600'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+             {/* Campaign tabs removed - using unified list */}
 
       {managementScope === 'fund' && (
         <>
@@ -1454,6 +1515,11 @@ const handleActiveCampaignPageChange = useCallback(
                     onDeposit={handleOpenDeposit}
                     depositDisabled={depositButtonDisabled}
                     showDepositButton
+                    onWithdraw={handleOpenWithdraw}
+                    withdrawDisabled={depositButtonDisabled}
+                    showWithdrawButton
+                    onEdit={handleOpenEditFund}
+                    isOwner={memberRole === 'FTOwner'}
                   />
                 </div>
               )}
@@ -1549,152 +1615,11 @@ const handleActiveCampaignPageChange = useCallback(
                 </div>
               ) : (
                 <FundHistorySection
-                  approvedExpenses={approvedExpenses}
-                  confirmedDonations={confirmedDonations}
+                  fundId={activeFund?.id ?? null}
                   formatCurrency={formatCurrency}
                   formatDate={formatDate}
                   getPaymentMethodLabel={getPaymentMethodLabel}
                 />
-              )}
-            </div>
-          )}
-
-          {fundTab === 'withdrawal' && (
-            <div className="space-y-6">
-              {/* Form tạo yêu cầu rút tiền */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <FundWithdrawalSection
-                  hasFund={hasAnyFund}
-                  computedBalance={computedBalance}
-                  campaigns={campaigns}
-                  formState={withdrawalForm}
-                  onFormChange={handleWithdrawalChange}
-                  onSubmit={handleSubmitWithdrawal}
-                  actionLoading={actionLoading}
-                  formatCurrency={formatCurrency}
-                />
-              </div>
-
-              {/* Yêu cầu nạp của tôi */}
-              {myPendingDonations.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Yêu cầu nạp của tôi</h3>
-                    <p className="text-sm text-gray-500">Các yêu cầu nạp quỹ đang chờ xác nhận</p>
-                  </div>
-                  <FundPendingDonationsSection
-                    pendingDonations={myPendingDonations}
-                    loading={myPendingLoading}
-                    onRefresh={handleRefreshMyPending}
-                    onUploadProof={async (donationId, files) => {
-                      console.log('[FundManagement.onUploadProof (withdrawal tab)] Starting upload proof', {
-                        donationId,
-                        fundDonationId: donationId,
-                        filesCount: files.length,
-                        fileNames: files.map(f => f.name),
-                        myPendingDonations: myPendingDonations.map(d => ({ id: d.id, status: d.status })),
-                      });
-
-                      try {
-                        // Always refresh myPendingDonations first to ensure we have the latest data
-                        console.log('[FundManagement.onUploadProof (withdrawal tab)] Refreshing myPendingDonations to get latest data...');
-                        await handleRefreshMyPending();
-                        
-                        // Wait a bit for state to update
-                        await new Promise(resolve => setTimeout(resolve, 300));
-                        
-                        // Now upload proof - API will validate if donation exists
-                        console.log('[FundManagement.onUploadProof (withdrawal tab)] Calling uploadDonationProof with donationId:', donationId);
-                        await uploadDonationProof(donationId, files);
-                        console.log('[FundManagement.onUploadProof (withdrawal tab)] Upload successful');
-                        toast.success('Đã upload ảnh chứng từ thành công. Vui lòng chờ quản trị viên xác nhận.');
-                        await handleRefreshMyPending();
-                      } catch (error: any) {
-                        console.error('[FundManagement.onUploadProof (withdrawal tab)] Upload proof failed:', {
-                          error,
-                          donationId,
-                          fundDonationId: donationId,
-                          errorResponse: error?.response,
-                          errorMessage: error?.response?.data?.message || error?.message,
-                          errorStatus: error?.response?.status,
-                          errorUrl: error?.config?.url,
-                          errorMethod: error?.config?.method,
-                          myPendingDonationIds: myPendingDonations.map(d => d.id),
-                        });
-                        
-                        let errorMessage = error?.response?.data?.message || error?.message || 'Không thể upload ảnh chứng từ. Vui lòng thử lại.';
-                        
-                        // Handle 404 specifically - donation not found
-                        if (error?.response?.status === 404) {
-                          errorMessage = `Không tìm thấy yêu cầu nạp quỹ (ID: ${donationId}). Yêu cầu có thể đã bị xóa hoặc không thuộc về bạn. Vui lòng refresh trang và thử lại.`;
-                          console.log('[FundManagement.onUploadProof (withdrawal tab)] 404 error, refreshing donations...');
-                          await handleRefreshMyPending();
-                        } else if (error?.response?.status === 400 && errorMessage.includes('not found')) {
-                          console.log('[FundManagement.onUploadProof (withdrawal tab)] Donation not found (400), refreshing...');
-                          await handleRefreshMyPending();
-                          errorMessage = 'Vui lòng đợi vài giây rồi thử lại upload ảnh chứng từ.';
-                        }
-                        
-                        toast.error(errorMessage);
-                        throw error;
-                      }
-                    }}
-                    formatCurrency={formatCurrency}
-                    formatDate={formatDate}
-                    getPaymentMethodLabel={getPaymentMethodLabel}
-                  />
-                </div>
-              )}
-
-              {/* Yêu cầu rút tiền của tôi */}
-              {myPendingExpenses.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Yêu cầu rút tiền của tôi</h3>
-                    <p className="text-sm text-gray-500">Các yêu cầu rút tiền đang chờ phê duyệt</p>
-                  </div>
-                  <div className="space-y-3">
-                    {myPendingExpenses.map(expense => (
-                      <div
-                        key={expense.id}
-                        className="border border-blue-200 bg-blue-50 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm text-blue-700 font-semibold uppercase tracking-wide">
-                            Yêu cầu rút tiền
-                          </p>
-                          <h4 className="text-xl font-bold text-gray-900">
-                            {formatCurrency(expense.expenseAmount)}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            Lý do: {expense.expenseDescription || 'Không có'}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Người nhận: {expense.recipient || '—'}
-                          </p>
-                          {expense.expenseEvent && (
-                            <p className="text-sm text-gray-600">Sự kiện: {expense.expenseEvent}</p>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-600 flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          {formatDate(expense.createdOn)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Empty state nếu không có yêu cầu nào */}
-              {myPendingDonations.length === 0 && myPendingExpenses.length === 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <EmptyState
-                    icon={<AlertTriangle className="w-12 h-12 text-gray-300" />}
-                    title="Chưa có yêu cầu nào"
-                    description="Các yêu cầu nạp và rút tiền của bạn sẽ hiển thị tại đây."
-                  />
-                </div>
               )}
             </div>
           )}
@@ -1711,6 +1636,7 @@ const handleActiveCampaignPageChange = useCallback(
                   pendingDonations={pendingDonations}
                   loading={pendingDonationsLoading}
                   confirming={actionLoading}
+                  rejecting={actionLoading}
                   onRefresh={refreshPendingDonations}
                   onConfirm={async (donationId, confirmationNotes) => {
                     if (!gpMemberId) {
@@ -1720,12 +1646,39 @@ const handleActiveCampaignPageChange = useCallback(
                     try {
                       await confirmDonation(donationId, gpMemberId, confirmationNotes);
                       toast.success('Đã xác nhận đóng góp quỹ thành công.');
+                      // Refresh fund details to update balance
+                      await refreshFundDetails();
+                      await refreshAll();
+                      // Switch to overview tab
+                      setFundTab('overview');
+                      setManagementScope('fund');
                     } catch (error: any) {
                       console.error('Confirm donation failed:', error);
                       toast.error(
                         error?.response?.data?.message ||
                           error?.message ||
                           'Không thể xác nhận đóng góp. Vui lòng thử lại.'
+                      );
+                      throw error;
+                    }
+                  }}
+                  onReject={async (donationId, reason) => {
+                    if (!gpMemberId) {
+                      toast.error('Không xác định được thành viên gia phả để từ chối.');
+                      return;
+                    }
+                    try {
+                      await rejectDonation(donationId, gpMemberId, reason);
+                      toast.success('Đã từ chối đóng góp quỹ thành công.');
+                      // Refresh data after rejection
+                      await refreshPendingDonations();
+                      await refreshMyPendingDonations();
+                    } catch (error: any) {
+                      console.error('Reject donation failed:', error);
+                      toast.error(
+                        error?.response?.data?.message ||
+                          error?.message ||
+                          'Không thể từ chối đóng góp. Vui lòng thử lại.'
                       );
                       throw error;
                     }
@@ -1758,70 +1711,70 @@ const handleActiveCampaignPageChange = useCallback(
         </>
       )}
 
-      {managementScope === 'campaign' && (
-        <>
-          {campaignTab === 'list' &&
-            (campaignsLoading ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                <LoadingState message="Đang tải danh sách chiến dịch..." />
-              </div>
-            ) : (
-              <FundCampaignsSection
-                campaigns={campaigns}
-                campaignSearch={campaignSearch}
-                campaignFilter={campaignFilter}
-                onSearchChange={setCampaignSearch}
-                onFilterChange={setCampaignFilter}
-                onOpenDetail={handleOpenCampaignDetail}
-                formatCurrency={formatCurrency}
-                formatDate={formatDate}
-                getCampaignStatusKey={getCampaignStatusKey}
-                getCampaignStatusLabel={getCampaignStatusLabel}
-                getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
-                metrics={campaignMetrics}
-                currentPage={campaignPagination.page}
-                totalPages={campaignPagination.totalPages}
-                totalCount={campaignPagination.totalCount}
-                pageSize={campaignPagination.pageSize}
-                onPageChange={handleCampaignPageChange}
-                title="Chiến dịch của gia phả"
-                subtitle="Theo dõi các chiến dịch gây quỹ thuộc gia phả hiện tại"
-                showCreateButton={false}
-              />
-            ))}
-
-          {campaignTab === 'active' &&
-            (activeCampaignsLoading ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                <LoadingState message="Đang tải chiến dịch đang hoạt động..." />
-              </div>
-            ) : (
-              <FundCampaignsSection
-                campaigns={activeCampaigns}
-                campaignSearch={activeCampaignSearch}
-                campaignFilter="all"
-                onSearchChange={setActiveCampaignSearch}
-                onFilterChange={() => undefined}
-                onOpenDetail={handleOpenCampaignDetail}
-                formatCurrency={formatCurrency}
-                formatDate={formatDate}
-                getCampaignStatusKey={getCampaignStatusKey}
-                getCampaignStatusLabel={getCampaignStatusLabel}
-                getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
-                metrics={activeCampaignMetrics}
-                currentPage={activeCampaignPagination.page}
-                totalPages={activeCampaignPagination.totalPages}
-                totalCount={activeCampaignPagination.totalCount}
-                pageSize={activeCampaignPagination.pageSize}
-                onPageChange={handleActiveCampaignPageChange}
-                title="Chiến dịch đang hoạt động"
-                subtitle="Danh sách chiến dịch đang mở trên toàn bộ hệ thống"
-                showCreateButton={false}
-                showStatusFilter={false}
-              />
-            ))}
-        </>
-      )}
+             {managementScope === 'campaign' && (
+               <>
+                 {(campaignsLoading || activeCampaignsLoading) ? (
+                   <div className="bg-white rounded-lg shadow p-6">
+                     <LoadingState message="Đang tải danh sách chiến dịch..." />
+                   </div>
+                 ) : (
+                   <>
+                     {categorizedCampaigns.inactive.length > 0 && !showAllCampaigns && (
+                       <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                         <p className="text-sm text-gray-600">
+                           Có {categorizedCampaigns.inactive.length} chiến dịch không hoạt động (chưa bắt đầu hoặc đã kết thúc)
+                         </p>
+                         <button
+                           type="button"
+                           onClick={() => setShowAllCampaigns(true)}
+                           className="px-4 py-2 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                         >
+                           Xem tất cả
+                         </button>
+                       </div>
+                     )}
+                     {showAllCampaigns && categorizedCampaigns.inactive.length > 0 && (
+                       <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                         <p className="text-sm text-gray-600">
+                           Đang hiển thị tất cả {allCampaigns.length} chiến dịch
+                         </p>
+                         <button
+                           type="button"
+                           onClick={() => setShowAllCampaigns(false)}
+                           className="px-4 py-2 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                         >
+                           Chỉ hiển thị đang hoạt động
+                         </button>
+                       </div>
+                     )}
+                     <FundCampaignsSection
+                       campaigns={displayedCampaigns}
+                       campaignSearch={campaignSearch}
+                       campaignFilter={campaignFilter}
+                       onSearchChange={setCampaignSearch}
+                       onFilterChange={setCampaignFilter}
+                       onOpenDetail={handleOpenCampaignDetail}
+                       formatCurrency={formatCurrency}
+                       formatDate={formatDate}
+                       getCampaignStatusKey={getCampaignStatusKey}
+                       getCampaignStatusLabel={getCampaignStatusLabel}
+                       getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+                       metrics={campaignMetrics}
+                       currentPage={1}
+                       totalPages={1}
+                       totalCount={displayedCampaigns.length}
+                       pageSize={displayedCampaigns.length}
+                       onPageChange={() => undefined}
+                       title="Chiến dịch"
+                       subtitle="Danh sách chiến dịch được sắp xếp theo ngày"
+                       showCreateButton={false}
+                       showAllCampaigns={showAllCampaigns}
+                       categorizedCampaigns={categorizedCampaigns}
+                     />
+                   </>
+                 )}
+               </>
+             )}
 
       <FundCreateModal
         isOpen={showCreateModal}
@@ -1837,6 +1790,30 @@ const handleActiveCampaignPageChange = useCallback(
         onClose={handleCloseDeposit}
         onSubmit={handleSubmitDeposit}
         submitting={depositSubmitting}
+      />
+
+      <FundWithdrawalModal
+        isOpen={isWithdrawalModalOpen}
+        onClose={handleCloseWithdraw}
+        hasFund={hasAnyFund}
+        computedBalance={computedBalance}
+        campaigns={campaigns}
+        formState={withdrawalForm}
+        onFormChange={handleWithdrawalChange}
+        onSubmit={handleSubmitWithdrawal}
+        actionLoading={actionLoading}
+        formatCurrency={formatCurrency}
+      />
+
+      <FundEditModal
+        isOpen={isEditFundModalOpen}
+        fund={activeFund}
+        ftId={selectedTree?.id ?? null}
+        banks={banks}
+        bankLogos={bankLogos}
+        onClose={handleCloseEditFund}
+        onSubmit={handleSubmitEditFund}
+        submitting={editFundSubmitting}
       />
 
       <FundDepositQRModal
