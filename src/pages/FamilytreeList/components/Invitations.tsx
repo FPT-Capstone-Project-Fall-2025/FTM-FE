@@ -90,6 +90,7 @@ const Invitations: React.FC = () => {
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Thành viên liên kết</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ngày Mời</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ngày hết hạn</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Trạng Thái</th>
                         </tr>
                     </thead>
