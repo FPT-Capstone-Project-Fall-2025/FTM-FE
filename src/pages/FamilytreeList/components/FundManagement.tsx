@@ -880,12 +880,23 @@ const FundManagement: React.FC = () => {
       activeFund,
       createWithdrawal,
       refreshFundDetails,
+      refreshPendingExpenses,
       withdrawalForm.amount,
       withdrawalForm.campaignId,
       withdrawalForm.date,
       withdrawalForm.reason,
       withdrawalForm.recipient,
       withdrawalForm.relatedEvent,
+      withdrawalForm.receiptImages,
+      computedBalance,
+      formatCurrency,
+      gpMember,
+      authUser,
+      getDisplayNameFromGPMember,
+      setWithdrawalForm,
+      setIsWithdrawalModalOpen,
+      setFundTab,
+      setManagementScope,
     ]
   );
 
@@ -1108,12 +1119,14 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
   const [selectedExpense, setSelectedExpense] = useState<FundExpense | null>(null);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [approvalNote, setApprovalNote] = useState('');
+  const [approvalPaymentProofImages, setApprovalPaymentProofImages] = useState<File[]>([]);
 
   const handleRequestAction = useCallback(
     (expense: FundExpense, action: 'approve' | 'reject') => {
       setSelectedExpense(expense);
       setApprovalAction(action);
       setApprovalNote('');
+      setApprovalPaymentProofImages([]);
       setIsApprovalModalOpen(true);
     },
     []
@@ -1126,7 +1139,35 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
       }
       try {
         if (approvalAction === 'approve') {
-          await approveExpense(selectedExpense.id, approvalNote || undefined, gpMemberId ?? undefined);
+          // Validate that files are actually File objects
+          const validFiles = approvalPaymentProofImages.filter(f => f instanceof File);
+          
+          console.log('[FundManagement.handleApprovalConfirm] Approving with:', {
+            expenseId: selectedExpense.id,
+            notes: approvalNote,
+            approverId: gpMemberId,
+            paymentProofImagesCount: approvalPaymentProofImages.length,
+            validFilesCount: validFiles.length,
+            paymentProofImages: approvalPaymentProofImages.map(f => ({
+              name: f.name,
+              size: f.size,
+              type: f.type,
+              isFile: f instanceof File,
+              constructor: f.constructor.name,
+            })),
+          });
+          
+          if (validFiles.length === 0) {
+            toast.error('Vui lòng chọn ít nhất một ảnh chứng từ thanh toán.');
+            return;
+          }
+          
+          await approveExpense(
+            selectedExpense.id,
+            approvalNote || undefined,
+            gpMemberId ?? undefined,
+            validFiles
+          );
           toast.success('Đã phê duyệt yêu cầu rút quỹ.');
         } else {
           await rejectExpense(selectedExpense.id, approvalNote || undefined, gpMemberId ?? undefined);
@@ -1136,6 +1177,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         setSelectedExpense(null);
         setApprovalAction(null);
         setApprovalNote('');
+        setApprovalPaymentProofImages([]);
         await refreshFundDetails();
         await refreshPendingExpenses();
       } catch (error: any) {
@@ -1147,7 +1189,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         );
       }
     },
-    [approveExpense, rejectExpense, selectedExpense, approvalAction, approvalNote, gpMemberId, refreshFundDetails, refreshPendingExpenses]
+    [approveExpense, rejectExpense, selectedExpense, approvalAction, approvalNote, approvalPaymentProofImages, gpMemberId, refreshFundDetails, refreshPendingExpenses]
   );
 
   const handleApprovalCancel = useCallback(() => {
@@ -1155,6 +1197,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
     setSelectedExpense(null);
     setApprovalAction(null);
     setApprovalNote('');
+    setApprovalPaymentProofImages([]);
   }, []);
 
   const handleRefreshMyPending = useCallback(async () => {
@@ -1897,6 +1940,8 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         expense={selectedExpense}
         note={approvalNote}
         onNoteChange={setApprovalNote}
+        paymentProofImages={approvalPaymentProofImages}
+        onPaymentProofImagesChange={setApprovalPaymentProofImages}
         onCancel={handleApprovalCancel}
         onConfirm={handleApprovalConfirm}
         submitting={actionLoading}

@@ -71,7 +71,8 @@ export interface FundDonationStats {
 
 export interface FundExpense {
   id: string;
-  ftFundId: string;
+  ftFundId?: string;
+  fundId?: string | null;
   campaignId?: string | null;
   expenseAmount: number;
   expenseDescription?: string | null;
@@ -81,10 +82,16 @@ export interface FundExpense {
   approvedBy?: string | null;
   approvedOn?: string | null;
   approvalFeedback?: string | null;
+  approverName?: string | null;
   plannedDate?: string | null;
   lastModifiedOn?: string | null;
   createdOn?: string | null;
+  createdDate?: string | null;
   createdBy?: string | null;
+  fundName?: string | null;
+  campaignName?: string | null;
+  receiptImages?: string | string[] | null;
+  currentFundBalance?: number | null;
 }
 
 export interface FundCampaign {
@@ -206,6 +213,17 @@ export interface CreateFundExpenseResponse {
 export interface ApproveFundExpensePayload {
   approverId: string;
   notes?: string | null;
+  paymentProofImages?: File[];
+}
+
+export interface ApproveFundExpenseResponse {
+  id: string;
+  status: string;
+  approvedBy: string;
+  approvedOn: string;
+  deductedAmount: number;
+  newFundBalance: number;
+  paymentProofUrl?: string | null;
 }
 
 export interface RejectFundExpensePayload {

@@ -12,7 +12,7 @@ interface FundWithdrawalModalProps {
   computedBalance: number;
   campaigns: FundCampaign[];
   formState: WithdrawalFormState;
-  onFormChange: (field: keyof WithdrawalFormState, value: string) => void;
+  onFormChange: (field: keyof WithdrawalFormState, value: string | File[]) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   actionLoading?: boolean;
   formatCurrency: (value?: number | null) => string;
