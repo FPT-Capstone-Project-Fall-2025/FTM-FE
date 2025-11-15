@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { QrCode, Copy, Check, X, AlertCircle, Loader2 } from 'lucide-react';
-import type { CreateFundDonationResponse, BankInfo } from '@/types/fund';
+import type { CreateFundDonationResponse } from '@/types/fund';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',

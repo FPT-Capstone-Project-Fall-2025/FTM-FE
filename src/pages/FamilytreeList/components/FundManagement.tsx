@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCw, ChevronLeft, ChevronRight, PlusCircle, Clock, AlertTriangle } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAppSelector } from '@/hooks/redux';
 import FundOverviewSection, {
@@ -16,6 +16,7 @@ import FundProofModal from './Fund/FundProofModal';
 import type {
   FundDonation,
   FundExpense,
+  FundCampaign,
   CreateFundDonationPayload,
   CreateFundDonationResponse,
 } from '@/types/fund';
@@ -39,7 +40,7 @@ import FundCampaignModal, {
   type CampaignFormState,
 } from './Fund/FundCampaignModal';
 import FundHistorySection from './Fund/FundHistorySection';
-import FundWithdrawalSection, {
+import {
   type WithdrawalFormState,
 } from './Fund/FundWithdrawalSection';
 import FundWithdrawalModal from './Fund/FundWithdrawalModal';
@@ -47,6 +48,7 @@ import FundApprovalsSection from './Fund/FundApprovalsSection';
 import FundDonationHistorySection from './Fund/FundDonationHistorySection';
 import FundPendingDonationsSection from './Fund/FundPendingDonationsSection';
 import FundPendingDonationsManagerSection from './Fund/FundPendingDonationsManagerSection';
+import FundApprovalModal from './Fund/FundApprovalModal';
 import type {
   CampaignCreationInput,
   CampaignDetail,
@@ -75,6 +77,7 @@ const getInitialWithdrawalForm = (): WithdrawalFormState => {
     relatedEvent: '',
     date: formattedDate, // Set to current date
     campaignId: '',
+    receiptImages: [],
   };
 };
 
@@ -224,7 +227,6 @@ const FundManagement: React.FC = () => {
     activeCampaigns,
     activeCampaignPagination,
     changeCampaignPage,
-    changeActiveCampaignPage,
     myPendingDonations,
     myPendingLoading,
     pendingDonations,
@@ -246,6 +248,8 @@ const FundManagement: React.FC = () => {
     approveExpense,
     rejectExpense,
     rejectDonation,
+    pendingExpenses: apiPendingExpenses,
+    refreshPendingExpenses,
   } = useFundManagementData({
     familyTreeId: selectedTree?.id ?? null,
     currentUserId: currentUserId ?? null,
@@ -257,7 +261,6 @@ const FundManagement: React.FC = () => {
   const itemsPerPage = 3;
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [memberRole, setMemberRole] = useState<FTRole | null>(null);
-  const [roleLoading, setRoleLoading] = useState(false);
   const [banks] = useState<BankInfo[]>(DEFAULT_BANKS);
   const [bankLogos] = useState<Record<string, string>>(BANK_LOGOS);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
@@ -310,11 +313,21 @@ const FundManagement: React.FC = () => {
   }, [refreshActiveCampaigns]);
 
   useEffect(() => {
-    if (isWithdrawalModalOpen && !withdrawalForm.date) {
+    if (isWithdrawalModalOpen) {
+      // Set date if not set
+      if (!withdrawalForm.date) {
       const today = new Date().toISOString().slice(0, 10);
       setWithdrawalForm(prev => ({ ...prev, date: today }));
     }
-  }, [isWithdrawalModalOpen, withdrawalForm.date]);
+      // Set recipient to current user/member name if not set
+      if (!withdrawalForm.recipient.trim()) {
+        const displayName = getDisplayNameFromGPMember(gpMember) || authUser?.name || '';
+        if (displayName) {
+          setWithdrawalForm(prev => ({ ...prev, recipient: displayName }));
+        }
+      }
+    }
+  }, [isWithdrawalModalOpen, withdrawalForm.date, withdrawalForm.recipient, gpMember, authUser?.name]);
 
   useEffect(() => {
     console.log('[FundManagement] useGPMember result', {
@@ -361,6 +374,9 @@ const FundManagement: React.FC = () => {
     ) {
       return Number(donationStats.totalReceived) || 0;
     }
+    if (!Array.isArray(donations)) {
+      return 0;
+    }
     return donations.reduce((sum, donation) => {
       const value = Number(
         donation.donationMoney ?? donation.donationAmount ?? 0
@@ -370,38 +386,29 @@ const FundManagement: React.FC = () => {
   }, [donationStats?.totalReceived, donations]);
 
   const approvedExpenses = useMemo(
-    () =>
-      expenses.filter(
+    () => {
+      if (!Array.isArray(expenses)) {
+        return [];
+      }
+      return expenses.filter(
         expense => normalizeStatus(expense.status) === 'approved'
-      ),
+  );
+    },
     [expenses]
   );
 
-  const pendingExpenses = useMemo(
-    () =>
-      expenses.filter(expense => normalizeStatus(expense.status) === 'pending'),
-    [expenses]
-  );
+  // Use API-fetched pending expenses instead of filtering
+  // const pendingExpenses = useMemo(
+  //   () => {
+  //     if (!Array.isArray(expenses)) {
+  //       return [];
+  //     }
+  //     return expenses.filter(expense => normalizeStatus(expense.status) === 'pending');
+  //   },
+  //   [expenses]
+  // );
+  const pendingExpenses = apiPendingExpenses;
 
-  // Filter expenses created by current user
-  const myPendingExpenses = useMemo(
-    () =>
-      expenses.filter(
-        expense =>
-          normalizeStatus(expense.status) === 'pending' &&
-          (expense.createdBy === currentUserId || expense.createdBy === gpMemberId)
-      ),
-    [expenses, currentUserId, gpMemberId]
-  );
-
-  // Filter confirmed donations and approved expenses for history
-  const confirmedDonations = useMemo(
-    () =>
-      donations.filter(
-        donation => normalizeStatus(donation.status) === 'confirmed' || normalizeStatus(donation.status) === 'approved'
-      ),
-    [donations]
-  );
 
   const totalExpense = useMemo(
     () =>
@@ -429,6 +436,9 @@ const FundManagement: React.FC = () => {
     ) {
       return Number(donationStats.totalDonations) || 0;
     }
+    if (!Array.isArray(donations)) {
+      return 0;
+    }
     const keys = donations.map(
       donation => donation.ftMemberId || donation.donorName || donation.id
     );
@@ -443,6 +453,10 @@ const FundManagement: React.FC = () => {
         amount: Number(donor.donationMoney ?? donor.donationAmount ?? 0) || 0,
         date: donor.confirmedOn ?? '',
       }));
+    }
+
+    if (!Array.isArray(donations)) {
+      return [];
     }
 
     return donations
@@ -463,7 +477,8 @@ const FundManagement: React.FC = () => {
   }, [donationStats?.recentDonors, donations]);
 
   const transactions: OverviewTransaction[] = useMemo(() => {
-    const donationTransactions: OverviewTransaction[] = donations.map(
+    const donationTransactions: OverviewTransaction[] = Array.isArray(donations)
+      ? donations.map(
       donation => ({
         id: `donation-${donation.id}`,
         type: 'income',
@@ -475,9 +490,11 @@ const FundManagement: React.FC = () => {
           : 'Đóng góp quỹ',
         status: normalizeStatus(donation.status),
       })
-    );
+        )
+      : [];
 
-    const expenseTransactions: OverviewTransaction[] = expenses.map(
+    const expenseTransactions: OverviewTransaction[] = Array.isArray(expenses)
+      ? expenses.map(
       expense => ({
         id: `expense-${expense.id}`,
         type: 'expense',
@@ -486,7 +503,8 @@ const FundManagement: React.FC = () => {
         description: expense.expenseDescription || 'Chi tiêu quỹ',
         status: normalizeStatus(expense.status),
       })
-    );
+        )
+      : [];
 
     return [...donationTransactions, ...expenseTransactions].sort(
       (a, b) => getDateValue(b.date) - getDateValue(a.date)
@@ -596,12 +614,12 @@ const FundManagement: React.FC = () => {
       try {
         await fundService.updateFund(activeFund.id, {
           fundName: form.fundName,
-          description: form.description || undefined,
+          ...(form.description ? { description: form.description } : {}),
           bankAccountNumber: form.bankAccountNumber,
           bankCode: form.bankCode,
           bankName: form.bankName,
           accountHolderName: form.accountHolderName,
-          fundManagers: form.fundManagers || undefined,
+          ...(form.fundManagers ? { fundManagers: form.fundManagers } : {}),
         });
         toast.success('Đã cập nhật thông tin quỹ thành công.');
         setIsEditFundModalOpen(false);
@@ -762,7 +780,7 @@ const FundManagement: React.FC = () => {
   );
 
   const handleWithdrawalChange = useCallback(
-    (field: keyof WithdrawalFormState, value: string) => {
+    (field: keyof WithdrawalFormState, value: string | File[]) => {
       setWithdrawalForm(prev => ({ ...prev, [field]: value }));
     },
     []
@@ -795,8 +813,21 @@ const FundManagement: React.FC = () => {
         return;
       }
 
-      if (!withdrawalForm.recipient.trim()) {
-        toast.error('Vui lòng nhập người nhận.');
+      // Validate receipt images
+      if (!withdrawalForm.receiptImages || withdrawalForm.receiptImages.length === 0) {
+        toast.error('Vui lòng upload ít nhất một ảnh hóa đơn/chứng từ.');
+        return;
+      }
+
+      // Set recipient to current user/member name if not provided
+      const recipientName = withdrawalForm.recipient.trim() || 
+        (() => {
+          const displayName = getDisplayNameFromGPMember(gpMember) || authUser?.name || '';
+          return displayName;
+        })();
+
+      if (!recipientName) {
+        toast.error('Không xác định được tên người tạo yêu cầu.');
         return;
       }
 
@@ -804,7 +835,8 @@ const FundManagement: React.FC = () => {
         const payload: FundWithdrawalInput = {
           amount: amountValue,
           description: withdrawalForm.reason.trim(),
-          recipient: withdrawalForm.recipient.trim(),
+          recipient: recipientName,
+          receiptImages: withdrawalForm.receiptImages,
         };
 
         const relatedEvent = withdrawalForm.relatedEvent.trim();
@@ -829,7 +861,12 @@ const FundManagement: React.FC = () => {
         toast.success('Đã gửi yêu cầu rút quỹ thành công.');
         setWithdrawalForm(getInitialWithdrawalForm()); // Reset with current date
         setIsWithdrawalModalOpen(false); // Close modal after success
+        // Refresh data
         await refreshFundDetails();
+        await refreshPendingExpenses();
+        // Switch to approvals tab
+        setFundTab('approvals');
+        setManagementScope('fund');
       } catch (error: any) {
         console.error('Create withdrawal failed:', error);
         toast.error(
@@ -856,23 +893,9 @@ const FundManagement: React.FC = () => {
     await refreshCampaigns(campaignPagination.page);
   }, [campaignPagination.page, refreshCampaigns]);
 
-  const handleCampaignPageChange = useCallback(
-    async (page: number) => {
-      await changeCampaignPage(page);
-    },
-    [changeCampaignPage]
-  );
-
 const handleRefreshActiveCampaigns = useCallback(async () => {
   await refreshActiveCampaigns(activeCampaignPagination.page);
 }, [activeCampaignPagination.page, refreshActiveCampaigns]);
-
-const handleActiveCampaignPageChange = useCallback(
-  async (page: number) => {
-    await changeActiveCampaignPage(page);
-  },
-  [changeActiveCampaignPage]
-);
 
   const getCampaignStatusKey = useCallback(
     (status: unknown): 'active' | 'upcoming' | 'completed' | 'cancelled' => {
@@ -1081,21 +1104,40 @@ const handleActiveCampaignPageChange = useCallback(
     }
   }, []);
 
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<FundExpense | null>(null);
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
+  const [approvalNote, setApprovalNote] = useState('');
+
   const handleRequestAction = useCallback(
-    async (expense: FundExpense, action: 'approve' | 'reject') => {
-      if (!expense?.id) {
-        toast.error('Không tìm thấy yêu cầu hợp lệ.');
+    (expense: FundExpense, action: 'approve' | 'reject') => {
+      setSelectedExpense(expense);
+      setApprovalAction(action);
+      setApprovalNote('');
+      setIsApprovalModalOpen(true);
+    },
+    []
+  );
+
+  const handleApprovalConfirm = useCallback(
+    async () => {
+      if (!selectedExpense?.id || !approvalAction) {
         return;
       }
       try {
-        if (action === 'approve') {
-          await approveExpense(expense.id, undefined, gpMemberId ?? undefined);
+        if (approvalAction === 'approve') {
+          await approveExpense(selectedExpense.id, approvalNote || undefined, gpMemberId ?? undefined);
           toast.success('Đã phê duyệt yêu cầu rút quỹ.');
         } else {
-          await rejectExpense(expense.id, undefined, gpMemberId ?? undefined);
+          await rejectExpense(selectedExpense.id, approvalNote || undefined, gpMemberId ?? undefined);
           toast.success('Đã từ chối yêu cầu rút quỹ.');
         }
+        setIsApprovalModalOpen(false);
+        setSelectedExpense(null);
+        setApprovalAction(null);
+        setApprovalNote('');
         await refreshFundDetails();
+        await refreshPendingExpenses();
       } catch (error: any) {
         console.error('Handle request action failed:', error);
         toast.error(
@@ -1105,8 +1147,15 @@ const handleActiveCampaignPageChange = useCallback(
         );
       }
     },
-    [approveExpense, gpMemberId, refreshFundDetails, rejectExpense]
+    [approveExpense, rejectExpense, selectedExpense, approvalAction, approvalNote, gpMemberId, refreshFundDetails, refreshPendingExpenses]
   );
+
+  const handleApprovalCancel = useCallback(() => {
+    setIsApprovalModalOpen(false);
+    setSelectedExpense(null);
+    setApprovalAction(null);
+    setApprovalNote('');
+  }, []);
 
   const handleRefreshMyPending = useCallback(async () => {
     await refreshMyPendingDonations();
@@ -1273,15 +1322,12 @@ const handleActiveCampaignPageChange = useCallback(
         setMemberRole(null);
         return;
       }
-      setRoleLoading(true);
       try {
         const role = await familyTreeMemberService.getMemberRole(selectedTree.id, gpMemberId);
         setMemberRole(role);
       } catch (error) {
         console.error('Failed to fetch member role:', error);
         setMemberRole(null);
-      } finally {
-        setRoleLoading(false);
       }
     };
     void fetchMemberRole();
@@ -1844,6 +1890,18 @@ const handleActiveCampaignPageChange = useCallback(
         onSubmit={handleSubmitProof}
         submitting={proofSubmitting}
         donation={recentDonation}
+      />
+
+      <FundApprovalModal
+        isOpen={isApprovalModalOpen}
+        action={approvalAction}
+        expense={selectedExpense}
+        note={approvalNote}
+        onNoteChange={setApprovalNote}
+        onCancel={handleApprovalCancel}
+        onConfirm={handleApprovalConfirm}
+        submitting={actionLoading}
+        formatCurrency={formatCurrency}
       />
 
       <FundCampaignDetailModal

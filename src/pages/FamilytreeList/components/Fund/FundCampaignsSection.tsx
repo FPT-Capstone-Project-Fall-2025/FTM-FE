@@ -65,7 +65,7 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   subtitle = 'Quản lý và theo dõi các chiến dịch quyên góp của gia phả',
   showCreateButton = true,
   showStatusFilter = true,
-  showAllCampaigns = false,
+  showAllCampaigns: _showAllCampaigns = false,
   categorizedCampaigns,
 }) => {
   const normalizedSearch = campaignSearch.trim().toLowerCase();

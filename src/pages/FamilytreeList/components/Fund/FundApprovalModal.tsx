@@ -58,6 +58,7 @@ const FundApprovalModal: React.FC<FundApprovalModalProps> = ({
         />
       </div>
 
+
       <div className="flex gap-3">
         <button
           onClick={onCancel}

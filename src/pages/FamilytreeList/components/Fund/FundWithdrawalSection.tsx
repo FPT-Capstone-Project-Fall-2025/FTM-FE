@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { AlertCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { AlertCircle, RefreshCw, AlertTriangle, Upload, X } from 'lucide-react';
 import type { FundCampaign } from '@/types/fund';
 import { EmptyState } from './FundLoadingEmpty';
 
@@ -27,6 +27,7 @@ export interface WithdrawalFormState {
   relatedEvent: string;
   date: string;
   campaignId: string;
+  receiptImages: File[];
 }
 
 interface FundWithdrawalSectionProps {
@@ -52,6 +53,8 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
 }) => {
   const [amountInput, setAmountInput] = useState('');
   const [amountError, setAmountError] = useState<string | null>(null);
+  const [receiptImagePreviews, setReceiptImagePreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset amountInput when form is cleared externally
   useEffect(() => {
@@ -61,6 +64,50 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formState.amount]);
+
+  const handleReceiptImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Validate file types
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    const validFiles = files.filter(file => {
+      if (!validTypes.includes(file.type)) {
+        return false;
+      }
+      // Validate file size (max 10MB per file)
+      if (file.size > 10 * 1024 * 1024) {
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length !== files.length) {
+      // Some files were invalid
+      return;
+    }
+
+    // Add to existing images - ensure receiptImages is an array
+    const existingImages = Array.isArray(formState.receiptImages) ? formState.receiptImages : [];
+    const newImages = [...existingImages, ...validFiles];
+    onFormChange('receiptImages', newImages as any);
+
+    // Create previews
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setReceiptImagePreviews(prev => [...prev, e.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveReceiptImage = (index: number) => {
+    const existingImages = Array.isArray(formState.receiptImages) ? formState.receiptImages : [];
+    const newImages = existingImages.filter((_, i) => i !== index);
+    onFormChange('receiptImages', newImages as any);
+    setReceiptImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleAmountChange = (value: string) => {
     const formatted = formatAmountInput(value);
@@ -183,10 +230,56 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
           />
         </div>
 
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Ảnh hóa đơn/chứng từ <span className="text-red-500">*</span>
+          </label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/gif"
+            multiple
+            onChange={handleReceiptImageSelect}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors flex items-center justify-center gap-2 text-gray-600"
+          >
+            <Upload className="w-5 h-5" />
+            <span>Chọn ảnh hóa đơn/chứng từ</span>
+          </button>
+          {Array.isArray(formState.receiptImages) && formState.receiptImages.length > 0 && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {receiptImagePreviews.map((preview, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={preview}
+                    alt={`Preview ${index + 1}`}
+                    className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveReceiptImage(index)}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-gray-500">
+            {(!Array.isArray(formState.receiptImages) || formState.receiptImages.length === 0) && 'Ảnh hóa đơn/chứng từ là bắt buộc'}
+            {Array.isArray(formState.receiptImages) && formState.receiptImages.length > 0 && `Đã chọn ${formState.receiptImages.length} ảnh`}
+          </p>
+        </div>
+
         <button
           type="submit"
           className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          disabled={actionLoading || !!amountError || !amountInput}
+          disabled={actionLoading || !!amountError || !amountInput || !Array.isArray(formState.receiptImages) || formState.receiptImages.length === 0}
         >
           {actionLoading ? 'Đang xử lý...' : 'Gửi yêu cầu'}
         </button>
