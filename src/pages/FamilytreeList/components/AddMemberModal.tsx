@@ -20,8 +20,8 @@ const FEATURE_CODES = [
 
 const METHODS = [
     { label: "Truy cập Đọc", value: "VIEW" },
-    { label: "Quyền Ghi / Sửa", value: "EDIT" },
-    { label: "Quyền Tạo", value: "CREATE" },
+    { label: "Quyền Ghi / Sửa", value: "UPDATE" },
+    { label: "Quyền Tạo", value: "ADD" },
     { label: "Quyền Xóa", value: "DELETE" }
 ];
 
