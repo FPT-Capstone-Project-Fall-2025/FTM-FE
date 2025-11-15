@@ -14,6 +14,7 @@ import type {
   CreateFundExpensePayload,
   CreateFundPayload,
   CreateFundDonationPayload,
+  CreateFundDonationResponse,
   MyPendingDonation,
 } from '@/types/fund';
 
@@ -89,6 +90,8 @@ export interface UseFundManagementDataReturn {
   activeCampaignsLoading: boolean;
   myPendingDonations: MyPendingDonation[];
   myPendingLoading: boolean;
+  pendingDonations: MyPendingDonation[];
+  pendingDonationsLoading: boolean;
   refreshAll: () => Promise<void>;
   refreshFundDetails: () => Promise<void>;
   createWithdrawal: (input: FundWithdrawalInput) => Promise<void>;
@@ -101,8 +104,14 @@ export interface UseFundManagementDataReturn {
   refreshActiveCampaigns: (page?: number) => Promise<void>;
   changeActiveCampaignPage: (page: number) => Promise<void>;
   refreshMyPendingDonations: () => Promise<void>;
+  refreshPendingDonations: () => Promise<void>;
+  confirmDonation: (donationId: string, confirmerId: string, confirmationNotes?: string) => Promise<void>;
+  uploadDonationProof: (donationId: string, files: File[]) => Promise<void>;
   createFund: (payload: CreateFundPayload) => Promise<Fund | null>;
-  donateToFund: (fundId: string, payload: CreateFundDonationPayload) => Promise<void>;
+  donateToFund: (
+    fundId: string,
+    payload: CreateFundDonationPayload
+  ) => Promise<CreateFundDonationResponse>;
 }
 
 export const useFundManagementData = (
@@ -143,6 +152,8 @@ export const useFundManagementData = (
   });
   const [myPendingDonations, setMyPendingDonations] = useState<MyPendingDonation[]>([]);
   const [myPendingLoading, setMyPendingLoading] = useState(false);
+  const [pendingDonations, setPendingDonations] = useState<MyPendingDonation[]>([]);
+  const [pendingDonationsLoading, setPendingDonationsLoading] = useState(false);
   const [creatingFund, setCreatingFund] = useState(false);
   const [donating, setDonating] = useState(false);
 
@@ -160,12 +171,14 @@ export const useFundManagementData = (
       setError(null);
       try {
         const [donationsRes, donationStatsRes, expensesRes] = await Promise.all([
-          fundService.fetchFundDonations(fundId),
+          fundService.fetchFundDonations(fundId, 1, 100), // Fetch first 100 donations
           fundService.fetchFundDonationStats(fundId),
           fundService.fetchFundExpenses(fundId),
         ]);
 
-        setDonations(donationsRes);
+        // Extract donations array from response
+        const donationsList = donationsRes.donations || [];
+        setDonations(donationsList);
         setDonationStats(donationStatsRes ?? null);
         setExpenses(expensesRes);
       } catch (err) {
@@ -238,6 +251,77 @@ export const useFundManagementData = (
       setMyPendingLoading(false);
     }
   }, [currentMemberId, currentUserId]);
+
+  const refreshPendingDonations = useCallback(async () => {
+    setPendingDonationsLoading(true);
+    try {
+      const list = await fundService.fetchPendingDonations();
+      setPendingDonations(list);
+    } catch (err) {
+      console.error('Failed to load pending donations', err);
+      setError(prev => prev ?? 'Không thể tải danh sách đóng góp đang chờ xác nhận.');
+    } finally {
+      setPendingDonationsLoading(false);
+    }
+  }, []);
+
+  const uploadDonationProof = useCallback(
+    async (donationId: string, files: File[]) => {
+      console.log('[useFundManagementData.uploadDonationProof] Starting upload', {
+        donationId,
+        fundDonationId: donationId,
+        filesCount: files.length,
+        fileNames: files.map(f => f.name),
+      });
+
+      setActionLoading(true);
+      setError(null);
+      try {
+        console.log('[useFundManagementData.uploadDonationProof] Calling fundService.uploadDonationProof with donationId:', donationId);
+        const result = await fundService.uploadDonationProof(donationId, files);
+        console.log('[useFundManagementData.uploadDonationProof] Upload successful', {
+          result,
+          donationId: result.donationId,
+        });
+        return result;
+      } catch (err) {
+        console.error('[useFundManagementData.uploadDonationProof] Failed to upload donation proof', {
+          error: err,
+          donationId,
+          fundDonationId: donationId,
+        });
+        throw err;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    []
+  );
+
+  const confirmDonation = useCallback(
+    async (donationId: string, confirmerId: string, confirmationNotes?: string) => {
+      setActionLoading(true);
+      setError(null);
+      try {
+        await fundService.confirmDonation(donationId, {
+          donationId,
+          confirmedBy: confirmerId,
+          notes: confirmationNotes ?? undefined,
+        });
+        // Refresh pending donations and fund details after confirmation
+        await refreshPendingDonations();
+        if (activeFund?.id) {
+          await loadFundDetails(activeFund.id);
+        }
+      } catch (err) {
+        console.error('Failed to confirm donation', err);
+        throw err;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [refreshPendingDonations, activeFund?.id, loadFundDetails]
+  );
 
   const refreshCampaigns = useCallback(
     async (page?: number) => {
@@ -335,6 +419,7 @@ export const useFundManagementData = (
       refreshCampaigns(campaignPagination.page),
       refreshActiveCampaigns(activeCampaignPagination.page),
       refreshMyPendingDonations(),
+      refreshPendingDonations(),
     ]);
   }, [
     activeCampaignPagination.page,
@@ -343,6 +428,7 @@ export const useFundManagementData = (
     refreshActiveCampaigns,
     refreshCampaigns,
     refreshMyPendingDonations,
+    refreshPendingDonations,
   ]);
 
   const createWithdrawal = useCallback(
@@ -533,12 +619,23 @@ export const useFundManagementData = (
   );
 
   const donateToFund = useCallback(
-    async (fundId: string, payload: CreateFundDonationPayload) => {
+    async (
+      fundId: string,
+      payload: CreateFundDonationPayload
+    ): Promise<CreateFundDonationResponse> => {
       setDonating(true);
       setError(null);
       try {
-        await fundService.createFundDonation(fundId, payload);
-        await loadFundDetails(fundId);
+        const response = await fundService.createFundDonation(fundId, payload);
+        // Don't refresh fund details immediately
+        // - BankTransfer: Fund details will be refreshed after payment is confirmed
+        // - Cash: If requiresManualConfirmation is true, fund details will be refreshed after manager confirms
+        // - Only refresh if payment doesn't require manual confirmation (shouldn't happen for Cash)
+        const isCashPayment = payload.paymentMethod === 0 || payload.paymentMethod === 'Cash';
+        if (isCashPayment && !response.requiresManualConfirmation) {
+          await loadFundDetails(fundId);
+        }
+        return response;
       } catch (err) {
         console.error('Failed to donate to fund', err);
         throw err;
@@ -578,6 +675,10 @@ export const useFundManagementData = (
   }, [currentMemberId, currentUserId, refreshMyPendingDonations]);
 
   useEffect(() => {
+    void refreshPendingDonations();
+  }, [refreshPendingDonations]);
+
+  useEffect(() => {
     if (!familyTreeId) {
       setFunds([]);
       setActiveFundId(null);
@@ -603,6 +704,8 @@ export const useFundManagementData = (
   campaignPagination,
     myPendingDonations,
     myPendingLoading,
+    pendingDonations,
+    pendingDonationsLoading,
     refreshAll,
     refreshFundDetails,
     createWithdrawal,
@@ -615,6 +718,9 @@ export const useFundManagementData = (
     refreshActiveCampaigns,
     changeActiveCampaignPage,
     refreshMyPendingDonations,
+    refreshPendingDonations,
+    confirmDonation,
+    uploadDonationProof,
     createFund,
     donateToFund,
     activeCampaigns,

@@ -51,6 +51,7 @@ export interface MyPendingDonation {
   treeId?: string | null;
   status?: string | number | null;
   payOSOrderCode?: string | number | null;
+  proofImages?: string[] | null;
 }
 
 export interface FundDonationStats {
@@ -243,10 +244,36 @@ export interface CreateFundDonationPayload {
   memberId: string;
   donorName: string;
   amount: number;
-  paymentMethod: string;
+  paymentMethod: string | number; // "Cash" | "BankTransfer" | 0 | 1
   paymentNotes?: string;
   returnUrl?: string;
   cancelUrl?: string;
+}
+
+export interface FundDonationsResponse {
+  donations: FundDonation[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface BankInfo {
+  bankCode?: string | null;
+  bankName?: string | null;
+  accountNumber?: string | null;
+  accountHolderName?: string | null;
+  amount?: number | null;
+  description?: string | null;
+}
+
+export interface CreateFundDonationResponse {
+  donationId: string;
+  orderCode?: string | null;
+  qrCodeUrl?: string | null;
+  bankInfo?: BankInfo | null;
+  requiresManualConfirmation?: boolean;
+  message?: string | null;
 }
 
 export interface ApproveCampaignExpensePayload {
@@ -257,6 +284,26 @@ export interface ApproveCampaignExpensePayload {
 export interface RejectCampaignExpensePayload {
   approverId: string;
   rejectionReason?: string;
+}
+
+export interface UploadDonationProofResponse {
+  donationId: string;
+  imageUrls?: string[] | null;
+  allProofImages?: string[] | null;
+  commaSeparated?: string | null;
+  count?: number | null;
+  totalProofs?: number | null;
+}
+
+export interface ConfirmDonationResponse {
+  donationId: string;
+  status?: string | null;
+  statusCode?: number | null;
+  amount?: number | null;
+  confirmedAt?: string | null;
+  proofImages?: string[] | null;
+  confirmedBy?: string | null;
+  newFundBalance?: number | null;
 }
 
 export type FundApiResponse<T> = ApiResponse<T>;

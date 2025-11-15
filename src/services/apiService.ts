@@ -47,6 +47,15 @@ apiClient.interceptors.request.use(
       }
     }
 
+    // If data is FormData, remove Content-Type header to let axios set it automatically with boundary
+    if (config.data instanceof FormData) {
+      // Delete Content-Type header if it exists - axios will set it automatically with boundary
+      if (config.headers) {
+        delete config.headers['Content-Type'];
+        delete config.headers['content-type'];
+      }
+    }
+
     // Ensure X-FtId header is preserved with correct casing
     // Axios normalizes header names to lowercase, but backend requires X-FtId
     // We need to manually preserve the case after axios processes it

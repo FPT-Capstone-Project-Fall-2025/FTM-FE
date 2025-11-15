@@ -24,24 +24,27 @@ const FundApprovalsSection: React.FC<FundApprovalsSectionProps> = ({
   onRequestAction,
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-lg shadow p-6 flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h3 className="text-2xl font-bold text-gray-900">Yêu cầu rút tiền chờ phê duyệt</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Có {pendingExpenses.length} yêu cầu đang chờ xử lý
+          <h3 className="text-lg font-semibold text-gray-900">Rút tiền</h3>
+          <p className="text-sm text-gray-500">
+            {pendingExpenses.length > 0
+              ? `Có ${pendingExpenses.length} yêu cầu đang chờ xử lý`
+              : 'Không có yêu cầu rút tiền đang chờ'}
           </p>
         </div>
       </div>
 
-      {pendingExpenses.length === 0 ? (
-        <EmptyState
-          icon={<CheckCircle className="w-12 h-12 text-gray-300" />}
-          title="Không có yêu cầu nào"
-          description="Tất cả yêu cầu đã được xử lý."
-        />
-      ) : (
-        <div className="space-y-4">
+      <div className="flex-1 min-h-0">
+        {pendingExpenses.length === 0 ? (
+          <EmptyState
+            icon={<CheckCircle className="w-12 h-12 text-gray-300" />}
+            title="Không có yêu cầu rút tiền"
+            description="Tất cả yêu cầu rút tiền đã được xử lý."
+          />
+        ) : (
+          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)] pr-2">
           {pendingExpenses.map(expense => {
             const statusBadge = getStatusBadge(expense);
             return (
@@ -96,8 +99,9 @@ const FundApprovalsSection: React.FC<FundApprovalsSectionProps> = ({
               </div>
             );
           })}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
