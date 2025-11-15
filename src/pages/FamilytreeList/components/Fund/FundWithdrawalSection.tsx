@@ -1,7 +1,24 @@
-import React from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { AlertCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { FundCampaign } from '@/types/fund';
 import { EmptyState } from './FundLoadingEmpty';
+
+const numberFormatter = new Intl.NumberFormat('vi-VN');
+
+const formatAmountInput = (raw: string) => {
+  const digitsOnly = raw.replace(/\D/g, '');
+  if (!digitsOnly) return '';
+  const value = Number(digitsOnly);
+  if (!Number.isFinite(value) || value === 0) return '';
+  return numberFormatter.format(value);
+};
+
+const parseAmountInput = (formatted: string) => {
+  const digitsOnly = formatted.replace(/\D/g, '');
+  if (!digitsOnly) return 0;
+  const value = Number(digitsOnly);
+  return Number.isFinite(value) ? value : 0;
+};
 
 export interface WithdrawalFormState {
   amount: string;
@@ -33,6 +50,38 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
   actionLoading = false,
   formatCurrency,
 }) => {
+  const [amountInput, setAmountInput] = useState('');
+  const [amountError, setAmountError] = useState<string | null>(null);
+
+  // Reset amountInput when form is cleared externally
+  useEffect(() => {
+    if (!formState.amount && amountInput) {
+      setAmountInput('');
+      setAmountError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formState.amount]);
+
+  const handleAmountChange = (value: string) => {
+    const formatted = formatAmountInput(value);
+    setAmountInput(formatted);
+    
+    // Update form state with raw number (for submission)
+    const parsed = parseAmountInput(formatted);
+    onFormChange('amount', parsed > 0 ? String(parsed) : '');
+
+    // Validate against balance
+    if (parsed > 0) {
+      if (parsed > computedBalance) {
+        setAmountError(`Số tiền không được vượt quá số dư hiện tại (${formatCurrency(computedBalance)})`);
+      } else {
+        setAmountError(null);
+      }
+    } else {
+      setAmountError(null);
+    }
+  };
+
   if (!hasFund) {
     return (
       <EmptyState
@@ -49,7 +98,7 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
         <h3 className="text-2xl font-bold text-gray-900">Tạo yêu cầu rút tiền</h3>
         <span className="inline-flex items-center gap-2 text-sm text-gray-500">
           <RefreshCw className="w-4 h-4" />
-          Số dư: {formatCurrency(computedBalance)}
+          Số dư: <span className="font-semibold text-gray-900">{formatCurrency(computedBalance)}</span>
         </span>
       </div>
 
@@ -59,14 +108,24 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
             Số tiền <span className="text-red-500">*</span>
           </label>
           <input
-            type="number"
-            value={formState.amount}
-            onChange={e => onFormChange('amount', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Nhập số tiền"
-            min={0}
+            type="text"
+            value={amountInput}
+            onChange={e => handleAmountChange(e.target.value)}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              amountError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+            }`}
+            placeholder="Ví dụ: 1.000.000"
             required
           />
+          {amountError && (
+            <div className="mt-2 flex items-start gap-2 text-sm text-red-600">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{amountError}</span>
+            </div>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            Số dư hiện tại: <span className="font-semibold">{formatCurrency(computedBalance)}</span>
+          </p>
         </div>
 
         <div>
@@ -114,35 +173,21 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Sự kiện liên quan</label>
-            <input
-              type="text"
-              value={formState.relatedEvent}
-              onChange={e => onFormChange('relatedEvent', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Tên sự kiện (nếu có)"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Ngày yêu cầu <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={formState.date}
-              onChange={e => onFormChange('date', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Sự kiện liên quan</label>
+          <input
+            type="text"
+            value={formState.relatedEvent}
+            onChange={e => onFormChange('relatedEvent', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Tên sự kiện (nếu có)"
+          />
         </div>
 
         <button
           type="submit"
           className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          disabled={actionLoading}
+          disabled={actionLoading || !!amountError || !amountInput}
         >
           {actionLoading ? 'Đang xử lý...' : 'Gửi yêu cầu'}
         </button>

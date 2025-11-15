@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCw, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, PlusCircle, Clock, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAppSelector } from '@/hooks/redux';
 import FundOverviewSection, {
@@ -11,14 +11,17 @@ import { useFundManagementData } from './Fund/useFundManagementData';
 import FundDepositModal, {
   type FundDepositForm,
 } from './Fund/FundDepositModal';
+import FundDepositQRModal from './Fund/FundDepositQRModal';
 import FundProofModal from './Fund/FundProofModal';
-import fundService from '@/services/fundService';
 import type {
   FundDonation,
   FundExpense,
   CreateFundDonationPayload,
+  CreateFundDonationResponse,
 } from '@/types/fund';
 import { useGPMember } from '@/hooks/useGPMember';
+import { getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
+import familyTreeMemberService, { type FTRole } from '@/services/familyTreeMemberService';
 import FundCreateModal, {
   type BankInfo,
   type FundCreateForm,
@@ -38,6 +41,7 @@ import FundWithdrawalSection, {
 import FundApprovalsSection from './Fund/FundApprovalsSection';
 import FundDonationHistorySection from './Fund/FundDonationHistorySection';
 import FundPendingDonationsSection from './Fund/FundPendingDonationsSection';
+import FundPendingDonationsManagerSection from './Fund/FundPendingDonationsManagerSection';
 import type {
   CampaignCreationInput,
   CampaignDetail,
@@ -56,14 +60,20 @@ const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
   year: 'numeric',
 });
 
-const INITIAL_WITHDRAWAL_FORM: WithdrawalFormState = {
-  amount: '',
-  reason: '',
-  recipient: '',
-  relatedEvent: '',
-  date: '',
-  campaignId: '',
+const getInitialWithdrawalForm = (): WithdrawalFormState => {
+  const today = new Date();
+  const formattedDate = today.toISOString().split('T')[0] || ''; // YYYY-MM-DD format
+  return {
+    amount: '',
+    reason: '',
+    recipient: '',
+    relatedEvent: '',
+    date: formattedDate, // Set to current date
+    campaignId: '',
+  };
 };
+
+const INITIAL_WITHDRAWAL_FORM = getInitialWithdrawalForm();
 
 const INITIAL_CAMPAIGN_FORM: CampaignFormState = {
   name: '',
@@ -88,12 +98,12 @@ type FundTab =
   | 'withdrawal'
   | 'approvals';
 
-const FUND_TAB_ITEMS: Array<{ key: FundTab; label: string }> = [
+const FUND_TAB_ITEMS: Array<{ key: FundTab; label: string; requiresOwner?: boolean }> = [
   { key: 'overview', label: 'Tổng quan quỹ' },
   { key: 'donations', label: 'Nạp quỹ & yêu cầu của tôi' },
-  { key: 'history', label: 'Lịch sử chi tiêu' },
-  { key: 'withdrawal', label: 'Tạo yêu cầu rút tiền' },
-  { key: 'approvals', label: 'Phê duyệt yêu cầu' },
+  { key: 'history', label: 'Lịch sử giao dịch' },
+  { key: 'withdrawal', label: 'Tạo yêu cầu' },
+  { key: 'approvals', label: 'Phê duyệt yêu cầu', requiresOwner: true },
 ];
 
 type CampaignTab = 'list' | 'active';
@@ -192,6 +202,11 @@ const FundManagement: React.FC = () => {
     error: gpMemberError,
   } = useGPMember(selectedTree?.id ?? null, currentUserId ?? null);
 
+  const donorName = useMemo(
+    () => getDisplayNameFromGPMember(gpMember) || authUser?.name || '',
+    [gpMember, authUser?.name]
+  );
+
   const {
     loading,
     fundDataLoading,
@@ -202,7 +217,6 @@ const FundManagement: React.FC = () => {
     error,
     funds,
     activeFund,
-    setActiveFundId,
     donations,
     donationStats,
     expenses,
@@ -214,15 +228,21 @@ const FundManagement: React.FC = () => {
     changeActiveCampaignPage,
     myPendingDonations,
     myPendingLoading,
+    pendingDonations,
+    pendingDonationsLoading,
     refreshAll,
     refreshFundDetails,
     refreshCampaigns,
     refreshActiveCampaigns,
     refreshMyPendingDonations,
+    refreshPendingDonations,
+    confirmDonation,
+    uploadDonationProof,
     loadCampaignDetail,
     createCampaign,
     createFund,
     creatingFund,
+    donateToFund,
     createWithdrawal,
     approveExpense,
     rejectExpense,
@@ -236,9 +256,14 @@ const FundManagement: React.FC = () => {
   const [fundPage, setFundPage] = useState(0);
   const itemsPerPage = 3;
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [memberRole, setMemberRole] = useState<FTRole | null>(null);
+  const [roleLoading, setRoleLoading] = useState(false);
   const [banks] = useState<BankInfo[]>(DEFAULT_BANKS);
   const [bankLogos] = useState<Record<string, string>>(BANK_LOGOS);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+  const [isDepositQRModalOpen, setIsDepositQRModalOpen] = useState(false);
+  const [depositResponse, setDepositResponse] =
+    useState<CreateFundDonationResponse | null>(null);
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
   const [depositSubmitting, setDepositSubmitting] = useState(false);
   const [proofSubmitting, setProofSubmitting] = useState(false);
@@ -369,6 +394,26 @@ const FundManagement: React.FC = () => {
     () =>
       expenses.filter(expense => normalizeStatus(expense.status) === 'pending'),
     [expenses]
+  );
+
+  // Filter expenses created by current user
+  const myPendingExpenses = useMemo(
+    () =>
+      expenses.filter(
+        expense =>
+          normalizeStatus(expense.status) === 'pending' &&
+          (expense.createdBy === currentUserId || expense.createdBy === gpMemberId)
+      ),
+    [expenses, currentUserId, gpMemberId]
+  );
+
+  // Filter confirmed donations and approved expenses for history
+  const confirmedDonations = useMemo(
+    () =>
+      donations.filter(
+        donation => normalizeStatus(donation.status) === 'confirmed' || normalizeStatus(donation.status) === 'approved'
+      ),
+    [donations]
   );
 
   const totalExpense = useMemo(
@@ -522,6 +567,13 @@ const FundManagement: React.FC = () => {
     setIsDepositModalOpen(false);
   }, []);
 
+  const handleCloseDepositQR = useCallback(() => {
+    setIsDepositQRModalOpen(false);
+    setDepositResponse(null);
+    // Refresh fund details after closing QR modal
+    refreshFundDetails();
+  }, [refreshFundDetails]);
+
   const handleCloseProof = useCallback(() => {
     setIsProofModalOpen(false);
     setRecentDonation(null);
@@ -539,64 +591,87 @@ const FundManagement: React.FC = () => {
         );
         return;
       }
-      if (!currentUserId) {
-        toast.error('Không xác định được người nạp. Vui lòng đăng nhập lại.');
+      if (!donorName) {
+        toast.error('Không xác định được tên người nạp.');
         return;
       }
       if (form.amount <= 0) {
         toast.error('Số tiền cần lớn hơn 0.');
         return;
       }
-      if (form.paymentMethod === 'BankTransfer') {
-        toast.info(
-          'Phương thức chuyển khoản sẽ được cập nhật trong thời gian tới.'
-        );
-        return;
-      }
 
       setDepositSubmitting(true);
       try {
+        // Convert payment method: Cash -> 0, BankTransfer -> "BankTransfer"
+        const paymentMethod = form.paymentMethod === 'Cash' ? 0 : form.paymentMethod;
+        
         const payload: CreateFundDonationPayload = {
           memberId: gpMemberId,
-          donorName: currentUserId,
+          donorName: donorName,
           amount: form.amount,
-          paymentMethod:
-            form.paymentMethod === 'Cash' ? '0' : form.paymentMethod,
+          paymentMethod: paymentMethod,
         };
         const trimmedNotes = form.paymentNotes?.trim();
         if (trimmedNotes) {
           payload.paymentNotes = trimmedNotes;
         }
 
-        const response = await fundService.createFundDonation(
-          activeFund.id,
-          payload
-        );
-        const donation = response?.data || null;
+        const response = await donateToFund(activeFund.id, payload);
 
-        await refreshFundDetails();
+        // Close deposit modal
         setIsDepositModalOpen(false);
 
-        if (form.paymentMethod === 'Cash' && donation) {
-          setRecentDonation(donation);
-          setIsProofModalOpen(true);
-          toast.success(
-            'Đã ghi nhận khoản nạp tiền mặt. Vui lòng tải chứng từ xác nhận.'
-          );
+        // Handle response based on payment method and requiresManualConfirmation
+        if (form.paymentMethod === 'BankTransfer') {
+          // Show QR code modal for bank transfer
+          setDepositResponse(response);
+          setIsDepositQRModalOpen(true);
+          toast.success('Đã tạo yêu cầu nạp tiền. Vui lòng quét mã QR để chuyển khoản.');
+        } else if (form.paymentMethod === 'Cash') {
+          // For cash payment, check if manual confirmation is required
+          if (response.requiresManualConfirmation) {
+            // Cash payment requires manual confirmation
+            // Refresh my pending donations to show the new donation
+            await refreshMyPendingDonations();
+            // Switch to donations tab to show pending donations section
+            setFundTab('donations');
+            setManagementScope('fund');
+            toast.success('Đã ghi nhận khoản nạp tiền mặt. Vui lòng upload ảnh chứng từ tại tab "Nạp quỹ & yêu cầu của tôi".');
+            // Scroll to pending donations section after a short delay
+            setTimeout(() => {
+              const pendingSection = document.getElementById('my-pending-donations-section');
+              if (pendingSection) {
+                pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 300);
+          } else {
+            // Cash payment doesn't require manual confirmation (shouldn't happen, but handle it)
+            await refreshFundDetails();
+            toast.success('Đã ghi nhận khoản nạp tiền mặt.');
+          }
         } else {
+          // Other payment methods
+          await refreshFundDetails();
           toast.success('Đã ghi nhận khoản nạp quỹ.');
         }
       } catch (error: any) {
-        console.error('Deposit cash failed:', error);
+        console.error('Deposit failed:', error);
         toast.error(
           error?.response?.data?.message ||
+            error?.message ||
             'Không thể nạp quỹ. Vui lòng thử lại.'
         );
       } finally {
         setDepositSubmitting(false);
       }
     },
-    [activeFund?.id, currentUserId, gpMemberId, refreshFundDetails]
+    [
+      activeFund?.id,
+      gpMemberId,
+      donorName,
+      donateToFund,
+      refreshFundDetails,
+    ]
   );
 
   const handleSubmitProof = useCallback(
@@ -611,15 +686,12 @@ const FundManagement: React.FC = () => {
       }
       setProofSubmitting(true);
       try {
-        await fundService.uploadDonationProof(recentDonation.id, files);
-        const payload: { confirmedBy: string; notes?: string } = {
-          confirmedBy: gpMemberId,
-        };
-        const trimmedNote = note.trim();
-        if (trimmedNote) {
-          payload.notes = trimmedNote;
+        await uploadDonationProof(recentDonation.id, files);
+        if (!gpMemberId) {
+          toast.error('Không xác định được thành viên gia phả để xác nhận.');
+          return;
         }
-        await fundService.confirmDonation(recentDonation.id, payload);
+        await confirmDonation(recentDonation.id, gpMemberId, note.trim() || undefined);
         toast.success('Đã tải chứng từ và xác nhận khoản nạp quỹ.');
         await refreshFundDetails();
         setRecentDonation(null);
@@ -634,7 +706,7 @@ const FundManagement: React.FC = () => {
         setProofSubmitting(false);
       }
     },
-    [gpMemberId, recentDonation?.id, refreshFundDetails]
+    [gpMemberId, recentDonation?.id, refreshFundDetails, confirmDonation, uploadDonationProof]
   );
 
   const handleWithdrawalChange = useCallback(
@@ -653,9 +725,16 @@ const FundManagement: React.FC = () => {
         return;
       }
 
-      const amountValue = Number(withdrawalForm.amount);
+      // Parse amount from string (may contain formatted value)
+      const amountValue = Number(withdrawalForm.amount.replace(/\D/g, ''));
       if (!Number.isFinite(amountValue) || amountValue <= 0) {
         toast.error('Số tiền rút phải lớn hơn 0.');
+        return;
+      }
+
+      // Validate against computed balance
+      if (amountValue > computedBalance) {
+        toast.error(`Số tiền rút không được vượt quá số dư hiện tại (${formatCurrency(computedBalance)}).`);
         return;
       }
 
@@ -681,8 +760,13 @@ const FundManagement: React.FC = () => {
           payload.expenseEvent = relatedEvent;
         }
 
-        if (withdrawalForm.date) {
-          payload.plannedDate = withdrawalForm.date;
+        // Always set plannedDate to current date (formatted as YYYY-MM-DD)
+        // Use formState.date if available, otherwise use current date
+        const today = new Date();
+        const currentDate = today.toISOString().split('T')[0] ?? '';
+        const plannedDate = withdrawalForm.date || currentDate;
+        if (plannedDate) {
+          payload.plannedDate = plannedDate;
         }
 
         if (withdrawalForm.campaignId) {
@@ -691,7 +775,7 @@ const FundManagement: React.FC = () => {
 
         await createWithdrawal(payload);
         toast.success('Đã gửi yêu cầu rút quỹ thành công.');
-        setWithdrawalForm(INITIAL_WITHDRAWAL_FORM);
+        setWithdrawalForm(getInitialWithdrawalForm()); // Reset with current date
         await refreshFundDetails();
       } catch (error: any) {
         console.error('Create withdrawal failed:', error);
@@ -1092,6 +1176,27 @@ const handleActiveCampaignPageChange = useCallback(
     setFundPage(prev => Math.min(prev, maxPage));
   }, [funds.length]);
 
+  // Fetch member role
+  useEffect(() => {
+    const fetchMemberRole = async () => {
+      if (!selectedTree?.id || !gpMemberId) {
+        setMemberRole(null);
+        return;
+      }
+      setRoleLoading(true);
+      try {
+        const role = await familyTreeMemberService.getMemberRole(selectedTree.id, gpMemberId);
+        setMemberRole(role);
+      } catch (error) {
+        console.error('Failed to fetch member role:', error);
+        setMemberRole(null);
+      } finally {
+        setRoleLoading(false);
+      }
+    };
+    void fetchMemberRole();
+  }, [selectedTree?.id, gpMemberId]);
+
   useEffect(() => {
     if (!activeFund) return;
     const index = funds.findIndex(fund => fund.id === activeFund.id);
@@ -1129,8 +1234,6 @@ const handleActiveCampaignPageChange = useCallback(
     activeFund?.description?.trim() ||
     'Chưa có mô tả cho mục đích sử dụng quỹ này.';
   const totalPages = Math.ceil(funds.length / itemsPerPage);
-  const startIndex = fundPage * itemsPerPage;
-  const visibleFunds = funds.slice(startIndex, startIndex + itemsPerPage);
   const depositButtonDisabled = false;
 
   return (
@@ -1232,20 +1335,34 @@ const handleActiveCampaignPageChange = useCallback(
 
       {managementScope === 'fund' && (
         <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
-          {FUND_TAB_ITEMS.map(tab => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setFundTab(tab.key)}
-              className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
-                fundTab === tab.key
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:text-blue-600'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {FUND_TAB_ITEMS.filter(tab => {
+            // Hide tab if it requires owner role and user is not owner
+            if (tab.requiresOwner && memberRole !== 'FTOwner') {
+              return false;
+            }
+            return true;
+          }).map(tab => {
+            const isApprovalsTab = tab.key === 'approvals';
+            const isActive = fundTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFundTab(tab.key)}
+                className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+                  isActive
+                    ? isApprovalsTab && memberRole === 'FTOwner'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
+                      : 'bg-blue-600 text-white'
+                    : isApprovalsTab && memberRole === 'FTOwner'
+                      ? 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
+                      : 'text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -1319,62 +1436,6 @@ const handleActiveCampaignPageChange = useCallback(
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {visibleFunds.map(fund => {
-                      const isActive = fund.id === activeFund?.id;
-                      return (
-                        <button
-                          key={fund.id}
-                          type="button"
-                          onClick={() => setActiveFundId(fund.id)}
-                          className={`relative text-left p-5 rounded-xl border transition-all duration-200 bg-white shadow-sm hover:shadow-lg ${
-                            isActive
-                              ? 'border-blue-500 ring-2 ring-blue-200'
-                              : 'border-gray-200 hover:border-blue-300'
-                          }`}
-                        >
-                          {isActive && (
-                            <span className="absolute top-3 right-3 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                              Đang xem
-                            </span>
-                          )}
-                          <h4 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
-                            {fund.fundName}
-                          </h4>
-                          <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-                            {fund.description || 'Chưa có mô tả cho quỹ này.'}
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
-                            <div>
-                              <p className="text-gray-500">Số dư hiện tại</p>
-                              <p className="font-semibold text-gray-900">
-                                {formatCurrency(fund.currentMoney)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500">Lượt đóng góp</p>
-                              <p className="font-semibold text-gray-900">
-                                {fund.donationCount ?? '0'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500">Lượt chi tiêu</p>
-                              <p className="font-semibold text-gray-900">
-                                {fund.expenseCount ?? '0'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500">Ngày tạo</p>
-                              <p className="font-semibold text-gray-900">
-                                {formatDate(fund.createdOn)}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
                   <FundOverviewSection
                     activeFund={activeFund}
                     computedBalance={computedBalance}
@@ -1414,59 +1475,284 @@ const handleActiveCampaignPageChange = useCallback(
                   />
                 )}
               </div>
-              <FundPendingDonationsSection
-                pendingDonations={myPendingDonations}
-                loading={myPendingLoading}
-                onRefresh={handleRefreshMyPending}
-                formatCurrency={formatCurrency}
-                formatDate={formatDate}
-                getPaymentMethodLabel={getPaymentMethodLabel}
-              />
+              <div id="my-pending-donations-section">
+                <FundPendingDonationsSection
+                  pendingDonations={myPendingDonations}
+                  loading={myPendingLoading}
+                  onRefresh={handleRefreshMyPending}
+                  onUploadProof={async (donationId, files) => {
+                    console.log('[FundManagement.onUploadProof] Starting upload proof', {
+                      donationId,
+                      fundDonationId: donationId,
+                      filesCount: files.length,
+                      fileNames: files.map(f => f.name),
+                      myPendingDonations: myPendingDonations.map(d => ({ id: d.id, status: d.status })),
+                    });
+
+                    try {
+                      // Always refresh myPendingDonations first to ensure we have the latest data
+                      console.log('[FundManagement.onUploadProof] Refreshing myPendingDonations to get latest data...');
+                      await handleRefreshMyPending();
+                      
+                      // Wait a bit for state to update
+                      await new Promise(resolve => setTimeout(resolve, 300));
+                      
+                      // Now upload proof - API will validate if donation exists
+                      console.log('[FundManagement.onUploadProof] Calling uploadDonationProof with donationId:', donationId);
+                      await uploadDonationProof(donationId, files);
+                      console.log('[FundManagement.onUploadProof] Upload successful');
+                      toast.success('Đã upload ảnh chứng từ thành công. Vui lòng chờ quản trị viên xác nhận.');
+                      await handleRefreshMyPending();
+                    } catch (error: any) {
+                      console.error('[FundManagement.onUploadProof] Upload proof failed:', {
+                        error,
+                        donationId,
+                        fundDonationId: donationId,
+                        errorResponse: error?.response,
+                        errorMessage: error?.response?.data?.message || error?.message,
+                        errorStatus: error?.response?.status,
+                        errorUrl: error?.config?.url,
+                        errorMethod: error?.config?.method,
+                        myPendingDonationIds: myPendingDonations.map(d => d.id),
+                      });
+                      
+                      let errorMessage = error?.response?.data?.message || error?.message || 'Không thể upload ảnh chứng từ. Vui lòng thử lại.';
+                      
+                      // Handle 404 specifically - donation not found
+                      if (error?.response?.status === 404) {
+                        errorMessage = `Không tìm thấy yêu cầu nạp quỹ (ID: ${donationId}). Yêu cầu có thể đã bị xóa hoặc không thuộc về bạn. Vui lòng refresh trang và thử lại.`;
+                        console.log('[FundManagement.onUploadProof] 404 error, refreshing donations...');
+                        await handleRefreshMyPending();
+                      } else if (error?.response?.status === 400 && errorMessage.includes('not found')) {
+                        console.log('[FundManagement.onUploadProof] Donation not found (400), refreshing...');
+                        await handleRefreshMyPending();
+                        errorMessage = 'Vui lòng đợi vài giây rồi thử lại upload ảnh chứng từ.';
+                      }
+                      
+                      toast.error(errorMessage);
+                      throw error;
+                    }
+                  }}
+                  formatCurrency={formatCurrency}
+                  formatDate={formatDate}
+                  getPaymentMethodLabel={getPaymentMethodLabel}
+                />
+              </div>
             </div>
           )}
 
           {fundTab === 'history' && (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div>
               {fundDataLoading ? (
-                <LoadingState message="Đang tải lịch sử chi tiêu..." />
+                <div className="bg-white rounded-lg shadow p-6">
+                  <LoadingState message="Đang tải lịch sử giao dịch..." />
+                </div>
               ) : (
                 <FundHistorySection
                   approvedExpenses={approvedExpenses}
+                  confirmedDonations={confirmedDonations}
                   formatCurrency={formatCurrency}
                   formatDate={formatDate}
+                  getPaymentMethodLabel={getPaymentMethodLabel}
                 />
               )}
             </div>
           )}
 
           {fundTab === 'withdrawal' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <FundWithdrawalSection
-                hasFund={hasAnyFund}
-                computedBalance={computedBalance}
-                campaigns={campaigns}
-                formState={withdrawalForm}
-                onFormChange={handleWithdrawalChange}
-                onSubmit={handleSubmitWithdrawal}
-                actionLoading={actionLoading}
-                formatCurrency={formatCurrency}
-              />
+            <div className="space-y-6">
+              {/* Form tạo yêu cầu rút tiền */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <FundWithdrawalSection
+                  hasFund={hasAnyFund}
+                  computedBalance={computedBalance}
+                  campaigns={campaigns}
+                  formState={withdrawalForm}
+                  onFormChange={handleWithdrawalChange}
+                  onSubmit={handleSubmitWithdrawal}
+                  actionLoading={actionLoading}
+                  formatCurrency={formatCurrency}
+                />
+              </div>
+
+              {/* Yêu cầu nạp của tôi */}
+              {myPendingDonations.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Yêu cầu nạp của tôi</h3>
+                    <p className="text-sm text-gray-500">Các yêu cầu nạp quỹ đang chờ xác nhận</p>
+                  </div>
+                  <FundPendingDonationsSection
+                    pendingDonations={myPendingDonations}
+                    loading={myPendingLoading}
+                    onRefresh={handleRefreshMyPending}
+                    onUploadProof={async (donationId, files) => {
+                      console.log('[FundManagement.onUploadProof (withdrawal tab)] Starting upload proof', {
+                        donationId,
+                        fundDonationId: donationId,
+                        filesCount: files.length,
+                        fileNames: files.map(f => f.name),
+                        myPendingDonations: myPendingDonations.map(d => ({ id: d.id, status: d.status })),
+                      });
+
+                      try {
+                        // Always refresh myPendingDonations first to ensure we have the latest data
+                        console.log('[FundManagement.onUploadProof (withdrawal tab)] Refreshing myPendingDonations to get latest data...');
+                        await handleRefreshMyPending();
+                        
+                        // Wait a bit for state to update
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                        
+                        // Now upload proof - API will validate if donation exists
+                        console.log('[FundManagement.onUploadProof (withdrawal tab)] Calling uploadDonationProof with donationId:', donationId);
+                        await uploadDonationProof(donationId, files);
+                        console.log('[FundManagement.onUploadProof (withdrawal tab)] Upload successful');
+                        toast.success('Đã upload ảnh chứng từ thành công. Vui lòng chờ quản trị viên xác nhận.');
+                        await handleRefreshMyPending();
+                      } catch (error: any) {
+                        console.error('[FundManagement.onUploadProof (withdrawal tab)] Upload proof failed:', {
+                          error,
+                          donationId,
+                          fundDonationId: donationId,
+                          errorResponse: error?.response,
+                          errorMessage: error?.response?.data?.message || error?.message,
+                          errorStatus: error?.response?.status,
+                          errorUrl: error?.config?.url,
+                          errorMethod: error?.config?.method,
+                          myPendingDonationIds: myPendingDonations.map(d => d.id),
+                        });
+                        
+                        let errorMessage = error?.response?.data?.message || error?.message || 'Không thể upload ảnh chứng từ. Vui lòng thử lại.';
+                        
+                        // Handle 404 specifically - donation not found
+                        if (error?.response?.status === 404) {
+                          errorMessage = `Không tìm thấy yêu cầu nạp quỹ (ID: ${donationId}). Yêu cầu có thể đã bị xóa hoặc không thuộc về bạn. Vui lòng refresh trang và thử lại.`;
+                          console.log('[FundManagement.onUploadProof (withdrawal tab)] 404 error, refreshing donations...');
+                          await handleRefreshMyPending();
+                        } else if (error?.response?.status === 400 && errorMessage.includes('not found')) {
+                          console.log('[FundManagement.onUploadProof (withdrawal tab)] Donation not found (400), refreshing...');
+                          await handleRefreshMyPending();
+                          errorMessage = 'Vui lòng đợi vài giây rồi thử lại upload ảnh chứng từ.';
+                        }
+                        
+                        toast.error(errorMessage);
+                        throw error;
+                      }
+                    }}
+                    formatCurrency={formatCurrency}
+                    formatDate={formatDate}
+                    getPaymentMethodLabel={getPaymentMethodLabel}
+                  />
+                </div>
+              )}
+
+              {/* Yêu cầu rút tiền của tôi */}
+              {myPendingExpenses.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Yêu cầu rút tiền của tôi</h3>
+                    <p className="text-sm text-gray-500">Các yêu cầu rút tiền đang chờ phê duyệt</p>
+                  </div>
+                  <div className="space-y-3">
+                    {myPendingExpenses.map(expense => (
+                      <div
+                        key={expense.id}
+                        className="border border-blue-200 bg-blue-50 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm text-blue-700 font-semibold uppercase tracking-wide">
+                            Yêu cầu rút tiền
+                          </p>
+                          <h4 className="text-xl font-bold text-gray-900">
+                            {formatCurrency(expense.expenseAmount)}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Lý do: {expense.expenseDescription || 'Không có'}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Người nhận: {expense.recipient || '—'}
+                          </p>
+                          {expense.expenseEvent && (
+                            <p className="text-sm text-gray-600">Sự kiện: {expense.expenseEvent}</p>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                          {formatDate(expense.createdOn)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state nếu không có yêu cầu nào */}
+              {myPendingDonations.length === 0 && myPendingExpenses.length === 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <EmptyState
+                    icon={<AlertTriangle className="w-12 h-12 text-gray-300" />}
+                    title="Chưa có yêu cầu nào"
+                    description="Các yêu cầu nạp và rút tiền của bạn sẽ hiển thị tại đây."
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {fundTab === 'approvals' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              {fundDataLoading ? (
-                <LoadingState message="Đang tải yêu cầu rút tiền..." />
-              ) : (
-                <FundApprovalsSection
-                  pendingExpenses={pendingExpenses}
+            <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${
+              memberRole === 'FTOwner' 
+                ? 'bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 p-6 rounded-lg border border-purple-200' 
+                : ''
+            }`}>
+              {/* Column 1: Đóng góp */}
+              <div className="flex flex-col min-h-0">
+                <FundPendingDonationsManagerSection
+                  pendingDonations={pendingDonations}
+                  loading={pendingDonationsLoading}
+                  confirming={actionLoading}
+                  onRefresh={refreshPendingDonations}
+                  onConfirm={async (donationId, confirmationNotes) => {
+                    if (!gpMemberId) {
+                      toast.error('Không xác định được thành viên gia phả để xác nhận.');
+                      return;
+                    }
+                    try {
+                      await confirmDonation(donationId, gpMemberId, confirmationNotes);
+                      toast.success('Đã xác nhận đóng góp quỹ thành công.');
+                    } catch (error: any) {
+                      console.error('Confirm donation failed:', error);
+                      toast.error(
+                        error?.response?.data?.message ||
+                          error?.message ||
+                          'Không thể xác nhận đóng góp. Vui lòng thử lại.'
+                      );
+                      throw error;
+                    }
+                  }}
                   formatCurrency={formatCurrency}
                   formatDate={formatDate}
-                  getStatusBadge={getExpenseStatusBadge}
-                  onRequestAction={handleRequestAction}
+                  getPaymentMethodLabel={getPaymentMethodLabel}
+                  confirmerId={gpMemberId ?? ''}
                 />
-              )}
+              </div>
+
+              {/* Column 2: Rút tiền */}
+              <div className="flex flex-col min-h-0">
+                {fundDataLoading ? (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <LoadingState message="Đang tải yêu cầu rút tiền..." />
+                  </div>
+                ) : (
+                  <FundApprovalsSection
+                    pendingExpenses={pendingExpenses}
+                    formatCurrency={formatCurrency}
+                    formatDate={formatDate}
+                    getStatusBadge={getExpenseStatusBadge}
+                    onRequestAction={handleRequestAction}
+                  />
+                )}
+              </div>
             </div>
           )}
         </>
@@ -1551,6 +1837,28 @@ const handleActiveCampaignPageChange = useCallback(
         onClose={handleCloseDeposit}
         onSubmit={handleSubmitDeposit}
         submitting={depositSubmitting}
+      />
+
+      <FundDepositQRModal
+        isOpen={isDepositQRModalOpen}
+        onClose={handleCloseDepositQR}
+        donationResponse={depositResponse}
+        onCheckStatus={async () => {
+          await refreshFundDetails();
+          await refreshMyPendingDonations();
+          // If donation requires manual confirmation, switch to donations tab
+          if (depositResponse?.requiresManualConfirmation) {
+            setFundTab('donations');
+            setManagementScope('fund');
+            setIsDepositQRModalOpen(false);
+            setTimeout(() => {
+              const pendingSection = document.getElementById('my-pending-donations-section');
+              if (pendingSection) {
+                pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 300);
+          }
+        }}
       />
 
       <FundProofModal

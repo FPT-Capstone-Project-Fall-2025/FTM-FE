@@ -16,9 +16,13 @@ import type {
   RejectCampaignExpensePayload,
   CreateFundPayload,
   CreateFundDonationPayload,
+  CreateFundDonationResponse,
+  FundDonationsResponse,
   MyPendingDonation,
   CampaignStatistics,
   CampaignFinancialSummary,
+  UploadDonationProofResponse,
+  ConfirmDonationResponse,
 } from '@/types/fund';
 import type { ApiResponse, PaginationResponse } from '@/types/api';
 
@@ -69,9 +73,58 @@ export const fundService = {
     return api.put<ApiResponse<boolean>>(`/fund-expenses/${id}/reject`, payload);
   },
 
-  async fetchFundDonations(fundId: string): Promise<FundDonation[]> {
-    const result = await api.get<ApiResponse<FundDonation[]>>(`/donations/fund/${fundId}`);
-    return normalizeArray(unwrap<FundDonation[] | FundDonation>(result));
+  async fetchFundDonations(
+    fundId: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<FundDonationsResponse> {
+    const response = await api.get<ApiResponse<FundDonationsResponse>>(
+      `/donations/fund/${fundId}`,
+      {
+        params: {
+          page,
+          pageSize,
+        },
+      }
+    );
+    const data = unwrap<FundDonationsResponse>(response);
+    if (!data) {
+      return {
+        donations: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: pageSize,
+        totalPages: 1,
+      };
+    }
+    // Handle case where response might be direct array (backward compatibility)
+    if (Array.isArray(data)) {
+      return {
+        donations: data,
+        totalCount: data.length,
+        page: 1,
+        pageSize: data.length,
+        totalPages: 1,
+      };
+    }
+    // Handle nested structure with donations array
+    if ('donations' in data && Array.isArray(data.donations)) {
+      return {
+        donations: data.donations,
+        totalCount: data.totalCount ?? data.donations.length,
+        page: data.page ?? page,
+        pageSize: data.pageSize ?? pageSize,
+        totalPages: data.totalPages ?? 1,
+      };
+    }
+    // Default fallback
+    return {
+      donations: [],
+      totalCount: 0,
+      page: page,
+      pageSize: pageSize,
+      totalPages: 1,
+    };
   },
 
   async fetchFundDonationStats(fundId: string): Promise<FundDonationStats | null> {
@@ -79,16 +132,87 @@ export const fundService = {
     return unwrap<FundDonationStats | null>(result) ?? null;
   },
 
-  async confirmDonation(donationId: string, payload: { confirmedBy: string; notes?: string }) {
-    return api.post<ApiResponse<boolean>>(`/donations/${donationId}/confirm`, payload);
+  async fetchPendingDonations(): Promise<MyPendingDonation[]> {
+    const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/pending`);
+    return normalizeArray(unwrap<MyPendingDonation[] | MyPendingDonation>(result));
+  },
+
+  async confirmDonation(
+    donationId: string,
+    payload: { donationId: string; confirmedBy: string; notes?: string }
+  ) {
+    return api.post<ApiResponse<ConfirmDonationResponse>>(`/donations/${donationId}/confirm`, payload);
+  },
+
+  async uploadDonationProof(donationId: string, files: File[]): Promise<UploadDonationProofResponse> {
+    console.log('[fundService.uploadDonationProof] Starting upload proof', {
+      donationId,
+      filesCount: files.length,
+      fileNames: files.map(f => f.name),
+      fileSizes: files.map(f => f.size),
+    });
+
+    const formData = new FormData();
+    // API expects 'images' key, not 'files'
+    files.forEach(file => {
+      formData.append('images', file);
+    });
+
+    const url = `/donations/${donationId}/upload-proof`;
+    console.log('[fundService.uploadDonationProof] API URL:', url);
+    console.log('[fundService.uploadDonationProof] fundDonationId:', donationId);
+    console.log('[fundService.uploadDonationProof] FormData keys:', Array.from(formData.keys()));
+    console.log('[fundService.uploadDonationProof] FormData entries:', Array.from(formData.entries()).map(([key, value]) => ({
+      key,
+      value: value instanceof File ? { name: value.name, size: value.size, type: value.type } : value,
+    })));
+
+    // Don't set Content-Type header manually - let axios set it automatically with boundary
+    // Setting it manually prevents axios from adding the boundary parameter
+    // When sending FormData, axios will automatically set Content-Type: multipart/form-data; boundary=...
+    const response = await api.post<ApiResponse<UploadDonationProofResponse>>(
+      url,
+      formData
+      // Don't pass headers config - let axios handle FormData automatically
+    );
+
+    console.log('[fundService.uploadDonationProof] API Response:', response);
+
+    const data = unwrap<UploadDonationProofResponse>(response);
+    console.log('[fundService.uploadDonationProof] Unwrapped data:', data);
+
+    if (!data) {
+      console.error('[fundService.uploadDonationProof] Invalid response from server');
+      throw new Error('Invalid response from server');
+    }
+
+    console.log('[fundService.uploadDonationProof] Upload successful', {
+      donationId: data.donationId,
+      imageUrlsCount: data.imageUrls?.length || 0,
+      allProofImagesCount: data.allProofImages?.length || 0,
+      totalProofs: data.totalProofs,
+    });
+
+    return data;
   },
 
   async rejectDonation(donationId: string, payload: { rejectedBy: string; reason?: string }) {
     return api.post<ApiResponse<boolean>>(`/donations/${donationId}/reject`, payload);
   },
 
-  async createFundDonation(fundId: string, payload: CreateFundDonationPayload) {
-    return api.post<ApiResponse<FundDonation>>(`/funds/${fundId}/donate`, payload);
+  async createFundDonation(
+    fundId: string,
+    payload: CreateFundDonationPayload
+  ): Promise<CreateFundDonationResponse> {
+    const response = await api.post<ApiResponse<CreateFundDonationResponse>>(
+      `/funds/${fundId}/donate`,
+      payload
+    );
+    const data = unwrap<CreateFundDonationResponse>(response);
+    if (!data) {
+      throw new Error('Invalid response from server');
+    }
+    return data;
   },
 
   async fetchMyPendingDonations(userId: string): Promise<MyPendingDonation[]> {
@@ -327,23 +451,6 @@ export const fundService = {
 
   async rejectCampaignExpense(id: string, payload: RejectCampaignExpensePayload) {
     return api.put<ApiResponse<boolean>>(`/ftcampaignexpense/${id}/reject`, payload);
-  },
-
-  async uploadDonationProof(donationId: string, files: File[]) {
-    const formData = new FormData();
-    files.forEach(file => {
-      formData.append('files', file);
-    });
-
-    return api.post<ApiResponse<{ imageUrls?: string[]; commaSeparated?: string }>>(
-      `/donations/${donationId}/upload-proof`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
   },
 };
 
