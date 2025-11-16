@@ -31,6 +31,7 @@ interface FundCampaignDetailModalProps {
   detail: CampaignDetail | null;
   onClose: () => void;
   onDonate?: (campaignId: string) => void;
+  onCreateExpense?: (campaignId: string) => void;
   loading?: boolean;
   formatCurrency: (value?: number | null) => string;
   formatDate: (value?: string | null) => string;
@@ -118,6 +119,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
   detail,
   onClose,
   onDonate,
+  onCreateExpense,
   loading = false,
   formatCurrency,
   formatDate,
@@ -335,6 +337,15 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
                   type="button"
                 >
                   Ủng hộ chiến dịch
+                </button>
+              )}
+              {statusKey === 'active' && detail?.campaign.id && onCreateExpense && (
+                <button
+                  onClick={() => onCreateExpense(detail.campaign.id)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                  type="button"
+                >
+                  Tạo yêu cầu rút tiền
                 </button>
               )}
               <button

@@ -62,9 +62,9 @@ const FundProofModal: React.FC<FundProofModalProps> = ({
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Tải chứng từ nạp quỹ</h3>
+            <h3 className="text-lg font-bold text-gray-900">Tải chứng từ đóng góp quỹ</h3>
             <p className="text-sm text-gray-500">
-              Khoản nạp tiền mặt: <span className="font-semibold text-gray-800">{donation.donorName}</span> –{' '}
+              Khoản đóng góp: <span className="font-semibold text-gray-800">{donation.donorName}</span> –{' '}
               <span className="font-semibold text-blue-600">
                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(
                   donation.donationMoney ?? donation.donationAmount ?? 0

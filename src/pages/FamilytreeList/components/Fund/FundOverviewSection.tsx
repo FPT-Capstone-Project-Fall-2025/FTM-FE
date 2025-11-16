@@ -76,6 +76,20 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   onEdit,
   isOwner = false,
 }) => {
+  const approvedIncome = React.useMemo(() => {
+    const ok = new Set(['đã xác nhận', 'confirmed', 'completed', 'đã phê duyệt', 'approved']);
+    return transactions
+      .filter(t => t.type === 'income' && ok.has(String(t.status || '').trim().toLowerCase()))
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  }, [transactions]);
+
+  const approvedExpense = React.useMemo(() => {
+    const ok = new Set(['đã phê duyệt', 'approved']);
+    return transactions
+      .filter(t => t.type === 'expense' && ok.has(String(t.status || '').trim().toLowerCase()))
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  }, [transactions]);
+
   if (loading) {
     return <LoadingState message="Đang cập nhật dữ liệu quỹ" />;
   }
@@ -95,14 +109,10 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-blue-100 text-sm font-medium">
-                Số dư hiện tại
-              </p>
-              {isOwner && onEdit && (
+          {isOwner && onEdit && (
                 <button
                   onClick={onEdit}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-lg transition-colors"
+                  className="mb-2 flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-lg transition-colors"
                   type="button"
                   title="Chỉnh sửa thông tin Quỹ"
                 >
@@ -110,6 +120,12 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
                   Chỉnh sửa thông tin Quỹ
                 </button>
               )}
+            <div className="flex items-center justify-between mb-2">
+              
+              <p className="text-blue-100 text-sm font-medium">
+                Số dư hiện tại
+              </p>
+              
             </div>
             <h3 className="text-4xl font-bold mb-1">
               {formatCurrency(computedBalance)}
@@ -125,7 +141,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
                   className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   type="button"
                 >
-                  Nạp
+                  Đóng góp
                 </button>
               )}
               {showWithdrawButton && onWithdraw && (
@@ -151,7 +167,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
             <TrendingUp className="w-5 h-5 text-emerald-500" />
           </div>
           <h4 className="text-2xl font-bold text-emerald-600">
-            {formatCurrency(totalIncome)}
+            {formatCurrency(approvedIncome)}
           </h4>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
@@ -160,7 +176,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
             <TrendingDown className="w-5 h-5 text-red-500" />
           </div>
           <h4 className="text-2xl font-bold text-red-600">
-            {formatCurrency(totalExpense)}
+            {formatCurrency(approvedExpense)}
           </h4>
         </div>
         <div className="bg-white rounded-lg shadow p-6">

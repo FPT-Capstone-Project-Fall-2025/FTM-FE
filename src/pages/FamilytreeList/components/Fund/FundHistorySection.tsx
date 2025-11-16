@@ -44,8 +44,11 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
   // Filters
   const [memberFilter, setMemberFilter] = useState<string>('');
   const [sortOption, setSortOption] = useState<SortOption>('date-desc');
-  const [donationStatusFilter, setDonationStatusFilter] = useState<DonationStatusFilter>('all');
-  const [expenseStatusFilter, setExpenseStatusFilter] = useState<ExpenseStatusFilter>('all');
+  // Default filters: only show confirmed/approved by default
+  const defaultDonationStatus: DonationStatusFilter = 'Completed';
+  const defaultExpenseStatus: ExpenseStatusFilter = 'Approved';
+  const [donationStatusFilter, setDonationStatusFilter] = useState<DonationStatusFilter>(defaultDonationStatus);
+  const [expenseStatusFilter, setExpenseStatusFilter] = useState<ExpenseStatusFilter>(defaultExpenseStatus);
   const [showFilters, setShowFilters] = useState(false);
 
   // Fetch donations - fetch when fundId changes, not dependent on activeTab
@@ -261,6 +264,32 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     return filtered;
   }, [expenses, memberFilter, sortOption, expenseStatusFilter]);
 
+  // Totals for approved/confirmed items within the current (filtered) view
+  const approvedDonationsTotal = useMemo(() => {
+    return filteredAndSortedDonations
+      .filter(d => {
+        const status = typeof d.status === 'string' ? d.status : 
+                       d.status === 0 ? 'Pending' : 
+                       d.status === 1 ? 'Completed' : 
+                       d.status === 2 ? 'Rejected' : 'Pending';
+        return status === 'Completed';
+      })
+      .reduce((sum, d) => sum + (d.donationMoney || 0), 0);
+  }, [filteredAndSortedDonations]);
+
+  const approvedExpensesTotal = useMemo(() => {
+    if (!Array.isArray(filteredAndSortedExpenses)) return 0;
+    return filteredAndSortedExpenses
+      .filter(e => {
+        const status = typeof e.status === 'string' ? e.status : 
+                       e.status === 0 ? 'Pending' : 
+                       e.status === 1 ? 'Approved' : 
+                       e.status === 2 ? 'Rejected' : 'Pending';
+        return status === 'Approved';
+      })
+      .reduce((sum, e) => sum + (e.expenseAmount || 0), 0);
+  }, [filteredAndSortedExpenses]);
+
   // Export donations to Excel
   const handleExportDonationsExcel = () => {
     const headers = [
@@ -396,8 +425,8 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
 
   const resetFilters = () => {
     setMemberFilter('');
-    setDonationStatusFilter('all');
-    setExpenseStatusFilter('all');
+    setDonationStatusFilter(defaultDonationStatus);
+    setExpenseStatusFilter(defaultExpenseStatus);
     setSortOption('date-desc');
   };
 
@@ -416,7 +445,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
   const currentTotalCount = activeTab === 'donations' ? donationsTotalCount : expensesTotalCount;
   const currentLoading = activeTab === 'donations' ? donationsLoading : expensesLoading;
   const hasActiveFilters = memberFilter || 
-    (activeTab === 'donations' ? donationStatusFilter !== 'all' : expenseStatusFilter !== 'all') || 
+    (activeTab === 'donations' ? donationStatusFilter !== defaultDonationStatus : expenseStatusFilter !== defaultExpenseStatus) || 
     sortOption !== 'date-desc';
 
   return (
@@ -599,7 +628,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
             description={
               memberFilter || donationStatusFilter !== 'all'
                 ? "Không tìm thấy đóng góp phù hợp với bộ lọc."
-                : "Những giao dịch nạp tiền thành công sẽ hiển thị ở đây."
+                : "Những giao dịch đóng góp tiền thành công sẽ hiển thị ở đây."
             }
           />
         ) : (
@@ -665,6 +694,16 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                       </tr>
                     );
                   })}
+                  {/* Summary row for approved donations */}
+                  <tr className="bg-gray-50">
+                    <td className="px-4 py-3 font-semibold text-gray-900" colSpan={2}>
+                      Tổng (Đã phê duyệt)
+                    </td>
+                    <td className="px-4 py-3 font-bold text-emerald-700">
+                      {formatCurrency(approvedDonationsTotal)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700" colSpan={4}></td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -774,9 +813,6 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                             {expense.approvedOn && (
                               <div className="text-xs text-gray-500">Phê duyệt: {formatDate(expense.approvedOn)}</div>
                             )}
-                            {expense.plannedDate && (
-                              <div className="text-xs text-blue-600">Dự kiến: {formatDate(expense.plannedDate)}</div>
-                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-gray-700 font-medium">
@@ -802,6 +838,16 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                       </tr>
                     );
                   })}
+                  {/* Summary row for approved expenses */}
+                  <tr className="bg-gray-50">
+                    <td className="px-4 py-3 font-semibold text-gray-900" colSpan={2}>
+                      Tổng (Đã phê duyệt)
+                    </td>
+                    <td className="px-4 py-3 font-bold text-red-700">
+                      {formatCurrency(approvedExpensesTotal)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700" colSpan={4}></td>
+                  </tr>
                 </tbody>
               </table>
             </div>

@@ -222,32 +222,6 @@ const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
               required
             />
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Chiến dịch liên quan</label>
-            <select
-              value={formState.campaignId}
-              onChange={e => onFormChange('campaignId', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Không liên kết</option>
-              {campaigns.map(campaign => (
-                <option key={campaign.id} value={campaign.id}>
-                  {campaign.campaignName}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Sự kiện liên quan</label>
-          <input
-            type="text"
-            value={formState.relatedEvent}
-            onChange={e => onFormChange('relatedEvent', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Tên sự kiện (nếu có)"
-          />
         </div>
 
         <div>
