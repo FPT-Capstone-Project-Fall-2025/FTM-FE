@@ -561,13 +561,15 @@ export const fundService = {
     }
 
     const determineStatus = (): string => {
+      // API returns status as string: "Active", "Completed", "Cancelled", etc.
       if (payload.status) {
-        const statusStr = String(payload.status);
-        if (statusStr.toLowerCase() === 'active') return 'active';
-        if (statusStr.toLowerCase() === 'completed') return 'completed';
-        if (statusStr.toLowerCase() === 'cancelled') return 'cancelled';
+        const statusStr = String(payload.status).toLowerCase();
+        if (statusStr === 'active') return 'active';
+        if (statusStr === 'completed') return 'completed';
+        if (statusStr === 'cancelled') return 'cancelled';
         return 'upcoming';
       }
+      // Fallback logic if status is not provided
       const now = new Date();
       const endDate = payload.endDate ? new Date(payload.endDate) : null;
       const progress = Number(payload.progressPercentage ?? 0);
@@ -575,6 +577,21 @@ export const fundService = {
       if (payload.isActive === false && endDate && endDate < now) return 'completed';
       if (payload.isActive) return 'active';
       return 'upcoming';
+    };
+
+    // Calculate progress percentage if not provided
+    const calculateProgress = (): number | null => {
+      if (payload.progressPercentage !== undefined) {
+        return Number(payload.progressPercentage);
+      }
+      if (payload.fundGoal && payload.currentBalance !== undefined) {
+        const goal = Number(payload.fundGoal);
+        const current = Number(payload.currentBalance);
+        if (goal > 0) {
+          return Math.min(100, Math.round((current / goal) * 100 * 100) / 100);
+        }
+      }
+      return null;
     };
 
     return {
@@ -593,21 +610,14 @@ export const fundService = {
       imageUrl: payload.imageUrl ?? null,
       isPublic: payload.isPublic ?? null,
       notes: payload.notes ?? null,
-      accountHolderName:
-        payload.accountHolderName ??
-        payload.bankInfo?.accountHolderName ??
-        payload.beneficiaryInfo ??
-        null,
-      bankAccountNumber:
-        payload.bankAccountNumber ?? payload.bankInfo?.bankAccountNumber ?? null,
-      bankCode: payload.bankCode ?? payload.bankInfo?.bankCode ?? null,
-      bankName: payload.bankName ?? payload.bankInfo?.bankName ?? null,
-      progressPercentage:
-        payload.progressPercentage !== undefined ? Number(payload.progressPercentage) : null,
-      totalDonations:
-        payload.totalDonations !== undefined ? Number(payload.totalDonations) : null,
+      accountHolderName: payload.accountHolderName ?? payload.beneficiaryInfo ?? null,
+      bankAccountNumber: payload.bankAccountNumber ?? null,
+      bankCode: payload.bankCode ?? null,
+      bankName: payload.bankName ?? null,
+      progressPercentage: calculateProgress(),
+      totalDonations: payload.totalDonations !== undefined ? Number(payload.totalDonations) : (payload.donations?.length ?? null),
       totalDonors: payload.totalDonors !== undefined ? Number(payload.totalDonors) : null,
-      isActive: payload.isActive ?? null,
+      isActive: ((payload.status?.toLowerCase() === 'active') || payload.isActive) ?? null,
     };
   },
 
@@ -618,6 +628,112 @@ export const fundService = {
   async fetchCampaignDonations(campaignId: string): Promise<CampaignDonation[]> {
     const result = await api.get<ApiResponse<CampaignDonation[]>>(`/ftcampaign/${campaignId}/donations`);
     return normalizeArray(unwrap<CampaignDonation[] | CampaignDonation>(result));
+  },
+
+  async fetchCampaignDonationsByCampaign(
+    campaignId: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      donorName: string | null;
+      amount: number;
+      message: string | null;
+      isAnonymous: boolean;
+      status: string | null;
+      payOSOrderCode: string | number | null;
+      transactionId: string | null;
+      proofImages: string[];
+      createdAt: string | null;
+      updatedAt: string | null;
+      completedAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/campaign/${campaignId}`,
+      { params: { page, pageSize } }
+    );
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray(payload?.items);
+    const items = rawItems.map((item: any) => ({
+      id: item.id,
+      campaignId: item.campaignId,
+      donorName: item.donorName ?? null,
+      amount: Number(item.amount ?? 0),
+      message: item.message ?? null,
+      isAnonymous: Boolean(item.isAnonymous),
+      status: item.status ?? null,
+      payOSOrderCode: item.payOSOrderCode ?? null,
+      transactionId: item.transactionId ?? null,
+      proofImages: typeof item.proofImages === 'string'
+        ? item.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(item.proofImages) ? item.proofImages : []),
+      createdAt: item.createdAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+      completedAt: item.completedAt ?? null,
+    }));
+
+    return {
+      items,
+      page: payload?.page ?? page,
+      pageSize: payload?.pageSize ?? pageSize,
+      totalPages: payload?.totalPages ?? 1,
+      totalCount: payload?.totalCount ?? items.length,
+      hasPrevious: payload?.hasPrevious ?? false,
+      hasNext: payload?.hasNext ?? false,
+    };
+  },
+
+  async fetchPendingCampaignDonationsByTree(
+    familyTreeId: string
+  ): Promise<Array<{
+    id: string;
+    campaignId: string;
+    campaignName: string | null;
+    donorName: string | null;
+    amount: number;
+    message: string | null;
+    isAnonymous: boolean;
+    status: string | null;
+    payOSOrderCode: string | number | null;
+    transactionId: string | null;
+    proofImages: string[];
+    createdAt: string | null;
+    updatedAt: string | null;
+    completedAt: string | null;
+  }>> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/pending`,
+      { params: { familyTreeId } }
+    );
+    const payload = unwrap<any>(response) ?? [];
+    const items = Array.isArray(payload) ? payload : normalizeArray(payload);
+    return items.map((item: any) => ({
+      id: item.id,
+      campaignId: item.campaignId,
+      campaignName: item.campaignName ?? null,
+      donorName: item.donorName ?? null,
+      amount: Number(item.amount ?? 0),
+      message: item.message ?? null,
+      isAnonymous: Boolean(item.isAnonymous),
+      status: item.status ?? null,
+      payOSOrderCode: item.payOSOrderCode ?? null,
+      transactionId: item.transactionId ?? null,
+      proofImages: typeof item.proofImages === 'string'
+        ? item.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(item.proofImages) ? item.proofImages : []),
+      createdAt: item.createdAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+      completedAt: item.completedAt ?? null,
+    }));
   },
 
   async fetchCampaignExpenses(campaignId: string): Promise<CampaignExpense[]> {
@@ -761,6 +877,170 @@ export const fundService = {
     });
 
     return data;
+  },
+
+  async fetchMyPendingCampaignDonations(userId: string): Promise<Array<{
+    id: string;
+    campaignId: string;
+    campaignName: string | null;
+    donorName: string | null;
+    amount: number;
+    message: string | null;
+    isAnonymous: boolean;
+    status: string | null;
+    payOSOrderCode: string | number | null;
+    transactionId: string | null;
+    proofImages: string[];
+    createdAt: string | null;
+    updatedAt: string | null;
+    completedAt: string | null;
+  }>> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/my-pending`,
+      { params: { userId } }
+    );
+    const payload = unwrap<any>(response) ?? [];
+    const items = Array.isArray(payload) ? payload : normalizeArray(payload);
+    return items.map((item: any) => ({
+      id: item.id,
+      campaignId: item.campaignId,
+      campaignName: item.campaignName ?? null,
+      donorName: item.donorName ?? null,
+      amount: Number(item.amount ?? 0),
+      message: item.message ?? null,
+      isAnonymous: Boolean(item.isAnonymous),
+      status: item.status ?? null,
+      payOSOrderCode: item.payOSOrderCode ?? null,
+      transactionId: item.transactionId ?? null,
+      proofImages: typeof item.proofImages === 'string'
+        ? item.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(item.proofImages) ? item.proofImages : []),
+      createdAt: item.createdAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+      completedAt: item.completedAt ?? null,
+    }));
+  },
+
+  async rejectCampaignDonation(
+    donationId: string,
+    payload: { donationId: string; rejectedBy: string; reason?: string }
+  ) {
+    console.log('[fundService.rejectCampaignDonation] Starting rejection', {
+      donationId,
+      payload,
+    });
+
+    const response = await api.post<ApiResponse<boolean>>(
+      `/ftcampaigndonation/${donationId}/reject`,
+      payload
+    );
+
+    console.log('[fundService.rejectCampaignDonation] API Response:', response);
+    return response;
+  },
+
+  async fetchCampaignDonationsHistory(
+    campaignId: string,
+    page = 1,
+    pageSize = 10
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      campaignName: string | null;
+      donorId: string | null;
+      donorName: string | null;
+      amount: number;
+      message: string | null;
+      isAnonymous: boolean;
+      status: string | null;
+      payOSOrderCode: string | number | null;
+      transactionId: string | null;
+      proofImages: string[];
+      createdAt: string | null;
+      completedAt: string | null;
+      updatedAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/campaign/${campaignId}`,
+      { params: { page, pageSize } }
+    );
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray<any>(payload?.items ?? []);
+    return {
+      items: rawItems.map((item: any) => ({
+        id: item.id,
+        campaignId: item.campaignId,
+        campaignName: item.campaignName ?? null,
+        donorId: item.donorId ?? null,
+        donorName: item.donorName ?? null,
+        amount: Number(item.amount ?? 0),
+        message: item.message ?? null,
+        isAnonymous: Boolean(item.isAnonymous),
+        status: item.status ?? null,
+        payOSOrderCode: item.payOSOrderCode ?? null,
+        transactionId: item.transactionId ?? null,
+        proofImages: typeof item.proofImages === 'string'
+          ? item.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : (Array.isArray(item.proofImages) ? item.proofImages : []),
+        createdAt: item.createdAt ?? null,
+        completedAt: item.completedAt ?? null,
+        updatedAt: item.updatedAt ?? null,
+      })),
+      page: Number(payload?.page ?? page),
+      pageSize: Number(payload?.pageSize ?? pageSize),
+      totalCount: Number(payload?.totalCount ?? rawItems.length),
+      totalPages: Number(payload?.totalPages ?? 1),
+    };
+  },
+
+  async fetchCampaignExpensesHistory(
+    campaignId: string,
+    page = 1,
+    pageSize = 10
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      amount: number;
+      description: string | null;
+      status: string | null;
+      createdAt: string | null;
+      completedAt: string | null;
+      updatedAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaignexpense/campaign/${campaignId}`,
+      { params: { page, pageSize} }
+    );
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray<any>(payload?.items ?? []);
+    return {
+      items: rawItems.map((item: any) => ({
+        id: item.id,
+        campaignId: item.campaignId,
+        amount: Number(item.amount ?? 0),
+        description: item.description ?? item.message ?? null,
+        status: item.status ?? null,
+        createdAt: item.createdAt ?? null,
+        completedAt: item.completedAt ?? null,
+        updatedAt: item.updatedAt ?? null,
+      })),
+      page: Number(payload?.page ?? page),
+      pageSize: Number(payload?.pageSize ?? pageSize),
+      totalCount: Number(payload?.totalCount ?? rawItems.length),
+      totalPages: Number(payload?.totalPages ?? 1),
+    };
   },
 };
 
