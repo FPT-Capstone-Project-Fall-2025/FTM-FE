@@ -938,6 +938,110 @@ export const fundService = {
     console.log('[fundService.rejectCampaignDonation] API Response:', response);
     return response;
   },
+
+  async fetchCampaignDonationsHistory(
+    campaignId: string,
+    page = 1,
+    pageSize = 10
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      campaignName: string | null;
+      donorId: string | null;
+      donorName: string | null;
+      amount: number;
+      message: string | null;
+      isAnonymous: boolean;
+      status: string | null;
+      payOSOrderCode: string | number | null;
+      transactionId: string | null;
+      proofImages: string[];
+      createdAt: string | null;
+      completedAt: string | null;
+      updatedAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/campaign/${campaignId}`,
+      { params: { page, pageSize } }
+    );
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray<any>(payload?.items ?? []);
+    return {
+      items: rawItems.map((item: any) => ({
+        id: item.id,
+        campaignId: item.campaignId,
+        campaignName: item.campaignName ?? null,
+        donorId: item.donorId ?? null,
+        donorName: item.donorName ?? null,
+        amount: Number(item.amount ?? 0),
+        message: item.message ?? null,
+        isAnonymous: Boolean(item.isAnonymous),
+        status: item.status ?? null,
+        payOSOrderCode: item.payOSOrderCode ?? null,
+        transactionId: item.transactionId ?? null,
+        proofImages: typeof item.proofImages === 'string'
+          ? item.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : (Array.isArray(item.proofImages) ? item.proofImages : []),
+        createdAt: item.createdAt ?? null,
+        completedAt: item.completedAt ?? null,
+        updatedAt: item.updatedAt ?? null,
+      })),
+      page: Number(payload?.page ?? page),
+      pageSize: Number(payload?.pageSize ?? pageSize),
+      totalCount: Number(payload?.totalCount ?? rawItems.length),
+      totalPages: Number(payload?.totalPages ?? 1),
+    };
+  },
+
+  async fetchCampaignExpensesHistory(
+    campaignId: string,
+    page = 1,
+    pageSize = 10
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      amount: number;
+      description: string | null;
+      status: string | null;
+      createdAt: string | null;
+      completedAt: string | null;
+      updatedAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaignexpense/campaign/${campaignId}`,
+      { params: { page, pageSize} }
+    );
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray<any>(payload?.items ?? []);
+    return {
+      items: rawItems.map((item: any) => ({
+        id: item.id,
+        campaignId: item.campaignId,
+        amount: Number(item.amount ?? 0),
+        description: item.description ?? item.message ?? null,
+        status: item.status ?? null,
+        createdAt: item.createdAt ?? null,
+        completedAt: item.completedAt ?? null,
+        updatedAt: item.updatedAt ?? null,
+      })),
+      page: Number(payload?.page ?? page),
+      pageSize: Number(payload?.pageSize ?? pageSize),
+      totalCount: Number(payload?.totalCount ?? rawItems.length),
+      totalPages: Number(payload?.totalPages ?? 1),
+    };
+  },
 };
 
 export default fundService;
