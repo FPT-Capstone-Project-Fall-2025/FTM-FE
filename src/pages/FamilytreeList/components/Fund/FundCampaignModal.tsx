@@ -145,7 +145,14 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
         bankName: string;
         fullName?: string;
         bin?: string;
-      }>).filter(bank => bank.bankCode && bank.bankName),
+      }>)
+        .filter(bank => bank.bankCode && bank.bankName)
+        .map(bank => ({
+          bankCode: bank.bin || bank.bankCode, // Use bin as bankCode (API requires BIN), fallback to bankCode
+          bankName: bank.bankName,
+          fullName: bank.fullName,
+          originalBankCode: bank.bankCode, // Keep original bankCode for logo mapping and display
+        })),
     []
   );
 
@@ -153,17 +160,17 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
     const keyword = bankSearch.trim().toLowerCase();
     if (!keyword) return banks;
 
-    return banks.filter(bank => {
-      return (
-        bank.bankCode.toLowerCase().includes(keyword) ||
-        bank.bankName.toLowerCase().includes(keyword) ||
-        (bank.fullName?.toLowerCase().includes(keyword) ?? false)
-      );
+    return banks.filter((bank: any) => {
+      const original = (bank.originalBankCode || '').toLowerCase();
+      const code = (bank.bankCode || '').toLowerCase();
+      const name = (bank.bankName || '').toLowerCase();
+      const full = (bank.fullName || '').toLowerCase();
+      return original.includes(keyword) || code.includes(keyword) || name.includes(keyword) || full.includes(keyword);
     });
   }, [banks, bankSearch]);
 
-  const getBankLogo = (code: string) => {
-    const key = code.toUpperCase();
+  const getBankLogo = (code: string, originalCode?: string) => {
+    const key = (originalCode || code).toUpperCase();
     return bankLogoMap[key] || null;
   };
 
@@ -187,6 +194,7 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
 
   const handleBankSelect = (bank: { bankCode: string; bankName: string; fullName?: string }) => {
     onFormChange('bankName', bank.bankName || '');
+    // Save BIN to bankCode field
     onFormChange('bankCode', bank.bankCode || '');
     setBankSearch('');
   };
@@ -366,9 +374,9 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
                 </div>
                 <div className="h-48 overflow-y-auto pr-1 border border-gray-200 rounded-lg p-2 bg-gray-50">
                   <div className="space-y-2">
-                    {filteredBanks.map(bank => {
+                    {filteredBanks.map((bank: any) => {
                       const isSelected = formState.bankCode === bank.bankCode;
-                      const logo = getBankLogo(bank.bankCode);
+                      const logo = getBankLogo(bank.bankCode, bank.originalBankCode);
                       return (
                         <button
                           key={bank.bankCode}
@@ -383,7 +391,7 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
                               <img src={logo} alt={bank.bankName} className="w-full h-full object-contain" />
                             ) : (
                               <span className="text-sm font-semibold text-gray-500">
-                                {bank.bankCode.slice(0, 2).toUpperCase()}
+                                {(bank.originalBankCode || bank.bankCode).slice(0, 2).toUpperCase()}
                               </span>
                             )}
                           </div>
@@ -393,7 +401,7 @@ const FundCampaignModal: React.FC<FundCampaignModalProps> = ({
                               <p className="text-xs text-gray-500 line-clamp-1">{bank.fullName}</p>
                             )}
                           </div>
-                          <div className="text-xs text-gray-400 uppercase flex-shrink-0">{bank.bankCode}</div>
+                          <div className="text-xs text-gray-400 uppercase flex-shrink-0">{bank.originalBankCode || bank.bankCode}</div>
                         </button>
                       );
                     })}

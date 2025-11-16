@@ -19,6 +19,7 @@ import FamilyTreeSelection from '@/pages/FamilytreeList/FamilyTreeSelection'
 import EventPage from '@/pages/Event/EventPage'
 import SettingPage from '@/pages/Settings/SettingPage'
 import NotificationPage from '@/pages/Notification/NotificationPage'
+import CampaignDetailPage from '@/pages/Campaign/CampaignDetailPage'
 // PostDetailPage is used as a modal in PostPage, not a standalone route
 // import PostDetailPage from '@/pages/Post/PostDetailPage'
 
@@ -49,6 +50,16 @@ const router = createBrowserRouter([
         element: <ResetPassword />,
       },
     ],
+  },
+  {
+    path: '/campaigns/:campaignId',
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <CampaignDetailPage />
+        </MainLayout>
+      </ProtectedRoute>
+    ),
   },
   /* Protected Routes */
   {

@@ -630,6 +630,112 @@ export const fundService = {
     return normalizeArray(unwrap<CampaignDonation[] | CampaignDonation>(result));
   },
 
+  async fetchCampaignDonationsByCampaign(
+    campaignId: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      donorName: string | null;
+      amount: number;
+      message: string | null;
+      isAnonymous: boolean;
+      status: string | null;
+      payOSOrderCode: string | number | null;
+      transactionId: string | null;
+      proofImages: string[];
+      createdAt: string | null;
+      updatedAt: string | null;
+      completedAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/campaign/${campaignId}`,
+      { params: { page, pageSize } }
+    );
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray(payload?.items);
+    const items = rawItems.map((item: any) => ({
+      id: item.id,
+      campaignId: item.campaignId,
+      donorName: item.donorName ?? null,
+      amount: Number(item.amount ?? 0),
+      message: item.message ?? null,
+      isAnonymous: Boolean(item.isAnonymous),
+      status: item.status ?? null,
+      payOSOrderCode: item.payOSOrderCode ?? null,
+      transactionId: item.transactionId ?? null,
+      proofImages: typeof item.proofImages === 'string'
+        ? item.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(item.proofImages) ? item.proofImages : []),
+      createdAt: item.createdAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+      completedAt: item.completedAt ?? null,
+    }));
+
+    return {
+      items,
+      page: payload?.page ?? page,
+      pageSize: payload?.pageSize ?? pageSize,
+      totalPages: payload?.totalPages ?? 1,
+      totalCount: payload?.totalCount ?? items.length,
+      hasPrevious: payload?.hasPrevious ?? false,
+      hasNext: payload?.hasNext ?? false,
+    };
+  },
+
+  async fetchPendingCampaignDonationsByTree(
+    familyTreeId: string
+  ): Promise<Array<{
+    id: string;
+    campaignId: string;
+    campaignName: string | null;
+    donorName: string | null;
+    amount: number;
+    message: string | null;
+    isAnonymous: boolean;
+    status: string | null;
+    payOSOrderCode: string | number | null;
+    transactionId: string | null;
+    proofImages: string[];
+    createdAt: string | null;
+    updatedAt: string | null;
+    completedAt: string | null;
+  }>> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/pending`,
+      { params: { familyTreeId } }
+    );
+    const payload = unwrap<any>(response) ?? [];
+    const items = Array.isArray(payload) ? payload : normalizeArray(payload);
+    return items.map((item: any) => ({
+      id: item.id,
+      campaignId: item.campaignId,
+      campaignName: item.campaignName ?? null,
+      donorName: item.donorName ?? null,
+      amount: Number(item.amount ?? 0),
+      message: item.message ?? null,
+      isAnonymous: Boolean(item.isAnonymous),
+      status: item.status ?? null,
+      payOSOrderCode: item.payOSOrderCode ?? null,
+      transactionId: item.transactionId ?? null,
+      proofImages: typeof item.proofImages === 'string'
+        ? item.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(item.proofImages) ? item.proofImages : []),
+      createdAt: item.createdAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+      completedAt: item.completedAt ?? null,
+    }));
+  },
+
   async fetchCampaignExpenses(campaignId: string): Promise<CampaignExpense[]> {
     const result = await api.get<ApiResponse<CampaignExpense[]>>(`/ftcampaign/${campaignId}/expenses`);
     return normalizeArray(unwrap<CampaignExpense[] | CampaignExpense>(result));
@@ -771,6 +877,66 @@ export const fundService = {
     });
 
     return data;
+  },
+
+  async fetchMyPendingCampaignDonations(userId: string): Promise<Array<{
+    id: string;
+    campaignId: string;
+    campaignName: string | null;
+    donorName: string | null;
+    amount: number;
+    message: string | null;
+    isAnonymous: boolean;
+    status: string | null;
+    payOSOrderCode: string | number | null;
+    transactionId: string | null;
+    proofImages: string[];
+    createdAt: string | null;
+    updatedAt: string | null;
+    completedAt: string | null;
+  }>> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/my-pending`,
+      { params: { userId } }
+    );
+    const payload = unwrap<any>(response) ?? [];
+    const items = Array.isArray(payload) ? payload : normalizeArray(payload);
+    return items.map((item: any) => ({
+      id: item.id,
+      campaignId: item.campaignId,
+      campaignName: item.campaignName ?? null,
+      donorName: item.donorName ?? null,
+      amount: Number(item.amount ?? 0),
+      message: item.message ?? null,
+      isAnonymous: Boolean(item.isAnonymous),
+      status: item.status ?? null,
+      payOSOrderCode: item.payOSOrderCode ?? null,
+      transactionId: item.transactionId ?? null,
+      proofImages: typeof item.proofImages === 'string'
+        ? item.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(item.proofImages) ? item.proofImages : []),
+      createdAt: item.createdAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+      completedAt: item.completedAt ?? null,
+    }));
+  },
+
+  async rejectCampaignDonation(
+    donationId: string,
+    payload: { donationId: string; rejectedBy: string; reason?: string }
+  ) {
+    console.log('[fundService.rejectCampaignDonation] Starting rejection', {
+      donationId,
+      payload,
+    });
+
+    const response = await api.post<ApiResponse<boolean>>(
+      `/ftcampaigndonation/${donationId}/reject`,
+      payload
+    );
+
+    console.log('[fundService.rejectCampaignDonation] API Response:', response);
+    return response;
   },
 };
 

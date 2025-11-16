@@ -20,9 +20,9 @@ interface FundCampaignsSectionProps {
   onFilterChange: (value: CampaignFilter) => void;
   onRequestCreate?: () => void;
   onOpenDetail: (id: string) => void;
+  onDonate: (id: string) => void;
   formatCurrency: (value?: number | null) => string;
   formatDate: (value?: string | null) => string;
-  getCampaignStatusKey: (status: unknown) => StatusKey;
   getCampaignStatusLabel: (status: StatusKey) => string;
   getCampaignStatusBadgeClasses: (status: StatusKey) => string;
   metrics: Record<string, CampaignMetricSummary>;
@@ -50,9 +50,9 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   onFilterChange,
   onRequestCreate,
   onOpenDetail,
+  onDonate,
   formatCurrency,
   formatDate,
-  getCampaignStatusKey,
   getCampaignStatusLabel,
   getCampaignStatusBadgeClasses,
   metrics,
@@ -73,7 +73,19 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   const effectiveFilter = showStatusFilter ? campaignFilter : 'all';
 
   const filteredCampaigns = campaigns.filter(campaign => {
-    const statusKey = getCampaignStatusKey(campaign.status);
+    // Compute status by comparing start/end date with current time
+    const now = new Date();
+    const start = campaign.startDate ? new Date(campaign.startDate) : null;
+    const end = campaign.endDate ? new Date(campaign.endDate) : null;
+
+    let statusKey: StatusKey = 'active';
+    if (start && !Number.isNaN(start.getTime()) && now < start) {
+      statusKey = 'upcoming';
+    } else if (end && !Number.isNaN(end.getTime()) && now > end) {
+      statusKey = 'completed';
+    } else {
+      statusKey = 'active';
+    }
     const matchesFilter = effectiveFilter === 'all' || effectiveFilter === statusKey;
     if (!matchesFilter) return false;
 
@@ -83,6 +95,16 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
     const organizerMatch = campaign.accountHolderName?.toLowerCase().includes(normalizedSearch);
     return Boolean(nameMatch || organizerMatch);
   });
+
+  // Sort for "Tất cả": by endDate ascending (nearer end first, nulls last)
+  const sortedCampaigns =
+    effectiveFilter === 'all'
+      ? [...filteredCampaigns].sort((a, b) => {
+          const aEnd = a.endDate ? new Date(a.endDate).getTime() : Number.POSITIVE_INFINITY;
+          const bEnd = b.endDate ? new Date(b.endDate).getTime() : Number.POSITIVE_INFINITY;
+          return aEnd - bEnd;
+        })
+      : filteredCampaigns;
 
   const handlePrevPage = () => {
     if (currentPage > 1) {
@@ -101,7 +123,7 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   const pageEndIndex =
     totalCount === 0
       ? 0
-      : Math.min(totalCount, pageStartIndex + filteredCampaigns.length - 1);
+      : Math.min(totalCount, pageStartIndex + sortedCampaigns.length - 1);
 
   return (
     <div className="bg-white rounded-lg shadow p-6 space-y-6">
@@ -139,15 +161,14 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="all">Tất cả</option>
-            <option value="active">Đang diễn ra</option>
             <option value="upcoming">Sắp diễn ra</option>
-            <option value="completed">Hoàn thành</option>
-            <option value="cancelled">Đã hủy</option>
+            <option value="active">Đang diễn ra</option>
+            <option value="completed">Đã diễn ra</option>
           </select>
         )}
       </div>
 
-      {filteredCampaigns.length === 0 ? (
+      {sortedCampaigns.length === 0 ? (
         <EmptyState
           icon={<Megaphone className="w-12 h-12 text-gray-300" />}
           title="Chưa có chiến dịch phù hợp"
@@ -156,8 +177,20 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredCampaigns.map(campaign => {
-              const statusKey = getCampaignStatusKey(campaign.status);
+            {sortedCampaigns.map(campaign => {
+              // Compute status by comparing start/end date with current time
+              const now = new Date();
+              const start = campaign.startDate ? new Date(campaign.startDate) : null;
+              const end = campaign.endDate ? new Date(campaign.endDate) : null;
+
+              let statusKey: StatusKey = 'active';
+              if (start && !Number.isNaN(start.getTime()) && now < start) {
+                statusKey = 'upcoming';
+              } else if (end && !Number.isNaN(end.getTime()) && now > end) {
+                statusKey = 'completed';
+              } else {
+                statusKey = 'active';
+              }
               const metric =
                 metrics[campaign.id] ?? { raisedAmount: campaign.currentBalance ?? 0, contributorCount: 0 };
               const progress = campaign.fundGoal
@@ -231,6 +264,13 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
                     <span className="text-sm text-gray-600">
                       {metric.contributorCount} người đóng góp
                     </span>
+                    <button
+                      onClick={() => onDonate(campaign.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-semibold"
+                      type="button"
+                    >
+                      Ủng hộ chiến dịch
+                    </button>
                     <button
                       onClick={() => onOpenDetail(campaign.id)}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-semibold"
