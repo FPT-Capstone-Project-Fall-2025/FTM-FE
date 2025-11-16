@@ -86,7 +86,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
 
     try {
       setSubmitting(true);
-      const paymentMethod = method === 'Cash' ? 0 : 1; // 0: Cash, 1: BankTransfer(VietQR)
+      const paymentMethod = method === 'Cash' ? 1 : 2; // 1: Cash, 2: BankTransfer (VietQR)
       const payload: any = {
         memberId,
         donorName: isAnonymous ? 'Ẩn danh' : donorName,

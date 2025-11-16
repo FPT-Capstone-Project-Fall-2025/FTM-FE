@@ -282,8 +282,8 @@ const FundManagement: React.FC = () => {
   );
   const [fundTab, setFundTab] = useState<FundTab>('overview');
   const [campaignSearch, setCampaignSearch] = useState('');
-  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>('all');
-  const [campaignTab, setCampaignTab] = useState<'all' | 'approvals' | 'my'>('all');
+  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>('active');
+  const [campaignTab, setCampaignTab] = useState<'all' | 'approvals' | 'my' | 'history'>('all');
   const [campaignDetail, setCampaignDetail] = useState<CampaignDetail | null>(
     null
   );
@@ -313,6 +313,28 @@ const FundManagement: React.FC = () => {
     proofImages: string[];
   }>>([]);
   const [myCampaignPendingLoading, setMyCampaignPendingLoading] = useState(false);
+  const [collapsedCampaigns, setCollapsedCampaigns] = useState<Record<string, boolean>>({});
+  const [historySelectedCampaignId, setHistorySelectedCampaignId] = useState<string | null>(null);
+  const [historyDonations, setHistoryDonations] = useState<Array<{
+    id: string;
+    donorName: string | null;
+    amount: number;
+    message: string | null;
+    status: string | null;
+    createdAt: string | null;
+  }>>([]);
+  const [historyExpenses, setHistoryExpenses] = useState<Array<{
+    id: string;
+    amount: number;
+    description: string | null;
+    status: string | null;
+    createdAt: string | null;
+  }>>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyDonationPage, setHistoryDonationPage] = useState(1);
+  const [historyDonationTotalPages, setHistoryDonationTotalPages] = useState(1);
+  const [historyExpensePage, setHistoryExpensePage] = useState(1);
+  const [historyExpenseTotalPages, setHistoryExpenseTotalPages] = useState(1);
   // Optional count if needed later
   // const [campaignApprovalTotalCount, setCampaignApprovalTotalCount] = useState(0);
   const [campaignPendingDonations, setCampaignPendingDonations] = useState<Array<{
@@ -975,7 +997,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         case 'upcoming':
           return 'Sắp diễn ra';
         case 'completed':
-          return 'Đã diễn ra';
+          return 'Đã kết thúc';
         case 'cancelled':
           return 'Đã hủy';
         default:
@@ -1124,6 +1146,57 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
     };
     void run();
   }, [managementScope, campaignTab, currentUserId]);
+
+  // History tab: default select first campaign
+  useEffect(() => {
+    if (managementScope !== 'campaign' || campaignTab !== 'history') return;
+    if (!historySelectedCampaignId) {
+      const first = campaigns[0] || null;
+      if (first) setHistorySelectedCampaignId(first.id);
+    }
+  }, [managementScope, campaignTab, campaigns, historySelectedCampaignId]);
+
+  const loadCampaignHistory = useCallback(async (campaignId: string, donationPage = 1, expensePage = 1) => {
+    setHistoryLoading(true);
+    try {
+      const [donationsRes, expensesRes] = await Promise.all([
+        fundService.fetchCampaignDonationsHistory(campaignId, donationPage, 10),
+        fundService.fetchCampaignExpensesHistory(campaignId, expensePage, 10),
+      ]);
+      setHistoryDonations(donationsRes.items.map(x => ({
+        id: x.id,
+        donorName: x.donorName,
+        amount: x.amount,
+        message: x.message,
+        status: x.status,
+        createdAt: x.createdAt,
+      })));
+      setHistoryDonationPage(donationsRes.page);
+      setHistoryDonationTotalPages(donationsRes.totalPages);
+
+      setHistoryExpenses(expensesRes.items.map(x => ({
+        id: x.id,
+        amount: x.amount,
+        description: x.description,
+        status: x.status,
+        createdAt: x.createdAt,
+      })));
+      setHistoryExpensePage(expensesRes.page);
+      setHistoryExpenseTotalPages(expensesRes.totalPages);
+    } catch (err) {
+      console.error('Failed to load campaign history', err);
+      toast.error('Không thể tải lịch sử giao dịch.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (managementScope !== 'campaign' || campaignTab !== 'history') return;
+    if (!historySelectedCampaignId) return;
+    void loadCampaignHistory(historySelectedCampaignId, historyDonationPage, historyExpensePage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managementScope, campaignTab, historySelectedCampaignId, historyDonationPage, historyExpensePage]);
 
   // Merge and sort all campaigns by date
   const allCampaigns = useMemo(() => {
@@ -1459,7 +1532,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
   }, [activeFund, funds, itemsPerPage]);
 
   if (!selectedTree) {
-  return (
+    return (
       <div className="h-full overflow-y-auto bg-gray-50 p-6">
         <EmptyState
           title="Chưa chọn gia phả"
@@ -1568,7 +1641,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                            : 'text-gray-600'
                        }`}
                      />
-                     Làm mới chiến dịch
+                     Làm mới
                    </button>
                  </div>
                )}
@@ -1878,8 +1951,8 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                <>
                  {/* Campaign Tabs */}
                  <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
-                   <button
-                     type="button"
+                         <button
+                           type="button"
                      onClick={() => setCampaignTab('all')}
                      className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
                        campaignTab === 'all'
@@ -1888,9 +1961,9 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                      }`}
                    >
                      Tất cả chiến dịch
-                   </button>
-                   <button
-                     type="button"
+                         </button>
+                         <button
+                           type="button"
                      onClick={() => setCampaignTab('my')}
                      className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
                        campaignTab === 'my'
@@ -1899,6 +1972,17 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                      }`}
                    >
                      Ủng hộ chiến dịch & yêu cầu của tôi
+                         </button>
+                   <button
+                     type="button"
+                     onClick={() => setCampaignTab('history')}
+                     className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+                       campaignTab === 'history'
+                         ? 'bg-blue-600 text-white'
+                         : 'text-gray-600 hover:text-blue-600'
+                     }`}
+                   >
+                     Lịch sử giao dịch
                    </button>
                    {memberRole === 'FTOwner' && (
                      <button
@@ -1922,23 +2006,23 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                          <LoadingState message="Đang tải danh sách chiến dịch..." />
                        </div>
                      ) : (
-                       <FundCampaignsSection
+                     <FundCampaignsSection
                          campaigns={campaigns}
-                         campaignSearch={campaignSearch}
-                         campaignFilter={campaignFilter}
-                         onSearchChange={setCampaignSearch}
-                         onFilterChange={setCampaignFilter}
-                         onOpenDetail={handleOpenCampaignDetail}
+                       campaignSearch={campaignSearch}
+                       campaignFilter={campaignFilter}
+                       onSearchChange={setCampaignSearch}
+                       onFilterChange={setCampaignFilter}
+                       onOpenDetail={handleOpenCampaignDetail}
                          onDonate={(id) => {
                            // Open donation modal from campaign list
                            setSelectedCampaignId(id);
                            setIsCampaignDonateOpen(true);
                          }}
-                         formatCurrency={formatCurrency}
-                         formatDate={formatDate}
-                         getCampaignStatusLabel={getCampaignStatusLabel}
-                         getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
-                         metrics={campaignMetrics}
+                       formatCurrency={formatCurrency}
+                       formatDate={formatDate}
+                       getCampaignStatusLabel={getCampaignStatusLabel}
+                       getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+                       metrics={campaignMetrics}
                          currentPage={campaignPagination.page}
                          totalPages={campaignPagination.totalPages}
                          totalCount={campaignPagination.totalCount}
@@ -1946,7 +2030,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                          onPageChange={changeCampaignPage}
                          title="Tất cả chiến dịch"
                          subtitle="Danh sách tất cả các chiến dịch gây quỹ"
-                         showCreateButton={false}
+                       showCreateButton={false}
                          showStatusFilter={true}
                        />
                      )}
@@ -2018,6 +2102,154 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                           ))}
                         </div>
                       )}
+                    </div>
+                  </div>
+                ) : campaignTab === 'history' ? (
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-lg shadow p-4 flex flex-wrap items-center gap-3">
+                      <label className="text-sm font-semibold text-gray-700">Chọn chiến dịch</label>
+                      <select
+                        value={historySelectedCampaignId ?? ''}
+                        onChange={e => {
+                          const id = e.target.value || null;
+                          setHistorySelectedCampaignId(id);
+                          setHistoryDonationPage(1);
+                          setHistoryExpensePage(1);
+                        }}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      >
+                        <option value="">-- Chọn chiến dịch --</option>
+                        {campaigns.map(c => (
+                          <option key={c.id} value={c.id}>{c.campaignName}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="px-3 py-2 text-sm font-semibold rounded-lg border border-gray-300 hover:bg-gray-50"
+                        disabled={!historySelectedCampaignId || historyLoading}
+                        onClick={() => {
+                          if (historySelectedCampaignId) {
+                            void loadCampaignHistory(historySelectedCampaignId, 1, 1);
+                            setHistoryDonationPage(1);
+                            setHistoryExpensePage(1);
+                          }
+                        }}
+                      >
+                        Làm mới
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-lg shadow p-4">
+                        <h4 className="text-sm font-bold text-gray-900 mb-3">Đóng góp</h4>
+                        {historyLoading ? (
+                          <LoadingState message="Đang tải đóng góp..." />
+                        ) : historySelectedCampaignId ? (
+                          historyDonations.length === 0 ? (
+                            <EmptyState title="Chưa có đóng góp" description="Không có dữ liệu để hiển thị." />
+                          ) : (
+                            <div className="space-y-3">
+                              {historyDonations.map(d => (
+                                <div key={d.id} className="p-3 border rounded-lg">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-semibold text-gray-900">{d.donorName || 'Ẩn danh'}</p>
+                                    <span className="text-sm font-semibold text-emerald-700">{formatCurrency(d.amount)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
+                                    <span>{d.status || '—'}</span>
+                                    <span>{formatDate(d.createdAt)}</span>
+                                  </div>
+                                  {d.message && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{d.message}</p>}
+                                </div>
+                              ))}
+                              <div className="flex items-center justify-between pt-2">
+                                <button
+                                  type="button"
+                                  className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
+                                  disabled={historyDonationPage <= 1 || historyLoading || !historySelectedCampaignId}
+                                  onClick={() => {
+                                    if (historySelectedCampaignId && historyDonationPage > 1) {
+                                      setHistoryDonationPage(p => p - 1);
+                                    }
+                                  }}
+                                >
+                                  ← Trước
+                                </button>
+                                <span className="text-xs text-gray-500">Trang {historyDonationPage}/{historyDonationTotalPages}</span>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
+                                  disabled={historyDonationPage >= historyDonationTotalPages || historyLoading || !historySelectedCampaignId}
+                                  onClick={() => {
+                                    if (historySelectedCampaignId && historyDonationPage < historyDonationTotalPages) {
+                                      setHistoryDonationPage(p => p + 1);
+                                    }
+                                  }}
+                                >
+                                  Sau →
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        ) : (
+                          <EmptyState title="Chưa chọn chiến dịch" description="Vui lòng chọn chiến dịch để xem lịch sử." />
+                        )}
+                      </div>
+
+                      <div className="bg-white rounded-lg shadow p-4">
+                        <h4 className="text-sm font-bold text-gray-900 mb-3">Chi tiêu</h4>
+                        {historyLoading ? (
+                          <LoadingState message="Đang tải chi tiêu..." />
+                        ) : historySelectedCampaignId ? (
+                          historyExpenses.length === 0 ? (
+                            <EmptyState title="Chưa có chi tiêu" description="Không có dữ liệu để hiển thị." />
+                          ) : (
+                            <div className="space-y-3">
+                              {historyExpenses.map(e => (
+                                <div key={e.id} className="p-3 border rounded-lg">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-semibold text-gray-900">{e.description || 'Chi tiêu'}</p>
+                                    <span className="text-sm font-semibold text-red-700">-{formatCurrency(e.amount)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
+                                    <span>{e.status || '—'}</span>
+                                    <span>{formatDate(e.createdAt)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="flex items-center justify-between pt-2">
+                                <button
+                                  type="button"
+                                  className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
+                                  disabled={historyExpensePage <= 1 || historyLoading || !historySelectedCampaignId}
+                                  onClick={() => {
+                                    if (historySelectedCampaignId && historyExpensePage > 1) {
+                                      setHistoryExpensePage(p => p - 1);
+                                    }
+                                  }}
+                                >
+                                  ← Trước
+                                </button>
+                                <span className="text-xs text-gray-500">Trang {historyExpensePage}/{historyExpenseTotalPages}</span>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
+                                  disabled={historyExpensePage >= historyExpenseTotalPages || historyLoading || !historySelectedCampaignId}
+                                  onClick={() => {
+                                    if (historySelectedCampaignId && historyExpensePage < historyExpenseTotalPages) {
+                                      setHistoryExpensePage(p => p + 1);
+                                    }
+                                  }}
+                                >
+                                  Sau →
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        ) : (
+                          <EmptyState title="Chưa chọn chiến dịch" description="Vui lòng chọn chiến dịch để xem lịch sử." />
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -2117,6 +2349,8 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                                       if (selectedTree?.id) {
                                         await loadCampaignApprovals(selectedTree.id);
                                       }
+                                      // Refresh campaigns to update progress/raised amounts in the list
+                                      await refreshCampaigns(1);
                                     } catch (err: any) {
                                       console.error('Confirm campaign donation failed:', err);
                                       toast.error(err?.response?.data?.message || err?.message || 'Không thể xác nhận ủng hộ.');
@@ -2173,38 +2407,112 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                           description="Chọn chiến dịch khác hoặc thử làm mới."
                         />
                       ) : (
-                        <div className="space-y-3">
-                          {campaignPendingDonations
-                            .slice()
-                            .sort((a, b) => {
-                              const an = (a.campaignName || '').localeCompare(b.campaignName || '');
-                              if (an !== 0) return an;
-                              const ad = getDateValue(a.createdAt);
-                              const bd = getDateValue(b.createdAt);
-                              return bd - ad;
-                            })
-                            .map(item => (
-                            <div key={item.id} className="p-4 border rounded-lg hover:shadow cursor-pointer flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-                              onClick={() => setSelectedPendingCampaignDonationId(item.id)}>
-                              <div>
-                                <p className="text-xs text-gray-500">{item.campaignName || '—'}</p>
-                                <p className="font-semibold text-gray-900">{item.donorName || 'Ẩn danh'}</p>
-                                <p className="text-sm text-gray-600">{formatCurrency(item.amount)}</p>
-                                <p className="text-xs text-gray-500">{formatDate(item.createdAt)}</p>
-                                {item.message && <p className="text-xs text-gray-500 mt-1">Ghi chú: {item.message}</p>}
-                                {item.proofImages.length > 0 && (
-                                  <div className="flex gap-2 mt-2 flex-wrap">
-                                    {item.proofImages.map((url, idx) => (
-                                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline" onClick={e => e.stopPropagation()}>
-                                        Chứng từ {idx + 1}
-                                      </a>
+                        <div className="space-y-4">
+                          {(() => {
+                            const sorted = campaignPendingDonations
+                              .slice()
+                              .sort((a, b) => {
+                                const an = (a.campaignName || '').localeCompare(b.campaignName || '');
+                                if (an !== 0) return an;
+                                const ad = getDateValue(a.createdAt);
+                                const bd = getDateValue(b.createdAt);
+                                return bd - ad;
+                              });
+                            const groups = sorted.reduce<Record<string, typeof sorted>>((acc, item) => {
+                              const key = item.campaignId || 'unknown';
+                              if (!acc[key]) acc[key] = [];
+                              acc[key].push(item);
+                              return acc;
+                            }, {});
+                            return Object.values(groups).map(group => {
+                              if (!group.length) return null;
+                              const first = group[0];
+                              const showHeaderOnce = group.length >= 1;
+                              return (
+                                <div key={`${first?.campaignId || 'unknown'}`} className="rounded-lg border bg-white shadow-sm overflow-hidden">
+                                  {showHeaderOnce && (
+                                    <button
+                                      type="button"
+                                      className="w-full px-4 py-3 border-b bg-gray-50 flex items-center justify-between hover:bg-gray-100"
+                                      onClick={() => {
+                                        const key = first?.campaignId || 'unknown';
+                                        setCollapsedCampaigns(prev => ({
+                                          ...prev,
+                                          [key]: !((prev[key] ?? true)),
+                                        }));
+                                      }}
+                                    >
+                                      <p className="text-sm font-semibold text-gray-900 text-left">
+                                        {first?.campaignName || '—'}
+                                      </p>
+                                      <div className="flex items-center gap-2">
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                                          {group.length} yêu cầu
+                                        </span>
+                                        <span className="text-gray-500 text-base">
+                                          {(collapsedCampaigns[first?.campaignId || 'unknown'] ?? true) ? '▸' : '▾'}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  )}
+                                  {!((collapsedCampaigns[first?.campaignId || 'unknown'] ?? true)) && (
+                                  <div className="divide-y">
+                                    {group.map(item => (
+                                      <div
+                                        key={item.id}
+                                        className="p-4 hover:bg-gray-50 cursor-pointer"
+                                        onClick={() => setSelectedPendingCampaignDonationId(item.id)}
+                                      >
+                                        <div className="flex items-start gap-4">
+                                          <div className="flex-1 min-w-0">
+                                            {!showHeaderOnce && (
+                                              <p className="text-xs text-gray-500 mb-1">{item.campaignName || '—'}</p>
+                                            )}
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                              <p className="font-semibold text-gray-900 truncate max-w-[280px]">
+                                                {item.donorName || 'Ẩn danh'}
+                                              </p>
+                                              <span className="text-sm font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                                                {formatCurrency(item.amount)}
+                                              </span>
+                                              <span className="text-xs text-gray-500">{formatDate(item.createdAt)}</span>
+                                            </div>
+                                            {item.message && (
+                                              <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                                {item.message}
+                                              </p>
+                                            )}
+                                            {item.proofImages.length > 0 && (
+                                              <div className="flex gap-2 mt-2">
+                                                {item.proofImages.slice(0, 3).map((url, idx) => (
+                                                  <a
+                                                    key={idx}
+                                                    href={url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="block w-12 h-12 rounded border overflow-hidden bg-gray-100"
+                                                    aria-label={`Xem chứng từ ${idx + 1}`}
+                                                  >
+                                                    <img src={url} alt="" className="w-full h-full object-cover" />
+                                                  </a>
+                                                ))}
+                                                {item.proofImages.length > 3 && (
+                                                  <span className="text-xs text-gray-500 self-center">+{item.proofImages.length - 3}</span>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="self-center text-gray-400 text-base">›</div>
+                                        </div>
+                                      </div>
                                     ))}
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          {/* No pagination for tree-level pending endpoint */}
+                                  )}
+                                </div>
+                              );
+                            });
+                          })()}
                         </div>
                       )}
                     </div>
@@ -2300,6 +2608,10 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         isOpen={isCampaignDetailOpen}
         detail={campaignDetail}
         onClose={handleCloseCampaignDetail}
+        onDonate={(id) => {
+          setSelectedCampaignId(id);
+          setIsCampaignDonateOpen(true);
+        }}
         loading={campaignDetailLoading}
         formatCurrency={formatCurrency}
         formatDate={formatDate}

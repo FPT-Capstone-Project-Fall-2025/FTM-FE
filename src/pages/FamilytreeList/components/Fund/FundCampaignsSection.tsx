@@ -1,5 +1,5 @@
 import React from 'react';
-import { Megaphone, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Megaphone, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { FundCampaign } from '@/types/fund';
 import { EmptyState } from './FundLoadingEmpty';
 
@@ -66,7 +66,6 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   showCreateButton = true,
   showStatusFilter = true,
   showAllCampaigns: _showAllCampaigns = false,
-  categorizedCampaigns,
 }) => {
   const normalizedSearch = campaignSearch.trim().toLowerCase();
 
@@ -163,7 +162,7 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
             <option value="all">Tất cả</option>
             <option value="upcoming">Sắp diễn ra</option>
             <option value="active">Đang diễn ra</option>
-            <option value="completed">Đã diễn ra</option>
+            <option value="completed">Đã kết thúc</option>
           </select>
         )}
       </div>
@@ -197,17 +196,14 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
                 ? Math.min((Number(metric.raisedAmount) / Number(campaign.fundGoal)) * 100, 100)
                 : 0;
 
-              // Check if campaign is inactive
-              const isInactive = categorizedCampaigns 
-                ? categorizedCampaigns.inactive.some(c => c.id === campaign.id)
-                : false;
-
+              const disableDonate = statusKey === 'upcoming' || statusKey === 'completed';
               return (
                 <div
                   key={campaign.id}
-                  className={`border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow ${
-                    isInactive ? 'bg-gray-50' : ''
-                  }`}
+                  className={`border border-gray-200 rounded-lg p-6 transition-shadow ${
+                    disableDonate ? 'bg-gray-200' : 'hover:shadow-lg'
+                  } cursor-pointer`}
+                  onClick={() => onOpenDetail(campaign.id)}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div>
@@ -264,20 +260,17 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
                     <span className="text-sm text-gray-600">
                       {metric.contributorCount} người đóng góp
                     </span>
-                    <button
-                      onClick={() => onDonate(campaign.id)}
-                      className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-semibold"
-                      type="button"
-                    >
-                      Ủng hộ chiến dịch
-                    </button>
-                    <button
-                      onClick={() => onOpenDetail(campaign.id)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-semibold"
-                      type="button"
-                    >
-                      <Eye className="w-4 h-4" /> Xem chi tiết
-                    </button>
+                    <div className="flex items-center gap-2">
+                    {!disableDonate && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onDonate(campaign.id); }}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-semibold"
+                        type="button"
+                      >
+                        Ủng hộ chiến dịch
+                      </button>
+                    )}
+                    </div>
                   </div>
                 </div>
               );

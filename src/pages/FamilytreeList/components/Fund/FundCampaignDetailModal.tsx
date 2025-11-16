@@ -30,6 +30,7 @@ interface FundCampaignDetailModalProps {
   isOpen: boolean;
   detail: CampaignDetail | null;
   onClose: () => void;
+  onDonate?: (campaignId: string) => void;
   loading?: boolean;
   formatCurrency: (value?: number | null) => string;
   formatDate: (value?: string | null) => string;
@@ -116,6 +117,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
   isOpen,
   detail,
   onClose,
+  onDonate,
   loading = false,
   formatCurrency,
   formatDate,
@@ -326,6 +328,15 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
             </div>
 
             <div className="flex gap-3 justify-end">
+              {statusKey === 'active' && detail?.campaign.id && onDonate && (
+                <button
+                  onClick={() => onDonate(detail.campaign.id)}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
+                  type="button"
+                >
+                  Ủng hộ chiến dịch
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
