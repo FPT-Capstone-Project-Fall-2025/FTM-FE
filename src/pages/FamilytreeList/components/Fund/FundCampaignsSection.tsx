@@ -231,7 +231,7 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
                     <div className="flex items-center justify-between mb-2 text-sm text-gray-600">
                       <span>Tiến độ</span>
                       <span className="font-semibold text-gray-900">
-                        {formatCurrency(metric.raisedAmount)} / {formatCurrency(campaign.fundGoal ?? 0)}
+                        Đã kêu gọi được: {formatCurrency(metric.raisedAmount)} / {formatCurrency(campaign.fundGoal ?? 0)}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
@@ -257,9 +257,6 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      {metric.contributorCount} người đóng góp
-                    </span>
                     <div className="flex items-center gap-2">
                     {!disableDonate && (
                       <button

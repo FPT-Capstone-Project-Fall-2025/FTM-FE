@@ -57,6 +57,305 @@ export const fundService = {
     return normalizeArray(unwrap<Fund[] | Fund>(result));
   },
 
+  // Approve campaign expense with payment proof (manager)
+  async approveCampaignExpenseWithProof(
+    expenseId: string,
+    payload: { approverId: string; notes?: string; paymentProofImages: File[] }
+  ): Promise<{
+    expenseId: string;
+    status: string;
+    paymentProofUrl?: string;
+    approvedBy?: string;
+    approvalNotes?: string;
+  }> {
+    if (!payload.paymentProofImages || payload.paymentProofImages.length === 0) {
+      throw new Error('Payment proof image is required for approval');
+    }
+    const formData = new FormData();
+    formData.append('ApproverId', payload.approverId);
+    formData.append('Notes', payload.notes || '');
+    payload.paymentProofImages.forEach(file => {
+      formData.append('PaymentProofImage', file);
+    });
+    const response = await api.post<ApiResponse<any>>(
+      `/FTCampaignExpense/${encodeURIComponent(expenseId)}/approve`,
+      formData
+    );
+    const data = unwrap<any>(response)?.data ?? unwrap<any>(response);
+    return {
+      expenseId: data?.expenseId ?? expenseId,
+      status: data?.status ?? 'Approved',
+      paymentProofUrl: data?.paymentProofUrl,
+      approvedBy: data?.approvedBy,
+      approvalNotes: data?.approvalNotes,
+    };
+  },
+
+  // Reject campaign expense (manager)
+  async rejectCampaignExpenseManager(
+    expenseId: string,
+    payload: { approverId: string; notes?: string }
+  ): Promise<boolean> {
+    const body = {
+      ApproverId: payload.approverId,
+      Notes: payload.notes || '',
+    };
+    const response = await api.post<ApiResponse<boolean>>(
+      `/FTCampaignExpense/${encodeURIComponent(expenseId)}/reject`,
+      body
+    );
+    const data = unwrap<boolean>(response);
+    return Boolean(data);
+  },
+
+  // Create campaign expense request with optional receipt images (multipart)
+  async createCampaignExpense(payload: {
+    campaignId: string;
+    requestedById: string;
+    amount: number;
+    description: string;
+    notes?: string;
+    category?: string;
+    expenseDate?: string | null;
+    receipts?: File[];
+  }): Promise<{
+    expenseId: string;
+    amount: number;
+    description: string;
+    status: string;
+    receiptCount: number;
+    receiptUrls: string[];
+  }> {
+    // Build form-data with exact field names per new API (see Postman screenshot)
+    const form = new FormData();
+    form.append('CampaignId', payload.campaignId);
+    form.append('Amount', String(payload.amount));
+    form.append('Description', payload.description || '');
+    if (payload.category !== undefined && payload.category !== null) {
+      form.append('Category', String(payload.category));
+    }
+    // AuthorizedBy corresponds to the requesting member id
+    form.append('AuthorizedBy', payload.requestedById);
+    // Append receipt images (multiple)
+    (payload.receipts || []).forEach(file => {
+      form.append('ReceiptImages', file);
+    });
+    // Do NOT manually set Content-Type so boundary is added automatically
+    const response = await api.post<ApiResponse<any>>('/FTCampaignExpense', form);
+    const data = unwrap<any>(response);
+    const d = data?.data ?? data;
+    return {
+      expenseId: d?.expenseId ?? d?.id ?? '',
+      amount: Number(d?.amount ?? payload.amount ?? 0),
+      description: d?.description ?? payload.description ?? '',
+      status: d?.status ?? 'Pending',
+      receiptCount: Number(d?.receiptCount ?? (Array.isArray(d?.receiptUrls) ? d.receiptUrls.length : 0) ?? 0),
+      receiptUrls:
+        typeof d?.receiptUrls === 'string'
+          ? d.receiptUrls.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : Array.isArray(d?.receiptUrls)
+          ? d.receiptUrls
+          : [],
+    };
+  },
+
+  // Get expenses by campaign with pagination
+  async fetchCampaignExpenses(campaignId: string, page = 1, pageSize = 20): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      campaignName: string | null;
+      title: string | null;
+      description: string | null;
+      amount: number;
+      category: string | null;
+      categoryName: string | null;
+      expenseDate: string | null;
+      receiptUrls: string[];
+      notes: string | null;
+      status: string | null;
+      requestedById: string | null;
+      requestedByName: string | null;
+      approvedById: string | null;
+      approvedByName: string | null;
+      approvedAt: string | null;
+      approvalNotes: string | null;
+      createdAt: string | null;
+      updatedAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/FTCampaignExpense/campaign/${encodeURIComponent(campaignId)}`,
+      { params: { page, pageSize } }
+    );
+    const data = unwrap<any>(response)?.data ?? unwrap<any>(response);
+    const items = Array.isArray(data?.items) ? data.items : normalizeArray(data?.items ?? []);
+    return {
+      items: items.map((e: any) => ({
+        id: e.id,
+        campaignId: e.campaignId,
+        campaignName: e.campaignName ?? null,
+        title: e.title ?? null,
+        description: e.description ?? null,
+        amount: Number(e.amount ?? 0),
+        category: e.category ?? null,
+        categoryName: e.categoryName ?? null,
+        expenseDate: e.expenseDate ?? null,
+        receiptUrls:
+          typeof e.receiptUrl === 'string'
+            ? e.receiptUrl.split(',').map((s: string) => s.trim()).filter(Boolean)
+            : Array.isArray(e.receiptUrl)
+            ? e.receiptUrl
+            : [],
+        notes: e.notes ?? null,
+        status: e.status ?? e.statusName ?? null,
+        requestedById: e.requestedById ?? null,
+        requestedByName: e.requestedByName ?? null,
+        approvedById: e.approvedById ?? null,
+        approvedByName: e.approvedByName ?? null,
+        approvedAt: e.approvedAt ?? null,
+        approvalNotes: e.approvalNotes ?? null,
+        createdAt: e.createdAt ?? null,
+        updatedAt: e.updatedAt ?? null,
+      })),
+      page: Number(data?.page ?? page),
+      pageSize: Number(data?.pageSize ?? pageSize),
+      totalCount: Number(data?.totalCount ?? 0),
+      totalPages: Number(data?.totalPages ?? 1),
+    };
+  },
+
+  // Get pending expenses for manager by memberId
+  async fetchPendingCampaignExpensesForManager(
+    memberId: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      campaignName: string | null;
+      description: string | null;
+      amount: number;
+      receiptUrls: string[];
+      status: string | null;
+      requestedById: string | null;
+      requestedByName: string | null;
+      createdAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/FTCampaignExpense/pending/manager/${encodeURIComponent(memberId)}`,
+      { params: { page, pageSize } }
+    );
+    const data = unwrap<any>(response)?.data ?? unwrap<any>(response);
+    const items = Array.isArray(data?.items) ? data.items : normalizeArray(data?.items ?? []);
+    return {
+      items: items.map((e: any) => ({
+        id: e.id,
+        campaignId: e.campaignId,
+        campaignName: e.campaignName ?? null,
+        description: e.description ?? null,
+        amount: Number(e.amount ?? 0),
+        receiptUrls:
+          typeof e.receiptUrl === 'string'
+            ? e.receiptUrl.split(',').map((s: string) => s.trim()).filter(Boolean)
+            : Array.isArray(e.receiptUrl)
+            ? e.receiptUrl
+            : [],
+        status: e.status ?? e.statusName ?? null,
+        requestedById: e.requestedById ?? null,
+        requestedByName: e.requestedByName ?? null,
+        createdAt: e.createdAt ?? null,
+      })),
+      page: Number(data?.page ?? page),
+      pageSize: Number(data?.pageSize ?? pageSize),
+      totalCount: Number(data?.totalCount ?? 0),
+      totalPages: Number(data?.totalPages ?? 1),
+    };
+  },
+
+  async fetchCampaignDonationsByUser(
+    userId: string,
+    page = 1,
+    pageSize = 10
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      campaignName: string | null;
+      donorId: string | null;
+      donorName: string | null;
+      amount: number;
+      message: string | null;
+      isAnonymous: boolean;
+      status: string | null;
+      payOSOrderCode: string | number | null;
+      transactionId: string | null;
+      proofImages: string[];
+      createdAt: string | null;
+      completedAt: string | null;
+      updatedAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/user/${encodeURIComponent(userId)}`,
+      { params: { page, pageSize } }
+    );
+    const data = unwrap<any>(response);
+    const payload = data?.items ?? [];
+    const items = Array.isArray(payload) ? payload : normalizeArray(payload);
+    return {
+      items: items.map((item: any) => ({
+        id: item.id,
+        campaignId: item.campaignId,
+        campaignName: item.campaignName ?? null,
+        donorId: item.donorId ?? null,
+        donorName: item.donorName ?? null,
+        amount: Number(item.amount ?? 0),
+        message: item.message ?? null,
+        isAnonymous: Boolean(item.isAnonymous),
+        status: item.status ?? null,
+        payOSOrderCode: item.payOSOrderCode ?? null,
+        transactionId: item.transactionId ?? null,
+        proofImages:
+          typeof item.proofImages === 'string'
+            ? item.proofImages
+                .split(',')
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : Array.isArray(item.proofImages)
+            ? item.proofImages
+            : [],
+        createdAt: item.createdAt ?? null,
+        completedAt: item.completedAt ?? null,
+        updatedAt: item.updatedAt ?? null,
+      })),
+      page: Number(data?.page ?? page),
+      pageSize: Number(data?.pageSize ?? pageSize),
+      totalCount: Number(data?.totalCount ?? items.length ?? 0),
+      totalPages: Number(data?.totalPages ?? 1),
+      hasPrevious: Boolean(data?.hasPrevious ?? page > 1),
+      hasNext: Boolean(
+        data?.hasNext ?? Number(data?.page ?? page) < Number(data?.totalPages ?? 1)
+      ),
+    };
+  },
+
   async fetchFundExpenses(
     fundId: string,
     page = 1,
@@ -756,16 +1055,17 @@ export const fundService = {
     return unwrap<CampaignFinancialSummary | null>(result) ?? null;
   },
 
-  async createCampaignExpense(payload: CreateCampaignExpensePayload) {
-    return api.post<ApiResponse<CampaignExpense>>(`/ftcampaignexpense`, payload);
+  // Legacy JSON variant (kept for reference; do not use)
+  async createCampaignExpenseJsonLegacy(payload: CreateCampaignExpensePayload) {
+    return api.post<ApiResponse<CampaignExpense>>(`/FTCampaignExpense`, payload);
   },
 
   async approveCampaignExpense(id: string, payload: ApproveCampaignExpensePayload) {
-    return api.put<ApiResponse<boolean>>(`/ftcampaignexpense/${id}/approve`, payload);
+    return api.put<ApiResponse<boolean>>(`/FTCampaignExpense/${id}/approve`, payload);
   },
 
   async rejectCampaignExpense(id: string, payload: RejectCampaignExpensePayload) {
-    return api.put<ApiResponse<boolean>>(`/ftcampaignexpense/${id}/reject`, payload);
+    return api.put<ApiResponse<boolean>>(`/FTCampaignExpense/${id}/reject`, payload);
   },
 
   // Campaign Donation APIs
@@ -879,7 +1179,7 @@ export const fundService = {
     return data;
   },
 
-  async fetchMyPendingCampaignDonations(userId: string): Promise<Array<{
+  async fetchMyPendingCampaignDonations(gpMemberId: string): Promise<Array<{
     id: string;
     campaignId: string;
     campaignName: string | null;
@@ -897,7 +1197,8 @@ export const fundService = {
   }>> {
     const response = await api.get<ApiResponse<any>>(
       `/ftcampaigndonation/my-pending`,
-      { params: { userId } }
+      // API expects `userId` to be the GP memberId
+      { params: { userId: gpMemberId } }
     );
     const payload = unwrap<any>(response) ?? [];
     const items = Array.isArray(payload) ? payload : normalizeArray(payload);
