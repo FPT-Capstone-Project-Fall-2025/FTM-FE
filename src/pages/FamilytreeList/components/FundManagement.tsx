@@ -298,7 +298,7 @@ const FundManagement: React.FC = () => {
   const [campaignSubmitting, setCampaignSubmitting] = useState(false);
   const [isCampaignDonateOpen, setIsCampaignDonateOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
-  const [approvalSelectedCampaignId, setApprovalSelectedCampaignId] = useState<string | null>(null);
+  // Campaign approvals filter removed: show all pending donations across campaigns
   const [campaignApprovalsLoading, setCampaignApprovalsLoading] = useState(false);
   const [selectedPendingCampaignDonationId, setSelectedPendingCampaignDonationId] = useState<string | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -1086,15 +1086,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
     }
   }, []);
 
-  useEffect(() => {
-    // Default selected campaign for approvals
-    if (managementScope === 'campaign' && campaignTab === 'approvals' && !approvalSelectedCampaignId) {
-      const first = campaigns[0] || activeCampaigns[0];
-      if (first) {
-        setApprovalSelectedCampaignId(first.id);
-      }
-    }
-  }, [managementScope, campaignTab, approvalSelectedCampaignId, campaigns, activeCampaigns]);
+  // No per-campaign selection; approvals tab shows all pending donations
 
   useEffect(() => {
     if (managementScope === 'campaign' && campaignTab === 'approvals' && selectedTree?.id) {
@@ -1467,7 +1459,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
   }, [activeFund, funds, itemsPerPage]);
 
   if (!selectedTree) {
-    return (
+  return (
       <div className="h-full overflow-y-auto bg-gray-50 p-6">
         <EmptyState
           title="Chưa chọn gia phả"
@@ -2033,24 +2025,6 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                   <div className="space-y-4">
                     <div className="bg-white rounded-lg shadow p-4 flex flex-col gap-3">
                       <div className="flex flex-wrap items-center gap-3">
-                        <label className="text-sm font-semibold text-gray-700">Chọn chiến dịch (lọc)</label>
-                        <select
-                          value={approvalSelectedCampaignId ?? ''}
-                          onChange={e => {
-                            const id = e.target.value || null;
-                            setApprovalSelectedCampaignId(id);
-                            // Filtering is applied below
-                          }}
-                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
-                        >
-                          <option value="">-- Chọn chiến dịch --</option>
-                          {[...campaigns, ...activeCampaigns].reduce((acc, c) => {
-                            if (!acc.find(x => x.id === c.id)) acc.push(c);
-                            return acc;
-                          }, [] as FundCampaign[]).map(c => (
-                            <option key={c.id} value={c.id}>{c.campaignName}</option>
-                          ))}
-                        </select>
                         <button
                           type="button"
                           onClick={() => {
@@ -2071,10 +2045,16 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                         </div>
                       ) : selectedPendingCampaignDonationId ? (
                         (() => {
-                          const source = approvalSelectedCampaignId
-                            ? campaignPendingDonations.filter(x => x.campaignId === approvalSelectedCampaignId)
-                            : campaignPendingDonations;
-                          const item = source.find(x => x.id === selectedPendingCampaignDonationId);
+                          const sorted = campaignPendingDonations
+                            .slice()
+                            .sort((a, b) => {
+                              const an = (a.campaignName || '').localeCompare(b.campaignName || '');
+                              if (an !== 0) return an;
+                              const ad = getDateValue(a.createdAt);
+                              const bd = getDateValue(b.createdAt);
+                              return bd - ad;
+                            });
+                          const item = sorted.find(x => x.id === selectedPendingCampaignDonationId);
                           if (!item) {
                             return (
                               <EmptyState title="Không tìm thấy yêu cầu" description="Vui lòng trở về danh sách." />
@@ -2187,18 +2167,23 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                             </div>
                           );
                         })()
-                      ) : (approvalSelectedCampaignId
-                        ? campaignPendingDonations.filter(x => x.campaignId === approvalSelectedCampaignId)
-                        : campaignPendingDonations).length === 0 ? (
+                      ) : campaignPendingDonations.length === 0 ? (
                         <EmptyState
                           title="Không có yêu cầu cần phê duyệt"
                           description="Chọn chiến dịch khác hoặc thử làm mới."
                         />
                       ) : (
                         <div className="space-y-3">
-                          {(approvalSelectedCampaignId
-                            ? campaignPendingDonations.filter(x => x.campaignId === approvalSelectedCampaignId)
-                            : campaignPendingDonations).map(item => (
+                          {campaignPendingDonations
+                            .slice()
+                            .sort((a, b) => {
+                              const an = (a.campaignName || '').localeCompare(b.campaignName || '');
+                              if (an !== 0) return an;
+                              const ad = getDateValue(a.createdAt);
+                              const bd = getDateValue(b.createdAt);
+                              return bd - ad;
+                            })
+                            .map(item => (
                             <div key={item.id} className="p-4 border rounded-lg hover:shadow cursor-pointer flex flex-col md:flex-row md:items-center md:justify-between gap-3"
                               onClick={() => setSelectedPendingCampaignDonationId(item.id)}>
                               <div>
