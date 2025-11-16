@@ -39,6 +39,7 @@ import FundCampaignDetailModal from './Fund/FundCampaignDetailModal';
 import FundCampaignModal, {
   type CampaignFormState,
 } from './Fund/FundCampaignModal';
+import CampaignDonateModal from './Fund/CampaignDonateModal';
 import FundHistorySection from './Fund/FundHistorySection';
 import {
   type WithdrawalFormState,
@@ -282,7 +283,7 @@ const FundManagement: React.FC = () => {
   const [fundTab, setFundTab] = useState<FundTab>('overview');
   const [campaignSearch, setCampaignSearch] = useState('');
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>('all');
-  const [campaignTab, setCampaignTab] = useState<'all' | 'active'>('all');
+  const [campaignTab, setCampaignTab] = useState<'all' | 'approvals' | 'my'>('all');
   const [campaignDetail, setCampaignDetail] = useState<CampaignDetail | null>(
     null
   );
@@ -295,6 +296,36 @@ const FundManagement: React.FC = () => {
     INITIAL_CAMPAIGN_FORM
   );
   const [campaignSubmitting, setCampaignSubmitting] = useState(false);
+  const [isCampaignDonateOpen, setIsCampaignDonateOpen] = useState(false);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [approvalSelectedCampaignId, setApprovalSelectedCampaignId] = useState<string | null>(null);
+  const [campaignApprovalsLoading, setCampaignApprovalsLoading] = useState(false);
+  const [selectedPendingCampaignDonationId, setSelectedPendingCampaignDonationId] = useState<string | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [myCampaignPending, setMyCampaignPending] = useState<Array<{
+    id: string;
+    campaignId: string;
+    campaignName: string | null;
+    donorName: string | null;
+    amount: number;
+    message: string | null;
+    createdAt: string | null;
+    proofImages: string[];
+  }>>([]);
+  const [myCampaignPendingLoading, setMyCampaignPendingLoading] = useState(false);
+  // Optional count if needed later
+  // const [campaignApprovalTotalCount, setCampaignApprovalTotalCount] = useState(0);
+  const [campaignPendingDonations, setCampaignPendingDonations] = useState<Array<{
+    id: string;
+    campaignId: string;
+    campaignName: string | null;
+    donorName: string | null;
+    amount: number;
+    message: string | null;
+    status: string | null;
+    createdAt: string | null;
+    proofImages: string[];
+  }>>([]);
 
   useEffect(() => {
     if (error) {
@@ -944,7 +975,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         case 'upcoming':
           return 'Sắp diễn ra';
         case 'completed':
-          return 'Hoàn thành';
+          return 'Đã diễn ra';
         case 'cancelled':
           return 'Đã hủy';
         default:
@@ -1021,6 +1052,86 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
     setIsCampaignDetailOpen(false);
     setCampaignDetail(null);
   }, []);
+
+  // Campaign approvals data
+  const loadCampaignApprovals = useCallback(async (familyTreeId: string) => {
+    if (!familyTreeId) {
+      setCampaignPendingDonations([]);
+      return;
+    }
+    setCampaignApprovalsLoading(true);
+    try {
+      const items = await fundService.fetchPendingCampaignDonationsByTree(familyTreeId);
+      const pending = items.filter(item => String(item.status || '').toLowerCase() === 'pending');
+      setCampaignPendingDonations(
+        pending.map(p => ({
+          id: p.id,
+          campaignId: p.campaignId,
+          campaignName: p.campaignName ?? null,
+          donorName: p.donorName,
+          amount: p.amount,
+          message: p.message,
+          status: p.status,
+          createdAt: p.createdAt,
+          proofImages: p.proofImages,
+        }))
+      );
+      // setCampaignApprovalTotalCount(pending.length);
+    } catch (err) {
+      console.error('Failed to load campaign approvals', err);
+      toast.error('Không thể tải danh sách ủng hộ cần phê duyệt.');
+      setCampaignPendingDonations([]);
+    } finally {
+      setCampaignApprovalsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Default selected campaign for approvals
+    if (managementScope === 'campaign' && campaignTab === 'approvals' && !approvalSelectedCampaignId) {
+      const first = campaigns[0] || activeCampaigns[0];
+      if (first) {
+        setApprovalSelectedCampaignId(first.id);
+      }
+    }
+  }, [managementScope, campaignTab, approvalSelectedCampaignId, campaigns, activeCampaigns]);
+
+  useEffect(() => {
+    if (managementScope === 'campaign' && campaignTab === 'approvals' && selectedTree?.id) {
+      void loadCampaignApprovals(selectedTree.id);
+    }
+  }, [managementScope, campaignTab, selectedTree?.id, loadCampaignApprovals]);
+
+  // Load my campaign pending donations when opening "my" tab
+  useEffect(() => {
+    const run = async () => {
+      if (!(managementScope === 'campaign' && campaignTab === 'my')) return;
+      if (!currentUserId) {
+        setMyCampaignPending([]);
+        return;
+      }
+      setMyCampaignPendingLoading(true);
+      try {
+        const items = await fundService.fetchMyPendingCampaignDonations(currentUserId);
+        setMyCampaignPending(items.map(x => ({
+          id: x.id,
+          campaignId: x.campaignId,
+          campaignName: x.campaignName ?? null,
+          donorName: x.donorName ?? null,
+          amount: x.amount ?? 0,
+          message: x.message ?? null,
+          createdAt: x.createdAt ?? null,
+          proofImages: x.proofImages ?? [],
+        })));
+      } catch (err) {
+        console.error('Failed to load my campaign pending donations', err);
+        toast.error('Không thể tải yêu cầu ủng hộ đang chờ của bạn.');
+      } finally {
+        setMyCampaignPendingLoading(false);
+      }
+    };
+    void run();
+  }, [managementScope, campaignTab, currentUserId]);
 
   // Merge and sort all campaigns by date
   const allCampaigns = useMemo(() => {
@@ -1788,18 +1899,31 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                    </button>
                    <button
                      type="button"
-                     onClick={() => setCampaignTab('active')}
+                     onClick={() => setCampaignTab('my')}
                      className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
-                       campaignTab === 'active'
+                       campaignTab === 'my'
                          ? 'bg-blue-600 text-white'
                          : 'text-gray-600 hover:text-blue-600'
                      }`}
                    >
-                     Đang hoạt động
+                     Ủng hộ chiến dịch & yêu cầu của tôi
                    </button>
+                   {memberRole === 'FTOwner' && (
+                     <button
+                       type="button"
+                       onClick={() => setCampaignTab('approvals')}
+                       className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${
+                         campaignTab === 'approvals'
+                           ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
+                           : 'text-purple-700 hover:text-purple-800'
+                       }`}
+                     >
+                       Phê duyệt yêu cầu
+                     </button>
+                   )}
                  </div>
 
-                 {campaignTab === 'all' ? (
+                {campaignTab === 'all' ? (
                    <>
                      {campaignsLoading ? (
                        <div className="bg-white rounded-lg shadow p-6">
@@ -1813,9 +1937,13 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                          onSearchChange={setCampaignSearch}
                          onFilterChange={setCampaignFilter}
                          onOpenDetail={handleOpenCampaignDetail}
+                         onDonate={(id) => {
+                           // Open donation modal from campaign list
+                           setSelectedCampaignId(id);
+                           setIsCampaignDonateOpen(true);
+                         }}
                          formatCurrency={formatCurrency}
                          formatDate={formatDate}
-                         getCampaignStatusKey={getCampaignStatusKey}
                          getCampaignStatusLabel={getCampaignStatusLabel}
                          getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
                          metrics={campaignMetrics}
@@ -1831,38 +1959,271 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                        />
                      )}
                    </>
-                 ) : (
-                   <>
-                     {activeCampaignsLoading ? (
-                       <div className="bg-white rounded-lg shadow p-6">
-                         <LoadingState message="Đang tải danh sách chiến dịch đang hoạt động..." />
-                       </div>
-                     ) : (
-                       <FundCampaignsSection
-                         campaigns={activeCampaigns}
-                         campaignSearch={campaignSearch}
-                         campaignFilter={campaignFilter}
-                         onSearchChange={setCampaignSearch}
-                         onFilterChange={setCampaignFilter}
-                         onOpenDetail={handleOpenCampaignDetail}
-                         formatCurrency={formatCurrency}
-                         formatDate={formatDate}
-                         getCampaignStatusKey={getCampaignStatusKey}
-                         getCampaignStatusLabel={getCampaignStatusLabel}
-                         getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
-                         metrics={campaignMetrics}
-                         currentPage={activeCampaignPagination.page}
-                         totalPages={activeCampaignPagination.totalPages}
-                         totalCount={activeCampaignPagination.totalCount}
-                         pageSize={activeCampaignPagination.pageSize}
-                         onPageChange={(page) => refreshActiveCampaigns(page)}
-                         title="Chiến dịch đang hoạt động"
-                         subtitle="Danh sách các chiến dịch đang diễn ra"
-                         showCreateButton={false}
-                         showStatusFilter={true}
-                       />
-                     )}
-                   </>
+                ) : campaignTab === 'my' ? (
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-lg shadow p-4">
+                      {myCampaignPendingLoading ? (
+                        <LoadingState message="Đang tải yêu cầu ủng hộ của bạn..." />
+                      ) : myCampaignPending.length === 0 ? (
+                        <EmptyState title="Chưa có yêu cầu" description="Bạn chưa có ủng hộ nào đang chờ xác nhận." />
+                      ) : (
+                        <div className="space-y-3">
+                          {myCampaignPending.map(item => (
+                            <div key={item.id} className="p-4 border rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                              <div>
+                                <p className="text-xs text-gray-500">{item.campaignName || '—'}</p>
+                                <p className="font-semibold text-gray-900">{item.donorName || 'Bạn'}</p>
+                                <p className="text-sm text-gray-600">{formatCurrency(item.amount)}</p>
+                                <p className="text-xs text-gray-500">{formatDate(item.createdAt)}</p>
+                                {item.message && <p className="text-xs text-gray-500 mt-1">Ghi chú: {item.message}</p>}
+                                {item.proofImages.length > 0 && (
+                                  <div className="flex gap-2 mt-2 flex-wrap">
+                                    {item.proofImages.map((url, idx) => (
+                                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                                        Chứng từ {idx + 1}
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="px-3 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
+                                  Tải ảnh chứng từ
+                                  <input
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                      const files = e.target.files ? Array.from(e.target.files) : [];
+                                      e.currentTarget.value = '';
+                                      if (!files.length) return;
+                                      try {
+                                        await fundService.uploadCampaignDonationProof(item.id, files);
+                                        toast.success('Đã upload ảnh chứng từ. Vui lòng chờ quản trị viên xác nhận.');
+                                        if (currentUserId) {
+                                          const items = await fundService.fetchMyPendingCampaignDonations(currentUserId);
+                                          setMyCampaignPending(items.map(x => ({
+                                            id: x.id,
+                                            campaignId: x.campaignId,
+                                            campaignName: x.campaignName ?? null,
+                                            donorName: x.donorName ?? null,
+                                            amount: x.amount ?? 0,
+                                            message: x.message ?? null,
+                                            createdAt: x.createdAt ?? null,
+                                            proofImages: x.proofImages ?? [],
+                                          })));
+                                        }
+                                      } catch (err: any) {
+                                        console.error('Upload campaign donation proof failed:', err);
+                                        toast.error(err?.response?.data?.message || err?.message || 'Không thể upload ảnh chứng từ.');
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // Approvals tab
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-lg shadow p-4 flex flex-col gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="text-sm font-semibold text-gray-700">Chọn chiến dịch (lọc)</label>
+                        <select
+                          value={approvalSelectedCampaignId ?? ''}
+                          onChange={e => {
+                            const id = e.target.value || null;
+                            setApprovalSelectedCampaignId(id);
+                            // Filtering is applied below
+                          }}
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                        >
+                          <option value="">-- Chọn chiến dịch --</option>
+                          {[...campaigns, ...activeCampaigns].reduce((acc, c) => {
+                            if (!acc.find(x => x.id === c.id)) acc.push(c);
+                            return acc;
+                          }, [] as FundCampaign[]).map(c => (
+                            <option key={c.id} value={c.id}>{c.campaignName}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedTree?.id) {
+                              void loadCampaignApprovals(selectedTree.id);
+                            }
+                          }}
+                          disabled={!selectedTree?.id || campaignApprovalsLoading}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          Làm mới
+                        </button>
+                      </div>
+
+                      {campaignApprovalsLoading ? (
+                        <div className="bg-white rounded-lg">
+                          <LoadingState message="Đang tải danh sách ủng hộ cần duyệt..." />
+                        </div>
+                      ) : selectedPendingCampaignDonationId ? (
+                        (() => {
+                          const source = approvalSelectedCampaignId
+                            ? campaignPendingDonations.filter(x => x.campaignId === approvalSelectedCampaignId)
+                            : campaignPendingDonations;
+                          const item = source.find(x => x.id === selectedPendingCampaignDonationId);
+                          if (!item) {
+                            return (
+                              <EmptyState title="Không tìm thấy yêu cầu" description="Vui lòng trở về danh sách." />
+                            );
+                          }
+                          return (
+                            <div className="space-y-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPendingCampaignDonationId(null);
+                                  setApprovalNotes('');
+                                }}
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                ← Trở về
+                              </button>
+                              <div className="border rounded-lg p-4 space-y-2">
+                                <p className="text-xs text-gray-500">{item.campaignName || '—'}</p>
+                                <h4 className="text-lg font-semibold text-gray-900">{item.donorName || 'Ẩn danh'}</h4>
+                                <p className="text-gray-700">Số tiền: <span className="font-semibold">{formatCurrency(item.amount)}</span></p>
+                                <p className="text-sm text-gray-500">Thời gian: {formatDate(item.createdAt)}</p>
+                                {item.message && <p className="text-sm text-gray-600">Ghi chú: {item.message}</p>}
+                                {item.proofImages.length > 0 && (
+                                  <div className="flex gap-2 mt-2 flex-wrap">
+                                    {item.proofImages.map((url, idx) => (
+                                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                                        Chứng từ {idx + 1}
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-semibold text-gray-700">Ghi chú</label>
+                                <textarea
+                                  value={approvalNotes}
+                                  onChange={e => setApprovalNotes(e.target.value)}
+                                  rows={3}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                  placeholder="Ghi chú phê duyệt / từ chối (không bắt buộc)"
+                                />
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!gpMemberId) {
+                                      toast.error('Không xác định được người xác nhận.');
+                                      return;
+                                    }
+                                    try {
+                                      const payload: { donationId: string; confirmedBy: string; notes?: string } = { donationId: item.id, confirmedBy: gpMemberId };
+                                      const n = approvalNotes.trim();
+                                      if (n) payload.notes = n;
+                                      await fundService.confirmCampaignDonation(item.id, payload);
+                                      toast.success('Đã xác nhận ủng hộ chiến dịch.');
+                                      setSelectedPendingCampaignDonationId(null);
+                                      setApprovalNotes('');
+                                      if (selectedTree?.id) {
+                                        await loadCampaignApprovals(selectedTree.id);
+                                      }
+                                    } catch (err: any) {
+                                      console.error('Confirm campaign donation failed:', err);
+                                      toast.error(err?.response?.data?.message || err?.message || 'Không thể xác nhận ủng hộ.');
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors"
+                                >
+                                  Phê duyệt
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!gpMemberId) {
+                                      toast.error('Không xác định được người từ chối.');
+                                      return;
+                                    }
+                                    try {
+                                      const payload: { donationId: string; rejectedBy: string; reason?: string } = { donationId: item.id, rejectedBy: gpMemberId };
+                                      const r = approvalNotes.trim();
+                                      if (r) payload.reason = r;
+                                      await fundService.rejectCampaignDonation(item.id, payload);
+                                      toast.success('Đã từ chối ủng hộ chiến dịch.');
+                                      setSelectedPendingCampaignDonationId(null);
+                                      setApprovalNotes('');
+                                      if (selectedTree?.id) {
+                                        await loadCampaignApprovals(selectedTree.id);
+                                      }
+                                    } catch (err: any) {
+                                      console.error('Reject campaign donation failed:', err);
+                                      toast.error(err?.response?.data?.message || err?.message || 'Không thể từ chối ủng hộ.');
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors"
+                                >
+                                  Từ chối
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedPendingCampaignDonationId(null);
+                                    setApprovalNotes('');
+                                  }}
+                                  className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                  Hủy
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (approvalSelectedCampaignId
+                        ? campaignPendingDonations.filter(x => x.campaignId === approvalSelectedCampaignId)
+                        : campaignPendingDonations).length === 0 ? (
+                        <EmptyState
+                          title="Không có yêu cầu cần phê duyệt"
+                          description="Chọn chiến dịch khác hoặc thử làm mới."
+                        />
+                      ) : (
+                        <div className="space-y-3">
+                          {(approvalSelectedCampaignId
+                            ? campaignPendingDonations.filter(x => x.campaignId === approvalSelectedCampaignId)
+                            : campaignPendingDonations).map(item => (
+                            <div key={item.id} className="p-4 border rounded-lg hover:shadow cursor-pointer flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                              onClick={() => setSelectedPendingCampaignDonationId(item.id)}>
+                              <div>
+                                <p className="text-xs text-gray-500">{item.campaignName || '—'}</p>
+                                <p className="font-semibold text-gray-900">{item.donorName || 'Ẩn danh'}</p>
+                                <p className="text-sm text-gray-600">{formatCurrency(item.amount)}</p>
+                                <p className="text-xs text-gray-500">{formatDate(item.createdAt)}</p>
+                                {item.message && <p className="text-xs text-gray-500 mt-1">Ghi chú: {item.message}</p>}
+                                {item.proofImages.length > 0 && (
+                                  <div className="flex gap-2 mt-2 flex-wrap">
+                                    {item.proofImages.map((url, idx) => (
+                                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline" onClick={e => e.stopPropagation()}>
+                                        Chứng từ {idx + 1}
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {/* No pagination for tree-level pending endpoint */}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                  )}
                </>
              )}
@@ -1972,6 +2333,17 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         onFormChange={handleCampaignFormChange}
         onSubmit={handleSubmitCampaign}
         submitting={campaignSubmitting}
+      />
+
+      <CampaignDonateModal
+        isOpen={isCampaignDonateOpen}
+        campaignId={selectedCampaignId}
+        memberId={gpMemberId ?? null}
+        donorName={donorName}
+        onClose={() => {
+          setIsCampaignDonateOpen(false);
+          setSelectedCampaignId(null);
+        }}
       />
     </div>
   );
