@@ -79,7 +79,7 @@ const FamilyTreeContent = () => {
   const [isLoadingRelationships, setIsLoadingRelationships] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null);
   const [selectedParent, setSelectedParent] = useState<FamilyMember | null>(null);
-  const [existingRelationships, setExistingRelationships] = useState<string[]>([]);
+  // const [existingRelationships, setExistingRelationships] = useState<string[]>([]);
   const selectedMember = selectedMemberId ? members[selectedMemberId] : null;
   const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
@@ -232,7 +232,7 @@ const FamilyTreeContent = () => {
         if (data.hasPartner) mappedRelationships.push("spouse");
         if (data.hasChildren) mappedRelationships.push("child-son", "child-daughter");
 
-        setExistingRelationships(mappedRelationships);
+        // setExistingRelationships(mappedRelationships);
       }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Không thể lấy dữ liệu mối quan hệ");
@@ -384,7 +384,7 @@ const FamilyTreeContent = () => {
               ftId={selectedFamilyTree?.id || ""}
               isFirstNode={nodes.length === 0}
               parentMember={selectedParent}
-              existingRelationships={existingRelationships}
+              existingRelationships={[]}
               onSelectType={handleAddNewNode}
               onClose={() => {
                 setIsAddingNewNode(false);

@@ -7,9 +7,12 @@ import type { FTAuth, FTAuthList } from "@/types/familytree";
 import ftauthorizationService from "@/services/familyTreeAuth";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import AddMemberModal from "./AddMemberModal";
+import { toast } from "react-toastify";
+import { getUserIdFromToken } from "@/utils/jwtUtils";
 
 const ManagePermissions: React.FC = () => {
   const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
+  const auth = useAppSelector(state => state.auth);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [paginationData, setPaginationData] = useState<PaginationProps>({
@@ -17,10 +20,20 @@ const ManagePermissions: React.FC = () => {
     pageSize: 10,
     propertyFilters: [
       {
-        name: "FtId ",
+        name: "FtId",
         operation: "EQUAL",
         value: selectedFamilyTree ? selectedFamilyTree.id : ''
       },
+      {
+        name: "AuthorizedMember.UserId",
+        operation: "NOTEQUAL",
+        value: null
+      },
+      {
+        name: "AuthorizedMember.UserId",
+        operation: "NOTEQUAL",
+        value: getUserIdFromToken(auth.token || '') || ''
+      }
     ],
     totalItems: 0,
     totalPages: 0,
@@ -310,14 +323,10 @@ const ManagePermissions: React.FC = () => {
       type: 'danger',
       onConfirm: async () => {
         try {
-          const updatePayload: FTAuth = {
-            ftId: authList.ftId,
-            ftMemberId: member.key.id,
-            authorizationList: []
-          };
-          const response = await ftauthorizationService.updateFTAuth(updatePayload);
-          console.log("Delete successful, response:", response.data);
+          const response = await ftauthorizationService.deleteFTAuth(authList.ftId, member.key.id);
+          console.log(response);
 
+          toast.success('Xóa quyền truy cập thành công');
           // Update state - remove the member if all permissions are deleted
           setAuthList(prevAuthList => {
             if (!prevAuthList) return prevAuthList;
@@ -336,8 +345,8 @@ const ManagePermissions: React.FC = () => {
     });
   };
 
-  const handleAddMember = async (memberId: string, featureCode: string, methodsList: string[]) => {
-    if (!authList || !selectedFamilyTree?.id) return;
+  const handleAddMember = async (memberId: string, memberFullname: string, featureCode: string, methodsList: string[]) => {
+    if (!selectedFamilyTree?.id) return;
 
     try {
       // Create permissions with the selected feature code and methods
@@ -360,7 +369,21 @@ const ManagePermissions: React.FC = () => {
       if (response.data) {
         const newMemberAuth = response.data;
         setAuthList(prevAuthList => {
-          if (!prevAuthList) return prevAuthList;
+          if (!prevAuthList) {
+            return {
+              ftId: selectedFamilyTree.id,
+              datalist: [
+                {
+                  key: {
+                    id: newMemberAuth.ftMemberId,
+                    fullname: memberFullname || 'Thành viên mới',
+                    avatar: null
+                  },
+                  value: newMemberAuth.authorizationList
+                }
+              ]
+            };
+          }
 
           // Check if member already exists and update, or add new
           const memberExists = prevAuthList.datalist.some(m => m.key.id === newMemberAuth.ftMemberId);
@@ -376,10 +399,20 @@ const ManagePermissions: React.FC = () => {
               )
             };
           } else {
-            // Add new member - need to fetch the full member details
-            // For now, we'll reload to ensure we have the complete member info
-            loadPermissions();
-            return prevAuthList;
+            // Add new member locally using provided fullname and API authorization list
+            return {
+              ...prevAuthList,
+              datalist: [
+                ...prevAuthList.datalist,
+                {
+                  key: {
+                    id: newMemberAuth.ftMemberId,
+                    fullname: memberFullname || 'Thành viên mới'
+                  },
+                  value: newMemberAuth.authorizationList
+                }
+              ]
+            };
           }
         });
       }
@@ -487,12 +520,28 @@ const ManagePermissions: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {displayDatalist.map((member, memberIndex) => (
-                member.value.map((feature, featureIndex) => (
+              {displayDatalist.map((member, memberIndex) => {
+                const featureCount = member.value.length;
+                return member.value.map((feature, featureIndex) => (
                   <tr key={`${memberIndex}-${featureIndex}`} className={`transition-colors ${isEditMode ? 'bg-blue-50' : 'hover:bg-blue-100'}`}>
-                    <td className="px-4 py-3 text-sm text-gray-900 border-b border-r border-gray-200">
-                      {featureIndex === 0 ? member.key.fullname : ''}
-                    </td>
+                    {featureIndex === 0 && (
+                      <td className="px-4 py-3 text-sm text-gray-900 border-b border-r border-gray-200" rowSpan={featureCount}>
+                        <div className="flex items-center gap-2">
+                          {member.key.avatar ? (
+                            <img
+                              src={member.key.avatar}
+                              alt={member.key.fullname}
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-600">
+                              {member.key.fullname?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                          )}
+                          <span>{member.key.fullname}</span>
+                        </div>
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-sm text-gray-600 border-b border-r border-gray-200">
                       {feature.featureCode}
                     </td>
@@ -513,20 +562,22 @@ const ManagePermissions: React.FC = () => {
                         </td>
                       );
                     })}
-                    <td className="px-4 py-3 text-center border-b border-gray-200">
-                      {featureIndex === 0 && !isEditMode && (
-                        <button
-                          onClick={() => handleDeleteAuth(memberIndex)}
-                          className="cursor-pointer text-gray-600 hover:text-red-700 active:text-red-900 transition-colors font-medium"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </td>
+                    {featureIndex === 0 && (
+                      <td className="px-4 py-3 text-center border-b border-gray-200" rowSpan={featureCount}>
+                        {!isEditMode && (
+                          <button
+                            onClick={() => handleDeleteAuth(memberIndex)}
+                            className="cursor-pointer text-gray-600 hover:text-red-700 active:text-red-900 transition-colors font-medium"
+                            title="Xóa"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
-                ))
-              ))}
+                ));
+              })}
             </tbody>
           </table>
         )}
@@ -561,7 +612,12 @@ const ManagePermissions: React.FC = () => {
         ftId={selectedFamilyTree?.id}
         onClose={() => setShowAddMemberModal(false)}
         onConfirm={handleAddMember}
-        existingMemberIds={authList?.datalist?.map(m => m.key.id) || []}
+        existingFeaturesByMemberId={
+          authList?.datalist.reduce<Record<string, string[]>>((acc, m) => {
+            acc[m.key.id] = m.value.map(v => v.featureCode);
+            return acc;
+          }, {}) || {}
+        }
       />
     </div>
   );

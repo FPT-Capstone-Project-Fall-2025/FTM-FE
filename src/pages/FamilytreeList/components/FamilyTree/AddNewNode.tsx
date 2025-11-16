@@ -771,7 +771,7 @@ const AddNewNode = ({
                 }}
                 className="underline"
               >
-                {showExtendedForm ? "Thu gọn" : "Chỉnh sửa khác ( liễu sử, sự kiện...)"}
+                {/* {showExtendedForm ? "Thu gọn" : "Chỉnh sửa khác ( liễu sử, sự kiện...)"} */}
               </a>
             </div>
 

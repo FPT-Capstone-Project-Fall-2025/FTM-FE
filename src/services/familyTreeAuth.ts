@@ -30,6 +30,14 @@ const ftauthorizationService = {
       }
     });
   },
+
+  deleteFTAuth(ftId: string, ftMemberId: string): Promise<ApiResponse<void>> {
+    return api.delete(`/ftauthorization/${ftId}/member/${ftMemberId}`, {
+      headers: {
+        'X-FtId': ftId,
+      }
+    });
+  },
 };
 
 export default ftauthorizationService;
