@@ -23,7 +23,7 @@ export interface PaginationProps {
   propertyFilters?: Array<{
     name: string,
     operation: string,
-    value: string
+    value: string | null
   }>;
   totalItems: number;
   totalPages: number;

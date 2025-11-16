@@ -3,13 +3,15 @@ import { X, Loader2 } from "lucide-react";
 import type { FamilyMemberList } from "@/types/familytree";
 import familyTreeService from "@/services/familyTreeService";
 import type { PaginationProps } from "@/types/api";
+import { getUserIdFromToken } from "@/utils/jwtUtils";
+import { useAppSelector } from "@/hooks/redux";
 
 interface AddMemberModalProps {
     isOpen: boolean;
     ftId: string | undefined;
     onClose: () => void;
-    onConfirm: (memberId: string, featureCode: string, methodsList: string[]) => Promise<void>;
-    existingMemberIds: string[];
+    onConfirm: (memberId: string, memberFullname: string, featureCode: string, methodsList: string[]) => Promise<void>;
+    existingFeaturesByMemberId?: Record<string, string[]>;
 }
 
 const FEATURE_CODES = [
@@ -30,7 +32,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     ftId,
     onClose,
     onConfirm,
-    existingMemberIds
+    existingFeaturesByMemberId,
 }) => {
     const [members, setMembers] = useState<FamilyMemberList[]>([]);
     const [selectedMemberId, setSelectedMemberId] = useState<string>("");
@@ -40,12 +42,25 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
-
+    const auth = useAppSelector(state => state.auth);
     useEffect(() => {
         if (isOpen && ftId) {
             fetchMembers();
         }
     }, [isOpen, ftId]);
+
+    // Re-evaluate selected feature when member selection changes
+    useEffect(() => {
+        const existing = existingFeaturesByMemberId?.[selectedMemberId] || [];
+        const firstAvailable = FEATURE_CODES.find(f => !existing.includes(f.value));
+        if (firstAvailable) {
+            setSelectedFeatureCode(firstAvailable.value);
+        } else {
+            // No available features left
+            setSelectedFeatureCode("");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMemberId, existingFeaturesByMemberId]);
 
     const fetchMembers = async () => {
         setLoading(true);
@@ -59,6 +74,16 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                         name: "FTId",
                         operation: "EQUAL",
                         value: ftId || ''
+                    },
+                    {
+                        name: "userId",
+                        operation: "NOTEQUAL",
+                        value: null
+                    },
+                    {
+                        name: "userId",
+                        operation: "NOTEQUAL",
+                        value: getUserIdFromToken(auth.token || '') || ''
                     }
                 ],
                 totalItems: 0,
@@ -68,14 +93,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
             const res = await familyTreeService.getFamilyTreeMembers(paginationProps);
             const allMembers = (res.data as any)?.data || [];
 
-            // Filter out members that already have permissions
-            const availableMembers = allMembers.filter(
-                (member: FamilyMemberList) => !existingMemberIds.includes(member.id)
-            );
-
-            setMembers(availableMembers);
-            if (availableMembers.length > 0) {
-                setSelectedMemberId(availableMembers[0].id);
+            setMembers(allMembers);
+            if (allMembers.length > 0) {
+                setSelectedMemberId(allMembers[0].id);
             }
         } catch (err) {
             console.error("Failed to fetch members:", err);
@@ -98,7 +118,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
         setSubmitting(true);
         try {
-            await onConfirm(selectedMemberId, selectedFeatureCode, selectedMethods);
+            const selectedMember = members.find(m => m.id === selectedMemberId);
+            await onConfirm(
+                selectedMemberId,
+                selectedMember?.fullname || "",
+                selectedFeatureCode,
+                selectedMethods
+            );
             setSelectedMemberId("");
             setSearchTerm("");
             setSelectedFeatureCode("MEMBER");
@@ -117,6 +143,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     const filteredMembers = members.filter(member =>
         member.fullname.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const existingForSelected = existingFeaturesByMemberId?.[selectedMemberId] || [];
+    const availableFeatures = FEATURE_CODES.filter(f => !existingForSelected.includes(f.value));
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -227,29 +256,35 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Chọn tính năng
                                 </label>
-                                <div className="space-y-2">
-                                    {FEATURE_CODES.map(feature => (
-                                        <label
-                                            key={feature.value}
-                                            className={`flex items-center p-2 rounded-md cursor-pointer transition-colors ${selectedFeatureCode === feature.value
-                                                ? 'bg-blue-100 border border-blue-400'
-                                                : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="featureCode"
-                                                value={feature.value}
-                                                checked={selectedFeatureCode === feature.value}
-                                                onChange={e => setSelectedFeatureCode(e.target.value)}
-                                                className="w-4 h-4 text-blue-600 cursor-pointer"
-                                            />
-                                            <span className="ml-2 text-sm font-medium text-gray-700">
-                                                {feature.label}
-                                            </span>
-                                        </label>
-                                    ))}
-                                </div>
+                                {availableFeatures.length === 0 ? (
+                                    <div className="text-sm text-gray-500">
+                                        Thành viên đã có tất cả tính năng khả dụng.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {availableFeatures.map(feature => (
+                                            <label
+                                                key={feature.value}
+                                                className={`flex items-center p-2 rounded-md cursor-pointer transition-colors ${selectedFeatureCode === feature.value
+                                                    ? 'bg-blue-100 border border-blue-400'
+                                                    : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="featureCode"
+                                                    value={feature.value}
+                                                    checked={selectedFeatureCode === feature.value}
+                                                    onChange={e => setSelectedFeatureCode(e.target.value)}
+                                                    className="w-4 h-4 text-blue-600 cursor-pointer"
+                                                />
+                                                <span className="ml-2 text-sm font-medium text-gray-700">
+                                                    {feature.label}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mb-6">

@@ -216,6 +216,7 @@ export interface FTAuthList {
     key: {
       id: string;
       fullname: string;
+      avatar?: string | null;
     }, value: FTAuthProp[]
   }>;
 }
