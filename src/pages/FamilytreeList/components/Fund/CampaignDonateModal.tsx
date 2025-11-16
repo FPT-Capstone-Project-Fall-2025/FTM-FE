@@ -102,7 +102,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
       setQrCodeUrl(response.qrCodeUrl ?? null);
 
       if (method === 'Cash') {
-        toast.success('Đã tạo yêu cầu ủng hộ. Vui lòng tải ảnh chứng từ.');
+        toast.success('Đã tạo yêu cầu ủng hộ. Vui lòng tải ảnh xác minh.');
       } else {
         toast.success('Đã tạo yêu cầu ủng hộ. Vui lòng quét VietQR để thanh toán.');
       }
@@ -116,21 +116,21 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
 
   const handleUploadProof = async () => {
     if (!donationId) {
-      toast.error('Chưa có mã giao dịch để tải chứng từ.');
+      toast.error('Chưa có mã giao dịch để tải xác minh.');
       return;
     }
     if (!proofFiles.length) {
-      toast.error('Vui lòng chọn ít nhất một ảnh chứng từ.');
+      toast.error('Vui lòng chọn ít nhất một ảnh xác minh.');
       return;
     }
     try {
       setUploading(true);
       await fundService.uploadCampaignDonationProof(donationId, proofFiles);
-      toast.success('Đã tải ảnh chứng từ thành công.');
+      toast.success('Đã tải ảnh xác minh thành công.');
       onClose();
     } catch (err: any) {
       console.error('Upload campaign donation proof failed:', err);
-      toast.error(err?.response?.data?.message || err?.message || 'Không thể tải ảnh chứng từ.');
+      toast.error(err?.response?.data?.message || err?.message || 'Không thể tải ảnh xác minh.');
     } finally {
       setUploading(false);
     }
@@ -140,7 +140,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto justify-center items-center d-flex">
         <div className="sticky top-0 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Wallet className="w-5 h-5" />
@@ -209,7 +209,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
                     checked={method === 'Cash'}
                     onChange={() => setMethod('Cash')}
                   />
-                  Tiền mặt (có chứng từ)
+                  Tiền mặt
                 </label>
                 <label className="inline-flex items-center gap-2">
                   <input
@@ -218,7 +218,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
                     checked={method === 'VietQR'}
                     onChange={() => setMethod('VietQR')}
                   />
-                  VietQR 4A
+                  VietQR
                 </label>
               </div>
             </div>
@@ -243,24 +243,75 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
         )}
 
         {donationId && method === 'VietQR' && (
-          <div className="p-6 space-y-4">
-            <div className="flex items-center gap-2 text-emerald-700">
-              <QrCode className="w-5 h-5" />
-              <p className="font-semibold">Quét mã VietQR để hoàn tất thanh toán</p>
+          <div className="p-6 space-y-6">
+            <div className="space-y-4 ">
+              <div className="flex items-center gap-2 text-emerald-700 justify-center">
+                <QrCode className="w-5 h-5" />
+                <p className="font-semibold">Quét mã VietQR để hoàn tất thanh toán</p>
+              </div>
+              {qrCodeUrl ? (
+                <img src={qrCodeUrl} alt="VietQR" className="w-full max-w-sm border rounded-lg mx-auto" />
+              ) : (
+                <p className="text-sm text-gray-600">Không tìm thấy QR Code. Vui lòng kiểm tra lại sau.</p>
+              )}
             </div>
-            {qrCodeUrl ? (
-              <img src={qrCodeUrl} alt="VietQR" className="w-full max-w-sm border rounded-lg" />
-            ) : (
-              <p className="text-sm text-gray-600">Không tìm thấy QR Code. Vui lòng kiểm tra lại sau.</p>
-            )}
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
-              >
-                Đóng
-              </button>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-gray-700">
+                <Upload className="w-5 h-5" />
+                <p className="font-semibold">Tải ảnh xác minh cho giao dịch VietQR</p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {proofFiles.map((file, idx) => (
+                  <div key={`${file.name}-${idx}`} className="flex items-center gap-2 border rounded px-2 py-1">
+                    <ImageIcon className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-700">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(idx)}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFilesSelected}
+              />
+                 <button
+                  type="button"
+                  onClick={handleChooseFiles}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Chọn ảnh xác minh
+                </button>
+              <div className="flex items-center justify-end gap-2 border-t border-gray-200 mt-4 pt-4">
+             
+
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUploadProof}
+                  disabled={uploading}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-60"
+                >
+                  {uploading ? 'Đang tải...' : 'Tải ảnh xác minh'}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -269,7 +320,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-2 text-gray-700">
               <Upload className="w-5 h-5" />
-              <p className="font-semibold">Tải ảnh chứng từ cho giao dịch tiền mặt</p>
+              <p className="font-semibold">Tải ảnh xác minh cho giao dịch tiền mặt</p>
             </div>
             <div className="space-y-3">
               <div className="flex gap-2 flex-wrap">
@@ -301,7 +352,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
                 className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 <Upload className="w-4 h-4" />
-                Chọn ảnh chứng từ
+                Chọn ảnh xác minh
               </button>
             </div>
             <div className="flex justify-end">
@@ -311,7 +362,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
                 disabled={uploading}
                 className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-60"
               >
-                {uploading ? 'Đang tải...' : 'Tải ảnh chứng từ'}
+                {uploading ? 'Đang tải...' : 'Tải ảnh xác minh'}
               </button>
             </div>
           </div>

@@ -109,7 +109,7 @@ type FundTab =
 
 const FUND_TAB_ITEMS: Array<{ key: FundTab; label: string; requiresOwner?: boolean }> = [
   { key: 'overview', label: 'Tổng quan quỹ' },
-  { key: 'donations', label: 'Nạp quỹ & yêu cầu của tôi' },
+  { key: 'donations', label: 'Đóng góp & yêu cầu của tôi' },
   { key: 'history', label: 'Lịch sử giao dịch' },
   { key: 'approvals', label: 'Phê duyệt yêu cầu', requiresOwner: true },
 ];
@@ -313,6 +313,20 @@ const FundManagement: React.FC = () => {
     proofImages: string[];
   }>>([]);
   const [myCampaignPendingLoading, setMyCampaignPendingLoading] = useState(false);
+  const [myCampaignPage, setMyCampaignPage] = useState(1);
+  const [myCampaignTotalPages, setMyCampaignTotalPages] = useState(1);
+  const [myCampaignTotalCount, setMyCampaignTotalCount] = useState(0);
+  const [myPendingCollapsed, setMyPendingCollapsed] = useState<Record<string, boolean>>({});
+  // Create expense modal state
+  const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
+  const [createExpenseSubmitting, setCreateExpenseSubmitting] = useState(false);
+  const [createExpenseForm, setCreateExpenseForm] = useState<{
+    campaignId: string | null;
+    amount: string;
+    description: string;
+    notes: string;
+    receipts: File[];
+  }>({ campaignId: null, amount: '', description: '', notes: '', receipts: [] });
   const [collapsedCampaigns, setCollapsedCampaigns] = useState<Record<string, boolean>>({});
   const [historySelectedCampaignId, setHistorySelectedCampaignId] = useState<string | null>(null);
   const [historyDonations, setHistoryDonations] = useState<Array<{
@@ -615,7 +629,7 @@ const FundManagement: React.FC = () => {
 
   const handleOpenDeposit = useCallback(() => {
     if (!activeFund) {
-      toast.error('Vui lòng chọn quỹ để nạp.');
+      toast.error('Vui lòng chọn quỹ để đóng góp.');
       return;
     }
     setIsDepositModalOpen(true);
@@ -700,17 +714,17 @@ const FundManagement: React.FC = () => {
   const handleSubmitDeposit = useCallback(
     async (form: FundDepositForm) => {
       if (!activeFund?.id) {
-        toast.error('Không xác định được quỹ để nạp.');
+        toast.error('Không xác định được quỹ để đóng góp.');
         return;
       }
       if (!gpMemberId) {
         toast.error(
-          'Không xác định được thành viên gia phả để ghi nhận khoản nạp.'
+          'Không xác định được thành viên gia phả để ghi nhận khoản đóng góp.'
         );
         return;
       }
       if (!donorName) {
-        toast.error('Không xác định được tên người nạp.');
+        toast.error('Không xác định được tên người đóng góp.');
         return;
       }
       if (form.amount <= 0) {
@@ -744,7 +758,7 @@ const FundManagement: React.FC = () => {
           // Show QR code modal for bank transfer
           setDepositResponse(response);
           setIsDepositQRModalOpen(true);
-          toast.success('Đã tạo yêu cầu nạp tiền. Vui lòng quét mã QR để chuyển khoản.');
+          toast.success('Đã tạo yêu cầu đóng góp tiền. Vui lòng quét mã QR để chuyển khoản.');
         } else if (form.paymentMethod === 'Cash') {
           // For cash payment, check if manual confirmation is required
           if (response.requiresManualConfirmation) {
@@ -754,7 +768,7 @@ const FundManagement: React.FC = () => {
             // Switch to donations tab to show pending donations section
             setFundTab('donations');
             setManagementScope('fund');
-            toast.success('Đã ghi nhận khoản nạp tiền mặt. Vui lòng upload ảnh chứng từ tại tab "Nạp quỹ & yêu cầu của tôi".');
+            toast.success('Đã ghi nhận khoản đóng góp tiền mặt. Vui lòng upload ảnh xác minh tại tab "Đóng góp & yêu cầu của tôi".');
             // Scroll to pending donations section after a short delay
             setTimeout(() => {
               const pendingSection = document.getElementById('my-pending-donations-section');
@@ -765,19 +779,19 @@ const FundManagement: React.FC = () => {
           } else {
             // Cash payment doesn't require manual confirmation (shouldn't happen, but handle it)
             await refreshFundDetails();
-            toast.success('Đã ghi nhận khoản nạp tiền mặt.');
+            toast.success('Đã ghi nhận khoản đóng góp tiền mặt.');
           }
         } else {
           // Other payment methods
           await refreshFundDetails();
-          toast.success('Đã ghi nhận khoản nạp quỹ.');
+          toast.success('Đã ghi nhận khoản đóng góp quỹ.');
         }
       } catch (error: any) {
         console.error('Deposit failed:', error);
         toast.error(
           error?.response?.data?.message ||
             error?.message ||
-            'Không thể nạp quỹ. Vui lòng thử lại.'
+            'Không thể đóng góp quỹ. Vui lòng thử lại.'
         );
       } finally {
         setDepositSubmitting(false);
@@ -795,7 +809,7 @@ const FundManagement: React.FC = () => {
   const handleSubmitProof = useCallback(
     async ({ files, note }: { files: File[]; note: string }) => {
       if (!recentDonation?.id) {
-        toast.error('Không tìm thấy thông tin khoản nạp trước đó.');
+        toast.error('Không tìm thấy thông tin khoản đóng góp trước đó.');
         return;
       }
       if (!gpMemberId) {
@@ -810,7 +824,7 @@ const FundManagement: React.FC = () => {
           return;
         }
         await confirmDonation(recentDonation.id, gpMemberId, note.trim() || undefined);
-        toast.success('Đã tải chứng từ và xác nhận khoản nạp quỹ.');
+        toast.success('Đã tải xác minh và xác nhận khoản đóng góp quỹ.');
         // Refresh fund details to update balance
         await refreshFundDetails();
         await refreshAll();
@@ -823,7 +837,7 @@ const FundManagement: React.FC = () => {
         console.error('Upload proof failed:', error);
         toast.error(
           error?.response?.data?.message ||
-            'Không thể tải chứng từ. Vui lòng thử lại.'
+            'Không thể tải xác minh và xác nhận khoản đóng góp quỹ. Vui lòng thử lại.'
         );
       } finally {
         setProofSubmitting(false);
@@ -868,7 +882,7 @@ const FundManagement: React.FC = () => {
 
       // Validate receipt images
       if (!withdrawalForm.receiptImages || withdrawalForm.receiptImages.length === 0) {
-        toast.error('Vui lòng upload ít nhất một ảnh hóa đơn/chứng từ.');
+        toast.error('Vui lòng upload ít nhất một ảnh hóa đơn/xác minh.');
         return;
       }
 
@@ -1120,13 +1134,14 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
   useEffect(() => {
     const run = async () => {
       if (!(managementScope === 'campaign' && campaignTab === 'my')) return;
-      if (!currentUserId) {
+      const userIdForApi = gpMemberId || currentUserId || '';
+      if (!userIdForApi) {
         setMyCampaignPending([]);
         return;
       }
       setMyCampaignPendingLoading(true);
       try {
-        const items = await fundService.fetchMyPendingCampaignDonations(currentUserId);
+        const items = await fundService.fetchMyPendingCampaignDonations(userIdForApi);
         setMyCampaignPending(items.map(x => ({
           id: x.id,
           campaignId: x.campaignId,
@@ -1145,7 +1160,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
       }
     };
     void run();
-  }, [managementScope, campaignTab, currentUserId]);
+  }, [managementScope, campaignTab, currentUserId, gpMemberId]);
 
   // History tab: default select first campaign
   useEffect(() => {
@@ -1263,6 +1278,59 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
   const [selectedExpense, setSelectedExpense] = useState<FundExpense | null>(null);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [approvalNote, setApprovalNote] = useState('');
+  // Campaign expenses approvals (manager)
+  const [campaignExpenseApprovalsLoading, setCampaignExpenseApprovalsLoading] = useState(false);
+  const [campaignPendingExpenses, setCampaignPendingExpenses] = useState<Array<{
+    id: string;
+    campaignId: string;
+    campaignName: string | null;
+    description: string | null;
+    amount: number;
+    receiptUrls: string[];
+    status: string | null;
+    requestedById: string | null;
+    createdAt: string | null;
+  }>>([]);
+  const [selectedPendingCampaignExpenseId, setSelectedPendingCampaignExpenseId] = useState<string | null>(null);
+  const [expenseApprovalNotes, setExpenseApprovalNotes] = useState('');
+  const [expensePaymentProofImages, setExpensePaymentProofImages] = useState<File[]>([]);
+
+  const loadCampaignExpenseApprovals = useCallback(async (memberId: string) => {
+    if (!memberId) {
+      setCampaignPendingExpenses([]);
+      return;
+    }
+    setCampaignExpenseApprovalsLoading(true);
+    try {
+      const res = await fundService.fetchPendingCampaignExpensesForManager(memberId, 1, 20);
+      setCampaignPendingExpenses(
+        (res.items || []).map(e => ({
+          id: e.id,
+          campaignId: e.campaignId,
+          campaignName: e.campaignName ?? null,
+          description: e.description ?? null,
+          amount: e.amount ?? 0,
+          receiptUrls: e.receiptUrls ?? [],
+          status: e.status ?? null,
+          requestedById: e.requestedById ?? null,
+          createdAt: e.createdAt ?? null,
+        }))
+      );
+    } catch (err) {
+      console.error('Failed to load campaign expense approvals', err);
+      toast.error('Không thể tải danh sách chi tiêu cần duyệt.');
+      setCampaignPendingExpenses([]);
+    } finally {
+      setCampaignExpenseApprovalsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (managementScope === 'campaign' && campaignTab === 'approvals' && gpMemberId) {
+      void loadCampaignExpenseApprovals(gpMemberId);
+    }
+  }, [managementScope, campaignTab, gpMemberId, loadCampaignExpenseApprovals]);
+
   const [approvalPaymentProofImages, setApprovalPaymentProofImages] = useState<File[]>([]);
 
   const handleRequestAction = useCallback(
@@ -1302,7 +1370,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
           });
           
           if (validFiles.length === 0) {
-            toast.error('Vui lòng chọn ít nhất một ảnh chứng từ thanh toán.');
+            toast.error('Vui lòng chọn ít nhất một ảnh xác minh thanh toán.');
             return;
           }
           
@@ -1532,7 +1600,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
   }, [activeFund, funds, itemsPerPage]);
 
   if (!selectedTree) {
-    return (
+  return (
       <div className="h-full overflow-y-auto bg-gray-50 p-6">
         <EmptyState
           title="Chưa chọn gia phả"
@@ -1647,6 +1715,145 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                )}
       </div>
 
+      {/* Create Campaign Expense Modal */}
+      {isCreateExpenseOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="px-6 py-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Tạo yêu cầu rút tiền</h3>
+              <button
+                type="button"
+                className="px-2 py-1 text-sm rounded hover:bg-gray-100"
+                onClick={() => setIsCreateExpenseOpen(false)}
+                disabled={createExpenseSubmitting}
+              >
+                Đóng
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Chiến dịch</label>
+                {createExpenseForm.campaignId ? (
+                  <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-800">
+                    {campaigns.find(c => c.id === createExpenseForm.campaignId)?.campaignName || '—'}
+                  </div>
+                ) : (
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    value={createExpenseForm.campaignId ?? ''}
+                    onChange={e => setCreateExpenseForm(f => ({ ...f, campaignId: e.target.value || null }))}
+                  >
+                    <option value="">-- Chọn chiến dịch --</option>
+                    {campaigns.map(c => (
+                      <option key={c.id} value={c.id}>{c.campaignName}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Số tiền (VND)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={createExpenseForm.amount}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    setCreateExpenseForm(f => ({ ...f, amount: digits }));
+                  }}
+                  placeholder="Nhập số tiền"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Mô tả</label>
+                <textarea
+                  rows={3}
+                  value={createExpenseForm.description}
+                  onChange={e => setCreateExpenseForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Chi phí chi tiết..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Ghi chú (tuỳ chọn)</label>
+                <input
+                  type="text"
+                  value={createExpenseForm.notes}
+                  onChange={e => setCreateExpenseForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Ảnh hoá đơn/xác minh</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={e => {
+                    const files = e.target.files ? Array.from(e.target.files) : [];
+                    setCreateExpenseForm(f => ({ ...f, receipts: files }));
+                  }}
+                />
+                {createExpenseForm.receipts.length > 0 && (
+                  <p className="text-xs text-gray-600 mt-1">{createExpenseForm.receipts.length} ảnh được chọn</p>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                onClick={() => setIsCreateExpenseOpen(false)}
+                disabled={createExpenseSubmitting}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-60"
+                disabled={createExpenseSubmitting}
+                onClick={async () => {
+                  try {
+                    if (!createExpenseForm.campaignId) {
+                      toast.error('Vui lòng chọn chiến dịch.');
+                      return;
+                    }
+                    if (!gpMemberId && !currentUserId) {
+                      toast.error('Không xác định được người yêu cầu.');
+                      return;
+                    }
+                    const amountNum = Number(createExpenseForm.amount);
+                    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+                      toast.error('Số tiền không hợp lệ.');
+                      return;
+                    }
+                    setCreateExpenseSubmitting(true);
+                    await fundService.createCampaignExpense({
+                      campaignId: createExpenseForm.campaignId,
+                      requestedById: gpMemberId || currentUserId || '',
+                      amount: amountNum,
+                      description: createExpenseForm.description.trim(),
+                      notes: createExpenseForm.notes.trim() || undefined,
+                      receipts: createExpenseForm.receipts,
+                    });
+                    toast.success('Đã tạo yêu cầu rút tiền (đang chờ phê duyệt).');
+                    setIsCreateExpenseOpen(false);
+                    setCreateExpenseForm({ campaignId: null, amount: '', description: '', notes: '', receipts: [] });
+                  } catch (err: any) {
+                    console.error('Create campaign expense failed:', err);
+                    const apiMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+                    toast.error(apiMsg || 'Không thể tạo yêu cầu rút tiền.');
+                  } finally {
+                    setCreateExpenseSubmitting(false);
+                  }
+                }}
+              >
+                {createExpenseSubmitting ? 'Đang tạo...' : 'Tạo yêu cầu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {managementScope === 'fund' && (
         <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
           {FUND_TAB_ITEMS.filter(tab => {
@@ -1766,7 +1973,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
             <div className="space-y-6">
               <div className="bg-white rounded-lg shadow p-6">
                 {fundDataLoading ? (
-                  <LoadingState message="Đang tải lịch sử nạp quỹ..." />
+                  <LoadingState message="Đang tải lịch sử đóng góp quỹ..." />
                 ) : (
                   <FundDonationHistorySection
                     donations={donations}
@@ -1803,7 +2010,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                       console.log('[FundManagement.onUploadProof] Calling uploadDonationProof with donationId:', donationId);
                       await uploadDonationProof(donationId, files);
                       console.log('[FundManagement.onUploadProof] Upload successful');
-                      toast.success('Đã upload ảnh chứng từ thành công. Vui lòng chờ quản trị viên xác nhận.');
+                      toast.success('Đã upload ảnh xác minh thành công. Vui lòng chờ quản trị viên xác nhận.');
                       await handleRefreshMyPending();
                     } catch (error: any) {
                       console.error('[FundManagement.onUploadProof] Upload proof failed:', {
@@ -1818,17 +2025,17 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                         myPendingDonationIds: myPendingDonations.map(d => d.id),
                       });
                       
-                      let errorMessage = error?.response?.data?.message || error?.message || 'Không thể upload ảnh chứng từ. Vui lòng thử lại.';
+                      let errorMessage = error?.response?.data?.message || error?.message || 'Không thể upload ảnh xác minh. Vui lòng thử lại.';
                       
                       // Handle 404 specifically - donation not found
                       if (error?.response?.status === 404) {
-                        errorMessage = `Không tìm thấy yêu cầu nạp quỹ (ID: ${donationId}). Yêu cầu có thể đã bị xóa hoặc không thuộc về bạn. Vui lòng refresh trang và thử lại.`;
+                        errorMessage = `Không tìm thấy yêu cầu đóng góp quỹ (ID: ${donationId}). Yêu cầu có thể đã bị xóa hoặc không thuộc về bạn. Vui lòng refresh trang và thử lại.`;
                         console.log('[FundManagement.onUploadProof] 404 error, refreshing donations...');
                         await handleRefreshMyPending();
                       } else if (error?.response?.status === 400 && errorMessage.includes('not found')) {
                         console.log('[FundManagement.onUploadProof] Donation not found (400), refreshing...');
                         await handleRefreshMyPending();
-                        errorMessage = 'Vui lòng đợi vài giây rồi thử lại upload ảnh chứng từ.';
+                        errorMessage = 'Vui lòng đợi vài giây rồi thử lại upload ảnh xác minh.';
                       }
                       
                       toast.error(errorMessage);
@@ -2035,76 +2242,260 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                        />
                      )}
                    </>
-                ) : campaignTab === 'my' ? (
-                  <div className="space-y-4">
-                    <div className="bg-white rounded-lg shadow p-4">
+               ) : campaignTab === 'my' ? (
+                 <div className="space-y-4">
+                    <div className="bg-white rounded-lg shadow p-4 overflow-x-auto">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-base font-bold text-gray-900">Lịch sử ủng hộ của tôi</h3>
+                      </div>
+                     {myCampaignPendingLoading ? (
+                       <LoadingState message="Đang tải ủng hộ của bạn..." />
+                     ) : myCampaignPending.length === 0 ? (
+                       <EmptyState title="Chưa có ủng hộ" description="Bạn chưa có giao dịch ủng hộ nào." />
+                     ) : (
+                       <>
+                         <table className="w-full text-sm">
+                           <thead>
+                             <tr className="border-b border-gray-200 text-left text-gray-600">
+                               <th className="px-4 py-3 font-semibold">Số tiền</th>
+                               <th className="px-4 py-3 font-semibold">Chiến dịch</th>
+                               <th className="px-4 py-3 font-semibold">Người đóng góp</th>
+                               <th className="px-4 py-3 font-semibold">Phương thức</th>
+                               <th className="px-4 py-3 font-semibold">Ghi chú</th>
+                               <th className="px-4 py-3 font-semibold">Trạng thái</th>
+                               <th className="px-4 py-3 font-semibold">Thời gian</th>
+                             </tr>
+                           </thead>
+                           <tbody>
+                             {myCampaignPending.map(row => {
+                               const method = row.proofImages.length > 0 ? 'Tiền mặt' : 'VietQR';
+                               const statusKey = String((row as any).status || '').toLowerCase();
+                               const statusLabel =
+                                 statusKey === 'completed'
+                                   ? 'Đã xác nhận'
+                                   : statusKey === 'rejected'
+                                   ? 'Đã từ chối'
+                                   : 'Đang chờ';
+                               const statusClass =
+                                 statusKey === 'completed'
+                                   ? 'bg-emerald-100 text-emerald-700'
+                                   : statusKey === 'rejected'
+                                   ? 'bg-red-100 text-red-600'
+                                   : 'bg-amber-100 text-amber-700';
+                               return (
+                                 <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                   <td className="px-4 py-3 font-bold text-emerald-600">
+                                     {formatCurrency(row.amount)}
+                                   </td>
+                                   <td className="px-4 py-3 text-gray-700">
+                                     {row.campaignName || '—'}
+                                   </td>
+                                   <td className="px-4 py-3 text-gray-700">{row.donorName || 'Ẩn danh'}</td>
+                                   <td className="px-4 py-3 text-gray-700">{method}</td>
+                                   <td className="px-4 py-3 text-gray-600">{row.message || '—'}</td>
+                                   <td className="px-4 py-3">
+                                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusClass}`}>
+                                       {statusLabel}
+                                     </span>
+                                   </td>
+                                   <td className="px-4 py-3 text-gray-600">{formatDate(row.createdAt)}</td>
+                                 </tr>
+                               );
+                             })}
+                           </tbody>
+                         </table>
+                         {myCampaignTotalPages > 1 && (
+                           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                             <div className="text-sm text-gray-600">
+                               Trang {myCampaignPage} / {myCampaignTotalPages} ({myCampaignTotalCount} mục)
+                             </div>
+                             <div className="flex items-center gap-2">
+                               <button
+                                 type="button"
+                                 onClick={() => setMyCampaignPage(Math.max(1, myCampaignPage - 1))}
+                                 disabled={myCampaignPage === 1}
+                                 className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                               >
+                                 ‹
+                               </button>
+                               <button
+                                 type="button"
+                                 onClick={() => setMyCampaignPage(Math.min(myCampaignTotalPages, myCampaignPage + 1))}
+                                 disabled={myCampaignPage === myCampaignTotalPages}
+                                 className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                               >
+                                 ›
+                               </button>
+                             </div>
+                           </div>
+                         )}
+                       </>
+                     )}
+                   </div>
+
+                    {/* Yêu cầu nạp của tôi - danh sách các khoản đang chờ xác minh */}
+                    <div className="bg-white rounded-lg shadow p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">Yêu cầu nạp của tôi</h3>
+                          <p className="text-sm text-gray-500">Các khoản ủng hộ đang chờ quản trị viên xác minh</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const userIdForApi = gpMemberId || currentUserId || '';
+                            if (!userIdForApi) return;
+                            try {
+                              setMyCampaignPendingLoading(true);
+                              const items = await fundService.fetchMyPendingCampaignDonations(userIdForApi);
+                              setMyCampaignPending(items.map(x => ({
+                                id: x.id,
+                                campaignId: x.campaignId,
+                                campaignName: x.campaignName ?? null,
+                                donorName: x.donorName ?? null,
+                                amount: x.amount ?? 0,
+                                message: x.message ?? null,
+                                createdAt: x.createdAt ?? null,
+                                proofImages: x.proofImages ?? [],
+                              })));
+                            } finally {
+                              setMyCampaignPendingLoading(false);
+                            }
+                          }}
+                          disabled={myCampaignPendingLoading}
+                          className="inline-flex items-center gap-2 px-3 py-1 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          Làm mới
+                        </button>
+                      </div>
                       {myCampaignPendingLoading ? (
-                        <LoadingState message="Đang tải yêu cầu ủng hộ của bạn..." />
+                        <div className="bg-white rounded-lg">
+                          <LoadingState message="Đang tải yêu cầu nạp của bạn..." />
+                        </div>
                       ) : myCampaignPending.length === 0 ? (
-                        <EmptyState title="Chưa có yêu cầu" description="Bạn chưa có ủng hộ nào đang chờ xác nhận." />
+                        <EmptyState title="Không có yêu cầu nạp đang chờ" description="Bạn chưa có yêu cầu nạp nào cần xác minh." />
                       ) : (
-                        <div className="space-y-3">
-                          {myCampaignPending.map(item => (
-                            <div key={item.id} className="p-4 border rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                              <div>
-                                <p className="text-xs text-gray-500">{item.campaignName || '—'}</p>
-                                <p className="font-semibold text-gray-900">{item.donorName || 'Bạn'}</p>
-                                <p className="text-sm text-gray-600">{formatCurrency(item.amount)}</p>
-                                <p className="text-xs text-gray-500">{formatDate(item.createdAt)}</p>
-                                {item.message && <p className="text-xs text-gray-500 mt-1">Ghi chú: {item.message}</p>}
-                                {item.proofImages.length > 0 && (
-                                  <div className="flex gap-2 mt-2 flex-wrap">
-                                    {item.proofImages.map((url, idx) => (
-                                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
-                                        Chứng từ {idx + 1}
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <label className="px-3 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
-                                  Tải ảnh chứng từ
-                                  <input
-                                    type="file"
-                                    multiple
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={async (e) => {
-                                      const files = e.target.files ? Array.from(e.target.files) : [];
-                                      e.currentTarget.value = '';
-                                      if (!files.length) return;
-                                      try {
-                                        await fundService.uploadCampaignDonationProof(item.id, files);
-                                        toast.success('Đã upload ảnh chứng từ. Vui lòng chờ quản trị viên xác nhận.');
-                                        if (currentUserId) {
-                                          const items = await fundService.fetchMyPendingCampaignDonations(currentUserId);
-                                          setMyCampaignPending(items.map(x => ({
-                                            id: x.id,
-                                            campaignId: x.campaignId,
-                                            campaignName: x.campaignName ?? null,
-                                            donorName: x.donorName ?? null,
-                                            amount: x.amount ?? 0,
-                                            message: x.message ?? null,
-                                            createdAt: x.createdAt ?? null,
-                                            proofImages: x.proofImages ?? [],
-                                          })));
-                                        }
-                                      } catch (err: any) {
-                                        console.error('Upload campaign donation proof failed:', err);
-                                        toast.error(err?.response?.data?.message || err?.message || 'Không thể upload ảnh chứng từ.');
-                                      }
+                        <div className="space-y-4">
+                          {(() => {
+                            const sorted = myCampaignPending
+                              .slice()
+                              .sort((a, b) => {
+                                const an = (a.campaignName || '').localeCompare(b.campaignName || '');
+                                if (an !== 0) return an;
+                                const ad = getDateValue(a.createdAt);
+                                const bd = getDateValue(b.createdAt);
+                                return bd - ad;
+                              });
+                            const groups = sorted.reduce<Record<string, typeof sorted>>((acc, item) => {
+                              const key = item.campaignId || 'unknown';
+                              if (!acc[key]) acc[key] = [];
+                              acc[key].push(item);
+                              return acc;
+                            }, {});
+                            return Object.values(groups).map(group => {
+                              if (!group.length) return null;
+                              const first = group[0];
+                              const groupKey = first?.campaignId || 'unknown';
+                              const collapsed = myPendingCollapsed[groupKey] ?? true; // default collapsed
+                              return (
+                                <div key={groupKey} className="rounded-lg border bg-white shadow-sm overflow-hidden">
+                                  <button
+                                    type="button"
+                                    className="w-full px-4 py-3 border-b bg-gray-50 flex items-center justify-between hover:bg-gray-100"
+                                    onClick={() => {
+                                      setMyPendingCollapsed(prev => ({
+                                        ...prev,
+                                        [groupKey]: !(prev[groupKey] ?? true),
+                                      }));
                                     }}
-                                  />
-                                </label>
-                              </div>
-                            </div>
-                          ))}
+                                  >
+                                    <p className="text-sm font-semibold text-gray-900 text-left">
+                                      {first?.campaignName || '—'}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                                        {group.length} yêu cầu
+                                      </span>
+                                      <span className="text-gray-500 text-base">
+                                        {collapsed ? '▸' : '▾'}
+                                      </span>
+                                    </div>
+                                  </button>
+                                  {!collapsed && (
+                                    <div className="divide-y">
+                                      {group.map(item => (
+                                        <div key={item.id} className="p-4 hover:bg-gray-50 cursor-pointer flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                          <div>
+                                            <p className="font-semibold text-gray-900">{item.donorName || 'Bạn'}</p>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                              <span className="text-sm font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                                                {formatCurrency(item.amount)}
+                                              </span>
+                                              <span className="text-xs text-gray-500">{formatDate(item.createdAt)}</span>
+                                            </div>
+                                            {item.message && <p className="text-xs text-gray-600 mt-1">{item.message}</p>}
+                                            {item.proofImages.length > 0 ? (
+                                              <div className="flex gap-2 mt-2 flex-wrap">
+                                                {item.proofImages.map((url, idx) => (
+                                                  <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                                                    Xác minh {idx + 1}
+                                                  </a>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <p className="text-xs text-gray-500 mt-2">Chưa có ảnh xác minh thanh toán</p>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <label className="px-3 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
+                                              Tải ảnh xác minh
+                                              <input
+                                                type="file"
+                                                multiple
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={async (e) => {
+                                                  const files = e.target.files ? Array.from(e.target.files) : [];
+                                                  e.currentTarget.value = '';
+                                                  if (!files.length) return;
+                                                  try {
+                                                    await fundService.uploadCampaignDonationProof(item.id, files);
+                                                    toast.success('Đã upload ảnh xác minh. Vui lòng chờ quản trị viên xác nhận.');
+                                                    const userIdForApi = gpMemberId || currentUserId || '';
+                                                    if (userIdForApi) {
+                                                      const items = await fundService.fetchMyPendingCampaignDonations(userIdForApi);
+                                                      setMyCampaignPending(items.map(x => ({
+                                                        id: x.id,
+                                                        campaignId: x.campaignId,
+                                                        campaignName: x.campaignName ?? null,
+                                                        donorName: x.donorName ?? null,
+                                                        amount: x.amount ?? 0,
+                                                        message: x.message ?? null,
+                                                        createdAt: x.createdAt ?? null,
+                                                        proofImages: x.proofImages ?? [],
+                                                      })));
+                                                    }
+                                                  } catch (err: any) {
+                                                    console.error('Upload campaign donation proof failed:', err);
+                                                    toast.error(err?.response?.data?.message || err?.message || 'Không thể upload ảnh xác minh.');
+                                                  }
+                                                }}
+                                              />
+                                            </label>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            });
+                          })()}
                         </div>
                       )}
                     </div>
-                  </div>
-                ) : campaignTab === 'history' ? (
+                 </div>
+               ) : campaignTab === 'history' ? (
                   <div className="space-y-4">
                     <div className="bg-white rounded-lg shadow p-4 flex flex-wrap items-center gap-3">
                       <label className="text-sm font-semibold text-gray-700">Chọn chiến dịch</label>
@@ -2251,6 +2642,191 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                         )}
                       </div>
                     </div>
+
+                    {/* Right column: Campaign expense approvals (manager) */}
+                    <div className="bg-white rounded-lg shadow p-4 flex flex-col gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h4 className="text-sm font-bold text-gray-900 mr-auto">Yêu cầu chi tiêu</h4>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (gpMemberId) {
+                              void loadCampaignExpenseApprovals(gpMemberId);
+                            }
+                          }}
+                          disabled={!gpMemberId || campaignExpenseApprovalsLoading}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          Làm mới
+                        </button>
+                      </div>
+
+                      {campaignExpenseApprovalsLoading ? (
+                        <div className="bg-white rounded-lg">
+                          <LoadingState message="Đang tải danh sách chi tiêu cần duyệt..." />
+                        </div>
+                      ) : selectedPendingCampaignExpenseId ? (
+                        (() => {
+                          const item = campaignPendingExpenses.find(x => x.id === selectedPendingCampaignExpenseId);
+                          if (!item) {
+                            return <EmptyState title="Không tìm thấy yêu cầu" description="Vui lòng trở về danh sách." />;
+                          }
+                          return (
+                            <div className="space-y-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPendingCampaignExpenseId(null);
+                                  setExpenseApprovalNotes('');
+                                  setExpensePaymentProofImages([]);
+                                }}
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                ← Trở về
+                              </button>
+                              <div className="border rounded-lg p-4 space-y-2">
+                                <p className="text-xs text-gray-500">{item.campaignName || '—'}</p>
+                                <h4 className="text-lg font-semibold text-gray-900">{item.description || 'Chi tiêu'}</h4>
+                                <p className="text-gray-700">Số tiền: <span className="font-semibold">{formatCurrency(item.amount)}</span></p>
+                                <p className="text-sm text-gray-500">Thời gian: {formatDate(item.createdAt)}</p>
+                                {item.receiptUrls.length > 0 && (
+                                  <div className="flex gap-2 mt-2 flex-wrap">
+                                    {item.receiptUrls.map((url, idx) => (
+                                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                                        Hoá đơn {idx + 1}
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-semibold text-gray-700">Ghi chú</label>
+                                <textarea
+                                  value={expenseApprovalNotes}
+                                  onChange={e => setExpenseApprovalNotes(e.target.value)}
+                                  rows={3}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                  placeholder="Ghi chú phê duyệt / từ chối"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-semibold text-gray-700">Ảnh xác minh thanh toán</label>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  multiple
+                                  onChange={e => {
+                                    const files = e.target.files ? Array.from(e.target.files) : [];
+                                    setExpensePaymentProofImages(files);
+                                  }}
+                                />
+                                {expensePaymentProofImages.length > 0 && (
+                                  <p className="text-xs text-gray-500">{expensePaymentProofImages.length} ảnh đã chọn</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!gpMemberId) {
+                                      toast.error('Không xác định được người phê duyệt.');
+                                      return;
+                                    }
+                                    if (expensePaymentProofImages.length === 0) {
+                                      toast.error('Vui lòng chọn ít nhất một ảnh xác minh thanh toán.');
+                                      return;
+                                    }
+                                    try {
+                                      await fundService.approveCampaignExpenseWithProof(item.id, {
+                                        approverId: gpMemberId,
+                                        notes: expenseApprovalNotes.trim() || undefined,
+                                        paymentProofImages: expensePaymentProofImages,
+                                      });
+                                      toast.success('Đã phê duyệt chi tiêu chiến dịch.');
+                                      setSelectedPendingCampaignExpenseId(null);
+                                      setExpenseApprovalNotes('');
+                                      setExpensePaymentProofImages([]);
+                                      if (gpMemberId) await loadCampaignExpenseApprovals(gpMemberId);
+                                    } catch (err: any) {
+                                      console.error('Approve campaign expense failed:', err);
+                                      toast.error(err?.response?.data?.message || err?.message || 'Không thể phê duyệt chi tiêu.');
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors"
+                                >
+                                  Phê duyệt
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!gpMemberId) {
+                                      toast.error('Không xác định được người từ chối.');
+                                      return;
+                                    }
+                                    try {
+                                      await fundService.rejectCampaignExpenseManager(item.id, {
+                                        approverId: gpMemberId,
+                                        notes: expenseApprovalNotes.trim() || undefined,
+                                      });
+                                      toast.success('Đã từ chối chi tiêu chiến dịch.');
+                                      setSelectedPendingCampaignExpenseId(null);
+                                      setExpenseApprovalNotes('');
+                                      setExpensePaymentProofImages([]);
+                                      if (gpMemberId) await loadCampaignExpenseApprovals(gpMemberId);
+                                    } catch (err: any) {
+                                      console.error('Reject campaign expense failed:', err);
+                                      toast.error(err?.response?.data?.message || err?.message || 'Không thể từ chối chi tiêu.');
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors"
+                                >
+                                  Từ chối
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedPendingCampaignExpenseId(null);
+                                    setExpenseApprovalNotes('');
+                                    setExpensePaymentProofImages([]);
+                                  }}
+                                  className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                  Hủy
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : campaignPendingExpenses.length === 0 ? (
+                        <EmptyState
+                          title="Không có yêu cầu chi tiêu cần duyệt"
+                          description="Thử làm mới để cập nhật danh sách."
+                        />
+                      ) : (
+                        <div className="space-y-3">
+                          {campaignPendingExpenses.map(exp => (
+                            <div key={exp.id} className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                              onClick={() => setSelectedPendingCampaignExpenseId(exp.id)}>
+                              <p className="text-xs text-gray-500">{exp.campaignName || '—'}</p>
+                              <p className="font-semibold text-gray-900">{exp.description || 'Chi tiêu'}</p>
+                              <p className="text-sm text-gray-600">{formatCurrency(exp.amount)}</p>
+                              <p className="text-xs text-gray-500">{formatDate(exp.createdAt)}</p>
+                              {exp.receiptUrls.length > 0 ? (
+                                <div className="flex gap-2 mt-2 flex-wrap">
+                                  {exp.receiptUrls.map((url, idx) => (
+                                    <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline" onClick={e => e.stopPropagation()}>
+                                      Hoá đơn {idx + 1}
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-500 mt-2">Chưa có hoá đơn đính kèm</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   // Approvals tab
@@ -2314,7 +2890,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                                   <div className="flex gap-2 mt-2 flex-wrap">
                                     {item.proofImages.map((url, idx) => (
                                       <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
-                                        Chứng từ {idx + 1}
+                                        Xác minh {idx + 1}
                                       </a>
                                     ))}
                                   </div>
@@ -2482,7 +3058,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                                                 {item.message}
                                               </p>
                                             )}
-                                            {item.proofImages.length > 0 && (
+                                            {item.proofImages.length > 0 ? (
                                               <div className="flex gap-2 mt-2">
                                                 {item.proofImages.slice(0, 3).map((url, idx) => (
                                                   <a
@@ -2492,7 +3068,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                                                     rel="noreferrer"
                                                     onClick={e => e.stopPropagation()}
                                                     className="block w-12 h-12 rounded border overflow-hidden bg-gray-100"
-                                                    aria-label={`Xem chứng từ ${idx + 1}`}
+                                                    aria-label={`Xem xác minh ${idx + 1}`}
                                                   >
                                                     <img src={url} alt="" className="w-full h-full object-cover" />
                                                   </a>
@@ -2501,6 +3077,10 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                                                   <span className="text-xs text-gray-500 self-center">+{item.proofImages.length - 3}</span>
                                                 )}
                                               </div>
+                                            ) : (
+                                              <p className="text-xs text-gray-500 mt-2">
+                                                Chưa có ảnh xác minh thanh toán
+                                              </p>
                                             )}
                                           </div>
                                           <div className="self-center text-gray-400 text-base">›</div>
@@ -2611,6 +3191,14 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         onDonate={(id) => {
           setSelectedCampaignId(id);
           setIsCampaignDonateOpen(true);
+        }}
+        onCreateExpense={(id) => {
+          setCreateExpenseForm(prev => ({
+            ...prev,
+            campaignId: id,
+          }));
+          setIsCreateExpenseOpen(true);
+          setIsCampaignDetailOpen(false);
         }}
         loading={campaignDetailLoading}
         formatCurrency={formatCurrency}
