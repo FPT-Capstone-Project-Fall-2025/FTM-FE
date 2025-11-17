@@ -55,8 +55,8 @@ interface FundOverviewSectionProps {
 const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   activeFund,
   computedBalance,
-  totalIncome,
-  totalExpense,
+  totalIncome: _totalIncome,
+  totalExpense: _totalExpense,
   uniqueContributorCount,
   pendingExpenseCount,
   currentFundPurpose,

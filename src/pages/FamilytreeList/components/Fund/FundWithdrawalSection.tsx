@@ -44,7 +44,7 @@ interface FundWithdrawalSectionProps {
 const FundWithdrawalSection: React.FC<FundWithdrawalSectionProps> = ({
   hasFund,
   computedBalance,
-  campaigns,
+  campaigns: _campaigns,
   formState,
   onFormChange,
   onSubmit,

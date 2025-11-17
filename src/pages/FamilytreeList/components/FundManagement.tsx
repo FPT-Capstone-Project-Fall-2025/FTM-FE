@@ -314,8 +314,8 @@ const FundManagement: React.FC = () => {
   }>>([]);
   const [myCampaignPendingLoading, setMyCampaignPendingLoading] = useState(false);
   const [myCampaignPage, setMyCampaignPage] = useState(1);
-  const [myCampaignTotalPages, setMyCampaignTotalPages] = useState(1);
-  const [myCampaignTotalCount, setMyCampaignTotalCount] = useState(0);
+  const [myCampaignTotalPages, _setMyCampaignTotalPages] = useState(1);
+  const [myCampaignTotalCount, _setMyCampaignTotalCount] = useState(0);
   const [myPendingCollapsed, setMyPendingCollapsed] = useState<Record<string, boolean>>({});
   // Create expense modal state
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
@@ -1828,12 +1828,13 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                       return;
                     }
                     setCreateExpenseSubmitting(true);
+                    const trimmedNotes = createExpenseForm.notes.trim();
                     await fundService.createCampaignExpense({
                       campaignId: createExpenseForm.campaignId,
                       requestedById: gpMemberId || currentUserId || '',
                       amount: amountNum,
                       description: createExpenseForm.description.trim(),
-                      notes: createExpenseForm.notes.trim() || undefined,
+                      ...(trimmedNotes ? { notes: trimmedNotes } : {}),
                       receipts: createExpenseForm.receipts,
                     });
                     toast.success('Đã tạo yêu cầu rút tiền (đang chờ phê duyệt).');
@@ -2737,9 +2738,10 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                                       return;
                                     }
                                     try {
+                                      const trimmedNotes = expenseApprovalNotes.trim();
                                       await fundService.approveCampaignExpenseWithProof(item.id, {
                                         approverId: gpMemberId,
-                                        notes: expenseApprovalNotes.trim() || undefined,
+                                        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
                                         paymentProofImages: expensePaymentProofImages,
                                       });
                                       toast.success('Đã phê duyệt chi tiêu chiến dịch.');
@@ -2764,9 +2766,10 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                                       return;
                                     }
                                     try {
+                                      const trimmedNotes = expenseApprovalNotes.trim();
                                       await fundService.rejectCampaignExpenseManager(item.id, {
                                         approverId: gpMemberId,
-                                        notes: expenseApprovalNotes.trim() || undefined,
+                                        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
                                       });
                                       toast.success('Đã từ chối chi tiêu chiến dịch.');
                                       setSelectedPendingCampaignExpenseId(null);

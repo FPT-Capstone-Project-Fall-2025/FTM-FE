@@ -160,7 +160,7 @@ export const fundService = {
   },
 
   // Get expenses by campaign with pagination
-  async fetchCampaignExpenses(campaignId: string, page = 1, pageSize = 20): Promise<{
+  async fetchCampaignExpensesPaginated(campaignId: string, page = 1, pageSize = 20): Promise<{
     items: Array<{
       id: string;
       campaignId: string;
