@@ -1,20 +1,20 @@
 import { useAppSelector } from "@/hooks/redux";
 import familyTreeService from "@/services/familyTreeService";
 import type { PaginationProps } from "@/types/api";
-import type { FamilyMemberList } from "@/types/familytree";
+import type { FamilyNodeList } from "@/types/familytree";
 import { Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 
 const MemberDropdown: React.FC<{
     value: string;
-    onChange: (member: FamilyMemberList | null) => void;
+    onChange: (member: FamilyNodeList | null) => void;
 }> = ({ value, onChange }) => {
     const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree)
     const [isOpen, setIsOpen] = useState(false);
     const [filter, setFilter] = useState(value);
     const [loading, setLoading] = useState(false);
-    const [selectedMember, setSelectedMember] = useState<FamilyMemberList | null>(null);
+    const [selectedMember, setSelectedMember] = useState<FamilyNodeList | null>(null);
     const [paginationData, setPaginationData] = useState<PaginationProps>({
         pageIndex: 1,
         pageSize: 100,
@@ -33,13 +33,13 @@ const MemberDropdown: React.FC<{
         totalItems: 0,
         totalPages: 0,
     });
-    const [familyMemberList, setFamilyMemberList] = useState<FamilyMemberList[]>([]);
+    const [familyMemberList, setFamilyMemberList] = useState<FamilyNodeList[]>([]);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const loadMembers = async () => {
         setLoading(true);
         try {
-            const res = await familyTreeService.getFamilyTreeMembers(paginationData);
+            const res = await familyTreeService.getFamilyTreeNodes(paginationData);
             setPaginationData(pre => ({
                 ...pre,
                 ...res.data
@@ -71,7 +71,7 @@ const MemberDropdown: React.FC<{
         member.fullname.toLowerCase().includes(filter.toLowerCase())
     );
 
-    const handleSelectMember = (member: FamilyMemberList) => {
+    const handleSelectMember = (member: FamilyNodeList) => {
         setSelectedMember(member);
         setFilter(member.fullname);
         onChange(member);

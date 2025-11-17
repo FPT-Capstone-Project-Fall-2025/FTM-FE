@@ -56,7 +56,7 @@ export interface FamilytreeDataResponse {
   }>;
 }
 
-export interface FamilyMemberList {
+export interface FamilyNodeList {
   id: string;
   ftId: string;
   fullname: string;
@@ -70,6 +70,18 @@ export interface FamilyMemberList {
     fileType: string;
     isActive: boolean;
   }>;
+}
+
+export interface FamilyMemberList {
+  userId: string;
+  name: string;
+  username: string;
+  ftRole: string;
+  ft: {
+    name: string;
+    owner: string;
+    filePath: string | null;
+  };
 }
 
 export enum CategoryCode {

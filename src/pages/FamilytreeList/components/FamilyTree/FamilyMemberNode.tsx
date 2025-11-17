@@ -8,6 +8,7 @@ interface FamilyMemberNodeData extends FamilyMember {
   onAdd?: () => void;
   onDelete?: () => void;
   isDivorced?: boolean;
+  isDeath?: boolean;
 }
 
 const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
@@ -15,10 +16,22 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
   const isHighlighted = highlightedNodeId === id;
   const isDeleted = data.statusCode === 4001;
   const isDivorced = data.isDivorced;
+  const isDeceased = data.isDeath;
 
-  const bgColor = data.gender === 1 ? 'bg-pink-100' : 'bg-blue-100';
-  const borderColor = data.gender === 1 ? 'border-pink-300' : 'border-blue-300';
+  const bgColor = isDeceased
+    ? 'bg-gray-100'
+    : data.gender === 1
+      ? 'bg-pink-100'
+      : 'bg-blue-100';
+
+  const borderColor = isDeceased
+    ? 'border-gray-300'
+    : data.gender === 1
+      ? 'border-pink-300'
+      : 'border-blue-300';
+
   const borderStyle = isDivorced ? 'border-dashed' : 'border-solid';
+  const finalBorderColor = isDivorced && !isDeleted ? 'border-red-300' : borderColor;
 
   const highlightStyles = isHighlighted
     ? 'ring-4 ring-yellow-400 ring-opacity-75 shadow-2xl scale-110 animate-pulse'
@@ -38,27 +51,45 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
     : 'text-gray-600';
 
   const divorcedStyles = isDivorced && !isDeleted
-    ? 'opacity-85'
+    ? 'opacity-90'
     : '';
+
+  const divorcedBackgroundStyle = isDivorced && !isDeleted
+    ? {
+      backgroundImage: 'repeating-linear-gradient(135deg, rgba(248, 113, 113, 0.15) 0px, rgba(248, 113, 113, 0.15) 8px, transparent 8px, transparent 16px)'
+    }
+    : undefined;
 
   return (
     <div
       className={`
-        ${bgColor} ${borderColor} ${borderStyle} ${highlightStyles} ${deletedStyles} ${divorcedStyles}
+        ${bgColor} ${finalBorderColor} ${borderStyle} ${highlightStyles} ${deletedStyles} ${divorcedStyles}
         border-2 rounded-lg p-3 min-w-[140px] cursor-pointer 
         hover:shadow-lg transition-all duration-200 relative group
         ${isDeleted ? 'cursor-not-allowed' : ''}
       `}
+      style={divorcedBackgroundStyle}
       onClick={() => !isDeleted && data.onMemberClick?.(data)} // Disable click if deleted
     >
       <Handle type="target" position={Position.Top} className="w-2 h-2" />
 
+      {isDeceased && !isDeleted && (
+        <span className="absolute -top-2 left-3 bg-gray-800 text-white text-[10px] px-2 py-0.5 rounded-full shadow">
+          ĐÃ MẤT
+        </span>
+      )}
+      {isDivorced && !isDeleted && (
+        <span className="absolute -top-2 right-3 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full shadow">
+          ĐÃ LY HÔN
+        </span>
+      )}
+
       <div className="flex flex-col items-center gap-2">
         <div className={`
           w-12 h-12 rounded-full 
-          ${data.gender === 1 ? 'bg-pink-300' : 'bg-blue-300'} 
+          ${isDeceased ? 'bg-gray-300' : data.gender === 1 ? 'bg-pink-300' : 'bg-blue-300'} 
           flex items-center justify-center
-          ${isDeleted ? 'grayscale opacity-60' : ''}
+          ${isDeleted || isDeceased ? 'grayscale opacity-70' : ''}
         `}>
           {data.avatar ? (
             <img
@@ -72,10 +103,13 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
         </div>
 
         <div className="text-center">
-          <div className={`font-semibold text-sm ${nameTextStyles} flex items-center justify-center`}>
+          <div className={`font-semibold text-sm ${nameTextStyles} flex items-center justify-center gap-1`}>
             {data.name || 'Unknown'}
             {isDivorced && !isDeleted && (
               <HeartCrack className="w-4 h-4 text-red-500 ml-1" />
+            )}
+            {isDeceased && !isDeleted && (
+              <span className="text-xs text-gray-500">✝</span>
             )}
           </div>
           {/* Always render this block to maintain consistent height */}
