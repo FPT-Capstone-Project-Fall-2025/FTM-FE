@@ -20,7 +20,24 @@ const apiClient: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-  }
+  },
+  // This tells axios not to transform header names
+  transformRequest: [(data, headers) => {
+    // Don't transform FormData - let axios handle it automatically
+    if (data instanceof FormData) {
+      // Remove Content-Type header for FormData - axios will set it with boundary
+      if (headers) {
+        delete headers['Content-Type'];
+        delete headers['content-type'];
+      }
+      return data;
+    }
+    // For other objects, stringify as JSON
+    if (data && typeof data === 'object') {
+      return JSON.stringify(data);
+    }
+    return data;
+  }],
 });
 
 let isRedirecting = false;
