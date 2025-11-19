@@ -21,13 +21,25 @@ const notificationSlice = createSlice({
     },
     addNotification: (state, action: PayloadAction<Notification>) => {
       state.notifications.unshift(action.payload);
-      state.unreadCount += 1;
+      // Only increment unread count if the notification is unread
+      if (!action.payload.isRead) {
+        state.unreadCount += 1;
+      }
     },
     deleteNotification: (state, action: PayloadAction<string>) => {
+      const notificationToDelete = state.notifications.find((n) => n.relatedId === action.payload);
       state.notifications = state.notifications.filter((n) => n.relatedId !== action.payload);
+      // Update unread count if the deleted notification was unread
+      if (notificationToDelete && !notificationToDelete.isRead) {
+        state.unreadCount = Math.max(0, state.unreadCount - 1);
+      }
     },
     markAsRead: (state, action: PayloadAction<string>) => {
-      state.notifications = state.notifications.map((n) => n.id === action.payload ? { ...n, isRead: true } : n);
+      const notification = state.notifications.find((n) => n.id === action.payload);
+      if (notification && !notification.isRead) {
+        notification.isRead = true;
+        state.unreadCount = Math.max(0, state.unreadCount - 1);
+      }
     },
     markAllRead: (state) => {
       state.notifications = state.notifications.map((n) => ({ ...n, isRead: true }));

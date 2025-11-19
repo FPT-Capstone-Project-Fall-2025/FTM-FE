@@ -106,7 +106,7 @@ const Invitations: React.FC = () => {
                                 <tr key={invitation.token} className="border-b border-gray-200 hover:bg-gray-50">
                                     <td className="px-6 py-4 text-sm font-medium text-blue-600">{invitation.invitedName}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{invitation.email}</td>
-                                    <td className="px-6 py-4 text-sm">{invitation.ftMemberName}</td>
+                                    <td className="px-6 py-4 text-sm">{invitation.ftMemberName || 'Khách'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{formatDate(invitation.createdOn)}</td>
                                     <td className="px-6 py-4 text-sm">
                                         <span className={

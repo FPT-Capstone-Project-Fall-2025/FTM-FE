@@ -67,6 +67,7 @@ const ManagePermissions: React.FC = () => {
   const loadPermissions = async () => {
     setLoading(true);
     try {
+      // await ftauthorizationService.testFTAuth(selectedFamilyTree?.id || '', auth.token || '');
       const res = await ftauthorizationService.getFTAuths(selectedFamilyTree?.id, paginationData);
       setPaginationData(pre => ({
         ...pre,
@@ -221,7 +222,7 @@ const ManagePermissions: React.FC = () => {
               ftMemberId: editedMember.key.id,
               authorizationList: allChangedFeatures
             };
-            console.log("✓ Detected change for member:", editedMember.key.fullname, "Update:", update);
+            console.log("Detected change for member:", editedMember.key.fullname, "Update:", update);
             updates.push(update);
           }
         }

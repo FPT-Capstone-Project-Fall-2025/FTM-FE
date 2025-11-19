@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import type { FamilyMemberList } from '@/types/familytree';
+import { X, Loader2 } from 'lucide-react';
+import type { FamilyNodeList } from '@/types/familytree';
 import familyTreeService from '@/services/familyTreeService';
 import { useAppSelector } from '@/hooks/redux';
 import MemberDropdown from './MemberDropDown';
+import { toast } from 'react-toastify';
 
 type InviteType = 'guest' | 'family';
-type ToastType = 'success' | 'error' | null;
 
 const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
     isOpen,
@@ -15,20 +15,14 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
     const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
     const [inviteType, setInviteType] = useState<InviteType>('guest');
     const [email, setEmail] = useState('');
-    const [selectedMember, setSelectedMember] = useState<FamilyMemberList | null>(null);
+    const [selectedMember, setSelectedMember] = useState<FamilyNodeList | null>(null);
     const [loading, setLoading] = useState(false);
-    const [toast, setToast] = useState<{ type: ToastType; message: string }>({ type: null, message: '' });
 
     if (!isOpen) return null;
 
-    const showToast = (type: ToastType, message: string) => {
-        setToast({ type, message });
-        setTimeout(() => setToast({ type: null, message: '' }), 3000);
-    };
-
     const handleSendInvite = async () => {
         if (!selectedFamilyTree?.id) {
-            showToast('error', 'Chưa chọn cây gia phả');
+            toast.error('Chưa chọn cây gia phả');
             return;
         }
 
@@ -36,20 +30,21 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
         try {
             if (inviteType === 'guest' && email) {
                 console.log('Sending invite to guest:', email);
-                await familyTreeService.inviteGuestToFamilyTree(selectedFamilyTree.id, email);
-                showToast('success', `Gửi lời mời thành công tới ${email}`);
+                const response = await familyTreeService.inviteGuestToFamilyTree(selectedFamilyTree.id, email);
+                toast.success(response.message || `Gửi lời mời thành công tới ${email}`);
                 setEmail('');
+                onClose();
             } else if (inviteType === 'family' && selectedMember) {
                 console.log('Sending invite to family member:', selectedMember);
-                await familyTreeService.inviteMemberToFamilyTree(selectedFamilyTree.id, selectedMember.id, email);
-                showToast('success', `Gửi lời mời thành công tới ${selectedMember.fullname}`);
+                const response = await familyTreeService.inviteMemberToFamilyTree(selectedFamilyTree.id, selectedMember.id, email);
+                toast.success(response.message || `Gửi lời mời thành công tới ${selectedMember.fullname}`);
                 setEmail('');
                 setSelectedMember(null);
+                onClose();
             }
-            onClose();
         } catch (error: any) {
             const errorMessage = error?.response?.data?.message || 'Gửi lời mời thất bại. Vui lòng thử lại.';
-            showToast('error', errorMessage);
+            toast.error(errorMessage);
             console.error('Failed to send invite:', error);
         } finally {
             setLoading(false);
@@ -161,24 +156,6 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                         </button>
                     </div>
                 </div>
-
-                {/* Toast Notification */}
-                {toast.type && (
-                    <div className={`mt-4 p-4 rounded-lg flex items-center gap-3 ${toast.type === 'success'
-                            ? 'bg-green-50 border border-green-200'
-                            : 'bg-red-50 border border-red-200'
-                        }`}>
-                        {toast.type === 'success' ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                        ) : (
-                            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                        )}
-                        <span className={`text-sm font-medium ${toast.type === 'success' ? 'text-green-800' : 'text-red-800'
-                            }`}>
-                            {toast.message}
-                        </span>
-                    </div>
-                )}
             </div>
         </div>
     );

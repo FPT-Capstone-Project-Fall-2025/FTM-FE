@@ -1,6 +1,7 @@
 import type { FTAuth, FTAuthList } from '@/types/familytree';
 import type { ApiResponse, PaginationProps, PaginationResponse } from './../types/api';
 import api from './apiService';
+import axios from 'axios';
 
 const ftauthorizationService = {
   getFTAuths(ftId?: string, props?: PaginationProps): Promise<ApiResponse<PaginationResponse<FTAuthList[]>>> {
@@ -9,6 +10,14 @@ const ftauthorizationService = {
         ...props,
         propertyFilters: JSON.stringify(props?.propertyFilters)
       },
+      headers: {
+        'X-FtId': ftId,
+      }
+    });
+  },
+
+  getMyFTAuths(ftId: string, ftMemberId: string): Promise<ApiResponse<PaginationResponse<FTAuthList[]>>> {
+    return api.get(`/ftauthorization/${ftId}/member/${ftMemberId}/list`, {
       headers: {
         'X-FtId': ftId,
       }
@@ -38,6 +47,15 @@ const ftauthorizationService = {
       }
     });
   },
+
+  testFTAuth(ftId: string, token: string): Promise<ApiResponse<any>> {
+    return axios.get(`https://be.dev.familytree.io.vn/authorization/owner`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'X-FtId': ftId,
+      }
+    });
+  }
 };
 
 export default ftauthorizationService;
