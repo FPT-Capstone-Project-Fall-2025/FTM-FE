@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import type { FamilyMemberList } from "@/types/familytree";
 import familyTreeService from "@/services/familyTreeService";
@@ -43,26 +43,14 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const auth = useAppSelector(state => state.auth);
-    useEffect(() => {
-        if (isOpen && ftId) {
-            fetchMembers();
-        }
-    }, [isOpen, ftId]);
+    const currentUserId = useMemo(
+        () => getUserIdFromToken(auth.token || "") || "",
+        [auth.token]
+    );
 
-    // Re-evaluate selected feature when member selection changes
-    useEffect(() => {
-        const existing = existingFeaturesByMemberId?.[selectedMemberId] || [];
-        const firstAvailable = FEATURE_CODES.find(f => !existing.includes(f.value));
-        if (firstAvailable) {
-            setSelectedFeatureCode(firstAvailable.value);
-        } else {
-            // No available features left
-            setSelectedFeatureCode("");
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedMemberId, existingFeaturesByMemberId]);
+    const fetchMembers = useCallback(async () => {
+        if (!ftId) return;
 
-    const fetchMembers = async () => {
         setLoading(true);
         setError(null);
         try {
@@ -73,7 +61,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                     {
                         name: "FTId",
                         operation: "EQUAL",
-                        value: ftId || ''
+                        value: ftId
                     },
                     {
                         name: "userId",
@@ -83,7 +71,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                     {
                         name: "userId",
                         operation: "NOTEQUAL",
-                        value: getUserIdFromToken(auth.token || '') || ''
+                        value: currentUserId
                     }
                 ],
                 totalItems: 0,
@@ -95,7 +83,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
             setMembers(allMembers);
             if (allMembers.length > 0) {
-                setSelectedMemberId(allMembers[0].id);
+                setSelectedMemberId(allMembers[0].userId);
+            } else {
+                setSelectedMemberId("");
             }
         } catch (err) {
             console.error("Failed to fetch members:", err);
@@ -103,7 +93,25 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
         } finally {
             setLoading(false);
         }
-    };
+    }, [ftId, currentUserId]);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchMembers();
+        }
+    }, [isOpen, fetchMembers]);
+
+    // Re-evaluate selected feature when member selection changes
+    useEffect(() => {
+        const existing = existingFeaturesByMemberId?.[selectedMemberId] || [];
+        const firstAvailable = FEATURE_CODES.find(f => !existing.includes(f.value));
+        if (firstAvailable) {
+            setSelectedFeatureCode(firstAvailable.value);
+        } else {
+            // No available features left
+            setSelectedFeatureCode("");
+        }
+    }, [selectedMemberId, existingFeaturesByMemberId]);
 
     const handleSubmit = async () => {
         if (!selectedMemberId) {
@@ -118,10 +126,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
         setSubmitting(true);
         try {
-            const selectedMember = members.find(m => m.id === selectedMemberId);
+            const selectedMember = members.find(m => m.userId === selectedMemberId);
             await onConfirm(
                 selectedMemberId,
-                selectedMember?.fullname || "",
+                selectedMember?.name || selectedMember?.username || "",
                 selectedFeatureCode,
                 selectedMethods
             );
@@ -140,8 +148,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
     if (!isOpen) return null;
 
+    const getMemberDisplayName = (member: FamilyMemberList) =>
+        member.name || member.username || "Không rõ tên";
+
     const filteredMembers = members.filter(member =>
-        member.fullname.toLowerCase().includes(searchTerm.toLowerCase())
+        getMemberDisplayName(member).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const existingForSelected = existingFeaturesByMemberId?.[selectedMemberId] || [];
@@ -197,13 +208,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                     placeholder="Nhập tên thành viên..."
                                     value={searchTerm}
                                     onChange={e => {
-                                        setSearchTerm(e.target.value);
-                                        // Auto-select first matching member
+                                        const value = e.target.value;
+                                        setSearchTerm(value);
                                         const filtered = members.filter(m =>
-                                            m.fullname.toLowerCase().includes(e.target.value.toLowerCase())
+                                            getMemberDisplayName(m).toLowerCase().includes(value.toLowerCase())
                                         );
                                         if (filtered.length > 0 && !selectedMemberId && filtered[0]) {
-                                            setSelectedMemberId(filtered[0].id);
+                                            setSelectedMemberId(filtered[0].userId);
                                         }
                                     }}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -222,29 +233,29 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                     ) : (
                                         filteredMembers.map(member => (
                                             <div
-                                                key={member.id}
+                                                key={member.userId}
                                                 onClick={() => {
-                                                    setSelectedMemberId(member.id);
+                                                    setSelectedMemberId(member.userId);
                                                     setSearchTerm("");
                                                 }}
-                                                className={`p-3 rounded-md cursor-pointer flex items-center space-x-3 transition-colors ${selectedMemberId === member.id
+                                                className={`p-3 rounded-md cursor-pointer flex items-center space-x-3 transition-colors ${selectedMemberId === member.userId
                                                     ? 'bg-blue-200 border-l-4 border-blue-600'
                                                     : 'hover:bg-blue-100'
                                                     }`}
                                             >
-                                                {member.filePath ? (
+                                                {member.ft?.filePath ? (
                                                     <img
-                                                        src={member.filePath}
-                                                        alt={member.fullname}
+                                                        src={member.ft.filePath}
+                                                        alt={getMemberDisplayName(member)}
                                                         className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                                                     />
                                                 ) : (
                                                     <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-600">
-                                                        {member.fullname.charAt(0).toUpperCase()}
+                                                        {getMemberDisplayName(member).charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
                                                 <span className="text-sm text-gray-900 font-medium">
-                                                    {member.fullname}
+                                                    {getMemberDisplayName(member)}
                                                 </span>
                                             </div>
                                         ))

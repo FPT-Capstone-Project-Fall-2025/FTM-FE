@@ -79,7 +79,11 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({ handleInviteUser 
             document.body.appendChild(clone);
 
             // Use requestIdleCallback to avoid freezing UI
-            await new Promise(resolve => requestIdleCallback(() => resolve(null), { timeout: 5000 }));
+            if ('requestIdleCallback' in window) {
+                await new Promise(resolve => requestIdleCallback(() => resolve(null), { timeout: 5000 }));
+            } else {
+                await new Promise(resolve => setTimeout(() => resolve(null), 5000));
+            }
 
             const dataUrl = await toPng(clone, {
                 backgroundColor: '#f9fafb',

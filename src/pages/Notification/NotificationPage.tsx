@@ -45,10 +45,19 @@ const NotificationPage: React.FC = () => {
   const handleRespond = async (relatedId: string, accepted: boolean) => {
     try {
       const response = await notificationService.invitationResponse(relatedId, accepted);
-      toast.success(response.message)
-      console.log(response);
+      
+      // Delete the notification from Redux state after successful response
+      dispatch(deleteNotification(relatedId));
+      
+      // Show success message
+      if (accepted) {
+        toast.success(response.message || 'Đã chấp nhận lời mời');
+      } else {
+        toast.success(response.message || 'Đã từ chối lời mời');
+      }
     } catch (err: any) {
-      console.error(err?.Message);
+      console.error(err);
+      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi xử lý lời mời');
     }
   };
 
