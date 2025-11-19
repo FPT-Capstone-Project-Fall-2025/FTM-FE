@@ -1,4 +1,4 @@
-import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps, FamilyNode, FamilytreeUpdateProps, UpdateFamilyNode, FTInvitation } from '@/types/familytree';
+import type { Familytree, FamilytreeCreationProps, FamilytreeDataResponse, FamilyMemberList, AddingNodeProps, FamilyNode, FamilytreeUpdateProps, UpdateFamilyNode, FTInvitation, FamilyNodeList } from '@/types/familytree';
 import type { ApiResponse, PaginationProps, PaginationResponse } from './../types/api';
 import api from './apiService';
 
@@ -52,11 +52,7 @@ const familyTreeService = {
     formData.append('Description', props.description);
     props.file && formData.append('File', props.file);
     formData.append('GPModeCode', props.gpModecode.toString());
-    return api.post('/familytree', formData, {
-      headers: {
-        "Content-Type": "multipart/form-data"
-      }
-    });
+    return api.post('/familytree', formData);
   },
 
   getFamilyTreeData(ftId: string): Promise<ApiResponse<FamilytreeDataResponse>> {
@@ -67,8 +63,17 @@ const familyTreeService = {
     });
   },
 
-  getFamilyTreeMembers(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyMemberList[]>>> {
+  getFamilyTreeNodes(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyNodeList[]>>> {
     return api.get('/ftmember/list', {
+      params: {
+        ...props,
+        propertyFilters: JSON.stringify(props.propertyFilters)
+      }
+    });
+  },
+
+  getFamilyTreeMembers(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyMemberList[]>>> {
+    return api.get('/ftmember/list-of-ftusers', {
       params: {
         ...props,
         propertyFilters: JSON.stringify(props.propertyFilters)
@@ -89,9 +94,47 @@ const familyTreeService = {
   },
 
   createFamilyNode(props: AddingNodeProps): Promise<ApiResponse<string>> {
-    return api.post(`/ftmember/${props.ftId}`, props, {
+    // Convert to FormData to properly handle file uploads
+    const formData = new FormData();
+    
+    // Append all properties to FormData
+    Object.keys(props).forEach((key) => {
+      const value = props[key as keyof AddingNodeProps];
+      // Skip undefined, null values (but allow empty strings, false, 0)
+      if (value === undefined || value === null) {
+        return;
+      }
+      
+      // Handle File objects (avatar)
+      if (value instanceof File) {
+        formData.append(key, value);
+      } 
+      // Handle arrays (like ftMemberFiles)
+      else if (Array.isArray(value)) {
+        // Convert array to JSON string for complex objects
+        formData.append(key, JSON.stringify(value));
+      }
+      // Handle objects (convert to JSON string)
+      else if (typeof value === 'object') {
+        formData.append(key, JSON.stringify(value));
+      }
+      // Handle booleans - convert to string representation
+      else if (typeof value === 'boolean') {
+        formData.append(key, value.toString());
+      }
+      // Handle numbers
+      else if (typeof value === 'number') {
+        formData.append(key, value.toString());
+      }
+      // Handle strings (including empty strings)
+      else {
+        formData.append(key, String(value));
+      }
+    });
+
+    return api.post(`/ftmember/${props.ftId}`, formData, {
       headers: {
-        "Content-Type": "multipart/form-data"
+        'X-FtId': props.ftId,
       }
     });
   },

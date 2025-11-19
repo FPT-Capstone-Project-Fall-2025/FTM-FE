@@ -8,6 +8,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { setAvailableFamilyTrees, setSelectedFamilyTree } from '@/stores/slices/familyTreeMetaDataSlice';
 import type { FamilytreeCreationProps } from '@/types/familytree';
 import { useNavigate } from 'react-router-dom';
+import { formatVietnameseDate } from '@/utils/vietnameseCalendarConfig';
 
 const FamilyTreeSelection: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -238,7 +239,7 @@ const FamilyTreeSelection: React.FC = () => {
                                         </div>
                                         <div className="flex items-center gap-2 text-sm text-gray-500">
                                             <Calendar className="w-4 h-4 text-gray-400" />
-                                            <span>Tạo ngày {tree.createAt}</span>
+                                            <span>Tạo ngày {formatVietnameseDate(tree.createdAt)}</span>
                                         </div>
                                         {tree.description && (
                                             <div className="flex items-start gap-2 text-sm text-gray-600 line-clamp-2">

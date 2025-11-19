@@ -6,6 +6,7 @@ import { deleteNotification, markAllRead, markAsRead } from '@/stores/slices/not
 import parse from 'html-react-parser';
 import { formatNotificationTime } from '@/utils/dateUtils';
 import notificationService from '@/services/notificationService';
+import { toast } from 'react-toastify';
 
 interface NotificationPopupProps {
   isOpen: boolean;
@@ -74,10 +75,19 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
   const handleRespond = async (relatedId: string, accepted: boolean) => {
     try {
       const response = await notificationService.invitationResponse(relatedId, accepted);
-      console.log(response);
 
-    } catch (err) {
+      // Delete the notification from Redux state after successful response
+      dispatch(deleteNotification(relatedId));
+
+      // Show success message
+      if (accepted) {
+        toast.success(response.message || 'Đã chấp nhận lời mời');
+      } else {
+        toast.success(response.message || 'Đã từ chối lời mời');
+      }
+    } catch (err: any) {
       console.error(err);
+      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi xử lý lời mời');
     }
   };
 

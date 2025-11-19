@@ -18,6 +18,8 @@ import {
 import type { FamilyNode, FileProps, UpdateFamilyNode } from '@/types/familytree';
 import familyTreeService from '@/services/familyTreeService';
 import { toast } from 'react-toastify';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 interface MemberDetailPageProps {
     ftId: string | undefined;
@@ -602,11 +604,18 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                         ))}
                                                     </select>
                                                 ) : type === 'date' ? (
-                                                    <input
-                                                        type="date"
-                                                        value={data[field] ?? ''}
-                                                        onChange={(e) => setField(field, e.target.value || '')}
+                                                    <DatePicker
+                                                        selected={data[field] ? new Date(data[field]) : null}
+                                                        onChange={(date: Date | null) => {
+                                                            setField(field, date ? date.toISOString().split('T')[0] : '');
+                                                        }}
+                                                        dateFormat="dd/MM/yyyy"
+                                                        placeholderText="dd/mm/yyyy"
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                        wrapperClassName="w-full"
+                                                        showYearDropdown
+                                                        scrollableYearDropdown
+                                                        yearDropdownItemNumber={100}
                                                     />
                                                 ) : (
                                                     <input
@@ -747,11 +756,18 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                             Ngày mất
                                                         </label>
                                                         {isEditing ? (
-                                                            <input
-                                                                type="date"
-                                                                value={data.deathDate ?? ''}
-                                                                onChange={(e) => setField('deathDate', e.target.value || '')}
+                                                            <DatePicker
+                                                                selected={data.deathDate ? new Date(data.deathDate) : null}
+                                                                onChange={(date: Date | null) => {
+                                                                    setField('deathDate', date ? date.toISOString().split('T')[0] : '');
+                                                                }}
+                                                                dateFormat="dd/MM/yyyy"
+                                                                placeholderText="dd/mm/yyyy"
                                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                                wrapperClassName="w-full"
+                                                                showYearDropdown
+                                                                scrollableYearDropdown
+                                                                yearDropdownItemNumber={100}
                                                             />
                                                         ) : (
                                                             <p className="text-gray-900">

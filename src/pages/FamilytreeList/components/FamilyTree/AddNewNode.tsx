@@ -5,6 +5,8 @@ import type { Province, Ward } from "@/types/user";
 import { X, Users, User, Baby } from "lucide-react";
 import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import ReactFlow, {
   type Node,
   type Edge,
@@ -722,12 +724,21 @@ const AddNewNode = ({
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
                   Ngày sinh
                 </label>
-                <input
-                  type="date"
-                  name="birthday"
-                  value={formData.birthday || ""}
-                  onChange={handleFormChange}
+                <DatePicker
+                  selected={formData.birthday ? new Date(formData.birthday) : null}
+                  onChange={(date: Date | null) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      birthday: date ? date.toISOString().split('T')[0] : undefined,
+                    }));
+                  }}
+                  dateFormat="dd/MM/yyyy"
+                  placeholderText="dd/mm/yyyy"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                  wrapperClassName="w-full"
+                  showYearDropdown
+                  scrollableYearDropdown
+                  yearDropdownItemNumber={100}
                 />
               </div>
             </div>
@@ -796,12 +807,21 @@ const AddNewNode = ({
                       <label className="block text-sm font-semibold text-gray-800 mb-2">
                         Ngày mất
                       </label>
-                      <input
-                        type="date"
-                        name="deathDate"
-                        value={formData.deathDate || ""}
-                        onChange={handleFormChange}
+                      <DatePicker
+                        selected={formData.deathDate ? new Date(formData.deathDate) : null}
+                        onChange={(date: Date | null) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            deathDate: date ? date.toISOString().split('T')[0] : undefined,
+                          }));
+                        }}
+                        dateFormat="dd/MM/yyyy"
+                        placeholderText="dd/mm/yyyy"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                        wrapperClassName="w-full"
+                        showYearDropdown
+                        scrollableYearDropdown
+                        yearDropdownItemNumber={100}
                       />
                     </div>
                     <div>
