@@ -74,6 +74,8 @@ export interface FamilyNodeList {
 
 export interface FamilyMemberList {
   userId: string;
+  id?: string;
+  ftMemberId?: string;
   name: string;
   username: string;
   ftRole: string;

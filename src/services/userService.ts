@@ -8,6 +8,10 @@ const userService = {
     return api.get('/account/profile');
   },
 
+  getProfileByUserId(userId: string): Promise<ApiResponse<UserProfile>> {
+    return api.get(`/account/profile/${userId}`);
+  },
+
   updateProfileData(props: EditUserProfile): Promise<ApiResponse<UserProfile>> {
     return api.put('/account/profile', { ...props });
   },

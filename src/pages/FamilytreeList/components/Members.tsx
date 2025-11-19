@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { ChevronDown, Search, Users, UserCheck } from "lucide-react";
+import { ChevronDown, Search, Users, UserCheck, Eye, X } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import type { PaginationProps } from "@/types/api";
 import type { FamilyMemberList } from "@/types/familytree";
 import familyTreeService from "@/services/familyTreeService";
 import { useAppSelector } from "@/hooks/redux";
+import type { UserProfile } from "@/types/user";
+import userService from "@/services/userService";
 
 type ViewMode = 'member' | 'guest';
 
@@ -28,6 +30,10 @@ const Members: React.FC = () => {
         totalPages: 0,
     });
     const [familyMemberList, setFamilyMemberList] = useState<FamilyMemberList[]>([]);
+    const [detailModalOpen, setDetailModalOpen] = useState(false);
+    const [detailProfile, setDetailProfile] = useState<UserProfile | null>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [detailError, setDetailError] = useState<string | null>(null);
 
     const loadMembers = useCallback(async () => {
         if (!selectedFamilyTree?.id) return;
@@ -180,6 +186,44 @@ const Members: React.FC = () => {
         );
     });
 
+    const closeDetailModal = () => {
+        setDetailModalOpen(false);
+        setDetailProfile(null);
+        setDetailError(null);
+        setDetailLoading(false);
+    };
+
+    const handleViewDetail = async (member: FamilyMemberList) => {
+        if (viewMode !== 'member' || member.ftRole === 'FTGuest') return;
+        if (!selectedFamilyTree?.id) return;
+
+        const candidateId = member.userId;
+        if (!candidateId) {
+            setDetailError("Không tìm thấy thông tin chi tiết cho thành viên này.");
+            setDetailProfile(null);
+            setDetailModalOpen(true);
+            return;
+        }
+
+        setDetailModalOpen(true);
+        setDetailLoading(true);
+        setDetailError(null);
+        setDetailProfile(null);
+
+        try {
+            const res = await userService.getProfileByUserId(candidateId);
+            setDetailProfile(res.data);
+        } catch (error) {
+            console.error("Failed to load member detail:", error);
+            setDetailError("Không thể tải thông tin chi tiết. Vui lòng thử lại.");
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    const getMemberDisplayName = (member: FamilyMemberList) =>
+        member.name || member.username || "Không rõ";
+
     return (
         <div className="h-full overflow-hidden space-y-6 flex flex-col p-6 bg-gray-50">
             {/* Header with View Mode Toggle and Search */}
@@ -248,19 +292,19 @@ const Members: React.FC = () => {
                                 <tr key={member.userId} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <img
-                                                src={member.ft?.filePath || `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                                    member.name || 'User'
-                                                )}&background=random&size=64`}
-                                                alt={member.name}
-                                                className="w-10 h-10 rounded-full object-cover"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                                        member.name || 'User'
-                                                    )}&background=random&size=64`;
-                                                }}
-                                            />
-                                            <span className="text-sm font-medium text-gray-900">{member.name || 'N/A'}</span>
+                                            {member.ft?.filePath ? (
+                                                <img
+                                                    src={member.ft.filePath}
+                                                    alt={getMemberDisplayName(member)}
+                                                    crossOrigin="anonymous"
+                                                    className="w-10 h-10 rounded-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-semibold">
+                                                    {getMemberDisplayName(member).charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                            <span className="text-sm font-medium text-gray-900">{getMemberDisplayName(member)}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-600">{member.username || 'N/A'}</td>
@@ -278,9 +322,20 @@ const Members: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <button className="flex items-center gap-1 text-gray-600 hover:text-gray-900 transition-colors">
-                                            <ChevronDown className="w-4 h-4" />
-                                        </button>
+                                        {viewMode === 'member' ? (
+                                            <button
+                                                onClick={() => handleViewDetail(member)}
+                                                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors text-sm font-medium"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                                Xem chi tiết
+                                            </button>
+                                        ) : (
+                                            <span className="text-xs text-gray-400 flex items-center gap-1 justify-start">
+                                                <ChevronDown className="w-3 h-3" />
+                                                Không khả dụng
+                                            </span>
+                                        )}
                                     </td>
                                 </tr>
                             ))
@@ -310,8 +365,117 @@ const Members: React.FC = () => {
                 totalPages={paginationData.totalPages}
                 onPageChange={handlePageChange}
             />
+
+            <MemberDetailModal
+                open={detailModalOpen}
+                loading={detailLoading}
+                profile={detailProfile}
+                error={detailError}
+                onClose={closeDetailModal}
+            />
         </div>
     );
 };
 
 export default Members;
+
+interface MemberDetailModalProps {
+    open: boolean;
+    loading: boolean;
+    profile: UserProfile | null;
+    error: string | null;
+    onClose: () => void;
+}
+
+const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ open, loading, profile, error, onClose }) => {
+    if (!open) return null;
+
+    const formatDate = (date?: string | null) => {
+        if (!date) return "Không rõ";
+        try {
+            return new Date(date).toLocaleDateString('vi-VN');
+        } catch {
+            return date;
+        }
+    };
+
+    const genderLabel = profile?.gender === 1 ? "Nữ" : profile?.gender === 0 ? "Nam" : "Không xác định";
+    const jobInfo = profile?.job || profile?.occupation || "Chưa cập nhật";
+    const publicInfo = profile?.publicInfo || profile?.bio || "Chưa có thông tin công khai.";
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-500"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+                        <p>Đang tải thông tin...</p>
+                    </div>
+                ) : error ? (
+                    <div className="text-center py-10">
+                        <p className="text-red-600 font-semibold mb-3">Đã xảy ra lỗi</p>
+                        <p className="text-gray-600">{error}</p>
+                    </div>
+                ) : profile ? (
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-6">
+                            <div className="w-24 h-24 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+                                {profile.picture ? (
+                                    <img
+                                        src={profile.picture}
+                                        className="w-full h-full object-cover"
+                                        crossOrigin="anonymous"
+                                    />
+                                ) : (
+                                    <span className="text-3xl font-semibold text-gray-500">
+                                        {profile.name?.charAt(0) || profile.nickname?.charAt(0) || profile.email?.charAt(0) || "?"}
+                                    </span>
+                                )}
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">{profile.name || profile.nickname || "Thành viên"}</h2>
+                                <p className="text-gray-600 mt-1">Tên hiển thị: {profile.nickname || "Chưa cập nhật"}</p>
+                                <p className="text-gray-600 mt-1">Giới tính: {genderLabel}</p>
+                            </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="bg-gray-50 rounded-xl p-4">
+                                <h3 className="font-semibold text-gray-800 mb-2">Thông tin cá nhân</h3>
+                                <p className="text-sm text-gray-600">Ngày sinh: {formatDate(profile.birthday)}</p>
+                                <p className="text-sm text-gray-600 mt-1">Email: {profile.email || "Không có"}</p>
+                                <p className="text-sm text-gray-600 mt-1">Số điện thoại: {profile.phoneNumber || "Không có"}</p>
+                            </div>
+                            <div className="bg-gray-50 rounded-xl p-4">
+                                <h3 className="font-semibold text-gray-800 mb-2">Liên hệ</h3>
+                                <p className="text-sm text-gray-600">Công việc/Nghề nghiệp: {jobInfo}</p>
+                                <p className="text-sm text-gray-600 mt-1">Địa chỉ: {profile.address || "Chưa cập nhật"}</p>
+                                {profile.province && (
+                                    <p className="text-sm text-gray-600 mt-1">Tỉnh/Thành: {profile.province.nameWithType || profile.province.name}</p>
+                                )}
+                                {profile.ward && (
+                                    <p className="text-sm text-gray-600 mt-1">Quận/Huyện: {profile.ward.nameWithType || profile.ward.name}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-xl p-4">
+                            <h3 className="font-semibold text-gray-800 mb-2">Thông tin công khai</h3>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{publicInfo}</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-10 text-gray-500">Không có dữ liệu thành viên.</div>
+                )}
+            </div>
+        </div>
+    );
+};
