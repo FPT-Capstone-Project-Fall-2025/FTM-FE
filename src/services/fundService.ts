@@ -94,13 +94,13 @@ export const fundService = {
   // Reject campaign expense (manager)
   async rejectCampaignExpenseManager(
     expenseId: string,
-    payload: { approverId: string; notes?: string }
+    payload: { approverId: string; rejectionReason?: string }
   ): Promise<boolean> {
     const body = {
-      ApproverId: payload.approverId,
-      Notes: payload.notes || '',
+      approverId: payload.approverId,
+      rejectionReason: payload.rejectionReason || '',
     };
-    const response = await api.post<ApiResponse<boolean>>(
+    const response = await api.put<ApiResponse<boolean>>(
       `/FTCampaignExpense/${encodeURIComponent(expenseId)}/reject`,
       body
     );
@@ -1061,7 +1061,63 @@ export const fundService = {
   },
 
   async approveCampaignExpense(id: string, payload: ApproveCampaignExpensePayload) {
-    return api.put<ApiResponse<boolean>>(`/FTCampaignExpense/${id}/approve`, payload);
+    const hasImages = Array.isArray(payload.paymentProofImages) && payload.paymentProofImages.length > 0;
+
+    console.log('[fundService.approveCampaignExpense] Approving campaign expense:', {
+      expenseId: id,
+      approverId: payload.approverId,
+      approvalNotes: payload.approvalNotes,
+      hasPaymentProofImages: hasImages,
+      imageCount: payload.paymentProofImages?.length || 0,
+      imageNames: payload.paymentProofImages?.map(f => f.name) || [],
+      imageTypes: payload.paymentProofImages?.map(f => f.type) || [],
+      imageSizes: payload.paymentProofImages?.map(f => f.size) || [],
+    });
+
+    if (!hasImages) {
+      throw new Error('Payment proof image is required for approval');
+    }
+
+    const formData = new FormData();
+    formData.append('ApproverId', payload.approverId);
+    formData.append('ApprovalNotes', payload.approvalNotes || '');
+
+    payload.paymentProofImages?.forEach(file => {
+      console.log('[fundService.approveCampaignExpense] Appending file:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        isFile: file instanceof File,
+        constructor: file.constructor.name,
+      });
+      formData.append('PaymentProofImage', file);
+    });
+
+    console.log('[fundService.approveCampaignExpense] FormData contents:');
+    const formDataEntries: Array<[string, any]> = [];
+    for (const [key, value] of formData.entries()) {
+      formDataEntries.push([key, value]);
+      if (value instanceof File) {
+        console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`  ${key}: ${value}`);
+      }
+    }
+
+    const fileEntries = formDataEntries.filter(([_, value]) => value instanceof File);
+    console.log('[fundService.approveCampaignExpense] FormData file entries count:', fileEntries.length);
+
+    if (fileEntries.length === 0) {
+      console.error('[fundService.approveCampaignExpense] ERROR: No files found in FormData!');
+      throw new Error('Payment proof images could not be added to request');
+    }
+
+    const response = await api.put<ApiResponse<boolean>>(
+      `/FTCampaignExpense/${encodeURIComponent(id)}/approve`,
+      formData
+    );
+    const data = unwrap<boolean>(response);
+    return Boolean(data);
   },
 
   async rejectCampaignExpense(id: string, payload: RejectCampaignExpensePayload) {

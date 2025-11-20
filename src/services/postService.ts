@@ -5,8 +5,9 @@ export interface PostData {
   id: string;
   title: string;
   content: string;
-  gpId: string;
-  gpMemberId: string;
+  FTId: string;
+  FTMemberId: string;
+  gpMemberId?: string | null;
   authorName: string;
   authorPicture: string;
   status: number;
@@ -47,10 +48,10 @@ export interface PostData {
 }
 
 export interface CreatePostData {
-  GPId: string;
+  FTId: string;
   Title: string;
   Content: string;
-  GPMemberId: string;
+  FTMemberId: string;
   Status: number;
   Files?: File[] | undefined;
   Captions?: string[] | undefined;
@@ -59,8 +60,23 @@ export interface CreatePostData {
 
 const postService = {
   // Get all posts for a specific family tree
-  getPostsByFamilyTree(familyTreeId: string): Promise<ApiResponse<PostData[]>> {
-    return api.get(`/post/family-tree/${familyTreeId}`);
+  async getPostsByFamilyTree(familyTreeId: string): Promise<ApiResponse<PostData[]>> {
+    if (!familyTreeId) {
+      throw new Error('familyTreeId is required to fetch posts');
+    }
+
+    console.log('[postService.getPostsByFamilyTree] Fetching posts', { FTId: familyTreeId });
+
+    try {
+      // Preferred endpoint: query by FTId (new API contract)
+      return await api.get('/post', {
+        params: { FTId: familyTreeId },
+      });
+    } catch (error) {
+      console.warn('[postService.getPostsByFamilyTree] /post?FTId failed, fallback to legacy endpoint', error);
+      // Fallback to legacy path-based endpoint for backward compatibility
+      return api.get(`/post/family-tree/${familyTreeId}`);
+    }
   },
 
   // Create a new post
@@ -68,10 +84,14 @@ const postService = {
     const formData = new FormData();
     
     // Add basic post data
-    formData.append('GPId', data.GPId);
+    console.log('[postService.createPost] Identifiers', {
+      FTId: data.FTId,
+      FTMemberId: data.FTMemberId,
+    });
+    formData.append('FTId', data.FTId);
     formData.append('Title', data.Title);
     formData.append('Content', data.Content);
-    formData.append('GPMemberId', data.GPMemberId);
+    formData.append('FTMemberId', data.FTMemberId);
     formData.append('Status', data.Status.toString());
     
     // Handle files, captions, and file types together
@@ -128,8 +148,8 @@ const postService = {
     Title?: string;
     Content?: string;
     Status?: number;
-    GPId?: string;
-    GPMemberId?: string;
+    FTId?: string;
+    FTMemberId?: string;
     Files?: File[];
     Captions?: string[];
     FileTypes?: string[];
@@ -141,8 +161,14 @@ const postService = {
     formData.append('Title', data.Title || '');
     formData.append('Content', data.Content || '');
     if (data.Status !== undefined) formData.append('Status', data.Status.toString());
-    if (data.GPId) formData.append('GPId', data.GPId);
-    if (data.GPMemberId) formData.append('GPMemberId', data.GPMemberId);
+    if (data.FTId || data.FTMemberId) {
+      console.log('[postService.updatePostWithFiles] Identifiers', {
+        FTId: data.FTId,
+        FTMemberId: data.FTMemberId,
+      });
+    }
+    if (data.FTId) formData.append('FTId', data.FTId);
+    if (data.FTMemberId) formData.append('FTMemberId', data.FTMemberId);
     
     // Handle files, captions, and file types if provided
     if (data.Files && data.Files.length > 0) {
@@ -200,14 +226,14 @@ const postService = {
   // Add a comment to a post or reply to a comment
   addComment(data: {
     postId: string;
-    gpMemberId: string;
+    FTMemberId: string;
     content: string;
     parentCommentId?: string;
     files?: File[];
   }): Promise<ApiResponse<any>> {
     const payload = {
       postId: data.postId,
-      gpMemberId: data.gpMemberId,
+      FTMemberId: data.FTMemberId,
       content: data.content,
       parentCommentId: data.parentCommentId || null
     };
@@ -260,12 +286,12 @@ const postService = {
   // Add/toggle reaction to a post
   addPostReaction(data: {
     postId: string;
-    gpMemberId: string;
+    FTMemberId: string;
     reactionType: number; // 1=Like, 2=Love, 3=Haha, 4=Wow, 5=Sad, 6=Angry
   }): Promise<ApiResponse<any>> {
     const payload = {
       postId: data.postId,
-      gpMemberId: data.gpMemberId,
+      FTMemberId: data.FTMemberId,
       reactionType: data.reactionType
     };
 
