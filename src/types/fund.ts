@@ -316,7 +316,8 @@ export interface CreateFundDonationResponse {
 
 export interface ApproveCampaignExpensePayload {
   approverId: string;
-  approvalNotes?: string;
+  approvalNotes?: string | null;
+  paymentProofImages?: File[];
 }
 
 export interface RejectCampaignExpensePayload {

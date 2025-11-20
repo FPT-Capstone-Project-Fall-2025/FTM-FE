@@ -85,10 +85,10 @@ const familyTreeService = {
     return api.get(`/ftmember/member-tree?ftId=${ftId}`);
   },
 
-  getFamilyTreeMemberById(ftId: string, memberId: string): Promise<ApiResponse<FamilyNode>> {
+  getFamilyTreeMemberById(ftId: string, ftMemberId: string): Promise<ApiResponse<FamilyNode>> {
     return api.get(`/ftmember/${ftId}/get-by-memberid`, {
       params: {
-        memberId
+        memberId: ftMemberId
       }
     });
   },

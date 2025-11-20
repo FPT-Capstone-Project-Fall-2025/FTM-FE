@@ -180,25 +180,38 @@ const familyTreeMemberService = {
     }
   },
 
-  /** Get full GPMember by ftId and memberId (group-specific profile) */
-  async getGPMemberByMemberId(ftId: string, memberId: string): Promise<GPMember | null> {
-    try {
-      const cacheKey = `${ftId}:${memberId}`;
-      if (gpMemberCacheByMemberId.has(cacheKey)) {
-        return gpMemberCacheByMemberId.get(cacheKey)!;
-      }
-      const response: ApiResponse<GPMember> = await api.get(`/ftmember/${ftId}/get-by-memberid`, {
-        params: { memberId }
-      });
-      const data = (response.data as any)?.data || response.data;
-      if (response.status && data) {
-        gpMemberCacheByMemberId.set(cacheKey, data as GPMember);
-        return data as GPMember;
-      }
-      return null;
-    } catch {
-      return null;
+  /** Get full GPMember by ftId and FTMemberId (group-specific profile) */
+  async getGPMemberByMemberId(ftId: string, ftMemberId: string): Promise<GPMember | null> {
+    const cacheKey = `${ftId}:${ftMemberId}`;
+    if (gpMemberCacheByMemberId.has(cacheKey)) {
+      return gpMemberCacheByMemberId.get(cacheKey)!;
     }
+
+    try {
+      const response: ApiResponse<GPMember> = await api.get(
+        `/ftmember/${ftId}/get-by-memberid`,
+        { params: { memberId: ftMemberId } }
+      );
+
+      const memberData =
+        (response as any)?.data?.data ??
+        (response as any)?.data ??
+        (response as any);
+
+      const isSuccess =
+        (response as any)?.status === true ||
+        (response as any)?.success === true ||
+        (response as any)?.statusCode === 200;
+
+      if (isSuccess && memberData) {
+        gpMemberCacheByMemberId.set(cacheKey, memberData as GPMember);
+        return memberData as GPMember;
+      }
+    } catch (error) {
+      console.error('Error getting GPMember by FTMemberId:', error);
+    }
+
+    return null;
   },
 
   /**

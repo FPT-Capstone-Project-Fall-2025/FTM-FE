@@ -488,7 +488,7 @@ const PostPage: React.FC = () => {
         // Add new reaction using new API format
         const reactionPayload = {
           postId: postId,
-          gpMemberId: gpMemberId,
+          FTMemberId: gpMemberId,
           reactionType: reactionConfig.id // Use numeric ID (1-6)
         };
         
@@ -828,10 +828,10 @@ const PostPage: React.FC = () => {
       
       // Prepare data according to API structure
       const postData: CreatePostData = {
-        GPId: currentFamilyTreeId,
+        FTId: currentFamilyTreeId,
         Title: postTitle.trim() || '',  // Allow empty title
         Content: postContent.trim() || '', // Ensure Content is never undefined
-        GPMemberId: gpMemberId,
+        FTMemberId: gpMemberId,
         Status: createStatus,
         Files: selectedImages.length > 0 ? selectedImages : undefined,
         Captions: selectedImages.length > 0 ? fileCaptions : undefined,
@@ -856,7 +856,7 @@ const PostPage: React.FC = () => {
         const newPost: Post = {
           id: data.id,
           title: data.title,
-          gpMemberId: data.gpMemberId,
+          gpMemberId: data.gpMemberId ?? gpMemberId ?? '',
           author: {
             name: data.authorName || userData.name || 'Username',
             avatar: data.authorPicture || userData.picture || defaultPicture,
@@ -1076,7 +1076,7 @@ const PostPage: React.FC = () => {
       // Submit comment to API with new format
       const result = await postService.addComment({
         postId: postId,
-        gpMemberId: gpMemberId,
+        FTMemberId: gpMemberId,
         content: commentText || '',
       });
       
@@ -1209,8 +1209,8 @@ const PostPage: React.FC = () => {
         Title: editTitle.trim(),
         Content: editContent.trim() || ' ', // Ensure content is never empty string
         Status: editStatus,
-        GPId: currentFamilyTreeId, // Include Family Tree ID
-        GPMemberId: gpMemberId, // Include GPMemberId for ownership verification
+        FTId: currentFamilyTreeId, // Include Family Tree ID
+        FTMemberId: gpMemberId, // Include FTMemberId for ownership verification
       };
       
       if (editImages.length > 0) {
@@ -1629,7 +1629,7 @@ const PostPage: React.FC = () => {
     try {
       const result = await postService.addComment({
         postId: postId,
-        gpMemberId: gpMemberId,
+        FTMemberId: gpMemberId,
         content: replyText,
         parentCommentId: parentCommentId,
       });
