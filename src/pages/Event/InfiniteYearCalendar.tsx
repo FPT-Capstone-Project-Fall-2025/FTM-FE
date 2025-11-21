@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import moment from "moment";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
@@ -233,13 +233,30 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
     }
   };
 
+  // Filter events by eventType when filter changes (client-side filtering)
+  const filteredYearEvents = useMemo(() => {
+    const filtered: Record<number, FamilyEvent[]> = {};
+    Object.keys(yearEvents).forEach((yearStr) => {
+      const year = parseInt(yearStr, 10);
+      const events = yearEvents[year] || [];
+      filtered[year] = events.filter((event: FamilyEvent) => {
+        // Filter by event type if filters are set
+        if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
+          return eventFilters.eventType.includes(event.eventType);
+        }
+        return true; // Show all events if no filter is set
+      });
+    });
+    return filtered;
+  }, [yearEvents, eventFilters?.eventType]);
+
   return (
     <div
       ref={containerRef}
       className="w-full max-h-[calc(100vh-200px)] overflow-y-auto p-2 bg-gray-50 rounded-lg"
     >
       {years.map((year) => {
-        const events = yearEvents[year] || [];
+        const events = filteredYearEvents[year] || [];
         const groupedEvents = groupEventsByDate(events);
         const sortedDates = Object.keys(groupedEvents).sort();
         const isLoadingYear = loadingYears.has(year);

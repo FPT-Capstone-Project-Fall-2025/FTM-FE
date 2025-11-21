@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Checkbox } from "antd";
 import { Plus, MapPin, ChevronDown } from "lucide-react";
 import { useCombobox } from "downshift";
@@ -7,6 +7,7 @@ import type { EventType } from "./EventTypeLabel";
 import EventStatistics from "./EventStatistics";
 import provinceService from "../../services/provinceService";
 import familyTreeService from "../../services/familyTreeService";
+import debounce from 'lodash/debounce';
 
 /**
  * EventSidebar Component
@@ -86,6 +87,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const isInitialMount = useRef<boolean>(true);
 
   // Toggle checkbox selection
   const toggleCheckbox = <T,>(list: T[], setList: (value: T[]) => void, value: T) => {
@@ -97,10 +99,36 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
-  // Apply filters
+  // Create debounced filter handler to reduce API calls
+  const debouncedHandleFilter = useMemo(
+    () => debounce((filters: { eventType: EventType[]; eventGp: string[]; eventLocation: string }) => {
+      console.log('🔍 EventSidebar - Applying filters:', filters);
+      handleFilter(filters);
+    }, 300), // 300ms delay - only trigger after user stops changing filters
+    [handleFilter]
+  );
+
+  // Apply filters with debounce (except on initial mount)
   useEffect(() => {
-    handleFilter({ eventType: eventTypes, eventGp: eventGroups, eventLocation });
-  }, [eventTypes, eventGroups, eventLocation]);
+    const filters = { eventType: eventTypes, eventGp: eventGroups, eventLocation };
+    console.log('🔍 EventSidebar - Filter state changed:', filters);
+    
+    // On initial mount, apply filters immediately to fetch data
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      console.log('🔍 EventSidebar - Initial mount, applying filters immediately');
+      handleFilter(filters);
+    } else {
+      // On subsequent changes, use debounce to reduce API calls
+      console.log('🔍 EventSidebar - Debouncing filter update');
+      debouncedHandleFilter(filters);
+    }
+    
+    // Cleanup: cancel pending debounced calls on unmount
+    return () => {
+      debouncedHandleFilter.cancel();
+    };
+  }, [eventTypes, eventGroups, eventLocation, debouncedHandleFilter, handleFilter]);
 
   // Fetch provinces and prepare data
   useEffect(() => {
@@ -468,11 +496,15 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         {openSections.eventType && (
           <div className="py-2">
             {/* Select All / Deselect All Buttons */}
-            <div className="flex gap-2 mb-3">
+            {/* <div className="flex gap-2 mb-3">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setEventTypes([...ALL_EVENT_TYPES]);
+                  e.preventDefault();
+                  // Select all event types
+                  const allTypes = Object.values(EVENT_TYPE).filter((type) => !!EVENT_TYPE_CONFIG[type]) as EventType[];
+                  setEventTypes([...allTypes]);
+                  console.log('✅ Selected all event types:', allTypes);
                 }}
                 className="flex-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded border border-blue-200 transition-colors font-medium"
                 type="button"
@@ -482,14 +514,17 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  e.preventDefault();
+                  // Deselect all event types
                   setEventTypes([]);
+                  console.log('❌ Deselected all event types');
                 }}
                 className="flex-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded border border-gray-200 transition-colors font-medium"
                 type="button"
               >
                 ✕ Bỏ chọn
               </button>
-            </div>
+            </div> */}
 
             {/* Event Type Checkboxes */}
             {ALL_EVENT_TYPES.map((type) => {
@@ -553,7 +588,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
             ) : (
               <>
                 {/* Select All / Deselect All Buttons */}
-                <div className="flex gap-2 mb-3">
+                {/* <div className="flex gap-2 mb-3">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -574,7 +609,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
                   >
                     ✕ Bỏ chọn
                   </button>
-                </div>
+                </div> */}
 
                 {/* Group Checkboxes */}
                 {eventGp.map((group) => (
