@@ -296,7 +296,6 @@ const Members: React.FC = () => {
                                                 <img
                                                     src={member.ft.filePath}
                                                     alt={getMemberDisplayName(member)}
-                                                    crossOrigin="anonymous"
                                                     className="w-10 h-10 rounded-full object-cover"
                                                 />
                                             ) : (
@@ -432,7 +431,6 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ open, loading, pr
                                     <img
                                         src={profile.picture}
                                         className="w-full h-full object-cover"
-                                        crossOrigin="anonymous"
                                     />
                                 ) : (
                                     <span className="text-3xl font-semibold text-gray-500">

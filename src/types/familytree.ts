@@ -12,6 +12,10 @@ export interface FamilyMember {
   isRoot: boolean,
   statusCode?: number;
   isCurrentMember: boolean,
+  storyDescription?: string;
+  isDeath?: boolean;
+  deathDate?: string;
+  isDivorced?: boolean;
   isPartner: boolean;
 }
 

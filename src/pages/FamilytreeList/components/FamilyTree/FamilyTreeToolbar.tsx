@@ -38,7 +38,7 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({ handleInviteUser 
         if (isExportingImage) return; // Prevent double click
         setIsExportingImage(true);
 
-        const reactFlowElement = document.querySelector('.react-flow__viewport') as HTMLElement;
+        const reactFlowElement = document.querySelector('.react-flow') as HTMLElement;
         if (!reactFlowElement) {
             alert('Không tìm thấy cây gia phả để xuất');
             setIsExportingImage(false);

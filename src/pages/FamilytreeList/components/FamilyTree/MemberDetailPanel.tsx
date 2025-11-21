@@ -11,6 +11,7 @@ const MemberDetailPanel = ({
   onShowMemberDetail?: () => void;
 }) => {
   const bgColor = member?.gender === 1 ? 'bg-pink-200' : 'bg-blue-200';
+  console.log(member);
   return (
     <>
       {/* Backdrop overlay */}
@@ -41,9 +42,9 @@ const MemberDetailPanel = ({
                   <h2 className="text-xl font-bold text-gray-800">{member.name}</h2>
                   <div className="flex items-center gap-1 text-sm text-gray-600">
                     <Calendar className="w-4 h-4" />
-                    <span>Sinh: {new Date(member.birthday || '').toLocaleDateString('en-GB')}</span>
+                    <span>Sinh: {member.birthday ? new Date(member.birthday).toLocaleDateString('en-GB') : '-'}</span>
                   </div>
-                  <div className="text-sm text-gray-600">Mất: -</div>
+                  <div className="text-sm text-gray-600">Mất: {member.deathDate ? new Date(member.deathDate).toLocaleDateString('en-GB') : '-'}</div>
                 </div>
               </div>
               <button
@@ -58,7 +59,7 @@ const MemberDetailPanel = ({
             <div className="bg-white rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-gray-800 mb-2">Mô tả tiểu sử</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                {member.bio || "Trống"}
+                {member.storyDescription || "Trống"}
               </p>
             </div>
 
@@ -72,9 +73,9 @@ const MemberDetailPanel = ({
                   </div>
                 ))}
               </div>
-              <button 
-              onClick={onShowMemberDetail}
-              className="text-blue-600 text-sm mt-3 hover:underline">
+              <button
+                onClick={onShowMemberDetail}
+                className="text-blue-600 text-sm mt-3 hover:underline">
                 Xem thêm→
               </button>
             </div>

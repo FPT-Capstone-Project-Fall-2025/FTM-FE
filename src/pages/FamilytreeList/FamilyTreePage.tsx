@@ -155,15 +155,15 @@ const FamilyTreePage: React.FC = () => {
 
       {/* Header with selected tree info */}
       <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isHeaderMinimized
-          ? 'max-h-0 opacity-0 mb-0'
-          : 'max-h-32 opacity-100 mb-2'
+        ? 'max-h-0 opacity-0 mb-0'
+        : 'max-h-32 opacity-100 mb-2'
         }`}>
         <div className={`flex items-center gap-3 transform transition-all duration-500 ${isHeaderMinimized ? 'translate-y-[-20px] scale-95' : 'translate-y-0 scale-100'
           }`}>
           <Users className="w-8 h-8 text-blue-500 transition-all duration-500" />
           <div>
             <h1 className="text-4xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2 transition-all duration-500">
-              Gia phả: {selectedTree?.name}
+              Gia tộc: {selectedTree?.name}
             </h1>
           </div>
         </div>
