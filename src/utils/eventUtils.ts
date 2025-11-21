@@ -92,7 +92,6 @@ export const EVENT_TYPE_LABELS: Partial<Record<EventType, string>> = {
 export const RECURRENCE_TYPE_LABELS = {
   ONCE: 'Một lần',
   DAILY: 'Hàng ngày',
-  WEEKLY: 'Hàng tuần',
   MONTHLY: 'Hàng tháng',
   YEARLY: 'Hàng năm',
 };

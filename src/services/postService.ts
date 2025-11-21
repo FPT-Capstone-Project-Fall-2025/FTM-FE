@@ -69,7 +69,7 @@ const postService = {
 
     try {
       // Preferred endpoint: query by FTId (new API contract)
-      return await api.get('/post', {
+      return await api.get(`/post/family-tree/${familyTreeId}`, {
         params: { FTId: familyTreeId },
       });
     } catch (error) {

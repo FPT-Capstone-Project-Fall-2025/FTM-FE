@@ -995,7 +995,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   format="DD/MM/YYYY HH:mm"
                   showTime={{ format: 'HH:mm' }}
                   minuteStep={5}
-                  disabledDate={(current) => !!current && current.isBefore(dayjs().startOf('day'))}
+                  disabledDate={(current) => {
+                    if (!current) return false;
+                    // Only disable dates before today, allow today and future dates
+                    return current.isBefore(dayjs(), 'day');
+                  }}
                   disabledTime={disablePastHours}
                   className={`w-full ${errors.startTime ? 'border-red-500' : ''}`}
                   getPopupContainer={(trigger) => trigger.parentElement || document.body}
@@ -1102,7 +1106,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 options={[
                   { label: 'Một lần', value: 'ONCE' },
                   { label: 'Hàng ngày', value: 'DAILY' },
-                  { label: 'Hàng tuần', value: 'WEEKLY' },
                   { label: 'Hàng tháng', value: 'MONTHLY' },
                   { label: 'Hàng năm', value: 'YEARLY' },
                 ]}
