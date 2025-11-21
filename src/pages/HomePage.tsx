@@ -189,7 +189,6 @@ const HomePage: React.FC = () => {
   const getEventTypeColor = (type: string | number | null | undefined) => {
     // Normalize event type (handles both string and number from API)
     const normalizedType = normalizeEventType(type);
-    const color = EVENT_TYPE_CONFIG[normalizedType]?.color || '#FAAD14';
     
     // Convert hex color to Tailwind classes
     switch (normalizedType) {
