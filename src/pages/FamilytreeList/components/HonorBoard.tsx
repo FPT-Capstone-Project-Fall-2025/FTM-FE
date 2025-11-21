@@ -439,13 +439,7 @@ const HonorBoard: React.FC = () => {
                                           <span className="font-bold text-gray-900">
                                             {honor.organizationName || honor.institutionName}
                                           </span>
-                                          {(honor.position || honor.degreeOrCertificate) && (
-                                            <>
-                                              {' '}với <span className="font-bold text-green-600">
-                                                {honor.position || honor.degreeOrCertificate}
-                                              </span>
-                                            </>
-                                          )}
+                                          
                                         </p>
                                       </div>
 
@@ -535,16 +529,6 @@ const HonorBoard: React.FC = () => {
                 <p className="text-4xl font-bold text-indigo-900">
                   {academicHonors.length + careerHonors.length}
                 </p>
-                <div className="mt-2 flex items-center gap-2 text-xs text-indigo-600">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                    <span>{academicHonors.length} học tập</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span>{careerHonors.length} sự nghiệp</span>
-                  </div>
-                </div>
               </div>
 
               {/* Category Breakdown */}
@@ -566,32 +550,6 @@ const HonorBoard: React.FC = () => {
                   <Briefcase className="w-5 h-5 text-green-600 mb-1" />
                   <p className="text-xs text-gray-600">Sự nghiệp</p>
                   <p className="text-2xl font-bold text-green-900">{careerHonors.length}</p>
-                </div>
-              </div>
-
-              {/* Current Board Stats */}
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1">
-                  <Trophy className="w-3 h-3" />
-                  {activeBoard === 'academic' ? 'Học tập' : 'Sự nghiệp'}
-                </h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Tổng số:</span>
-                    <span className="font-bold text-gray-900">{currentHonors.length}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Công khai:</span>
-                    <span className="font-bold text-green-600">
-                      {currentHonors.filter(h => h.isDisplayed).length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Năm gần nhất:</span>
-                    <span className="font-bold text-blue-600">
-                      {sortedHonors.length > 0 && sortedHonors[0] ? sortedHonors[0].yearOfAchievement : '-'}
-                    </span>
-                  </div>
                 </div>
               </div>
 
@@ -968,22 +926,13 @@ const HonorBoard: React.FC = () => {
                   <p className="text-lg font-bold text-gray-900">{selectedHonor.achievementTitle}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h5 className="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wide">
-                      {selectedHonor.organizationName ? 'Tổ chức' : 'Cơ sở giáo dục'}
+                      {selectedHonor.organizationName ? 'Tổ chức' : 'Trường học / Học viện'}
                     </h5>
                     <p className="text-base font-bold text-gray-900">
                       {selectedHonor.organizationName || selectedHonor.institutionName}
-                    </p>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h5 className="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wide">
-                      {selectedHonor.position ? 'Vị trí' : 'Bằng cấp/Chứng chỉ'}
-                    </h5>
-                    <p className="text-base font-bold text-gray-900">
-                      {selectedHonor.position || selectedHonor.degreeOrCertificate}
                     </p>
                   </div>
                 </div>
@@ -1015,16 +964,6 @@ const HonorBoard: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
-                  <h5 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Trạng thái hiển thị</h5>
-                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                    selectedHonor.isDisplayed 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-gray-200 text-gray-700'
-                  }`}>
-                    {selectedHonor.isDisplayed ? 'Đang hiển thị' : 'Đã ẩn'}
-                  </span>
-                </div>
               </div>
 
               {/* Action Buttons */}
