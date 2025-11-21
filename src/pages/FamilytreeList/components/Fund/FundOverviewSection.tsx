@@ -76,6 +76,29 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   onEdit,
   isOwner = false,
 }) => {
+  // Helper function to translate status to Vietnamese
+  const getStatusLabel = (status: string | null | undefined): string => {
+    if (!status) return '—';
+    const normalized = String(status).trim().toLowerCase();
+    
+    // Map common status values to Vietnamese
+    const statusMap: Record<string, string> = {
+      // English statuses
+      'pending': 'Đang chờ',
+      'completed': 'Đã xác nhận',
+      'confirmed': 'Đã xác nhận',
+      'approved': 'Đã phê duyệt',
+      'rejected': 'Đã từ chối',
+      // Vietnamese statuses (if already in Vietnamese, return as is but capitalized)
+      'đang chờ': 'Đang chờ',
+      'đã xác nhận': 'Đã xác nhận',
+      'đã phê duyệt': 'Đã phê duyệt',
+      'đã từ chối': 'Đã từ chối',
+    };
+    
+    return statusMap[normalized] || status;
+  };
+
   const approvedIncome = React.useMemo(() => {
     const ok = new Set(['đã xác nhận', 'confirmed', 'completed', 'đã phê duyệt', 'approved']);
     return transactions
@@ -98,7 +121,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
     return (
       <EmptyState
         icon={<Wallet className="w-12 h-12 text-gray-400" />}
-        title="Chưa có thông tin quỹ cho gia tộc này"
+        title="Chưa có thông tin quỹ cho gia phả này"
         description="Vui lòng tạo quỹ mới hoặc liên hệ quản trị viên để được cấp quyền."
       />
     );
@@ -295,8 +318,8 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
                     {transaction.type === 'income' ? '+' : '-'}
                     {formatCurrency(transaction.amount)}
                   </p>
-                  <span className="text-xs text-gray-400 capitalize">
-                    {transaction.status}
+                  <span className="text-xs text-gray-400">
+                    {getStatusLabel(transaction.status)}
                   </span>
                 </div>
               </div>
