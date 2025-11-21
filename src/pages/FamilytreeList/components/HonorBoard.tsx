@@ -752,7 +752,7 @@ const HonorBoard: React.FC = () => {
               </div>
 
               {/* Position/Degree Field */}
-              <div>
+              <div className="hidden">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   {activeBoard === 'academic' ? 'Bằng cấp / Chứng chỉ' : 'Vị trí'}
                 </label>
@@ -833,18 +833,18 @@ const HonorBoard: React.FC = () => {
 
               {/* Is Displayed - Switch Button */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <label htmlFor="isDisplayed" className="text-sm font-semibold text-gray-700">
+                <div className="hidden">
+                  {/* <label htmlFor="isDisplayed" className="text-sm font-semibold text-gray-700">
                     Hiển thị công khai
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1">
+                  </label> */}
+                  {/* <p className="text-xs text-gray-500 mt-1">
                     Cho phép hiển thị thành tích này trên bảng vinh danh
-                  </p>
+                  </p> */}
                 </div>
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, isDisplayed: !formData.isDisplayed })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  className={`hidden ${
                     formData.isDisplayed ? 'bg-blue-600' : 'bg-gray-300'
                   }`}
                 >

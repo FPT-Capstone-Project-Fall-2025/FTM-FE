@@ -4,7 +4,7 @@ import dayjs, { Dayjs } from "dayjs";
 import type { UploadFile } from "antd/es/upload/interface";
 import type { UploadChangeParam } from "antd/es/upload";
 import { useParams } from "react-router-dom";
-import { format, isBefore, endOfDay } from 'date-fns';
+import { format, isBefore } from 'date-fns';
 import * as yup from "yup";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -17,6 +17,7 @@ import { X, Image as ImageIcon } from "lucide-react";
 import { EVENT_TYPE, EVENT_TYPE_CONFIG } from "./EventTypeLabel";
 import { toast } from 'react-toastify';
 import { formatLunarDate } from "../../utils/lunarUtils";
+import { normalizeEventType } from "../../utils/eventUtils";
 
 // Types
 interface EventFormData {
@@ -89,6 +90,9 @@ interface GPEventDetailsModalProps {
 
 // Helper function to convert event type string to number
 const convertEventTypeToNumber = (eventType: string): number => {
+  // Normalize to uppercase to handle case variations
+  const normalizedType = (eventType || '').toUpperCase().trim();
+  
   const typeMap: Record<string, number> = {
     'FUNERAL': 0,
     'WEDDING': 1,
@@ -96,7 +100,18 @@ const convertEventTypeToNumber = (eventType: string): number => {
     'HOLIDAY': 3,
     'OTHER': 7,
   };
-  return typeMap[eventType] ?? 7;
+  
+  const result = typeMap[normalizedType] ?? 7;
+  
+  // Debug logging
+  console.log('🔍 convertEventTypeToNumber:', {
+    input: eventType,
+    normalized: normalizedType,
+    result: result,
+    mappedTo: Object.keys(typeMap).find(key => typeMap[key] === result)
+  });
+  
+  return result;
 };
 
 // Helper function to convert recurrence string to number
@@ -242,10 +257,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   // Auto-update endTime when isAllDay is checked or startTime changes
   useEffect(() => {
     if (isAllDay && startTime) {
-      // When "All Day" is checked, set endTime to end of the same day
+      // When "All Day" is checked, set endTime to 23:59:59 of the same day as startTime
       const startDate = new Date(startTime);
-      const newEndTime = endOfDay(startDate).toISOString();
-      setValue('endTime', newEndTime);
+      const newEndTime = new Date(startDate);
+      newEndTime.setHours(23, 59, 59, 999); // Set to end of day: 23:59:59.999
+      setValue('endTime', newEndTime.toISOString(), { shouldValidate: false });
     }
   }, [isAllDay, startTime, setValue]);
 
@@ -434,10 +450,18 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         return format(date, "yyyy-MM-dd'T'HH:mm");
       };
 
+      // Normalize eventType from API (can be number or string)
+      const normalizedEventType = normalizeEventType(event.eventType);
+      console.log('🔍 Edit mode - eventType normalization:', {
+        original: event.eventType,
+        normalized: normalizedEventType,
+        type: typeof event.eventType
+      });
+
       // Set basic form fields
       reset({
         name: event.name || '',
-        eventType: event.eventType || 'OTHER',
+        eventType: normalizedEventType, // Use normalized eventType
         startTime: formatDateTime(event.startTime),
         endTime: formatDateTime(event.endTime),
         location: event.location || null,
@@ -526,9 +550,17 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       console.log('🕐 Auto-filled startTime:', startTimeValue);
       console.log('🕐 Auto-filled endTime:', endTimeValue);
 
+      // Normalize eventType from eventSelected (can be number or string)
+      const normalizedEventType = event?.eventType ? normalizeEventType(event.eventType) : 'OTHER';
+      console.log('🔍 Create mode - eventType normalization:', {
+        original: event?.eventType,
+        normalized: normalizedEventType,
+        type: typeof event?.eventType
+      });
+
       reset({
         name: event?.name || '',
-        eventType: event?.eventType || 'OTHER',
+        eventType: normalizedEventType, // Use normalized eventType
         startTime: startTimeValue,
         endTime: endTimeValue,
         location: event?.location || null,
@@ -569,15 +601,38 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   const onSubmit = async (data: EventFormData) => {
     setIsSubmit(true);
     try {
-      console.log('Form data:', data);
-      console.log('ImageUrl from form:', data.imageUrl ? `${data.imageUrl.substring(0, 50)}...` : 'null');
+      console.log('📋 Form data:', data);
+      console.log('📋 EventType from form:', data.eventType);
+      console.log('📋 ImageUrl from form:', data.imageUrl ? `${data.imageUrl.substring(0, 50)}...` : 'null');
 
-      // Validate start time is before end time
-      if (!isBefore(new Date(data.startTime), new Date(data.endTime))) {
+      // Validate start time is before end time (skip if isAllDay, as endTime is auto-set)
+      if (!isAllDay && !isBefore(new Date(data.startTime), new Date(data.endTime))) {
         toast.error("Thời gian bắt đầu phải trước thời gian kết thúc");
         setIsSubmit(false);
         return;
       }
+      
+      // For all-day events, ensure endTime is set to end of startTime's day
+      if (isAllDay && data.startTime) {
+        const startDate = new Date(data.startTime);
+        const endDate = new Date(startDate);
+        endDate.setHours(23, 59, 59, 999);
+        data.endTime = endDate.toISOString();
+      }
+      
+      // Convert eventType and log for debugging
+      const eventTypeNumber = convertEventTypeToNumber(data.eventType);
+      console.log('📋 EventType conversion:', {
+        original: data.eventType,
+        converted: eventTypeNumber,
+        expected: {
+          'FUNERAL': 0,
+          'WEDDING': 1,
+          'BIRTHDAY': 2,
+          'HOLIDAY': 3,
+          'OTHER': 7
+        }[data.eventType?.toUpperCase() || '']
+      });
 
       // Get the ftId (Family Tree ID)
       // Priority: selectedFamilyTreeId -> eventSelected.ftId -> URL params -> fallback
@@ -621,7 +676,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
         response = await eventService.updateEventWithFiles((eventSelected as any).id, {
           name: data.name,
-          eventType: convertEventTypeToNumber(data.eventType),
+          eventType: eventTypeNumber,
           startTime: data.startTime,
           endTime: data.endTime || data.startTime,
           location: data.location || null,
@@ -650,7 +705,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
         response = await eventService.createEventWithFiles({
           name: data.name,
-          eventType: convertEventTypeToNumber(data.eventType),
+          eventType: eventTypeNumber,
           startTime: data.startTime,
           endTime: data.endTime || data.startTime,
           location: data.location || null,
@@ -942,6 +997,10 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 getPopupContainer={(trigger) => trigger.parentElement || document.body}
                 options={eventTypes}
                 status={errors.eventType ? 'error' : ''}
+                onChange={(value) => {
+                  console.log('🔍 EventType selected:', value);
+                  field.onChange(value);
+                }}
               />
             )}
           />
@@ -952,7 +1011,23 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         <div>
           <Checkbox
             checked={isAllDay}
-            onChange={(e) => setIsAllDay(e.target.checked)}
+            onChange={(e) => {
+              const newIsAllDay = e.target.checked;
+              setIsAllDay(newIsAllDay);
+              
+              // When "All Day" is checked, adjust startTime to 00:00:00 and endTime to 23:59:59 of the same day
+              if (newIsAllDay && startTime) {
+                const startDate = new Date(startTime);
+                // Set startTime to 00:00:00 of the same day
+                startDate.setHours(0, 0, 0, 0);
+                setValue('startTime', startDate.toISOString(), { shouldValidate: false });
+                
+                // Set endTime to 23:59:59 of the same day
+                const endDate = new Date(startDate);
+                endDate.setHours(23, 59, 59, 999);
+                setValue('endTime', endDate.toISOString(), { shouldValidate: false });
+              }
+            }}
           >
             Sự kiện cả ngày
           </Checkbox>
@@ -990,7 +1065,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                       field.onChange(null);
                       return;
                     }
-                    field.onChange(value.toISOString());
+                    const newStartTime = value.toISOString();
+                    field.onChange(newStartTime);
+                    
+                    // If isAllDay is checked, automatically update endTime to end of the same day
+                    if (isAllDay) {
+                      const startDate = new Date(newStartTime);
+                      const endDate = new Date(startDate);
+                      endDate.setHours(23, 59, 59, 999);
+                      setValue('endTime', endDate.toISOString(), { shouldValidate: false });
+                    }
                   }}
                   format="DD/MM/YYYY HH:mm"
                   showTime={{ format: 'HH:mm' }}
@@ -1124,15 +1208,21 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
               name="recurrenceEndTime"
               control={control}
               render={({ field }) => (
-                <input
-                  type="date"
-                  value={field.value ? format(new Date(field.value), 'yyyy-MM-dd') : ''}
-                  onChange={(e) => {
-                    const date = e.target.value ? new Date(e.target.value) : null;
-                    field.onChange(date ? date.toISOString() : null);
+                <DatePicker
+                  value={field.value ? dayjs(field.value) : null}
+                  onChange={(value) => {
+                    field.onChange(value ? value.toISOString() : null);
                   }}
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  format="DD-MM-YYYY"
+                  style={{ width: '100%' }}
+                  size="large"
+                  disabledDate={(current) => {
+                    if (!current) return false;
+                    // Disable dates before today
+                    return current.isBefore(dayjs(), 'day');
+                  }}
+                  getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                  placeholder="Chọn ngày kết thúc lặp lại"
                 />
               )}
             />
