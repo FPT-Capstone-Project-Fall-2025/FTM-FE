@@ -15,6 +15,7 @@ jobs:
     name: Build and Deploy Job
     env:  
       VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+      VITE_OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -52,6 +53,7 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_GRASS_08413B900 }}
           action: "close"
+
 
 
 
