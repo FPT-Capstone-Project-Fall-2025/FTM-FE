@@ -240,7 +240,7 @@ const BasicInfo: React.FC = () => {
                         />
                     </div>
 
-                    <div>
+                    {/* <div>
                         <label htmlFor="OwnerId" className="block text-sm font-medium text-gray-700 mb-2">
                             Mã người sở hữu
                         </label>
@@ -255,7 +255,7 @@ const BasicInfo: React.FC = () => {
                                 }`}
                             placeholder="Nhập mã người sở hữu"
                         />
-                    </div>
+                    </div> */}
 
                     <div>
                         <label htmlFor="Description" className="block text-sm font-medium text-gray-700 mb-2">

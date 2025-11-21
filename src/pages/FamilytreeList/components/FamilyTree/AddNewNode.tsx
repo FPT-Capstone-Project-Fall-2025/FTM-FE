@@ -124,7 +124,7 @@ const AddNewNode = ({
   onClose,
   onSelectType,
 }: AddNewNodeProps) => {
-  
+
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showPartnerSelection, setShowPartnerSelection] = useState(false);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
@@ -149,7 +149,7 @@ const AddNewNode = ({
 
   // Filter out existing relationships
   const availableRelationships = allRelationships.filter(
-    (rel) =>  !existingRelationships.includes(rel.id)
+    (rel) => !existingRelationships.includes(rel.id)
   );
 
   // Group by row
@@ -734,6 +734,7 @@ const AddNewNode = ({
                   }}
                   dateFormat="dd/MM/yyyy"
                   placeholderText="dd/mm/yyyy"
+                  maxDate={new Date()}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                   wrapperClassName="w-full"
                   showYearDropdown
@@ -817,6 +818,7 @@ const AddNewNode = ({
                         }}
                         dateFormat="dd/MM/yyyy"
                         placeholderText="dd/mm/yyyy"
+                        maxDate={new Date()}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                         wrapperClassName="w-full"
                         showYearDropdown

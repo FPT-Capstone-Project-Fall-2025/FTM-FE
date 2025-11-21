@@ -534,11 +534,36 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       if (children.length > 3) {
         childSpacing = Math.max(150, (280 * 3) / children.length);
       }
+      // ===== POLYGAMY OFFSET: Position children towards their specific parent =====
+      let polygamyOffset = 0;
+      if (parentIds.length === 2) {
+        const [p1, p2] = parentIds;
+        const p1Partners = members[p1!]?.partners || [];
+        const p2Partners = members[p2!]?.partners || [];
+        const p1HasMultiple = p1Partners.length > 1;
+        const p2HasMultiple = p2Partners.length > 1;
+        // One parent has multiple partners (polygamy case)
+        if (p1HasMultiple || p2HasMultiple) {
+          const centerParent = p1HasMultiple ? p1! : p2!;
+          const spouseParent = p1HasMultiple ? p2! : p1!;
+          const centerPos = positionMap.get(centerParent);
+          const spousePos = positionMap.get(spouseParent);
+          if (centerPos && spousePos) {
+            // Determine which side the spouse is on
+            const spouseIsLeft = spousePos.x < centerPos.x;
+            const parentDistance = Math.abs(spousePos.x - centerPos.x);
 
+            // Position children halfway between center and spouse (50% offset)
+            const offsetAmount = parentDistance * 0.5;
+            polygamyOffset = spouseIsLeft ? -offsetAmount : offsetAmount;
+          }
+        }
+      }
+      const finalCenterX = parentCenterX + polygamyOffset;
       siblingGroups.push({
         parentKey,
         children,
-        parentCenterX,
+        parentCenterX: finalCenterX, // Use adjusted center for polygamy
         childSpacing,
       });
     });

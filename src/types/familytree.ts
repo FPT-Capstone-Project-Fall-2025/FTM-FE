@@ -12,6 +12,10 @@ export interface FamilyMember {
   isRoot: boolean,
   statusCode?: number;
   isCurrentMember: boolean,
+  storyDescription?: string;
+  isDeath?: boolean;
+  deathDate?: string;
+  isDivorced?: boolean;
   isPartner: boolean;
 }
 
@@ -74,6 +78,8 @@ export interface FamilyNodeList {
 
 export interface FamilyMemberList {
   userId: string;
+  id?: string;
+  ftMemberId?: string;
   name: string;
   username: string;
   ftRole: string;

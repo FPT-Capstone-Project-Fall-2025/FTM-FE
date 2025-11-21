@@ -436,6 +436,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                     <img
                                         src={data.picture}
                                         alt={data.fullname}
+                                        crossOrigin="anonymous"
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
@@ -612,6 +613,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                         }}
                                                         dateFormat="dd/MM/yyyy"
                                                         placeholderText="dd/mm/yyyy"
+                                                        maxDate={new Date()}
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                                         wrapperClassName="w-full"
                                                         showYearDropdown
@@ -845,6 +847,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                             <img
                                                                 src={file.thumbnail}
                                                                 alt={file.title}
+                                                                crossOrigin="anonymous"
                                                                 className="w-32 h-32 rounded-lg object-cover cursor-pointer hover:opacity-80"
                                                                 onClick={() => setSelectedFileIndex(idx)}
                                                             />
@@ -966,6 +969,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                             <img
                                                 src={getFileSrc(data.ftMemberFiles[selectedFileIndex])?.toString()}
                                                 alt={data.ftMemberFiles[selectedFileIndex].title}
+                                                crossOrigin="anonymous"
                                                 className="max-w-full max-h-[90vh] rounded-lg"
                                             />
                                         )}

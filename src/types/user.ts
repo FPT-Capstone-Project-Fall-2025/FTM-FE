@@ -16,6 +16,7 @@ export interface CreateUserData {
   password: string;
 }
 export interface UserProfile {
+  userId?: string;
   name: string;
   email: string;
   nickname: string;
@@ -27,10 +28,9 @@ export interface UserProfile {
   ward: Ward | null;
   address: string;
   picture: string;
-  // isActive: boolean | null;
-  // roles: string[];
-  // createdDate: string | null;
-  // updatedDate: string | null;
+  bio?: string | null;
+  publicInfo?: string | null;
+  occupation?: string | null;
 }
 
 export interface AvatarUpdateResponse {
