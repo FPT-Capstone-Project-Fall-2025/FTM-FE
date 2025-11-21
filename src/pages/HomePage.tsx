@@ -8,6 +8,8 @@ import familyTreeService from '@/services/familyTreeService';
 import postService from '@/services/postService';
 import { useAppSelector } from '@/hooks/redux';
 import { toast } from 'react-toastify';
+import { normalizeEventType, EVENT_TYPE_CONFIG } from '@/utils/eventUtils';
+import { EventType } from '@/types/event';
 
 moment.locale('vi');
 
@@ -178,27 +180,25 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const getEventTypeLabel = (type: string) => {
-    const typeMap: Record<string, string> = {
-      'WEDDING': 'Cưới hỏi',
-      'BIRTHDAY': 'Sinh nhật - Mừng thọ',
-      'FUNERAL': 'Tang lễ',
-      'HOLIDAY': 'Ngày lễ',
-      'OTHER': 'Khác',
-    };
-    return typeMap[type?.toUpperCase()] || 'Sự kiện';
+  const getEventTypeLabel = (type: string | number | null | undefined) => {
+    // Normalize event type (handles both string and number from API)
+    const normalizedType = normalizeEventType(type);
+    return EVENT_TYPE_CONFIG[normalizedType]?.label || 'Sự kiện';
   };
 
-  const getEventTypeColor = (type: string) => {
-    const normalizedType = type?.toUpperCase();
+  const getEventTypeColor = (type: string | number | null | undefined) => {
+    // Normalize event type (handles both string and number from API)
+    const normalizedType = normalizeEventType(type);
+    
+    // Convert hex color to Tailwind classes
     switch (normalizedType) {
-      case 'WEDDING':
+      case EventType.WEDDING:
         return 'bg-pink-100 text-pink-800';
-      case 'BIRTHDAY':
+      case EventType.BIRTHDAY:
         return 'bg-yellow-100 text-yellow-800';
-      case 'FUNERAL':
+      case EventType.FUNERAL:
         return 'bg-gray-100 text-gray-800';
-      case 'HOLIDAY':
+      case EventType.HOLIDAY:
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
