@@ -225,7 +225,7 @@ const BasicInfo: React.FC = () => {
                 <div className="lg:col-span-2 space-y-6">
                     <div>
                         <label htmlFor="Name" className="block text-sm font-medium text-gray-700 mb-2">
-                            Tên Gia Phả
+                            Tên Gia Tộc
                         </label>
                         <input
                             type="text"
@@ -236,7 +236,7 @@ const BasicInfo: React.FC = () => {
                             disabled={!isEditMode}
                             className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${!isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
                                 }`}
-                            placeholder="Nhập tên gia phả"
+                            placeholder="Nhập tên gia tộc"
                         />
                     </div>
 

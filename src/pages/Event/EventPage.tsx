@@ -367,11 +367,7 @@ const EventPage: React.FC = () => {
               <>
                 {/* Header Section */}
                 <div className="mb-3 flex-shrink-0">
-                    {/* Title */}
-                    {/* <h2 className="text-2xl font-semibold mb-3 text-gray-900">
-                      Lịch sự kiện gia phả
-                    </h2> */}
-
+                 
                     {/* Search Bar */}
                     <div className="relative mb-3">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />

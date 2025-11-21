@@ -588,7 +588,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         "822994d5-7acd-41f8-b12b-e0a634d74440";
 
       if (!ftId) {
-        toast.error("Không tìm thấy ID gia phả");
+        toast.error("Không tìm thấy ID gia tộc");
         setIsSubmit(false);
         return;
       }
@@ -808,16 +808,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 checked={targetMemberId === ''}
                 onChange={() => {
                   setTargetMemberId('');
-                  console.log('🎯 Selected: Sự kiện gia phả');
+                  console.log('🎯 Selected: Sự kiện gia tộc');
                 }}
                 className="w-4 h-4 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm font-medium text-gray-700">👥 Sự kiện gia phả</span>
+              <span className="text-sm font-medium text-gray-700">👥 Sự kiện gia tộc</span>
             </label>
           </div>
 
           <div className="mt-2 text-xs text-gray-500">
-            "Sự kiện của tôi" dành riêng cho bạn, "Sự kiện gia phả" dành cho cả gia đình
+            "Sự kiện của tôi" dành riêng cho bạn, "Sự kiện gia tộc" dành cho cả gia đình
           </div>
         </div>
 

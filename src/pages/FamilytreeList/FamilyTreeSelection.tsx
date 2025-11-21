@@ -41,7 +41,7 @@ const FamilyTreeSelection: React.FC = () => {
             dispatch(setAvailableFamilyTrees(response.data.data));
         } catch (error) {
             console.error('Error fetching family trees:', error);
-            toast.error('Không thể tải danh sách gia phả');
+            toast.error('Không thể tải danh sách gia tộc');
         } finally {
             setLoading(false);
         }
@@ -113,7 +113,7 @@ const FamilyTreeSelection: React.FC = () => {
             setTempImage(null);
             setNewTreeData({ name: '', ownerName: '', ownerId: '', description: '', file: null, gpModecode: 0 });
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi tạo gia phả');
+            toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi tạo gia tộc');
         } finally {
             setApiLoading(false);
         }
@@ -155,9 +155,9 @@ const FamilyTreeSelection: React.FC = () => {
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                                GIA PHẢ CỦA TÔI
+                                GIA TỘC CỦA TÔI
                             </h2>
-                            <p className="text-gray-600 mt-1.5">Chọn một gia phả để xem và chỉnh sửa thông tin của bạn</p>
+                            <p className="text-gray-600 mt-1.5">Chọn một gia tộc để xem và chỉnh sửa thông tin của bạn</p>
                         </div>
                     </div>
                 </div>
@@ -172,14 +172,14 @@ const FamilyTreeSelection: React.FC = () => {
                         <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-6">
                             <Users className="w-12 h-12 text-blue-500" />
                         </div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">Chưa có gia phả nào</h3>
-                        <p className="text-gray-600 mb-6 text-center max-w-md">Bắt đầu tạo gia phả đầu tiên của bạn để quản lý thông tin gia đình</p>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">Chưa có gia tộc nào</h3>
+                        <p className="text-gray-600 mb-6 text-center max-w-md">Bắt đầu tạo gia tộc đầu tiên của bạn để quản lý thông tin gia đình</p>
                         <button
                             onClick={() => setShowCreatePopup(true)}
                             className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2 font-medium"
                         >
                             <Plus className="w-5 h-5" />
-                            Tạo gia phả mới
+                            Tạo gia tộc
                         </button>
                     </div>
                 ) : (
@@ -262,7 +262,7 @@ const FamilyTreeSelection: React.FC = () => {
                                     <Plus className="w-10 h-10 text-blue-600 group-hover:scale-110 transition-transform duration-300" />
                                 </div>
                                 <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                    Tạo gia phả mới
+                                    Tạo gia tộc
                                 </h3>
                                 <p className="text-sm text-gray-600 max-w-[200px] mx-auto">
                                     Bắt đầu xây dựng cây gia đình của bạn

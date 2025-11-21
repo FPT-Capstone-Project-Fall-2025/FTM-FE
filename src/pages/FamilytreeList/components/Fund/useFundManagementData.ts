@@ -606,7 +606,7 @@ export const useFundManagementData = (
   const createCampaign = useCallback(
     async (input: CampaignCreationInput) => {
       if (!familyTreeId) {
-        throw new Error('Thiếu thông tin gia phả.');
+        throw new Error('Thiếu thông tin gia tộc.');
       }
 
       setActionLoading(true);

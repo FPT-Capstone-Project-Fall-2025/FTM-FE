@@ -154,7 +154,7 @@ const HonorBoard: React.FC = () => {
     }
 
     if (!selectedTree?.id) {
-      toast.error('Không tìm thấy gia phả');
+      toast.error('Không tìm thấy gia tộc');
       return;
     }
 
@@ -957,7 +957,7 @@ const HonorBoard: React.FC = () => {
                 />
                 <div>
                   <h4 className="text-2xl font-bold text-gray-900">{selectedHonor.memberFullName}</h4>
-                  <p className="text-gray-600 mt-1">Thành viên gia phả</p>
+                  <p className="text-gray-600 mt-1">Thành viên gia tộc</p>
                 </div>
               </div>
 

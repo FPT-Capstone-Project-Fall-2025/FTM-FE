@@ -62,7 +62,7 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   pageSize,
   onPageChange,
   title = 'Chiến dịch gây quỹ',
-  subtitle = 'Quản lý và theo dõi các chiến dịch quyên góp của gia phả',
+  subtitle = 'Quản lý và theo dõi các chiến dịch quyên góp của gia tộc',
   showCreateButton = true,
   showStatusFilter = true,
   showAllCampaigns: _showAllCampaigns = false,

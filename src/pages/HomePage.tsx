@@ -230,7 +230,7 @@ const HomePage: React.FC = () => {
                 TRANG CHỦ
               </h1>
               <p className="text-gray-600 mt-1.5">
-                Tổng quan về gia phả và hoạt động của bạn
+                Tổng quan về gia tộc và hoạt động của bạn
               </p>
             </div>
           </div>
@@ -307,7 +307,7 @@ const HomePage: React.FC = () => {
                   <div className="p-2 bg-green-100 rounded-lg">
                     <LayoutGrid className="w-5 h-5 text-green-600" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900">Gia phả của tôi</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Gia tộc của tôi</h2>
                 </div>
                 <Link
                   to="/family-trees"

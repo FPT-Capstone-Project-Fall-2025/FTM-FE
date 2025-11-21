@@ -595,7 +595,7 @@ const FundManagement: React.FC = () => {
   const handleCreateFund = useCallback(
     async (form: FundCreateForm) => {
       if (!selectedTree?.id) {
-        toast.error('Không xác định được gia phả để tạo quỹ.');
+        toast.error('Không xác định được gia tộc để tạo quỹ.');
         return;
       }
 
@@ -717,7 +717,7 @@ const FundManagement: React.FC = () => {
       }
       if (!gpMemberId) {
         toast.error(
-          'Không xác định được thành viên gia phả để ghi nhận khoản đóng góp.'
+          'Không xác định được thành viên gia tộc để ghi nhận khoản đóng góp.'
         );
         return;
       }
@@ -818,7 +818,7 @@ const FundManagement: React.FC = () => {
       try {
         await uploadDonationProof(recentDonation.id, files);
         if (!gpMemberId) {
-          toast.error('Không xác định được thành viên gia phả để xác nhận.');
+          toast.error('Không xác định được thành viên gia tộc để xác nhận.');
           return;
         }
         await confirmDonation(recentDonation.id, gpMemberId, note.trim() || undefined);
@@ -863,7 +863,7 @@ const FundManagement: React.FC = () => {
       // Parse amount from string (may contain formatted value)
       const amountValue = Number(withdrawalForm.amount.replace(/\D/g, ''));
       if (!Number.isFinite(amountValue) || amountValue <= 0) {
-        toast.error('Số tiền rút phải lớn hơn 0.');
+        toast.error('Số tiền rút tộci lớn hơn 0.');
         return;
       }
 
@@ -1544,7 +1544,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
 
   const handleOpenCampaignModal = useCallback(() => {
     if (!selectedTree?.id) {
-      toast.error('Vui lòng chọn gia phả để tạo chiến dịch.');
+      toast.error('Vui lòng chọn gia tộc để tạo chiến dịch.');
       return;
     }
     const organizerName = getDisplayNameFromGPMember(gpMember) || gpMember?.fullname || authUser?.name || '';
@@ -1575,7 +1575,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (!selectedTree?.id) {
-        toast.error('Không xác định được gia phả.');
+        toast.error('Không xác định được gia tộc.');
         return;
       }
 
@@ -1598,7 +1598,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
 
       const targetAmountNumber = Number(campaignForm.targetAmount);
       if (!Number.isFinite(targetAmountNumber) || targetAmountNumber < 0) {
-        toast.error('Số tiền mục tiêu phải lớn hơn hoặc bằng 0.');
+        toast.error('Số tiền mục tiêu tộci lớn hơn hoặc bằng 0.');
         return;
       }
 
@@ -1606,7 +1606,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         const start = new Date(campaignForm.startDate);
         const end = new Date(campaignForm.endDate);
         if (end < start) {
-          toast.error('Ngày kết thúc phải sau ngày bắt đầu.');
+          toast.error('Ngày kết thúc tộci sau ngày bắt đầu.');
           return;
         }
       }
@@ -1729,8 +1729,8 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
   return (
       <div className="h-full overflow-y-auto bg-gray-50 p-6">
         <EmptyState
-          title="Chưa chọn gia phả"
-          description="Vui lòng chọn một gia phả trong danh sách để xem thông tin quỹ."
+          title="Chưa chọn gia tộc"
+          description="Vui lòng chọn một gia tộc trong danh sách để xem thông tin quỹ."
         />
       </div>
     );
@@ -2050,7 +2050,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
               {funds.length === 0 ? (
                 <div className="flex flex-col items-center justify-center bg-white border border-dashed border-gray-200 rounded-xl py-10 text-center">
                   <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                    Gia phả này chưa có quỹ
+                    Gia tộc này chưa có quỹ
                   </h4>
                   <p className="text-sm text-gray-500 max-w-sm mb-4">
                     Hãy khởi tạo quỹ đầu tiên để bắt đầu quản lý tài chính và các
@@ -2210,7 +2210,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                   onRefresh={refreshPendingDonations}
                   onConfirm={async (donationId, confirmationNotes) => {
                     if (!gpMemberId) {
-                      toast.error('Không xác định được thành viên gia phả để xác nhận.');
+                      toast.error('Không xác định được thành viên gia tộc để xác nhận.');
                       return;
                     }
                     try {
@@ -2234,7 +2234,7 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
                   }}
                   onReject={async (donationId, reason) => {
                     if (!gpMemberId) {
-                      toast.error('Không xác định được thành viên gia phả để từ chối.');
+                      toast.error('Không xác định được thành viên gia tộc để từ chối.');
                       return;
                     }
                     try {

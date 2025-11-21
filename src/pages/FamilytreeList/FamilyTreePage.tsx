@@ -132,7 +132,7 @@ const FamilyTreePage: React.FC = () => {
           className="flex cursor-pointer items-center text-blue-600 hover:text-blue-700 text-sm font-medium transition-all duration-300 hover:translate-x-[-4px] group"
         >
           <ChevronRight className="w-4 h-4 rotate-180 mr-1 transition-transform duration-300 group-hover:translate-x-[-2px]" />
-          Quay lại danh sách gia phả
+          Quay lại danh sách gia tộc
         </button>
 
         <button

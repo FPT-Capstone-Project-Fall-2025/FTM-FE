@@ -98,7 +98,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
     return (
       <EmptyState
         icon={<Wallet className="w-12 h-12 text-gray-400" />}
-        title="Chưa có thông tin quỹ cho gia phả này"
+        title="Chưa có thông tin quỹ cho gia tộc này"
         description="Vui lòng tạo quỹ mới hoặc liên hệ quản trị viên để được cấp quyền."
       />
     );

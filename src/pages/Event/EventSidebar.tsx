@@ -162,7 +162,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         const familyTrees = response?.data?.data?.data || response?.data?.data || [];
 
         const mappedGps: GPItem[] = familyTrees.map((tree: any) => ({
-          label: tree.name || 'Gia phả',
+          label: tree.name || 'Gia tộc',
           value: tree.id,
         }));
 
@@ -530,7 +530,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
           className="flex justify-between items-center py-2 cursor-pointer font-medium text-sm border-b border-gray-100 select-none"
         >
           <div className="flex items-center gap-2">
-            <span>Sự kiện gia phả</span>
+            <span>Sự kiện gia tộc</span>
             <span className="text-xs text-gray-500 font-normal">
               ({eventGroups.length}/{eventGp.length})
             </span>
@@ -548,7 +548,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
               </div>
             ) : eventGp.length === 0 ? (
               <div className="text-sm text-gray-400 italic py-2">
-                Không có gia phả nào
+                Không có gia tộc nào
               </div>
             ) : (
               <>
