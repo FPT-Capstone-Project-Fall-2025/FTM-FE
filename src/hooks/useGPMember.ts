@@ -57,7 +57,7 @@ export const useGPMember = (gpId: string | null, userId: string | null): UseGPMe
         familyTreeMemberService.setGPMemberId(gpId, userId, member.id);
       } else {
         console.error('❌ useGPMember: No member data returned');
-        setError('Không thể lấy thông tin thành viên gia phả');
+        setError('Không thể lấy thông tin thành viên gia tộc');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi không xác định';

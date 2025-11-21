@@ -36,7 +36,7 @@ const GroupPostPage: React.FC = () => {
             totalItems: paginatedData.totalItems
           });
         } else {
-          throw new Error(result.message || 'Không thể tải dữ liệu gia phả');
+          throw new Error(result.message || 'Không thể tải dữ liệu gia tộc');
         }
       } catch (error) {
         console.error('Error loading family trees:', error);
@@ -168,7 +168,7 @@ const GroupPostPage: React.FC = () => {
             {/* Header */}
             <div className="bg-white rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between mb-4">
-                <h1 className="text-2xl font-bold text-gray-900">Gia phả</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Gia tộc</h1>
               </div>
               
               {/* Search */}
@@ -178,7 +178,7 @@ const GroupPostPage: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm kiếm gia phả"
+                  placeholder="Tìm kiếm gia tộc"
                   className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -188,7 +188,7 @@ const GroupPostPage: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm">
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-900">Tất cả gia phả</h3>
+                  <h3 className="font-semibold text-gray-900">Tất cả gia tộc</h3>
                 </div>
                 
                 <div className="space-y-3">
@@ -219,9 +219,9 @@ const GroupPostPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                    Tất cả gia phả ({familyTrees.length})
+                    Tất cả gia tộc ({familyTrees.length})
                   </h2>
-                  <p className="text-gray-600">Khám phá và quản lý các gia phả của bạn</p>
+                  <p className="text-gray-600">Khám phá và quản lý các gia tộc của bạn</p>
                 </div>
               </div>
             </div>
@@ -230,7 +230,7 @@ const GroupPostPage: React.FC = () => {
             {filteredFamilyTrees.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-8 text-center">
                 <p className="text-gray-500 text-lg">
-                  {searchQuery ? 'Không tìm thấy gia phả nào phù hợp với từ khóa tìm kiếm.' : 'Chưa có gia phả nào.'}
+                  {searchQuery ? 'Không tìm thấy gia tộc nào phù hợp với từ khóa tìm kiếm.' : 'Chưa có gia tộc nào.'}
                 </p>
               </div>
             ) : (
@@ -266,7 +266,7 @@ const GroupPostPage: React.FC = () => {
                         onClick={() => handleViewGroup(familyTree.id)}
                         className="w-full py-2 px-4 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
                       >
-                        Xem gia phả
+                        Xem gia tộc
                       </button>
                     </div>
                   </div>

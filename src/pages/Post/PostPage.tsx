@@ -356,7 +356,7 @@ const PostPage: React.FC = () => {
       pendingReactions.current.add(operationKey);
       
       if (!gpMemberId) {
-        toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
+        toast.error('Không thể xác định thành viên gia tộc. Vui lòng thử lại!');
         return;
       }
 
@@ -797,7 +797,7 @@ const PostPage: React.FC = () => {
     const currentFamilyTreeId = familyTreeId || '374a1ace-479b-435b-9bcf-05ea83ef7d17'; // Use the same ID as in curl example
     
     if (!currentFamilyTreeId) {
-      toast.error('Không tìm thấy ID gia phả');
+      toast.error('Không tìm thấy ID gia tộc');
       return;
     }
 
@@ -812,14 +812,14 @@ const PostPage: React.FC = () => {
       // Use gpMemberId from hook instead of manually extracting from token
       if (!gpMemberId) {
         if (gpMemberLoading) {
-          toast.warning('Đang tải thông tin thành viên gia phả. Vui lòng thử lại sau.');
+          toast.warning('Đang tải thông tin thành viên gia tộc. Vui lòng thử lại sau.');
           return;
         }
         if (gpMemberError) {
-          toast.error(`Lỗi khi lấy thông tin thành viên gia phả: ${gpMemberError}`);
+          toast.error(`Lỗi khi lấy thông tin thành viên gia tộc: ${gpMemberError}`);
           return;
         }
-        toast.error('Không thể xác định thông tin thành viên trong gia phả. Vui lòng kiểm tra lại.');
+        toast.error('Không thể xác định thông tin thành viên trong gia tộc. Vui lòng kiểm tra lại.');
         return;
       }
       
@@ -1068,7 +1068,7 @@ const PostPage: React.FC = () => {
     }
 
     if (!gpMemberId) {
-      toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
+      toast.error('Không thể xác định thành viên gia tộc. Vui lòng thử lại!');
       return;
     }
 
@@ -1195,7 +1195,7 @@ const PostPage: React.FC = () => {
     }
 
     if (!gpMemberId) {
-      toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
+      toast.error('Không thể xác định thành viên gia tộc. Vui lòng thử lại!');
       return;
     }
 
@@ -1456,7 +1456,7 @@ const PostPage: React.FC = () => {
     }
 
     if (!gpMemberId) {
-      toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
+      toast.error('Không thể xác định thành viên gia tộc. Vui lòng thử lại!');
       return;
     }
 
@@ -1622,7 +1622,7 @@ const PostPage: React.FC = () => {
     }
 
     if (!gpMemberId) {
-      toast.error('Không thể xác định thành viên gia phả. Vui lòng thử lại!');
+      toast.error('Không thể xác định thành viên gia tộc. Vui lòng thử lại!');
       return;
     }
 
@@ -1926,7 +1926,7 @@ const PostPage: React.FC = () => {
                         {familyTreeLoading ? (
                           <div className="h-10 bg-gray-200 rounded animate-pulse w-64"></div>
                         ) : (
-                          familyTreeData?.name || 'Gia Phả Gia Đình'
+                          familyTreeData?.name || 'Gia Tộc Gia Đình'
                         )}
                       </h1>
                     </div>
@@ -1975,7 +1975,7 @@ const PostPage: React.FC = () => {
                   <button
                     onClick={() => setShowSharePopup(true)}
                     className="flex items-center space-x-2 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all duration-200 font-medium"
-                    title="Chia sẻ gia phả"
+                    title="Chia sẻ gia tộc"
                   >
                     <Share className="w-4 h-4" />
                     <span>Chia sẻ</span>
@@ -2009,7 +2009,7 @@ const PostPage: React.FC = () => {
                         {gpMemberLoading && (
                           <div className="flex items-center space-x-2 text-blue-600">
                             <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                            <span>Đang tải thông tin thành viên gia phả...</span>
+                            <span>Đang tải thông tin thành viên gia tộc...</span>
                           </div>
                         )}
                         {gpMemberError && (
@@ -2311,7 +2311,7 @@ const PostPage: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                   <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3">
                     <div className="flex items-center space-x-2">
-                      <h3 className="font-semibold text-white text-sm">Hoạt động gia phả</h3>
+                      <h3 className="font-semibold text-white text-sm">Hoạt động gia tộc</h3>
                     </div>
                   </div>
                   <div className="p-4 space-y-3">
@@ -2532,7 +2532,7 @@ const PostPage: React.FC = () => {
               <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-gray-900">Chia sẻ gia phả</h2>
+                    <h2 className="text-xl font-bold text-gray-900">Chia sẻ gia tộc</h2>
                     <button
                       onClick={() => setShowSharePopup(false)}
                       className="text-gray-400 hover:text-gray-600"
@@ -2550,7 +2550,7 @@ const PostPage: React.FC = () => {
                         />
                         <div>
                           <h3 className="font-semibold text-gray-900">
-                            {familyTreeData?.name || 'Gia Phả Gia Đình'}
+                            {familyTreeData?.name || 'Gia Tộc Gia Đình'}
                           </h3>
                           <p className="text-sm text-gray-600">
                             Nhóm công khai • {familyTreeData?.numberOfMember || 0} thành viên

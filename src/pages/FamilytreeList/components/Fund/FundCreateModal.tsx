@@ -147,7 +147,7 @@ const FundCreateModal: React.FC<FundCreateModalProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-gray-900">Tạo quỹ gia tộc</h3>
-              <p className="text-sm text-gray-500">Mỗi gia phả chỉ có một quỹ</p>
+              <p className="text-sm text-gray-500">Mỗi gia tộc chỉ có một quỹ</p>
             </div>
           </div>
           <button
