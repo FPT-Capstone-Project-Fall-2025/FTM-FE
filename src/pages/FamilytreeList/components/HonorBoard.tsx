@@ -435,7 +435,7 @@ const HonorBoard: React.FC = () => {
                                         
                                         {/* Achievement Description */}
                                         <p className="text-xs text-gray-700 mb-1 leading-relaxed">
-                                          Đã đạt được <span className="font-bold text-blue-600">{honor.achievementTitle}</span> tại{' '}
+                                          Đã <span className="font-bold text-blue-600">{honor.achievementTitle}</span> tại{' '}
                                           <span className="font-bold text-gray-900">
                                             {honor.organizationName || honor.institutionName}
                                           </span>
