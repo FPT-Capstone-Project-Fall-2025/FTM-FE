@@ -2899,8 +2899,6 @@ const handleRefreshActiveCampaigns = useCallback(async () => {
         getCampaignStatusKey={getCampaignStatusKey}
         getCampaignStatusLabel={getCampaignStatusLabel}
         getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
-        getDonationStatusKey={getDonationStatusKey}
-        getPaymentMethodLabel={getPaymentMethodLabel}
       />
 
       <FundCampaignModal

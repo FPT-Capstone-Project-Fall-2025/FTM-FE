@@ -24,7 +24,7 @@ const GroupPostPage: React.FC = () => {
       setError(null);
       try {
         const result = await familyTreeService.getAllFamilyTrees(pagination.pageIndex, pagination.pageSize);
-        
+
         if (result.status && result.data) {
           // result.data is now PaginatedFamilyTreeResponse
           const paginatedData = result.data;
@@ -71,7 +71,7 @@ const GroupPostPage: React.FC = () => {
     const diffInMs = now.getTime() - date.getTime();
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
     const diffInWeeks = Math.floor(diffInDays / 7);
-    
+
     if (diffInDays === 0) {
       return 'Hôm nay';
     } else if (diffInDays < 7) {
@@ -95,7 +95,7 @@ const GroupPostPage: React.FC = () => {
               <div className="h-8 bg-gray-200 rounded-lg mb-4 animate-pulse"></div>
               <div className="h-10 bg-gray-200 rounded-full animate-pulse"></div>
             </div>
-            
+
             {/* Recent Family Trees Skeleton */}
             <div className="bg-white rounded-lg shadow-sm p-4">
               <div className="h-6 bg-gray-200 rounded-lg mb-4 animate-pulse"></div>
@@ -152,7 +152,7 @@ const GroupPostPage: React.FC = () => {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <p className="text-red-800">Lỗi: {error}</p>
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
             >
@@ -165,36 +165,32 @@ const GroupPostPage: React.FC = () => {
         <div className="flex gap-6">
           {/* Left Sidebar */}
           <div className="w-80 space-y-4">
-            {/* Header */}
-            <div className="bg-white rounded-lg shadow-sm p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h1 className="text-2xl font-bold text-gray-900">Gia tộc</h1>
-              </div>
-              
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm kiếm gia tộc"
-                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
 
             {/* All Family Trees */}
+
             <div className="bg-white rounded-lg shadow-sm">
+
               <div className="p-4">
+                {/* Search */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Tìm kiếm gia tộc"
+                    className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900">Tất cả gia tộc</h3>
+
                 </div>
-                
+
                 <div className="space-y-3">
                   {familyTrees.slice(0, 8).map((familyTree) => (
-                    <div 
-                      key={familyTree.id} 
+                    <div
+                      key={familyTree.id}
                       className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
                       onClick={() => handleViewGroup(familyTree.id)}
                     >
@@ -245,7 +241,7 @@ const GroupPostPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Family Tree Info */}
                     <div className="p-4">
                       <div className="mb-3">
@@ -260,7 +256,7 @@ const GroupPostPage: React.FC = () => {
                           <span>Tạo: {formatDate(familyTree.createdAt)}</span>
                         </div>
                       </div>
-                      
+
                       {/* Action Button */}
                       <button
                         onClick={() => handleViewGroup(familyTree.id)}
@@ -284,17 +280,16 @@ const GroupPostPage: React.FC = () => {
                 >
                   Trang trước
                 </button>
-                
+
                 <div className="flex items-center space-x-1">
                   {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
                       onClick={() => setPagination(prev => ({ ...prev, pageIndex: page }))}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                        page === pagination.pageIndex
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium ${page === pagination.pageIndex
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
                     >
                       {page}
                     </button>

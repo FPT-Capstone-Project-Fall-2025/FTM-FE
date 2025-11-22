@@ -3,7 +3,6 @@ import {
   Megaphone,
   X,
   TrendingUp,
-  TrendingDown,
   Users,
   Target,
   Calendar,
@@ -14,17 +13,10 @@ import {
 } from 'lucide-react';
 import type { CampaignDetail } from './useFundManagementData';
 import { EmptyState, LoadingState } from './FundLoadingEmpty';
-import type { CampaignExpense, CampaignDonation } from '@/types/fund';
 
 type StatusKey = 'active' | 'upcoming' | 'completed' | 'cancelled';
 
-type DonationStatusKey = 'pending' | 'confirmed' | 'rejected';
-
-type PaymentLabelFn = (method: unknown) => string;
-
 type StatusKeyFn = (status: unknown) => StatusKey;
-
-type DonationStatusFn = (status: unknown) => DonationStatusKey;
 
 interface FundCampaignDetailModalProps {
   isOpen: boolean;
@@ -38,81 +30,7 @@ interface FundCampaignDetailModalProps {
   getCampaignStatusKey: StatusKeyFn;
   getCampaignStatusLabel: (status: StatusKey) => string;
   getCampaignStatusBadgeClasses: (status: StatusKey) => string;
-  getDonationStatusKey: DonationStatusFn;
-  getPaymentMethodLabel: PaymentLabelFn;
 }
-
-const renderDonations = (
-  donations: CampaignDonation[],
-  formatCurrency: (value?: number | null) => string,
-  formatDate: (value?: string | null) => string,
-  getPaymentMethodLabel: PaymentLabelFn,
-  getDonationStatusKey: DonationStatusFn
-) => {
-  if (donations.length === 0) {
-    return (
-      <EmptyState
-        icon={<Users className="w-10 h-10 text-gray-300" />}
-        title="Chưa có đóng góp"
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-      {donations.map(donation => (
-        <div key={donation.id} className="p-3 border border-gray-100 rounded-lg bg-gray-50">
-          <div className="flex items-center justify-between mb-1">
-            <p className="font-semibold text-gray-900">{donation.donorName || 'Nhà hảo tâm ẩn danh'}</p>
-            <span className="text-xs text-gray-500">{formatDate(donation.confirmedOn || donation.createdOn)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-emerald-600 font-semibold">
-              {formatCurrency(Number(donation.donationMoney ?? 0))}
-            </span>
-            <span className="text-gray-500 text-xs">
-              {getPaymentMethodLabel(donation.paymentMethod)} · {getDonationStatusKey(donation.status)}
-            </span>
-          </div>
-          {donation.donorNotes && <p className="text-xs text-gray-500 mt-2">{donation.donorNotes}</p>}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const renderExpenses = (
-  expenses: CampaignExpense[],
-  formatCurrency: (value?: number | null) => string,
-  formatDate: (value?: string | null) => string
-) => {
-  if (expenses.length === 0) {
-    return (
-      <EmptyState
-        icon={<TrendingDown className="w-10 h-10 text-gray-300" />}
-        title="Chưa ghi nhận chi tiêu"
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-      {expenses.map(expense => (
-        <div key={expense.id} className="p-3 border border-gray-100 rounded-lg bg-gray-50">
-          <div className="flex items-center justify-between mb-1">
-            <p className="font-semibold text-gray-900">{expense.expenseTitle || 'Chi tiêu'}</p>
-            <span className="text-xs text-gray-500">{formatDate(expense.expenseDate)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-red-600 font-semibold">{formatCurrency(expense.expenseAmount ?? 0)}</span>
-            <span className="text-gray-500 text-xs">{expense.category || 'Không có danh mục'}</span>
-          </div>
-          {expense.notes && <p className="text-xs text-gray-500 mt-2">{expense.notes}</p>}
-        </div>
-      ))}
-    </div>
-  );
-};
 
 const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
   isOpen,
@@ -126,13 +44,10 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
   getCampaignStatusKey,
   getCampaignStatusLabel,
   getCampaignStatusBadgeClasses,
-  getDonationStatusKey,
-  getPaymentMethodLabel,
 }) => {
   if (!isOpen) return null;
 
   const statusKey = detail ? getCampaignStatusKey(detail.campaign.status) : 'active';
-  const totalDonations = detail?.donations.filter(d => getDonationStatusKey(d.status) === 'confirmed').length ?? 0;
   const stats = detail?.statistics;
   const summary = detail?.financialSummary;
   const progress =
@@ -170,7 +85,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-xs text-gray-500 uppercase mb-1 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-emerald-500" />
@@ -192,18 +107,6 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
                 {typeof stats?.currentBalance === 'number' && (
                   <p className="text-sm text-gray-500">
                     Đã nhận: {formatCurrency(stats.currentBalance)}
-                  </p>
-                )}
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 uppercase mb-1 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-purple-500" />
-                  Số người đóng góp
-                </p>
-                <p className="text-2xl font-bold text-gray-900">{totalDonations}</p>
-                {typeof stats?.daysRemaining === 'number' && (
-                  <p className="text-sm text-gray-500">
-                    {stats.daysRemaining > 0 ? `${stats.daysRemaining} ngày còn lại` : 'Đã kết thúc'}
                   </p>
                 )}
               </div>
@@ -283,7 +186,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
                 <div className="border border-gray-200 rounded-lg p-4 bg-white">
                   <h6 className="text-xs uppercase text-gray-500 mb-1 flex items-center gap-2">
                     <Users className="w-4 h-4 text-purple-500" />
-                    Người đóng góp
+                    Số lần đóng góp
                   </h6>
                   <p className="text-lg font-bold text-gray-900">
                     {summary.totalDonors ?? 0}
@@ -297,7 +200,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
                 <div className="border border-gray-200 rounded-lg p-4 bg-white">
                   <h6 className="text-xs uppercase text-gray-500 mb-1 flex items-center gap-2">
                     <ClipboardList className="w-4 h-4 text-amber-500" />
-                    Yêu cầu chi tiêu
+                    Yêu cầu
                   </h6>
                   <p className="text-lg font-bold text-gray-900">
                     {summary.totalExpenseRequests ?? 0}
@@ -314,21 +217,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h5 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-emerald-500" /> Đóng góp
-                </h5>
-                {renderDonations(detail.donations, formatCurrency, formatDate, getPaymentMethodLabel, getDonationStatusKey)}
-              </div>
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h5 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <TrendingDown className="w-5 h-5 text-red-500" /> Chi tiêu chiến dịch
-                </h5>
-                {renderExpenses(detail.expenses, formatCurrency, formatDate)}
-              </div>
-            </div>
-
+          
             <div className="flex gap-3 justify-end">
               {statusKey === 'active' && detail?.campaign.id && onDonate && (
                 <button
