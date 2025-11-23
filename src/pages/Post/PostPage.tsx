@@ -8,24 +8,21 @@ import PostCard, { CommentItem } from './components/PostCard';
 import GPEventDetailsModal from '../Event/GPEventDetailsModal';
 import postService, { type CreatePostData } from '@/services/postService';
 import familyTreeService from '@/services/familyTreeService';
-import familyTreeMemberService, { type GPMember, getAvatarFromGPMember, getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
 import { getUserIdFromToken } from '@/utils/jwtUtils';
 import userService from '@/services/userService';
 import { useGPMember } from '@/hooks/useGPMember';
 import { toast } from 'react-toastify';
 import type { Post, Comment } from '../../types/post';
 
-// Remove duplicate interfaces - now using shared types from './types'
-
 const PostPage: React.FC = () => {
   const { user, token, isAuthenticated } = useAppSelector(state => state.auth);
   const { id: familyTreeId } = useParams<{ id: string }>();
-  
+
   // Post management state
   const [posts, setPosts] = useState<Post[]>([]);
   const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Post creation state
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
@@ -39,25 +36,24 @@ const PostPage: React.FC = () => {
   const [showSearchPopup, setShowSearchPopup] = useState(false);
   const [showSharePopup, setShowSharePopup] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
-  
+
   // Family tree details state
   const [familyTreeData, setFamilyTreeData] = useState<any>(null);
   const [familyTreeLoading, setFamilyTreeLoading] = useState(false);
-  
+
   // User data state (similar to Navigation.tsx)
   const [userData, setUserData] = useState({ name: '', picture: '' });
-  const [gpMemberMap, setGpMemberMap] = useState<Record<string, GPMember>>({});
   const [searchQuery, setSearchQuery] = useState('');
 
   // GPMember integration - Get GPMemberId for the current user in this family tree
   const currentUserId = getUserIdFromToken(token || '') || user?.userId;
   const currentFamilyTreeId = familyTreeId || null;
-  
-  const { 
-    gpMemberId, 
-    gpMember: _gpMember, 
-    loading: gpMemberLoading, 
-    error: gpMemberError 
+
+  const {
+    gpMemberId,
+    gpMember: _gpMember,
+    loading: gpMemberLoading,
+    error: gpMemberError
   } = useGPMember(currentFamilyTreeId, currentUserId || null);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -66,7 +62,7 @@ const PostPage: React.FC = () => {
   const [editImages, setEditImages] = useState<File[]>([]);
   const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
   const [editCaptions, setEditCaptions] = useState<string[]>([]);
-  const [existingImages, setExistingImages] = useState<{id: string, url: string, caption?: string}[]>([]);
+  const [existingImages, setExistingImages] = useState<{ id: string, url: string, caption?: string }[]>([]);
   const [imagesToRemove, setImagesToRemove] = useState<string[]>([]);
   const [isUpdatingPost, setIsUpdatingPost] = useState(false);
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null);
@@ -96,13 +92,13 @@ const PostPage: React.FC = () => {
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const [hoveredPost, setHoveredPost] = useState<string | null>(null);
   const [showReactionPopup, setShowReactionPopup] = useState<string | null>(null);
-  
+
   // Ref to track pending reaction operations
   const pendingReactions = useRef<Set<string>>(new Set());
-  
+
   // Ref to track tooltip hover timestamps (minimum 2s display)
   const tooltipShowTime = useRef<{ [postId: string]: number }>({});
-  
+
   // Ref to track if hovering over reaction picker (prevent tooltip close)
   const isHoveringReactionPicker = useRef<{ [postId: string]: boolean }>({});
 
@@ -133,48 +129,14 @@ const PostPage: React.FC = () => {
     { type: 'Angry', id: 6, emoji: '😠', label: 'Giận dữ' }
   ];
 
-  // Preload group member profiles map for avatar/name mapping
-  useEffect(() => {
-    if (!currentFamilyTreeId) return;
-    let isMounted = true;
-    (async () => {
-      try {
-        const treeResp = await familyTreeService.getFamilyTreeData(currentFamilyTreeId);
-        const dataList = (treeResp.data as any)?.datalist || [];
-        const memberIds: string[] = dataList
-          .map((n: any) => n?.value?.id)
-          .filter((id: any) => typeof id === 'string');
-        const uniqueIds = Array.from(new Set(memberIds));
-        const results = await Promise.all(
-          uniqueIds.map(async (memberId) => {
-            const profile = await familyTreeMemberService.getGPMemberByMemberId(currentFamilyTreeId, memberId);
-            return [memberId, profile] as const;
-          })
-        );
-        if (!isMounted) return;
-        const map: Record<string, GPMember> = {};
-        results.forEach(([memberId, profile]) => {
-          if (profile) map[memberId] = profile;
-        });
-        setGpMemberMap(map);
-      } catch {
-        // ignore
-      }
-    })();
-    return () => { isMounted = false; };
-  }, [currentFamilyTreeId]);
-
   // Function to transform API comment to Comment interface
   const transformApiComment = (apiComment: any): Comment => {
-    const memberProfile = apiComment.gpMemberId ? gpMemberMap[apiComment.gpMemberId] : undefined;
-    const authorNameFromGroup = memberProfile ? (getDisplayNameFromGPMember(memberProfile) || undefined) : undefined;
-    const avatarFromGroup = memberProfile ? (getAvatarFromGPMember(memberProfile) || undefined) : undefined;
     const comment: Comment = {
       id: apiComment.id || `comment-${Date.now()}-${Math.random()}`,
       gpMemberId: apiComment.gpMemberId,
       author: {
-        name: authorNameFromGroup || apiComment.authorName || 'Unknown User',
-        avatar: avatarFromGroup || apiComment.authorPicture || defaultPicture
+        name: apiComment.authorName || 'Unknown User',
+        avatar: apiComment.authorPicture || defaultPicture
       },
       content: apiComment.content || '',
       images: apiComment.attachments?.map((file: any) => file.url) || [],
@@ -184,11 +146,11 @@ const PostPage: React.FC = () => {
       isEdited: apiComment.isEdited || false,
       replies: apiComment.childComments ? apiComment.childComments.map(transformApiComment) : []
     };
-    
+
     if (apiComment.lastModifiedOn) {
       comment.editedAt = formatTimeAgo(apiComment.lastModifiedOn);
     }
-    
+
     return comment;
   };
 
@@ -196,7 +158,7 @@ const PostPage: React.FC = () => {
   const loadPosts = async () => {
     // Use familyTreeId from params or fallback to a default one for testing
     const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
-    
+
     if (!currentFamilyTreeId) {
       setError('Family Tree ID is required');
       return;
@@ -206,17 +168,17 @@ const PostPage: React.FC = () => {
     setError(null);
     try {
       const result = await postService.getPostsByFamilyTree(currentFamilyTreeId);
-      
-      
+
+
       // Handle both API response formats
       const success = result.success || result.status || (result.statusCode === 200);
       const responseData = result.data as any;
-      
+
       // Handle paginated response or direct array
-      const data = Array.isArray(responseData) 
-        ? responseData 
+      const data = Array.isArray(responseData)
+        ? responseData
         : (responseData?.data || []);
-      
+
       if (success && data) {
         // Transform API data to match Post interface
         const transformedPosts: Post[] = data.map((apiPost: any) => {
@@ -225,18 +187,15 @@ const PostPage: React.FC = () => {
           const hasReacted = currentUserReaction?.hasReacted === true;
           const userReactionType = hasReacted ? currentUserReaction.reactionType : null;
           const userReactionId = hasReacted ? currentUserReaction.id : null;
-          const memberProfile = apiPost.gpMemberId ? gpMemberMap[apiPost.gpMemberId] : undefined;
-          const authorNameFromGroup = memberProfile ? (getDisplayNameFromGPMember(memberProfile) || undefined) : undefined;
-          const avatarFromGroup = memberProfile ? (getAvatarFromGPMember(memberProfile) || undefined) : undefined;
-          
+
           return {
             id: apiPost.id,
             title: apiPost.title,
             gpMemberId: apiPost.gpMemberId,
             status: Number(apiPost.status ?? 1),
             author: {
-              name: authorNameFromGroup || apiPost.authorName || apiPost.author?.name || apiPost.createdBy || 'Unknown User',
-              avatar: avatarFromGroup || apiPost.authorPicture || apiPost.author?.avatar || defaultPicture,
+              name: apiPost.authorName || apiPost.author?.name || apiPost.createdBy || 'Unknown User',
+              avatar: apiPost.authorPicture || apiPost.author?.avatar || defaultPicture,
               timeAgo: formatTimeAgo(apiPost.createdOn || apiPost.createdAt || new Date().toISOString())
             },
             content: apiPost.content,
@@ -256,18 +215,18 @@ const PostPage: React.FC = () => {
             }
           };
         });
-        
+
         setPosts(transformedPosts);
-        
+
       } else {
         const errorMessage = result.message || result.errors || 'Failed to load posts';
         throw new Error(errorMessage);
       }
     } catch (error) {
-      
+
       // More detailed error handling
       let errorMessage = 'Có lỗi xảy ra khi tải bài viết';
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'object' && error !== null) {
@@ -281,8 +240,8 @@ const PostPage: React.FC = () => {
           errorMessage = apiError.message;
         }
       }
-      
-      
+
+
       setError(errorMessage);
     } finally {
       setInitialLoading(false);
@@ -306,34 +265,34 @@ const PostPage: React.FC = () => {
     try {
       const result = await postService.getPostReactions(postId);
       const success = result.success || result.status || (result.statusCode === 200);
-      
+
       if (success && result.data) {
-        
+
         // Handle paginated response or direct array
-        const reactionsData = Array.isArray(result.data) 
-          ? result.data 
+        const reactionsData = Array.isArray(result.data)
+          ? result.data
           : ((result.data as any)?.data || []);
-        
-        
+
+
         // Check if current user has reacted using gpMemberId and hasReacted flag
         const userReaction = reactionsData.find((reaction: any) => {
           return reaction.gpMemberId === gpMemberId && reaction.hasReacted === true;
         });
-        
-        
+
+
         if (userReaction) {
         } else {
         }
-        
+
         // Update post with user reaction and reactionId
-        setPosts(prev => prev.map(post => 
-          post.id === postId 
-            ? { 
-                ...post, 
-                userReaction: userReaction?.reactionType || null,
-                userReactionId: userReaction?.id || null, // Store reaction ID for deletion
-                isLiked: userReaction?.reactionType === 'Like'
-              }
+        setPosts(prev => prev.map(post =>
+          post.id === postId
+            ? {
+              ...post,
+              userReaction: userReaction?.reactionType || null,
+              userReactionId: userReaction?.id || null, // Store reaction ID for deletion
+              isLiked: userReaction?.reactionType === 'Like'
+            }
             : post
         ));
       }
@@ -345,16 +304,16 @@ const PostPage: React.FC = () => {
   const handleReaction = async (postId: string, reactionType: string) => {
     // Create unique key for this operation
     const operationKey = `${postId}-${reactionType}`;
-    
+
     // Check if this exact operation is already pending
     if (pendingReactions.current.has(operationKey)) {
       return;
     }
-    
+
     try {
       // Mark operation as pending
       pendingReactions.current.add(operationKey);
-      
+
       if (!gpMemberId) {
         toast.error('Không thể xác định thành viên gia tộc. Vui lòng thử lại!');
         return;
@@ -385,7 +344,7 @@ const PostPage: React.FC = () => {
 
 
       // Set processing flag to prevent rapid clicks
-      setPosts(prev => prev.map(p => 
+      setPosts(prev => prev.map(p =>
         p.id === postId ? { ...p, isProcessingReaction: true } as any : p
       ));
 
@@ -394,32 +353,32 @@ const PostPage: React.FC = () => {
       // If user already has this reaction, remove it (toggle off)
       // This handles the case when hasReacted: true and user clicks the same reaction again
       if (post.userReaction === reactionType) {
-        
+
         // Use the stored reaction ID for deletion
         if (!post.userReactionId) {
           toast.error('Không tìm thấy ID phản ứng. Vui lòng thử lại!');
           // Clear processing flag
-          setPosts(prev => prev.map(p => 
+          setPosts(prev => prev.map(p =>
             p.id === postId ? { ...p, isProcessingReaction: false } as any : p
           ));
           pendingReactions.current.delete(operationKey);
           return;
         }
-        
+
         const removeResult = await postService.removePostReaction(post.userReactionId);
-        
-        
+
+
         if (!removeResult.status) {
           throw new Error(removeResult.message || 'Không thể xóa phản ứng');
         }
-        
-        
+
+
         // Update state immediately (frontend calculation) - set userReaction to null
         setPosts(prev => prev.map(p => {
           if (p.id === postId) {
             const newReactionsSummary = { ...p.reactionsSummary };
             const reactionKey = reactionType.toLowerCase();
-            
+
             // Decrease count for removed reaction
             if (newReactionsSummary[reactionKey]) {
               newReactionsSummary[reactionKey]--;
@@ -427,8 +386,8 @@ const PostPage: React.FC = () => {
                 delete newReactionsSummary[reactionKey];
               }
             }
-            
-            
+
+
             return {
               ...p,
               userReaction: null,  // hasReacted is now false
@@ -441,21 +400,21 @@ const PostPage: React.FC = () => {
           }
           return p;
         }));
-        
+
         // Also update selectedPost if it's the same post (for modal)
         if (selectedPost?.id === postId) {
           setSelectedPost(prev => {
             if (!prev) return null;
             const newReactionsSummary = { ...prev.reactionsSummary };
             const reactionKey = reactionType.toLowerCase();
-            
+
             if (newReactionsSummary[reactionKey]) {
               newReactionsSummary[reactionKey]--;
               if (newReactionsSummary[reactionKey] === 0) {
                 delete newReactionsSummary[reactionKey];
               }
             }
-            
+
             return {
               ...prev,
               userReaction: null,
@@ -469,53 +428,53 @@ const PostPage: React.FC = () => {
       } else {
         // If user has a different reaction, remove it first and WAIT (REQUIRED)
         if (post.userReaction && post.userReactionId) {
-          
+
           const removeResult = await postService.removePostReaction(post.userReactionId);
-          
+
           if (!removeResult.status) {
             // Clear processing flag
-            setPosts(prev => prev.map(p => 
+            setPosts(prev => prev.map(p =>
               p.id === postId ? { ...p, isProcessingReaction: false } as any : p
             ));
             throw new Error(removeResult.message || 'Phải xóa phản ứng cũ trước khi thêm phản ứng mới');
           }
-          
+
           // Brief wait to ensure backend processes deletion before adding new reaction
           await new Promise(resolve => setTimeout(resolve, 300));
         } else {
         }
-        
+
         // Add new reaction using new API format
         const reactionPayload = {
           postId: postId,
           FTMemberId: gpMemberId,
           reactionType: reactionConfig.id // Use numeric ID (1-6)
         };
-        
-        
+
+
         const response = await postService.addPostReaction(reactionPayload);
-        
-        
+
+
         // Check if response is successful
         if (!response.status) {
           throw new Error(response.message || 'Không thể thêm phản ứng');
         }
-        
+
         // Extract the new reaction ID and type from response
         // API returns: { status: true, data: { id: "...", postId: "...", reactionType: "Haha", hasReacted: true, ... } }
         const newReactionId = response.data?.id || response.data?.data?.id || response.data;
         const actualReactionType = response.data?.reactionType || reactionType;
         const hasReacted = response.data?.hasReacted ?? true;
-        
-        
+
+
         if (!newReactionId) {
         }
-        
+
         // Update state immediately (frontend calculation)
         setPosts(prev => prev.map(p => {
           if (p.id === postId) {
             const newReactionsSummary = { ...p.reactionsSummary };
-            
+
             // If changing from one reaction to another, decrease old count
             if (p.userReaction) {
               const oldReactionKey = p.userReaction.toLowerCase();
@@ -526,14 +485,14 @@ const PostPage: React.FC = () => {
                 }
               }
             }
-            
+
             // Increase count for new reaction (use actualReactionType from API response)
             const newReactionKey = actualReactionType.toLowerCase();
             newReactionsSummary[newReactionKey] = (newReactionsSummary[newReactionKey] || 0) + 1;
-            
+
             // Total reactions: increase only if user had no previous reaction
             const totalChange = p.userReaction ? 0 : 1;
-            
+
             return {
               ...p,
               userReaction: hasReacted ? actualReactionType : null,
@@ -546,13 +505,13 @@ const PostPage: React.FC = () => {
           }
           return p;
         }));
-        
+
         // Also update selectedPost if it's the same post (for modal)
         if (selectedPost?.id === postId) {
           setSelectedPost(prev => {
             if (!prev) return null;
             const newReactionsSummary = { ...prev.reactionsSummary };
-            
+
             // If changing from one reaction to another, decrease old count
             if (prev.userReaction) {
               const oldReactionKey = prev.userReaction.toLowerCase();
@@ -563,14 +522,14 @@ const PostPage: React.FC = () => {
                 }
               }
             }
-            
+
             // Increase count for new reaction
             const newReactionKey = actualReactionType.toLowerCase();
             newReactionsSummary[newReactionKey] = (newReactionsSummary[newReactionKey] || 0) + 1;
-            
+
             // Total reactions: increase only if user had no previous reaction
             const totalChange = prev.userReaction ? 0 : 1;
-            
+
             return {
               ...prev,
               userReaction: hasReacted ? actualReactionType : null,
@@ -582,28 +541,28 @@ const PostPage: React.FC = () => {
           });
         }
       }
-      
+
       setShowReactionPicker(null);
-      
+
       // Unlock operation immediately (frontend calculation is already done)
       pendingReactions.current.delete(operationKey);
-      
+
     } catch (error: any) {
-      
+
       // Clear processing flag on error
-      setPosts(prev => prev.map(p => 
+      setPosts(prev => prev.map(p =>
         p.id === postId ? { ...p, isProcessingReaction: false } as any : p
       ));
-      
+
       const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi thả cảm xúc';
       toast.error(`Lỗi phản ứng: ${errorMessage}`);
-      
+
       // Reload reactions AND summary from server to sync state after error
       await Promise.all([
         loadPostReactions(postId),
         loadReactionSummary(postId)
       ]);
-      
+
       // Unlock operation after error
       pendingReactions.current.delete(operationKey);
     }
@@ -613,9 +572,9 @@ const PostPage: React.FC = () => {
   const getReactionSummaryText = (post: Post): string => {
     const summary = post.reactionsSummary;
     const entries = Object.entries(summary);
-    
+
     if (entries.length === 0) return '';
-    
+
     const reactionEmojis: { [key: string]: string } = {
       like: '👍',
       love: '❤️',
@@ -624,11 +583,11 @@ const PostPage: React.FC = () => {
       sad: '😢',
       angry: '😠'
     };
-    
+
     const sortedEntries = entries.sort((a, b) => b[1] - a[1]);
     const topReactions = sortedEntries.slice(0, 3);
-    
-    return topReactions.map(([type]) => 
+
+    return topReactions.map(([type]) =>
       reactionEmojis[type.toLowerCase()] || '👍'
     ).join('');
   };
@@ -638,21 +597,21 @@ const PostPage: React.FC = () => {
     try {
       const result = await postService.getPostReactionSummary(postId);
       const success = result.success || result.status || (result.statusCode === 200);
-      
+
       if (success && result.data) {
-        
+
         // Calculate total reactions from summary
         const totalReactions = Object.values(result.data).reduce((sum: number, count: any) => sum + (Number(count) || 0), 0);
-        
-        
+
+
         // Update post with reaction summary AND total count
-        setPosts(prev => prev.map(post => 
-          post.id === postId 
-            ? { 
-                ...post, 
-                reactionsSummary: result.data,
-                totalReactions: totalReactions
-              }
+        setPosts(prev => prev.map(post =>
+          post.id === postId
+            ? {
+              ...post,
+              reactionsSummary: result.data,
+              totalReactions: totalReactions
+            }
             : post
         ));
       }
@@ -669,17 +628,17 @@ const PostPage: React.FC = () => {
   useEffect(() => {
     const loadFamilyTreeDetails = async () => {
       const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
-      
+
       if (!currentFamilyTreeId) return;
 
       setFamilyTreeLoading(true);
       try {
         const result = await familyTreeService.getFamilyTreeById(currentFamilyTreeId);
-        
+
         // Handle both API response formats
         const success = result.success || result.status || (result.statusCode === 200);
         const data = result.data;
-        
+
         if (success && data) {
           setFamilyTreeData(data);
         } else {
@@ -722,7 +681,7 @@ const PostPage: React.FC = () => {
     if (diffInMinutes < 60) return `${diffInMinutes} phút trước`;
     if (diffInHours < 24) return `${diffInHours} giờ trước`;
     if (diffInDays < 7) return `${diffInDays} ngày trước`;
-    
+
     return date.toLocaleDateString('vi-VN');
   };
 
@@ -747,7 +706,7 @@ const PostPage: React.FC = () => {
     });
 
     setSelectedImages(prev => [...prev, ...validFiles]);
-    
+
     // Initialize captions for new files
     setFileCaptions(prev => [...prev, ...validFiles.map(() => '')]);
 
@@ -795,7 +754,7 @@ const PostPage: React.FC = () => {
 
     // Use familyTreeId from params or fallback to a default one for testing
     const currentFamilyTreeId = familyTreeId || '374a1ace-479b-435b-9bcf-05ea83ef7d17'; // Use the same ID as in curl example
-    
+
     if (!currentFamilyTreeId) {
       toast.error('Không tìm thấy ID gia tộc');
       return;
@@ -822,10 +781,10 @@ const PostPage: React.FC = () => {
         toast.error('Không thể xác định thông tin thành viên trong gia tộc. Vui lòng kiểm tra lại.');
         return;
       }
-      
-      
+
+
       // Debug logging for arrays
-      
+
       // Prepare data according to API structure
       const postData: CreatePostData = {
         FTId: currentFamilyTreeId,
@@ -845,7 +804,7 @@ const PostPage: React.FC = () => {
 
 
       const response = await postService.createPost(postData);
-      
+
 
       // Handle both API response formats
       const success = response.success || response.status || (response.statusCode === 200);
@@ -885,19 +844,19 @@ const PostPage: React.FC = () => {
 
 
         setPosts(prev => [newPost, ...prev]);
-        
+
         // Close modal and reset form
         handleCloseCreatePostModal();
-        
+
         toast.success('Bài viết đã được tạo thành công!');
       } else {
         throw new Error(response.message || 'Failed to create post');
       }
     } catch (error: any) {
-      
+
       // More specific error messages
       let errorMessage = 'Có lỗi xảy ra khi tạo bài viết. Vui lòng thử lại!';
-      
+
       if (error.response?.status === 400) {
         // Check for validation errors
         const validationErrors = error.response?.data?.errors;
@@ -921,7 +880,7 @@ const PostPage: React.FC = () => {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       toast.error(errorMessage);
     } finally {
       setIsPosting(false);
@@ -947,10 +906,10 @@ const PostPage: React.FC = () => {
     // Fetch the latest events to get the newly created event
     try {
       const response = await postService.getPostsByFamilyTree(currentFamilyTreeId);
-      
+
       // Get the latest event (assuming it's the first one)
       // In a real scenario, you would get the event ID from the creation response
-      
+
       // For now, we'll just refresh the posts to include any auto-created posts
       if (response.data && (response.data as any).data) {
         const fetchedPosts = (response.data as any).data.map((post: any) => ({
@@ -980,13 +939,13 @@ const PostPage: React.FC = () => {
           isLiked: post.userReaction === 'Like',
           comments: post.comments || []
         }));
-        
+
         setPosts(fetchedPosts);
         toast.success('Sự kiện và bài viết đã được tạo thành công!');
       }
     } catch (error) {
     }
-    
+
     setShowEventModal(false);
   };
 
@@ -1079,12 +1038,12 @@ const PostPage: React.FC = () => {
         FTMemberId: gpMemberId,
         content: commentText || '',
       });
-      
-      
+
+
       // Handle both API response formats
       const success = result.success || result.status || (result.statusCode === 200);
       const data = result.data;
-      
+
       if (success && data) {
         // Create new comment from API response
         const newComment: Comment = {
@@ -1106,11 +1065,11 @@ const PostPage: React.FC = () => {
         // Update posts state with new comment
         setPosts(prev => prev.map(post =>
           post.id === postId
-            ? { 
-                ...post, 
-                comments: [...post.comments, newComment],
-                totalComments: (post.totalComments ?? post.comments.length) + 1
-              }
+            ? {
+              ...post,
+              comments: [...post.comments, newComment],
+              totalComments: (post.totalComments ?? post.comments.length) + 1
+            }
             : post
         ));
 
@@ -1127,7 +1086,7 @@ const PostPage: React.FC = () => {
         setCommentInputs(prev => ({ ...prev, [postId]: '' }));
         setCommentImages(prev => ({ ...prev, [postId]: [] }));
         _setCommentImagePreviews(prev => ({ ...prev, [postId]: [] }));
-        
+
         toast.success('Đã gửi bình luận');
       } else {
         throw new Error(result.message || 'Failed to submit comment');
@@ -1164,13 +1123,13 @@ const PostPage: React.FC = () => {
       return;
     }
 
-    
+
     // Initialize edit state
     setEditingPostId(postId);
     setEditContent(content);
     setEditTitle(title || postToEdit.title || '');
     setEditStatus(1); // Default to public, TODO: get from post data
-    
+
     // Initialize existing images
     const existingImgs = postToEdit.images?.map((url, index) => ({
       id: `existing-${index}`, // Temporary ID for existing images
@@ -1178,13 +1137,13 @@ const PostPage: React.FC = () => {
       caption: '' // TODO: get from post data if available
     })) || [];
     setExistingImages(existingImgs);
-    
+
     // Reset edit states
     setEditImages([]);
     setEditImagePreviews([]);
     setEditCaptions([]);
     setImagesToRemove([]);
-    
+
     setShowPostMenu(null);
   };
 
@@ -1203,7 +1162,7 @@ const PostPage: React.FC = () => {
 
     try {
       const currentFamilyTreeId = familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440';
-      
+
       // Prepare update data - ensure Content is never empty for API validation
       const updateData: any = {
         Title: editTitle.trim(),
@@ -1212,12 +1171,12 @@ const PostPage: React.FC = () => {
         FTId: currentFamilyTreeId, // Include Family Tree ID
         FTMemberId: gpMemberId, // Include FTMemberId for ownership verification
       };
-      
+
       if (editImages.length > 0) {
         updateData.Files = editImages;
         updateData.Captions = editCaptions;
       }
-      
+
       if (imagesToRemove.length > 0) {
         updateData.RemoveImageIds = imagesToRemove;
       }
@@ -1259,12 +1218,12 @@ const PostPage: React.FC = () => {
         throw new Error(response.message || 'Failed to update post');
       }
     } catch (error: any) {
-      
+
       let errorMessage = 'Có lỗi xảy ra khi cập nhật bài viết. Vui lòng thử lại!';
-      
+
       if (error.response?.status === 400) {
         const responseData = error.response?.data;
-        
+
         // Check for validation errors in different formats
         if (responseData?.errors) {
           const errorMessages = Object.entries(responseData.errors)
@@ -1286,7 +1245,7 @@ const PostPage: React.FC = () => {
       } else if (error.response?.data?.message) {
         errorMessage = `Lỗi: ${error.response.data.message}`;
       }
-      
+
       toast.error(errorMessage);
     } finally {
       setIsUpdatingPost(false);
@@ -1296,7 +1255,7 @@ const PostPage: React.FC = () => {
   // Handle adding new images to edit
   const handleEditImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    
+
     const validFiles = files.filter(file => {
       if (file.size > 5 * 1024 * 1024) {
         toast.error(`File ${file.name} quá lớn. Kích thước tối đa là 5MB`);
@@ -1814,7 +1773,7 @@ const PostPage: React.FC = () => {
   const handleSearchPosts = () => {
     if (searchQuery.trim()) {
       setSearchLoading(true);
-      
+
       // Simulate API call delay (remove this in production if API exists)
       setTimeout(() => {
         const filteredPosts = posts.filter(post =>
@@ -1822,12 +1781,12 @@ const PostPage: React.FC = () => {
           post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           post.author.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
-        
+
         setSearchResults(filteredPosts);
         setIsSearchActive(true);
         setSearchLoading(false);
         setShowSearchPopup(false);
-        
+
       }, 500);
     }
   };
@@ -1918,7 +1877,7 @@ const PostPage: React.FC = () => {
                       )}
                     </div>
                   )}
-                  
+
                   {/* Group Details */}
                   <div>
                     <div className="flex items-center space-x-3 mb-2">
@@ -1930,14 +1889,14 @@ const PostPage: React.FC = () => {
                         )}
                       </h1>
                     </div>
-                    
+
                     {/* Description */}
                     {familyTreeData?.description && familyTreeData.description !== 'string1' && (
                       <p className="text-gray-600 mb-3 max-w-2xl line-clamp-2">
                         {familyTreeData.description}
                       </p>
                     )}
-                    
+
                     <div className="flex items-center space-x-6 text-gray-600">
                       {/* Members Count */}
                       <div className="flex items-center space-x-2">
@@ -1953,7 +1912,7 @@ const PostPage: React.FC = () => {
                           </>
                         )}
                       </div>
-                      
+
                       {/* Owner Info */}
                       {familyTreeData?.owner && (
                         <div className="flex items-center space-x-2">
@@ -2022,10 +1981,10 @@ const PostPage: React.FC = () => {
                     )}
 
                     <div className="flex items-center space-x-3">
-                      {getAvatarFromGPMember(_gpMember) || userData.picture ? (
+                      {userData.picture ? (
                         <img
-                          src={getAvatarFromGPMember(_gpMember) || userData.picture || defaultPicture}
-                          alt={getDisplayNameFromGPMember(_gpMember) || 'Your avatar'}
+                          src={userData.picture || defaultPicture}
+                          alt={userData?.name || 'Your Avatar'}
                           className="w-10 h-10 rounded-full object-cover"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = defaultPicture;
@@ -2229,78 +2188,78 @@ const PostPage: React.FC = () => {
                       <div className="w-full aspect-square bg-gray-100 rounded" />
                     </div>
                   ) : (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    currentUserGPMemberId={gpMemberId ?? ''}
-                    userData={userData}
-                    reactionTypes={reactionTypes}
-                    
-                    editingPostId={editingPostId}
-                    editContent={editContent}
-                    editTitle={editTitle}
-                    editStatus={editStatus}
-                    editImages={editImages}
-                    editImagePreviews={editImagePreviews}
-                    editCaptions={editCaptions}
-                    existingImages={existingImages}
-                    isUpdatingPost={isUpdatingPost}
-                    
-                    setEditContent={setEditContent}
-                    setEditTitle={setEditTitle}
-                    setEditStatus={setEditStatus}
-                    
-                    showPostMenu={showPostMenu}
-                    setShowPostMenu={setShowPostMenu}
-                    showReactionPicker={showReactionPicker}
-                    setShowReactionPicker={setShowReactionPicker}
-                    hoveredPost={hoveredPost}
-                    setHoveredPost={setHoveredPost}
-                    
-                    tooltipShowTime={tooltipShowTime}
-                    isHoveringReactionPicker={isHoveringReactionPicker}
-                    
-                    onEditPost={handleEditPost}
-                    onDeletePost={handleDeletePost}
-                    onReportPost={handleReportPost}
-                    onSaveEdit={handleSaveEdit}
-                    onCancelEdit={handleCancelEdit}
-                    onReaction={handleReaction}
-                    onReactionSummaryClick={handleReactionSummaryClick}
-                    onOpenPostDetail={handleOpenPostDetail}
-                    
-                    onEditImageSelect={handleEditImageSelect}
-                    onRemoveEditImage={removeEditImage}
-                    onRemoveExistingImage={removeExistingImage}
-                    onUpdateEditCaption={updateEditCaption}
-                    
-                    getReactionSummaryText={getReactionSummaryText}
-                    isCurrentUserPost={isCurrentUserPost}
-                    
-                    // Comment features - pass through for inline display
-                    showComments={false}
-                    commentInputs={commentInputs}
-                    setCommentInputs={setCommentInputs}
-                    onCommentSubmit={handleCommentSubmit}
-                    onLikeComment={handleLikeComment}
-                    onEditComment={handleEditComment}
-                    onDeleteComment={handleDeleteComment}
-                    onReportComment={handleReportComment}
-                    onReplySubmit={handleReplySubmit}
-                    
-                    showCommentMenu={showCommentMenu}
-                    setShowCommentMenu={setShowCommentMenu}
-                    editingCommentId={editingCommentId}
-                    setEditingCommentId={setEditingCommentId}
-                    editCommentContent={editCommentContent}
-                    setEditCommentContent={setEditCommentContent}
-                    replyingToComment={replyingToComment}
-                    setReplyingToComment={setReplyingToComment}
-                    replyInputs={replyInputs}
-                    setReplyInputs={setReplyInputs}
-                    collapsedReplies={collapsedReplies}
-                    setCollapsedReplies={setCollapsedReplies}
-                  />
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      currentUserGPMemberId={gpMemberId ?? ''}
+                      userData={userData}
+                      reactionTypes={reactionTypes}
+
+                      editingPostId={editingPostId}
+                      editContent={editContent}
+                      editTitle={editTitle}
+                      editStatus={editStatus}
+                      editImages={editImages}
+                      editImagePreviews={editImagePreviews}
+                      editCaptions={editCaptions}
+                      existingImages={existingImages}
+                      isUpdatingPost={isUpdatingPost}
+
+                      setEditContent={setEditContent}
+                      setEditTitle={setEditTitle}
+                      setEditStatus={setEditStatus}
+
+                      showPostMenu={showPostMenu}
+                      setShowPostMenu={setShowPostMenu}
+                      showReactionPicker={showReactionPicker}
+                      setShowReactionPicker={setShowReactionPicker}
+                      hoveredPost={hoveredPost}
+                      setHoveredPost={setHoveredPost}
+
+                      tooltipShowTime={tooltipShowTime}
+                      isHoveringReactionPicker={isHoveringReactionPicker}
+
+                      onEditPost={handleEditPost}
+                      onDeletePost={handleDeletePost}
+                      onReportPost={handleReportPost}
+                      onSaveEdit={handleSaveEdit}
+                      onCancelEdit={handleCancelEdit}
+                      onReaction={handleReaction}
+                      onReactionSummaryClick={handleReactionSummaryClick}
+                      onOpenPostDetail={handleOpenPostDetail}
+
+                      onEditImageSelect={handleEditImageSelect}
+                      onRemoveEditImage={removeEditImage}
+                      onRemoveExistingImage={removeExistingImage}
+                      onUpdateEditCaption={updateEditCaption}
+
+                      getReactionSummaryText={getReactionSummaryText}
+                      isCurrentUserPost={isCurrentUserPost}
+
+                      // Comment features - pass through for inline display
+                      showComments={false}
+                      commentInputs={commentInputs}
+                      setCommentInputs={setCommentInputs}
+                      onCommentSubmit={handleCommentSubmit}
+                      onLikeComment={handleLikeComment}
+                      onEditComment={handleEditComment}
+                      onDeleteComment={handleDeleteComment}
+                      onReportComment={handleReportComment}
+                      onReplySubmit={handleReplySubmit}
+
+                      showCommentMenu={showCommentMenu}
+                      setShowCommentMenu={setShowCommentMenu}
+                      editingCommentId={editingCommentId}
+                      setEditingCommentId={setEditingCommentId}
+                      editCommentContent={editCommentContent}
+                      setEditCommentContent={setEditCommentContent}
+                      replyingToComment={replyingToComment}
+                      setReplyingToComment={setReplyingToComment}
+                      replyInputs={replyInputs}
+                      setReplyInputs={setReplyInputs}
+                      collapsedReplies={collapsedReplies}
+                      setCollapsedReplies={setCollapsedReplies}
+                    />
                   )
                 ))}
               </div>
@@ -2379,13 +2338,13 @@ const PostPage: React.FC = () => {
                         acc[authorId].count++;
                         return acc;
                       }, {});
-                      
+
                       // Get top 5 authors, keep their ids for GP mapping
                       const topAuthors = Object.entries(authorCounts)
                         .map(([id, data]) => ({ id, ...data }))
                         .sort((a, b) => b.count - a.count)
                         .slice(0, 5);
-                      
+
                       const rankColors = [
                         'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white',
                         'bg-gradient-to-br from-gray-300 to-gray-500 text-white',
@@ -2393,40 +2352,38 @@ const PostPage: React.FC = () => {
                         'bg-blue-100 text-blue-600',
                         'bg-purple-100 text-purple-600'
                       ];
-                      
+
                       return topAuthors.length > 0 ? (
                         <div className="space-y-2">
                           {topAuthors.map((author, index) => {
-                            const profile = gpMemberMap[author.id];
-                            const displayName = profile ? (getDisplayNameFromGPMember(profile) || author.name) : author.name;
-                            const displayAvatar = profile ? (getAvatarFromGPMember(profile) || author.avatar) : author.avatar;
                             return (
-                            <div key={index} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gray-50 transition-all duration-200 group">
-                              <div className="relative">
-                                <img
-                                  src={displayAvatar || defaultPicture}
-                                  alt={displayName}
-                                  className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = defaultPicture;
-                                  }}
-                                />
-                                <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${rankColors[index]}`}>
-                                  {index + 1}
+                              <div key={index} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gray-50 transition-all duration-200 group">
+                                <div className="relative">
+                                  <img
+                                    src={author.avatar || defaultPicture}
+                                    alt={author.name}
+                                    className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = defaultPicture;
+                                    }}
+                                  />
+                                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${rankColors[index]}`}>
+                                    {index + 1}
+                                  </div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">{author.name}</p>
+                                  <p className="text-xs text-gray-500 flex items-center space-x-1">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                      <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>{author.count} bài viết</span>
+                                  </p>
                                 </div>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
-                                <p className="text-xs text-gray-500 flex items-center space-x-1">
-                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                                  </svg>
-                                  <span>{author.count} bài viết</span>
-                                </p>
-                              </div>
-                            </div>
-                          )})}
+                            )
+                          })}
                         </div>
                       ) : (
                         <p className="text-sm text-gray-500 text-center py-8">Chưa có dữ liệu</p>
@@ -2440,346 +2397,346 @@ const PostPage: React.FC = () => {
         </div>
 
         {/* Search Popup */}
-          {showSearchPopup && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-gray-900">Tìm kiếm bài viết</h2>
-                    <button
-                      onClick={() => setShowSearchPopup(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {/* Search Input */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Từ khóa tìm kiếm
-                      </label>
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Nhập nội dung bài viết, tiêu đề hoặc tên tác giả..."
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            handleSearchPosts();
-                          }
-                        }}
-                      />
-                    </div>
-
-                    {/* Search Criteria */}
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">Tìm kiếm trong:</h3>
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span>Nội dung bài viết</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span>Tiêu đề bài viết</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                          <span>Tên tác giả</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Current Total Posts */}
-                    <div className="text-sm text-gray-500 text-center">
-                      Tổng cộng {posts.length} bài viết trong nhóm
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={() => {
-                          setShowSearchPopup(false);
-                          setSearchQuery('');
-                        }}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        onClick={handleSearchPosts}
-                        disabled={!searchQuery.trim()}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg transition-colors"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <Search className="w-4 h-4" />
-                          <span>Tìm kiếm</span>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Share Popup */}
-          {showSharePopup && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-gray-900">Chia sẻ gia tộc</h2>
-                    <button
-                      onClick={() => setShowSharePopup(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <img
-                          src={familyTreeData?.picture || "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=60&h=60&fit=crop"}
-                          alt="Group"
-                          className="w-12 h-12 rounded-lg object-cover"
-                        />
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {familyTreeData?.name || 'Gia Tộc Gia Đình'}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            Nhóm công khai • {familyTreeData?.numberOfMember || 0} thành viên
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 bg-white rounded-lg p-3 border">
-                        <span className="flex-1 text-sm text-gray-600 truncate">
-                          {window.location.origin}/group/{familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440'}
-                        </span>
-                        <button
-                          onClick={handleCopyLink}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-                        >
-                          Sao chép
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Report Comment Modal */}
-          {showReportModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-gray-900">Báo cáo bình luận</h2>
-                    <button
-                      onClick={() => setShowReportModal(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Lý do báo cáo
-                      </label>
-                      <select
-                        value={reportReason}
-                        onChange={(e) => setReportReason(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Chọn lý do</option>
-                        <option value="spam">Spam</option>
-                        <option value="harassment">Quấy rối</option>
-                        <option value="inappropriate">Nội dung không phù hợp</option>
-                        <option value="false-info">Thông tin sai lệch</option>
-                        <option value="other">Khác</option>
-                      </select>
-                    </div>
-                    {reportReason === 'other' && (
-                      <textarea
-                        placeholder="Mô tả chi tiết..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows={3}
-                      />
-                    )}
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={() => {
-                          setShowReportModal(false);
-                          setReportReason('');
-                        }}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        onClick={handleSubmitReport}
-                        disabled={!reportReason}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
-                      >
-                        Gửi báo cáo
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Post Action Modal (Edit or Report) */}
-          {showReportPostModal && reportingPostId && (() => {
-            const reportingPost = posts.find(p => p.id === reportingPostId);
-            const isOwnPost = reportingPost ? isCurrentUserPost(reportingPost.gpMemberId) : false;
-            
-            return (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold text-gray-900">
-                        {isOwnPost ? 'Tùy chọn bài viết' : 'Báo cáo bài viết'}
-                      </h2>
-                      <button
-                        onClick={() => setShowReportPostModal(false)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="w-6 h-6" />
-                      </button>
-                    </div>
-
-                    {isOwnPost ? (
-                      /* Edit options for own post */
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => {
-                            if (reportingPost) {
-                              handleEditPost(reportingPost.id, reportingPost.content, reportingPost.title);
-                            }
-                            setShowReportPostModal(false);
-                          }}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-100 rounded-lg flex items-center space-x-3 transition-colors"
-                        >
-                          <Edit className="w-5 h-5 text-blue-600" />
-                          <div>
-                            <div className="font-medium text-gray-900">Chỉnh sửa bài viết</div>
-                            <div className="text-sm text-gray-500">Thay đổi nội dung hoặc ảnh</div>
-                          </div>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            if (reportingPost) {
-                              handleDeletePost(reportingPost.id);
-                            }
-                            setShowReportPostModal(false);
-                          }}
-                          className="w-full px-4 py-3 text-left hover:bg-red-50 rounded-lg flex items-center space-x-3 transition-colors"
-                        >
-                          <Trash2 className="w-5 h-5 text-red-600" />
-                          <div>
-                            <div className="font-medium text-red-600">Xóa bài viết</div>
-                            <div className="text-sm text-gray-500">Xóa bài viết vĩnh viễn</div>
-                          </div>
-                        </button>
-                      </div>
-                    ) : (
-                      /* Report options for others' posts */
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Lý do báo cáo
-                          </label>
-                          <select
-                            value={postReportReason}
-                            onChange={(e) => setPostReportReason(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Chọn lý do</option>
-                            <option value="spam">Spam</option>
-                            <option value="harassment">Quấy rối</option>
-                            <option value="inappropriate">Nội dung không phù hợp</option>
-                            <option value="false-info">Thông tin sai lệch</option>
-                            <option value="violence">Bạo lực</option>
-                            <option value="hate-speech">Ngôn từ căm thù</option>
-                            <option value="other">Khác</option>
-                          </select>
-                        </div>
-                        {postReportReason === 'other' && (
-                          <textarea
-                            placeholder="Mô tả chi tiết..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            rows={3}
-                          />
-                        )}
-                        <div className="flex justify-end space-x-3">
-                          <button
-                            onClick={() => {
-                              setShowReportPostModal(false);
-                              setPostReportReason('');
-                            }}
-                            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                          >
-                            Hủy
-                          </button>
-                          <button
-                            onClick={handleSubmitPostReport}
-                            disabled={!postReportReason}
-                            className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
-                          >
-                            Gửi báo cáo
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Create Post Modal */}
-          {showCreatePostModal && (
-            <div 
-              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-              onClick={handleCloseCreatePostModal}
-            >
-              <div 
-                className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Modal Header */}
-                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900">Tạo bài viết</h2>
+        {showSearchPopup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">Tìm kiếm bài viết</h2>
                   <button
-                    onClick={handleCloseCreatePostModal}
-                    className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
-                    type="button"
-                    aria-label="Đóng"
+                    onClick={() => setShowSearchPopup(false)}
+                    className="text-gray-400 hover:text-gray-600"
                   >
                     <X className="w-6 h-6" />
                   </button>
                 </div>
 
-                {/* User Info */}
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+                <div className="space-y-4">
+                  {/* Search Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Từ khóa tìm kiếm
+                    </label>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Nhập nội dung bài viết, tiêu đề hoặc tên tác giả..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSearchPosts();
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Search Criteria */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">Tìm kiếm trong:</h3>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Nội dung bài viết</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Tiêu đề bài viết</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                        <span>Tên tác giả</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Current Total Posts */}
+                  <div className="text-sm text-gray-500 text-center">
+                    Tổng cộng {posts.length} bài viết trong nhóm
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => {
+                        setShowSearchPopup(false);
+                        setSearchQuery('');
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={handleSearchPosts}
+                      disabled={!searchQuery.trim()}
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg transition-colors"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Search className="w-4 h-4" />
+                        <span>Tìm kiếm</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Share Popup */}
+        {showSharePopup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">Chia sẻ gia tộc</h2>
+                  <button
+                    onClick={() => setShowSharePopup(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <img
+                        src={familyTreeData?.picture || "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=60&h=60&fit=crop"}
+                        alt="Group"
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                      <div>
+                        <h3 className="font-semibold text-gray-900">
+                          {familyTreeData?.name || 'Gia Tộc Gia Đình'}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Nhóm công khai • {familyTreeData?.numberOfMember || 0} thành viên
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 bg-white rounded-lg p-3 border">
+                      <span className="flex-1 text-sm text-gray-600 truncate">
+                        {window.location.origin}/group/{familyTreeId || '822994d5-7acd-41f8-b12b-e0a634d74440'}
+                      </span>
+                      <button
+                        onClick={handleCopyLink}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Sao chép
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Report Comment Modal */}
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">Báo cáo bình luận</h2>
+                  <button
+                    onClick={() => setShowReportModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Lý do báo cáo
+                    </label>
+                    <select
+                      value={reportReason}
+                      onChange={(e) => setReportReason(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Chọn lý do</option>
+                      <option value="spam">Spam</option>
+                      <option value="harassment">Quấy rối</option>
+                      <option value="inappropriate">Nội dung không phù hợp</option>
+                      <option value="false-info">Thông tin sai lệch</option>
+                      <option value="other">Khác</option>
+                    </select>
+                  </div>
+                  {reportReason === 'other' && (
+                    <textarea
+                      placeholder="Mô tả chi tiết..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={3}
+                    />
+                  )}
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => {
+                        setShowReportModal(false);
+                        setReportReason('');
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={handleSubmitReport}
+                      disabled={!reportReason}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
+                    >
+                      Gửi báo cáo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Post Action Modal (Edit or Report) */}
+        {showReportPostModal && reportingPostId && (() => {
+          const reportingPost = posts.find(p => p.id === reportingPostId);
+          const isOwnPost = reportingPost ? isCurrentUserPost(reportingPost.gpMemberId) : false;
+
+          return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {isOwnPost ? 'Tùy chọn bài viết' : 'Báo cáo bài viết'}
+                    </h2>
+                    <button
+                      onClick={() => setShowReportPostModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  {isOwnPost ? (
+                    /* Edit options for own post */
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => {
+                          if (reportingPost) {
+                            handleEditPost(reportingPost.id, reportingPost.content, reportingPost.title);
+                          }
+                          setShowReportPostModal(false);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-100 rounded-lg flex items-center space-x-3 transition-colors"
+                      >
+                        <Edit className="w-5 h-5 text-blue-600" />
+                        <div>
+                          <div className="font-medium text-gray-900">Chỉnh sửa bài viết</div>
+                          <div className="text-sm text-gray-500">Thay đổi nội dung hoặc ảnh</div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (reportingPost) {
+                            handleDeletePost(reportingPost.id);
+                          }
+                          setShowReportPostModal(false);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-red-50 rounded-lg flex items-center space-x-3 transition-colors"
+                      >
+                        <Trash2 className="w-5 h-5 text-red-600" />
+                        <div>
+                          <div className="font-medium text-red-600">Xóa bài viết</div>
+                          <div className="text-sm text-gray-500">Xóa bài viết vĩnh viễn</div>
+                        </div>
+                      </button>
+                    </div>
+                  ) : (
+                    /* Report options for others' posts */
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Lý do báo cáo
+                        </label>
+                        <select
+                          value={postReportReason}
+                          onChange={(e) => setPostReportReason(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Chọn lý do</option>
+                          <option value="spam">Spam</option>
+                          <option value="harassment">Quấy rối</option>
+                          <option value="inappropriate">Nội dung không phù hợp</option>
+                          <option value="false-info">Thông tin sai lệch</option>
+                          <option value="violence">Bạo lực</option>
+                          <option value="hate-speech">Ngôn từ căm thù</option>
+                          <option value="other">Khác</option>
+                        </select>
+                      </div>
+                      {postReportReason === 'other' && (
+                        <textarea
+                          placeholder="Mô tả chi tiết..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows={3}
+                        />
+                      )}
+                      <div className="flex justify-end space-x-3">
+                        <button
+                          onClick={() => {
+                            setShowReportPostModal(false);
+                            setPostReportReason('');
+                          }}
+                          className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          onClick={handleSubmitPostReport}
+                          disabled={!postReportReason}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg"
+                        >
+                          Gửi báo cáo
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Create Post Modal */}
+        {showCreatePostModal && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={handleCloseCreatePostModal}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Tạo bài viết</h2>
+                <button
+                  onClick={handleCloseCreatePostModal}
+                  className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  type="button"
+                  aria-label="Đóng"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* User Info */}
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
                     {userData.picture ? (
-                      <img 
-                        src={getAvatarFromGPMember(_gpMember) || userData.picture || defaultPicture} 
-                        alt={getDisplayNameFromGPMember(_gpMember) || userData?.name || 'User'} 
+                      <img
+                        src={userData.picture || defaultPicture}
+                        alt={userData?.name || 'User'}
                         className="w-10 h-10 rounded-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = defaultPicture;
@@ -2792,185 +2749,185 @@ const PostPage: React.FC = () => {
                     )}
                     <div>
                       <p className="font-semibold text-gray-900">
-                        {getDisplayNameFromGPMember(_gpMember) || userData?.name || 'User'}
+                        {userData?.name || 'User'}
                       </p>
                     </div>
-                    </div>
-                    <button
-                      onClick={() => setCreateStatus(prev => prev === 1 ? 0 : 1)}
-                      className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-                      type="button"
-                    >
-                      {createStatus === 1 ? (
-                        <>
-                          <Globe className="w-4 h-4 text-green-600" />
-                          <span className="text-sm text-gray-700">Công khai</span>
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="w-4 h-4 text-gray-600" />
-                          <span className="text-sm text-gray-700">Chỉ mình tôi</span>
-                        </>
-                      )}
-                    </button>
                   </div>
+                  <button
+                    onClick={() => setCreateStatus(prev => prev === 1 ? 0 : 1)}
+                    className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                    type="button"
+                  >
+                    {createStatus === 1 ? (
+                      <>
+                        <Globe className="w-4 h-4 text-green-600" />
+                        <span className="text-sm text-gray-700">Công khai</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm text-gray-700">Chỉ mình tôi</span>
+                      </>
+                    )}
+                  </button>
                 </div>
+              </div>
 
-                {/* Post Content */}
-                <div className="p-4">
-                  {/* Title Input */}
-                  <input
-                    type="text"
-                    value={postTitle}
-                    onChange={(e) => setPostTitle(e.target.value)}
-                    placeholder="Tiêu đề bài viết (tùy chọn)"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                  />
-                  
-                  {/* Content Input */}
-                  <textarea
-                    value={postContent}
-                    onChange={(e) => setPostContent(e.target.value)}
-                    placeholder="Bạn đang nghĩ gì?"
-                    className="w-full p-3 resize-none border-none focus:outline-none text-lg"
-                    rows={4}
-                    style={{ minHeight: '120px' }}
-                  />
+              {/* Post Content */}
+              <div className="p-4">
+                {/* Title Input */}
+                <input
+                  type="text"
+                  value={postTitle}
+                  onChange={(e) => setPostTitle(e.target.value)}
+                  placeholder="Tiêu đề bài viết (tùy chọn)"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                />
 
-                  {/* Image Previews with Captions */}
-                  {imagePreviews.length > 0 && (
-                    <div className="mt-4 border border-gray-200 rounded-lg p-4">
-                      <div className="space-y-4">
-                        {imagePreviews.map((preview, index) => (
-                          <div key={index} className="space-y-2">
-                            <div className="relative">
-                              {selectedImages[index]?.type.startsWith('video/') ? (
-                                <video
-                                  src={preview}
-                                  className="w-full h-32 object-cover rounded-lg"
-                                  controls
-                                />
-                              ) : (
-                                <img
-                                  src={preview}
-                                  alt={`Preview ${index + 1}`}
-                                  className="w-full h-32 object-cover rounded-lg"
-                                />
-                              )}
-                              <button
-                                onClick={() => removeImage(index)}
-                                className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                            {/* Caption Input */}
-                            <input
-                              type="text"
-                              value={fileCaptions[index] || ''}
-                              onChange={(e) => updateFileCaption(index, e.target.value)}
-                              placeholder={`Mô tả cho ${selectedImages[index]?.type.startsWith('video/') ? 'video' : 'ảnh'} ${index + 1}...`}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                {/* Content Input */}
+                <textarea
+                  value={postContent}
+                  onChange={(e) => setPostContent(e.target.value)}
+                  placeholder="Bạn đang nghĩ gì?"
+                  className="w-full p-3 resize-none border-none focus:outline-none text-lg"
+                  rows={4}
+                  style={{ minHeight: '120px' }}
+                />
+
+                {/* Image Previews with Captions */}
+                {imagePreviews.length > 0 && (
+                  <div className="mt-4 border border-gray-200 rounded-lg p-4">
+                    <div className="space-y-4">
+                      {imagePreviews.map((preview, index) => (
+                        <div key={index} className="space-y-2">
+                          <div className="relative">
+                            {selectedImages[index]?.type.startsWith('video/') ? (
+                              <video
+                                src={preview}
+                                className="w-full h-32 object-cover rounded-lg"
+                                controls
+                              />
+                            ) : (
+                              <img
+                                src={preview}
+                                alt={`Preview ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-lg"
+                              />
+                            )}
+                            <button
+                              onClick={() => removeImage(index)}
+                              className="absolute top-2 right-2 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
-                        ))}
-                      </div>
+                          {/* Caption Input */}
+                          <input
+                            type="text"
+                            value={fileCaptions[index] || ''}
+                            onChange={(e) => updateFileCaption(index, e.target.value)}
+                            placeholder={`Mô tả cho ${selectedImages[index]?.type.startsWith('video/') ? 'video' : 'ảnh'} ${index + 1}...`}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Add to Post Options */}
-                  <div className="mt-4 p-3 border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900">Thêm vào bài viết của bạn</span>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          multiple
-                          accept="image/*,video/*"
-                          onChange={handleImageSelect}
-                          className="hidden"
-                        />
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="w-8 h-8 bg-green-100 hover:bg-green-200 rounded-full flex items-center justify-center transition-colors"
-                          title="Thêm ảnh/video"
-                        >
-                          <Image className="w-4 h-4 text-green-600" />
-                        </button>
-                      </div>
+                {/* Add to Post Options */}
+                <div className="mt-4 p-3 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">Thêm vào bài viết của bạn</span>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,video/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-8 h-8 bg-green-100 hover:bg-green-200 rounded-full flex items-center justify-center transition-colors"
+                        title="Thêm ảnh/video"
+                      >
+                        <Image className="w-4 h-4 text-green-600" />
+                      </button>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Modal Footer */}
-                <div className="p-4 border-t border-gray-200">
-                  <button
-                    onClick={handleCreatePost}
-                    disabled={isPosting || (!postContent.trim() && selectedImages.length === 0)}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
-                  >
-                    {isPosting ? 'Đang đăng...' : 'Đăng'}
-                  </button>
-                </div>
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-gray-200">
+                <button
+                  onClick={handleCreatePost}
+                  disabled={isPosting || (!postContent.trim() && selectedImages.length === 0)}
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
+                >
+                  {isPosting ? 'Đang đăng...' : 'Đăng'}
+                </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Reaction Popup Modal */}
-          {showReactionPopup && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 bg-opacity-50">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-                {/* Modal Header */}
-                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Phản ứng</h3>
-                  <button
-                    onClick={() => setShowReactionPopup(null)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
+        {/* Reaction Popup Modal */}
+        {showReactionPopup && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 bg-opacity-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              {/* Modal Header */}
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Phản ứng</h3>
+                <button
+                  onClick={() => setShowReactionPopup(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
-                {/* Modal Body */}
-                <div className="p-4 max-h-96 overflow-y-auto">
-                  {showReactionPopup && posts.find(p => p.id === showReactionPopup) && (
-                    <div className="space-y-3">
-                      {Object.entries(posts.find(p => p.id === showReactionPopup)!.reactionsSummary)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([type, count]) => {
-                          const reactionData = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase());
-                          const emoji = reactionData?.emoji || '👍';
-                          const label = reactionData?.label || type;
-                          
-                          return (
-                            <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center space-x-3">
-                                <span className="text-2xl">{emoji}</span>
-                                <div>
-                                  <span className="font-medium text-gray-900">{label}</span>
-                                </div>
+              {/* Modal Body */}
+              <div className="p-4 max-h-96 overflow-y-auto">
+                {showReactionPopup && posts.find(p => p.id === showReactionPopup) && (
+                  <div className="space-y-3">
+                    {Object.entries(posts.find(p => p.id === showReactionPopup)!.reactionsSummary)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([type, count]) => {
+                        const reactionData = reactionTypes.find(r => r.type.toLowerCase() === type.toLowerCase());
+                        const emoji = reactionData?.emoji || '👍';
+                        const label = reactionData?.label || type;
+
+                        return (
+                          <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <span className="text-2xl">{emoji}</span>
+                              <div>
+                                <span className="font-medium text-gray-900">{label}</span>
                               </div>
-                              <span className="text-lg font-semibold text-blue-600">{count}</span>
                             </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </div>
+                            <span className="text-lg font-semibold text-blue-600">{count}</span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
 
-                {/* Modal Footer */}
-                <div className="p-4 border-t border-gray-200">
-                  <button
-                    onClick={() => setShowReactionPopup(null)}
-                    className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
-                  >
-                    Đóng
-                  </button>
-                </div>
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowReactionPopup(null)}
+                  className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                >
+                  Đóng
+                </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
         {/* Confirm Dialog */}
         {showConfirmDialog && confirmDialogData && (

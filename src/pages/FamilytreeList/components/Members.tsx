@@ -292,17 +292,9 @@ const Members: React.FC = () => {
                                 <tr key={member.userId} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            {member.ft?.filePath ? (
-                                                <img
-                                                    src={member.ft.filePath}
-                                                    alt={getMemberDisplayName(member)}
-                                                    className="w-10 h-10 rounded-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-semibold">
-                                                    {getMemberDisplayName(member).charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
+                                            <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-semibold">
+                                                {getMemberDisplayName(member).charAt(0).toUpperCase()}
+                                            </div>
                                             <span className="text-sm font-medium text-gray-900">{getMemberDisplayName(member)}</span>
                                         </div>
                                     </td>

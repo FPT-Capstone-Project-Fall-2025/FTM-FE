@@ -22,13 +22,18 @@ const familyTreeService = {
   updateFamilyTree(id: string, data: FamilytreeUpdateProps): Promise<ApiResponse<Familytree>> {
     return api.put(`/familytree/${id}`, data, {
       headers: {
-        "Content-Type": "multipart/form-data"
+        "Content-Type": "multipart/form-data",
+        'X-Ftid': id,
       }
     });
   },
 
   deleteFamilyTree(id: string): Promise<ApiResponse<boolean>> {
-    return api.delete(`/familytree/${id}`);
+    return api.delete(`/familytree/${id}`, {
+      headers: {
+        'X-Ftid': id,
+      }
+    });
   },
 
   getFamilytrees(props: PaginationProps): Promise<ApiResponse<PaginationResponse<Familytree[]>>> {
@@ -134,7 +139,7 @@ const familyTreeService = {
 
     return api.post(`/ftmember/${props.ftId}`, formData, {
       headers: {
-        'X-FtId': props.ftId,
+        'X-Ftid': props.ftId,
       }
     });
   },
@@ -181,7 +186,7 @@ const familyTreeService = {
     // Don't manually set Content-Type header - let the browser set it with the boundary
     return api.put(`/ftmember/${ftId}`, formData, {
       headers: {
-        'X-FtId': ftId,
+        'X-Ftid': ftId,
       }
     });
   },

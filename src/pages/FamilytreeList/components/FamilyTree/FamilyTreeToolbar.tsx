@@ -33,65 +33,71 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({ handleInviteUser 
     const edges = useAppSelector(state => state.familyTree.edges);
     const members = useAppSelector(state => state.familyTree.members);
 
-    // Export as Image – safe, non-blocking, one-at-a-time
+    // Export as Image – improved approach
     const handleExportImage = async () => {
         if (isExportingImage) return; // Prevent double click
         setIsExportingImage(true);
 
         const reactFlowElement = document.querySelector('.react-flow') as HTMLElement;
-        if (!reactFlowElement) {
+        const reactFlowViewport = document.querySelector('.react-flow__viewport') as HTMLElement;
+
+        if (!reactFlowElement || !reactFlowViewport) {
             alert('Không tìm thấy cây gia phả để xuất');
             setIsExportingImage(false);
             return;
         }
 
-        // Remove Google Fonts temporarily to avoid CORS
-        const googleFontLinks = Array.from(
-            document.querySelectorAll('link[href*="fonts.googleapis.com"], link[href*="gstatic.com"]')
-        );
-
-        googleFontLinks.forEach(link => link.remove());
+        // Store original viewport transform
+        const originalTransform = reactFlowViewport.style.transform;
 
         try {
-            const nodesBounds = getNodesBounds(getNodes());
-            const padding = 200;
-            const imageWidth = nodesBounds.width + padding;
-            const imageHeight = nodesBounds.height + padding;
+            // Get all nodes and calculate bounds to fit everything
+            const nodes = getNodes();
+            if (nodes.length === 0) {
+                alert('Không có thành viên nào để xuất');
+                setIsExportingImage(false);
+                return;
+            }
 
+            const nodesBounds = getNodesBounds(nodes);
+            const padding = 100;
+            const imageWidth = nodesBounds.width + padding * 2;
+            const imageHeight = nodesBounds.height + padding * 2;
+
+            // Calculate viewport to show all nodes
             const viewport = getViewportForBounds(
                 nodesBounds,
                 imageWidth,
                 imageHeight,
                 0.5,
                 2,
-                0.1
+                padding / imageWidth
             );
 
-            // Clone viewport off-screen to prevent layout thrashing
-            const clone = reactFlowElement.cloneNode(true) as HTMLElement;
-            clone.style.position = 'absolute';
-            clone.style.left = '-9999px';
-            clone.style.top = '-9999px';
-            clone.style.width = `${imageWidth}px`;
-            clone.style.height = `${imageHeight}px`;
-            clone.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
-            clone.style.transformOrigin = 'top left';
-            document.body.appendChild(clone);
+            // Apply transform to viewport to show all nodes
+            reactFlowViewport.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
 
-            // Use requestIdleCallback to avoid freezing UI
-            if ('requestIdleCallback' in window) {
-                await new Promise(resolve => requestIdleCallback(() => resolve(null), { timeout: 5000 }));
-            } else {
-                await new Promise(resolve => setTimeout(() => resolve(null), 5000));
-            }
+            // Wait for the DOM to update
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-            const dataUrl = await toPng(clone, {
+            // Export the visible ReactFlow element
+            const dataUrl = await toPng(reactFlowElement, {
                 backgroundColor: '#f9fafb',
                 width: imageWidth,
                 height: imageHeight,
                 pixelRatio: 2,
-                skipFonts: true,
                 cacheBust: true,
+                filter: (node) => {
+                    // Skip controls and background
+                    if (
+                        node.classList?.contains('react-flow__controls') ||
+                        node.classList?.contains('react-flow__background') ||
+                        node.classList?.contains('react-flow__panel')
+                    ) {
+                        return false;
+                    }
+                    return true;
+                }
             });
 
             // Trigger download
@@ -99,15 +105,12 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({ handleInviteUser 
             link.download = `gia-pha-${new Date().toISOString().split('T')[0]}.png`;
             link.href = dataUrl;
             link.click();
-
-            // Cleanup
-            document.body.removeChild(clone);
         } catch (error) {
             console.error('Export image failed:', error);
-            alert('Không thể xuất ảnh cây gia phả');
+            alert('Không thể xuất ảnh cây gia phả. Vui lòng thử lại.');
         } finally {
-            // Always restore fonts and reset state
-            googleFontLinks.forEach(link => document.head.appendChild(link));
+            // Restore original viewport transform
+            reactFlowViewport.style.transform = originalTransform;
             setIsExportingImage(false);
         }
     };

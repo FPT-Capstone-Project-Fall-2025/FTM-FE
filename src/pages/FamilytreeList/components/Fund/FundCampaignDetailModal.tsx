@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Megaphone,
   X,
@@ -11,10 +11,17 @@ import {
   Wallet,
   PiggyBank,
   ClipboardList,
+  Share,
 } from 'lucide-react';
 import type { CampaignDetail } from './useFundManagementData';
 import { EmptyState, LoadingState } from './FundLoadingEmpty';
 import type { CampaignExpense, CampaignDonation } from '@/types/fund';
+import ShareToPostModal from '@/components/shared/ShareToPostModal';
+import { useParams } from 'react-router-dom';
+import { useGPMember } from '@/hooks/useGPMember';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
+import { useAppSelector } from '@/hooks/redux';
+import { toast } from 'react-toastify';
 
 type StatusKey = 'active' | 'upcoming' | 'completed' | 'cancelled';
 
@@ -71,7 +78,7 @@ const renderDonations = (
               {formatCurrency(Number(donation.donationMoney ?? 0))}
             </span>
             <span className="text-gray-500 text-xs">
-              {getPaymentMethodLabel(donation.paymentMethod)} · {getDonationStatusKey(donation.status)}
+              {getPaymentMethodLabel(donation.paymentMethod)}
             </span>
           </div>
           {donation.donorNotes && <p className="text-xs text-gray-500 mt-2">{donation.donorNotes}</p>}
@@ -129,6 +136,19 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
   getDonationStatusKey,
   getPaymentMethodLabel,
 }) => {
+  // IMPORTANT: All hooks must be called before any early returns
+  const { id: urlFamilyTreeId } = useParams<{ id: string }>();
+  const { token } = useAppSelector(state => state.auth);
+  const { user } = useAppSelector(state => state.auth);
+  const currentUserId = getUserIdFromToken(token || '') || user?.userId;
+
+  // Get familyTreeId from detail if available, otherwise use URL
+  const familyTreeId = detail?.campaign?.ftId || urlFamilyTreeId;
+  const { gpMemberId } = useGPMember(familyTreeId || null, currentUserId || null);
+
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Early return AFTER all hooks
   if (!isOpen) return null;
 
   const statusKey = detail ? getCampaignStatusKey(detail.campaign.status) : 'active';
@@ -140,6 +160,80 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
     (stats?.fundGoal
       ? ((summary?.totalDonations ?? stats?.raisedAmount ?? 0) / (stats?.fundGoal || 1)) * 100
       : null);
+
+  // Format campaign data for sharing to post
+  const formatCampaignForPost = () => {
+    if (!detail) return null;
+
+    const progressPercent = progress?.toFixed(1) || '0';
+    const raised = formatCurrency(summary?.totalDonations ?? stats?.raisedAmount ?? detail.campaign.currentBalance ?? 0);
+    const goal = formatCurrency(stats?.fundGoal ?? detail.campaign.fundGoal ?? 0);
+    const daysLeft = stats?.daysRemaining;
+
+    // Create a visually appealing post content
+    let content = '';
+
+    // Campaign description
+    if (detail.campaign.campaignDescription) {
+      content += `${detail.campaign.campaignDescription}\n\n`;
+    }
+
+    // Visual divider
+    content += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    // Progress section with visual indicators
+    content += `💰 **TIẾN ĐỘ QUỸ**\n\n`;
+    content += `📊 Đã gây quỹ: **${raised}** / ${goal}\n`;
+    content += `📈 Tiến độ: **${progressPercent}%**\n`;
+
+    // Visual progress bar
+    const progressInt = Math.round(parseFloat(progressPercent));
+    const filledBars = Math.floor(progressInt / 5); // Each bar represents 5%
+    const emptyBars = 20 - filledBars;
+    const progressBar = '█'.repeat(filledBars) + '░'.repeat(emptyBars);
+    content += `▐${progressBar}▌ ${progressPercent}%\n\n`;
+
+    // Stats section
+    content += `👥 Số người ủng hộ: **${totalDonations}**\n`;
+    if (daysLeft && daysLeft > 0) {
+      content += `⏰ Thời gian còn lại: **${daysLeft} ngày**\n`;
+    }
+
+    content += `\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    // Call to action
+    content += `💙 **HÃY CÙNG CHUNG TAY ỦNG HỘ!**\n\n`;
+    content += `👉 Xem chi tiết và đóng góp tại trang Quỹ của gia tộc\n\n`;
+    content += `#ChiếnDịchGayQuỹ #GiaTộc #CùngChiaXe`;
+
+    return {
+      type: 'campaign' as const,
+      title: `🎯 [Chiến dịch] ${detail.campaign.campaignName}`,
+      description: content,
+      imageUrl: detail.campaign.imageUrl || null,
+      details: detail.campaign
+    };
+  };
+
+  const handleShareCampaign = () => {
+    console.log('Share button clicked!'); // Debug log
+    console.log('familyTreeId:', familyTreeId);
+    console.log('gpMemberId:', gpMemberId);
+    console.log('formatCampaignForPost():', formatCampaignForPost());
+
+    if (!familyTreeId) {
+      toast.error('Không tìm thấy thông tin gia tộc. Vui lòng thử lại!');
+      return;
+    }
+
+    if (!gpMemberId) {
+      toast.error('Không thể xác định thành viên. Vui lòng thử lại!');
+      return;
+    }
+
+    setIsShareModalOpen(true);
+  };
+
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -330,23 +424,36 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
             </div>
 
             <div className="flex gap-3 justify-end">
-              {statusKey === 'active' && detail?.campaign.id && onDonate && (
-                <button
-                  onClick={() => onDonate(detail.campaign.id)}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
-                  type="button"
-                >
-                  Ủng hộ chiến dịch
-                </button>
-              )}
-              {statusKey === 'active' && detail?.campaign.id && onCreateExpense && (
-                <button
-                  onClick={() => onCreateExpense(detail.campaign.id)}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
-                  type="button"
-                >
-                  Tạo yêu cầu rút tiền
-                </button>
+              {statusKey === 'active' && detail?.campaign.id && (
+                <>
+                  {/* Share Button */}
+                  <button
+                    onClick={handleShareCampaign}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center gap-2"
+                    type="button"
+                  >
+                    <Share className="w-4 h-4" />
+                    Chia sẻ lên Bảng tin
+                  </button>
+                  {onDonate && (
+                    <button
+                      onClick={() => onDonate(detail.campaign.id)}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
+                      type="button"
+                    >
+                      Ủng hộ chiến dịch
+                    </button>
+                  )}
+                  {onCreateExpense && (
+                    <button
+                      onClick={() => onCreateExpense(detail.campaign.id)}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                      type="button"
+                    >
+                      Tạo yêu cầu rút tiền
+                    </button>
+                  )}
+                </>
               )}
               <button
                 onClick={onClose}
@@ -363,6 +470,21 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
           <EmptyState title="Không tìm thấy chiến dịch" description="Vui lòng thử lại sau." />
         )}
       </div>
+
+      {/* Share to Post Modal */}
+      {isShareModalOpen && familyTreeId && gpMemberId && formatCampaignForPost() && (
+        <ShareToPostModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          familyTreeId={familyTreeId}
+          gpMemberId={gpMemberId}
+          shareableItem={formatCampaignForPost()!}
+          onShareSuccess={() => {
+            setIsShareModalOpen(false);
+            // Optional: Reload campaigns or show success message
+          }}
+        />
+      )}
     </div>
   );
 };

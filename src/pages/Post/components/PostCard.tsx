@@ -146,6 +146,7 @@ interface PostCardProps {
 
   // Comment features (optional - for inline comments)
   showComments?: boolean;
+  onToggleComments?: () => void;
   commentInputs?: { [key: string]: string };
   setCommentInputs?: React.Dispatch<React.SetStateAction<{ [key: string]: string }>>;
   onCommentSubmit?: (postId: string) => void;
@@ -228,26 +229,12 @@ export const CommentItem: React.FC<{
   showCommentMenu,
   setShowCommentMenu
 }) => {
-  const { id: familyTreeId } = useParams<{ id: string }>();
-  const [commentDisplayName, setCommentDisplayName] = useState<string>(comment.author?.name || 'User');
-  const [commentGpAvatar, setCommentGpAvatar] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!comment.gpMemberId || !familyTreeId) return;
-      const profile = await familyTreeMemberService.getGPMemberByMemberId(familyTreeId, comment.gpMemberId);
-      if (cancelled || !profile) return;
-      const name = getDisplayNameFromGPMember(profile) || comment.author?.name || 'User';
-      const avatar = getAvatarFromGPMember(profile) || null;
-      setCommentDisplayName(name);
-      setCommentGpAvatar(avatar);
-    })();
-    return () => { cancelled = true; };
-  }, [comment.gpMemberId, familyTreeId]);
+  // Removed getGPMemberByMemberId logic as requested
+  const commentDisplayName = comment.author?.name || 'User';
   const canReply = depth < maxDepth; // depth 0 (comment) can reply, depth 1 (reply) cannot
 
   // Calculate avatar source with priority (Group → current user fallback → api → default)
-  const commentAvatar = commentGpAvatar || (comment.gpMemberId === currentUserGPMemberId ? userData.picture : null) || comment.author?.avatar || defaultPicture;
+  const commentAvatar = (comment.gpMemberId === currentUserGPMemberId ? userData.picture : null) || comment.author?.avatar || defaultPicture;
   
   // Debug: Log comment avatar source
   React.useEffect(() => {
@@ -496,8 +483,8 @@ export const CommentItem: React.FC<{
 
 const PostCard: React.FC<PostCardProps> = ({
   post,
-  currentUserGPMemberId: _currentUserGPMemberId,
-  userData: _userData,
+  currentUserGPMemberId,
+  userData,
   reactionTypes,
   isInModal = false,
 
@@ -545,29 +532,30 @@ const PostCard: React.FC<PostCardProps> = ({
 
   // Comment features (optional - unused in this simplified PostCard)
   showComments = false,
-  commentInputs: _commentInputs = {},
-  setCommentInputs: _setCommentInputs,
-  onCommentSubmit: _onCommentSubmit,
-  onLikeComment: _onLikeComment,
-  onEditComment: _onEditComment,
-  onDeleteComment: _onDeleteComment,
-  onReportComment: _onReportComment,
-  onReplySubmit: _onReplySubmit,
+  onToggleComments,
+  commentInputs = {},
+  setCommentInputs,
+  onCommentSubmit,
+  onLikeComment,
+  onEditComment,
+  onDeleteComment,
+  onReportComment,
+  onReplySubmit,
   CommentItem: _CommentItem,
 
   // Comment states (optional - unused)
-  showCommentMenu: _showCommentMenu,
-  setShowCommentMenu: _setShowCommentMenu,
-  editingCommentId: _editingCommentId,
-  setEditingCommentId: _setEditingCommentId,
-  editCommentContent: _editCommentContent,
-  setEditCommentContent: _setEditCommentContent,
-  replyingToComment: _replyingToComment,
-  setReplyingToComment: _setReplyingToComment,
-  replyInputs: _replyInputs,
-  setReplyInputs: _setReplyInputs,
-  collapsedReplies: _collapsedReplies,
-  setCollapsedReplies: _setCollapsedReplies,
+  showCommentMenu,
+  setShowCommentMenu,
+  editingCommentId,
+  setEditingCommentId,
+  editCommentContent,
+  setEditCommentContent,
+  replyingToComment,
+  setReplyingToComment,
+  replyInputs,
+  setReplyInputs,
+  collapsedReplies,
+  setCollapsedReplies,
 }) => {
 
   
@@ -582,6 +570,12 @@ const PostCard: React.FC<PostCardProps> = ({
     if (isInModal) {
       return;
     }
+
+    // If onToggleComments is provided, use it (for inline commenting)
+    if (onToggleComments) {
+      onToggleComments();
+      return;
+    }
     
     if (showComments) {
       setLocalShowComments(!localShowComments);
@@ -591,24 +585,9 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  // Group-specific author mapping using gpMemberId
-  const { id: familyTreeId } = useParams<{ id: string }>();
-  const [displayName, setDisplayName] = useState<string>(post.author.name);
-  const [displayAvatar, setDisplayAvatar] = useState<string>(post.author.avatar || defaultPicture);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!post.gpMemberId || !familyTreeId) return;
-      const profile = await familyTreeMemberService.getGPMemberByMemberId(familyTreeId, post.gpMemberId);
-      if (cancelled || !profile) return;
-      const name = getDisplayNameFromGPMember(profile) || post.author.name;
-      const avatar = getAvatarFromGPMember(profile) || post.author.avatar || defaultPicture;
-      setDisplayName(name);
-      setDisplayAvatar(avatar);
-    })();
-    return () => { cancelled = true; };
-  }, [post.gpMemberId, familyTreeId]);
+  // Removed getGPMemberByMemberId logic as requested
+  const displayName = post.author.name;
+  const displayAvatar = post.author.avatar || defaultPicture;
 
   return (
     <div key={post.id} className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -1133,7 +1112,86 @@ const PostCard: React.FC<PostCardProps> = ({
         onCommentClick={handleToggleComments}
         isInModal={isInModal}
       />
+{/* Comments Section */}
+      {(onToggleComments ? showComments : localShowComments) && (
+        <div className="px-6 pb-6 pt-2 border-t border-gray-100 bg-gray-50 rounded-b-lg">
+          {/* Comment Input */}
+          <div className="flex items-start space-x-3 mb-6">
+            {userData.picture ? (
+              <img
+                src={userData.picture}
+                alt="Your avatar"
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = defaultPicture;
+                }}
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                <User size={16} className="text-gray-500" />
+              </div>
+            )}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={commentInputs[post.id] || ''}
+                onChange={(e) => setCommentInputs?.(prev => ({ ...prev, [post.id]: e.target.value }))}
+                placeholder="Viết bình luận..."
+                className="w-full px-4 py-2 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    onCommentSubmit?.(post.id);
+                  }
+                }}
+              />
+              <button
+                onClick={() => onCommentSubmit?.(post.id)}
+                disabled={!commentInputs[post.id]?.trim()}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-blue-600 hover:bg-blue-50 rounded-full disabled:text-gray-400 disabled:hover:bg-transparent transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
 
+          {/* Comments List */}
+          <div className="space-y-6">
+            {post.comments && post.comments.length > 0 ? (
+              post.comments.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  postId={post.id}
+                  currentUserGPMemberId={currentUserGPMemberId}
+                  userData={userData}
+                  editingCommentId={editingCommentId}
+                  editCommentContent={editCommentContent}
+                  setEditingCommentId={setEditingCommentId}
+                  setEditCommentContent={setEditCommentContent}
+                  onEditComment={onEditComment}
+                  onDeleteComment={onDeleteComment}
+                  onReportComment={onReportComment}
+                  onLikeComment={onLikeComment}
+                  replyingToComment={replyingToComment}
+                  setReplyingToComment={setReplyingToComment}
+                  replyInputs={replyInputs}
+                  setReplyInputs={setReplyInputs}
+                  onReplySubmit={onReplySubmit}
+                  collapsedReplies={collapsedReplies}
+                  setCollapsedReplies={setCollapsedReplies}
+                  showCommentMenu={showCommentMenu}
+                  setShowCommentMenu={setShowCommentMenu}
+                />
+              ))
+            ) : (
+              <div className="text-center py-4 text-gray-500 text-sm">
+                Chưa có bình luận nào. Hãy là người đầu tiên bình luận!
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
