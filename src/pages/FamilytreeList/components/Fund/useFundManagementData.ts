@@ -487,7 +487,7 @@ export const useFundManagementData = (
         }
 
         const response = await fundService.createFundExpense(payload);
-        
+
         // Response contains expenseId, status, receiptCount, receiptUrls, warning
         // We can use this for logging or future enhancements
         console.log('Expense created:', {
@@ -645,16 +645,28 @@ export const useFundManagementData = (
       setCampaignDetailLoading(true);
       setError(null);
       try {
-        const [campaign, donationsRes, expensesRes, statisticsRes, summaryRes] = await Promise.all([
+        const [campaign, statisticsRes, summaryRes] = await Promise.all([
           fundService.fetchCampaignById(campaignId),
-          fundService.fetchCampaignDonations(campaignId),
-          fundService.fetchCampaignExpenses(campaignId),
           fundService.fetchCampaignStatistics(campaignId),
           fundService.fetchCampaignFinancialSummary(campaignId),
         ]);
 
         if (!campaign) {
           return null;
+        }
+
+        // If campaign object has donations/expenses (new API), use them
+        // Otherwise fetch them separately (fallback for old API or if missing)
+        let donationsRes = campaign.donations || [];
+        let expensesRes = campaign.expenses || [];
+
+        if (!campaign.donations && !campaign.expenses) {
+          const [dRes, eRes] = await Promise.all([
+            fundService.fetchCampaignDonations(campaignId),
+            fundService.fetchCampaignExpenses(campaignId),
+          ]);
+          donationsRes = dRes;
+          expensesRes = eRes;
         }
 
         return {
@@ -784,7 +796,7 @@ export const useFundManagementData = (
     donationStats,
     expenses,
     campaigns,
-  campaignPagination,
+    campaignPagination,
     myPendingDonations,
     myPendingLoading,
     pendingDonations,

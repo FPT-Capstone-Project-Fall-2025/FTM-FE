@@ -118,6 +118,8 @@ export interface FundCampaign {
   totalDonations?: number | null;
   totalDonors?: number | null;
   isActive?: boolean | null;
+  donations?: CampaignDonation[];
+  expenses?: CampaignExpense[];
 }
 
 export interface CampaignDonation {
