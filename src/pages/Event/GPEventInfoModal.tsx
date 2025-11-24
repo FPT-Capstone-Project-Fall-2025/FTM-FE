@@ -6,6 +6,7 @@ import "moment/locale/vi";
 import moment from "moment";
 import eventService from "../../services/eventService";
 import { toast } from 'react-toastify';
+import { getLunarCanChi } from "./utils/convertSolar2Lunar";
 import ShareToPostModal from "@/components/shared/ShareToPostModal";
 import { useParams } from "react-router-dom";
 import { useGPMember } from '@/hooks/useGPMember';
@@ -52,6 +53,7 @@ const GPEventInfoModal = ({
     onEventDeleted,
     onEventUpdated,
     extendedProps,
+    isAllDay,
   } = defaultValues;
 
   // Use name or title (title is used by holiday events)
@@ -292,10 +294,19 @@ const GPEventInfoModal = ({
           {/* Thông tin sự kiện dạng text display (không thể chỉnh sửa) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
             {/* Thời gian */}
-            {(startTimeText || endTimeText) && (
+            {/* Thời gian */}
+            {(start || end) && (
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
                 <Calendar className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <span className="font-medium text-sm">{startTimeText} {startTimeText && endTimeText ? '-' : ''} {endTimeText}</span>
+                <span className="font-medium text-sm">
+                  {isAllDay ? (
+                    `Ngày diễn ra: ${moment(start).locale("vi").format("DD/MM/YYYY")}`
+                  ) : (
+                    start && end
+                      ? `Từ ${moment(start).locale("vi").format("HH:mm DD/MM/YYYY")} đến ${moment(end).locale("vi").format("HH:mm DD/MM/YYYY")}`
+                      : (startTimeText || endTimeText)
+                  )}
+                </span>
               </div>
             )}
 
@@ -306,6 +317,21 @@ const GPEventInfoModal = ({
                 <span className="text-sm">{address}</span>
               </div>
             )}
+
+            {/* Lịch âm */}
+            {/* {isLunar && ( */}
+            <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
+              <span className="text-blue-600 text-lg">🌙</span>
+              <span className="text-sm text-blue-700 font-medium">
+                {(() => {
+                  if (!start) return "Sự kiện theo lịch âm";
+                  const d = new Date(start);
+                  const { ngay, thang, nam } = getLunarCanChi(d.getDate(), d.getMonth() + 1, d.getFullYear());
+                  return `Ngày ${ngay}, Tháng ${thang}, Năm ${nam}`;
+                })()}
+              </span>
+            </div>
+            {/* )} */}
 
             {/* Lặp lại */}
             {recurrence && (
@@ -327,13 +353,7 @@ const GPEventInfoModal = ({
               </div>
             )}
 
-            {/* Lịch âm */}
-            {isLunar && (
-              <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
-                <span className="text-blue-600 text-lg">🌙</span>
-                <span className="text-sm text-blue-700 font-medium">Sự kiện theo lịch âm</span>
-              </div>
-            )}
+
 
             {/* Thành viên */}
             {memberNamesJoin && (

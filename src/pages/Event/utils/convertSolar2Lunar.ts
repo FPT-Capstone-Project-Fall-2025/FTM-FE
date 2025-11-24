@@ -68,10 +68,10 @@ function newMoon(k: number): number {
   const delta =
     T < -11
       ? 0.001 +
-        0.000839 * T +
-        0.0002261 * T2 -
-        0.00000845 * T3 -
-        0.000000081 * T * T3
+      0.000839 * T +
+      0.0002261 * T2 -
+      0.00000845 * T3 -
+      0.000000081 * T * T3
       : -0.000278 + 0.000265 * T + 0.000262 * T2;
   const JdNew = Jd1 + C1 - delta;
   return JdNew;
@@ -199,9 +199,51 @@ export function lunarToSolar(
   return jdToDate(jd);
 }
 
-// ===================== 8. Ví dụ =====================
-if (require.main === module) {
-  console.log("Dương 2025-11-01 → Âm:", solarToLunar(1, 11, 2025));
-  console.log("Dương 2025-02-10 → Âm:", solarToLunar(10, 2, 2025));
-  console.log("Âm 1/1/2025 → Dương:", lunarToSolar(1, 1, 2025, false));
+// ===================== 8. Can Chi =====================
+const CAN = ["Giáp", "Ất", "Bính", "Đinh", "Mậu", "Kỷ", "Canh", "Tân", "Nhâm", "Quý"];
+const CHI = ["Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi", "Thân", "Dậu", "Tuất", "Hợi"];
+
+export function getLunarCanChi(
+  dd: number,
+  mm: number,
+  yy: number
+): { ngay: string; thang: string; nam: string } {
+  const lunar = solarToLunar(dd, mm, yy);
+
+  // 1. Can Chi Năm
+  // Can: (Năm dương - 4) % 10. Nhưng ở đây ta dùng năm âm lịch.
+  // Năm âm lịch thường trùng năm dương, trừ khi rơi vào tháng 11, 12 âm của năm trước hoặc tháng 1 của năm sau.
+  // Tuy nhiên, thuật toán solarToLunar trả về lunarYear. Ta dùng lunarYear.
+  // Công thức: (Year + 6) % 10 cho Can?
+  // Ví dụ 2025: (2025 + 6) % 10 = 1 (Ất). Correct.
+  // Chi: (Year + 8) % 12.
+  // Ví dụ 2025: (2025 + 8) % 12 = 5 (Tỵ). Correct.
+  const canNamIndex = (lunar.year + 6) % 10;
+  const chiNamIndex = (lunar.year + 8) % 12;
+
+  // 2. Can Chi Tháng
+  // Tháng 1 (Dần) của năm có Can Giáp/Kỷ là Bính Dần.
+  // Can tháng = (Can năm * 2 + tháng âm) % 10.
+  // Lưu ý: Tháng âm lịch tính từ 1.
+  // Ví dụ: Năm Ất (1). Tháng 11.
+  // Can tháng = (1 * 2 + 11) % 10 = 13 % 10 = 3 (Đinh). Correct.
+  const canThangIndex = (canNamIndex * 2 + lunar.month) % 10;
+  const chiThangIndex = (lunar.month + 1) % 12; // Tháng 1 là Dần (2). (1+1)=2.
+
+  // 3. Can Chi Ngày
+  // Dùng Julian Day Number để tính.
+  const jd = jdFromDate(dd, mm, yy);
+  // Công thức tham khảo:
+  // Can ngày = (jd + 9) % 10
+  // Chi ngày = (jd + 1) % 12
+  const canNgayIndex = (jd + 9) % 10;
+  const chiNgayIndex = (jd + 1) % 12;
+
+  return {
+    ngay: `${CAN[canNgayIndex]} ${CHI[chiNgayIndex]}`,
+    thang: `${CAN[canThangIndex]} ${CHI[chiThangIndex]}`,
+    nam: `${CAN[canNamIndex]} ${CHI[chiNamIndex]}`,
+  };
 }
+
+
