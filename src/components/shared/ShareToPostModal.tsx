@@ -26,8 +26,8 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
     shareableItem,
     onShareSuccess
 }) => {
-    const [postTitle, setPostTitle] = useState<string>(shareableItem.title);
-    const [postContent, setPostContent] = useState<string>(shareableItem.description || '');
+    const [postTitle] = useState<string>(shareableItem.title);
+    const [postContent] = useState<string>(shareableItem.description || '');
     const [additionalMessage, setAdditionalMessage] = useState<string>('');
     const [status, setStatus] = useState<number>(1); // 1 = Public, 0 = Private
     const [isSharing, setIsSharing] = useState<boolean>(false);
