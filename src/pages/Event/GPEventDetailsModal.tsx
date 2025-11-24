@@ -16,8 +16,8 @@ import userService from "../../services/userService";
 import { X, Image as ImageIcon } from "lucide-react";
 import { EVENT_TYPE, EVENT_TYPE_CONFIG } from "./EventTypeLabel";
 import { toast } from 'react-toastify';
-import { formatLunarDate } from "../../utils/lunarUtils";
 import { normalizeEventType } from "../../utils/eventUtils";
+import { getLunarCanChi } from "./utils/convertSolar2Lunar";
 
 // Types
 interface EventFormData {
@@ -92,7 +92,7 @@ interface GPEventDetailsModalProps {
 const convertEventTypeToNumber = (eventType: string): number => {
   // Normalize to uppercase to handle case variations
   const normalizedType = (eventType || '').toUpperCase().trim();
-  
+
   const typeMap: Record<string, number> = {
     'FUNERAL': 0,
     'WEDDING': 1,
@@ -100,9 +100,9 @@ const convertEventTypeToNumber = (eventType: string): number => {
     'HOLIDAY': 3,
     'OTHER': 7,
   };
-  
+
   const result = typeMap[normalizedType] ?? 7;
-  
+
   // Debug logging
   console.log('🔍 convertEventTypeToNumber:', {
     input: eventType,
@@ -110,7 +110,7 @@ const convertEventTypeToNumber = (eventType: string): number => {
     result: result,
     mappedTo: Object.keys(typeMap).find(key => typeMap[key] === result)
   });
-  
+
   return result;
 };
 
@@ -183,7 +183,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   // Watch startTime and endTime for validation and lunar display
   const startTime = watch('startTime');
-  const endTime = watch('endTime');
 
   const disablePastHours = (current: Dayjs | null) => {
     if (!current) return {};
@@ -611,7 +610,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         setIsSubmit(false);
         return;
       }
-      
+
       // For all-day events, ensure endTime is set to end of startTime's day
       if (isAllDay && data.startTime) {
         const startDate = new Date(data.startTime);
@@ -619,7 +618,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         endDate.setHours(23, 59, 59, 999);
         data.endTime = endDate.toISOString();
       }
-      
+
       // Convert eventType and log for debugging
       const eventTypeNumber = convertEventTypeToNumber(data.eventType);
       console.log('📋 EventType conversion:', {
@@ -806,8 +805,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       closeIcon={<X className="w-5 h-5" />}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-    {/* Family Tree Selection */}
-    <div>
+        {/* Family Tree Selection */}
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Gia tộc <span className="text-red-500">*</span>
           </label>
@@ -832,7 +831,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             }))}
           />
         </div>
-        
+
         {/* Target Member - Sự kiện cho ai */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -959,7 +958,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           </div>
         )}
 
-        
+
         {/* Event Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1014,14 +1013,14 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             onChange={(e) => {
               const newIsAllDay = e.target.checked;
               setIsAllDay(newIsAllDay);
-              
+
               // When "All Day" is checked, adjust startTime to 00:00:00 and endTime to 23:59:59 of the same day
               if (newIsAllDay && startTime) {
                 const startDate = new Date(startTime);
                 // Set startTime to 00:00:00 of the same day
                 startDate.setHours(0, 0, 0, 0);
                 setValue('startTime', startDate.toISOString(), { shouldValidate: false });
-                
+
                 // Set endTime to 23:59:59 of the same day
                 const endDate = new Date(startDate);
                 endDate.setHours(23, 59, 59, 999);
@@ -1032,7 +1031,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             Sự kiện cả ngày
           </Checkbox>
         </div>
-        
+
         {/* Lunar Calendar */}
         <div className="flex items-center">
           <label className="text-sm font-medium text-gray-700 mr-2">
@@ -1048,11 +1047,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Ngày bắt đầu <span className="text-red-500">*</span>
           </label>
-          {isLunar && startTime && (
-            <div className="mb-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
-              🌙 {formatLunarDate(startTime)}
-            </div>
-          )}
           <Controller
             name="startTime"
             control={control}
@@ -1067,7 +1061,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                     }
                     const newStartTime = value.toISOString();
                     field.onChange(newStartTime);
-                    
+
                     // If isAllDay is checked, automatically update endTime to end of the same day
                     if (isAllDay) {
                       const startDate = new Date(newStartTime);
@@ -1090,13 +1084,12 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 />
                 {isLunar && field.value && (
                   <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
-                    <div className="flex items-start gap-2 mb-1">
-                      <span className="text-gray-500">📅</span>
-                      <span><strong>Dương lịch:</strong> {format(new Date(field.value), 'dd/MM/yyyy HH:mm')}</span>
-                    </div>
                     <div className="flex items-start gap-2">
-                      <span className="text-blue-600">🌙</span>
-                      <span><strong className="text-blue-700">Âm lịch:</strong> {formatLunarDate(field.value)}</span>
+                      <span><strong className="text-blue-700">Âm lịch:</strong> {(() => {
+                        const d = new Date(field.value);
+                        const { ngay, thang, nam } = getLunarCanChi(d.getDate(), d.getMonth() + 1, d.getFullYear());
+                        return `Ngày ${ngay}, Tháng ${thang}, Năm ${nam}`;
+                      })()}</span>
                     </div>
                   </div>
                 )}
@@ -1112,11 +1105,6 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Ngày kết thúc <span className="text-red-500">*</span>
             </label>
-            {isLunar && endTime && (
-              <div className="mb-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
-                🌙 {formatLunarDate(endTime)}
-              </div>
-            )}
             <Controller
               name="endTime"
               control={control}
@@ -1147,13 +1135,12 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   />
                   {isLunar && field.value && (
                     <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
-                      <div className="flex items-start gap-2 mb-1">
-                        <span className="text-gray-500">📅</span>
-                        <span><strong>Dương lịch:</strong> {format(new Date(field.value), 'dd/MM/yyyy HH:mm')}</span>
-                      </div>
                       <div className="flex items-start gap-2">
-                        <span className="text-blue-600">🌙</span>
-                        <span><strong className="text-blue-700">Âm lịch:</strong> {formatLunarDate(field.value)}</span>
+                        <span><strong className="text-blue-700">Âm lịch:</strong> {(() => {
+                          const d = new Date(field.value);
+                          const { ngay, thang, nam } = getLunarCanChi(d.getDate(), d.getMonth() + 1, d.getFullYear());
+                          return `Ngày ${ngay}, Tháng ${thang}, Năm ${nam}`;
+                        })()}</span>
                       </div>
                     </div>
                   )}

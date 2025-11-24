@@ -6,6 +6,7 @@ import "moment/locale/vi";
 import moment from "moment";
 import eventService from "../../services/eventService";
 import { toast } from 'react-toastify';
+import { getLunarCanChi } from "./utils/convertSolar2Lunar";
 
 // API Base URL for images
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
@@ -47,6 +48,7 @@ const GPEventInfoModal = ({
     onEventDeleted,
     onEventUpdated,
     extendedProps,
+    isAllDay,
   } = defaultValues;
 
   // Use name or title (title is used by holiday events)
@@ -83,12 +85,12 @@ const GPEventInfoModal = ({
     setIsDeleting(true);
     try {
       const response = await eventService.deleteEventById(id);
-      
+
       if (response?.data || response?.data?.data) {
         toast.success('Xóa sự kiện thành công!');
         setIsOpenModal(false);
         setEventSelected(null);
-        
+
         // Call callback if provided
         if (onEventDeleted && typeof onEventDeleted === 'function') {
           onEventDeleted();
@@ -200,13 +202,22 @@ const GPEventInfoModal = ({
           {/* Thông tin sự kiện dạng text display (không thể chỉnh sửa) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
             {/* Thời gian */}
-            {(startTimeText || endTimeText) && (
+            {/* Thời gian */}
+            {(start || end) && (
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
                 <Calendar className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <span className="font-medium text-sm">{startTimeText} {startTimeText && endTimeText ? '-' : ''} {endTimeText}</span>
+                <span className="font-medium text-sm">
+                  {isAllDay ? (
+                    `Ngày diễn ra: ${moment(start).locale("vi").format("DD/MM/YYYY")}`
+                  ) : (
+                    start && end
+                      ? `Từ ${moment(start).locale("vi").format("HH:mm DD/MM/YYYY")} đến ${moment(end).locale("vi").format("HH:mm DD/MM/YYYY")}`
+                      : (startTimeText || endTimeText)
+                  )}
+                </span>
               </div>
             )}
-            
+
             {/* Địa chỉ */}
             {address && (
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
@@ -214,7 +225,22 @@ const GPEventInfoModal = ({
                 <span className="text-sm">{address}</span>
               </div>
             )}
-            
+
+            {/* Lịch âm */}
+            {/* {isLunar && ( */}
+            <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
+              <span className="text-blue-600 text-lg">🌙</span>
+              <span className="text-sm text-blue-700 font-medium">
+                {(() => {
+                  if (!start) return "Sự kiện theo lịch âm";
+                  const d = new Date(start);
+                  const { ngay, thang, nam } = getLunarCanChi(d.getDate(), d.getMonth() + 1, d.getFullYear());
+                  return `Ngày ${ngay}, Tháng ${thang}, Năm ${nam}`;
+                })()}
+              </span>
+            </div>
+            {/* )} */}
+
             {/* Lặp lại */}
             {recurrence && (
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
@@ -223,26 +249,20 @@ const GPEventInfoModal = ({
                   {recurrence === "ONCE"
                     ? "Không lặp lại"
                     : recurrence === "DAILY"
-                    ? "Mỗi ngày"
-                    : recurrence === "WEEKLY"
-                    ? "Mỗi tuần"
-                    : recurrence === "MONTHLY"
-                    ? "Mỗi tháng"
-                    : recurrence === "YEARLY"
-                    ? "Mỗi năm"
-                    : "Khác"}
+                      ? "Mỗi ngày"
+                      : recurrence === "WEEKLY"
+                        ? "Mỗi tuần"
+                        : recurrence === "MONTHLY"
+                          ? "Mỗi tháng"
+                          : recurrence === "YEARLY"
+                            ? "Mỗi năm"
+                            : "Khác"}
                 </span>
               </div>
             )}
-            
-            {/* Lịch âm */}
-            {isLunar && (
-              <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
-                <span className="text-blue-600 text-lg">🌙</span>
-                <span className="text-sm text-blue-700 font-medium">Sự kiện theo lịch âm</span>
-              </div>
-            )}
-            
+
+
+
             {/* Thành viên */}
             {memberNamesJoin && (
               <div className="flex items-start gap-3 bg-gray-50 px-3 py-2 rounded-lg col-span-1 md:col-span-2">
@@ -253,7 +273,7 @@ const GPEventInfoModal = ({
                 </div>
               </div>
             )}
-            
+
             {/* Gia phả */}
             {gpNamesJoin && (
               <div className="flex items-start gap-3 bg-gray-50 px-3 py-2 rounded-lg col-span-1 md:col-span-2">
@@ -264,7 +284,7 @@ const GPEventInfoModal = ({
                 </div>
               </div>
             )}
-            
+
             {/* Mô tả */}
             {description && (
               <div className="flex items-start gap-3 bg-gray-50 px-3 py-3 rounded-lg col-span-1 md:col-span-2">
@@ -288,16 +308,16 @@ const GPEventInfoModal = ({
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="3" y="4" width="18" height="18" rx="2" fill="#4285F4" opacity="0.1"/>
-                  <path d="M19 4H5C3.89 4 3 4.9 3 6V20C3 21.1 3.89 22 5 22H19C20.1 22 21 21.1 21 20V6C21 4.9 20.1 4 19 4Z" stroke="#4285F4" strokeWidth="2" fill="none"/>
-                  <path d="M16 2V6M8 2V6M3 10H21" stroke="#4285F4" strokeWidth="1.5"/>
-                  <rect x="7" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <rect x="11" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <rect x="15" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <rect x="7" y="16" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <rect x="11" y="16" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <circle cx="18" cy="6" r="2.5" fill="white"/>
-                  <path d="M18 4L16.5 5.5L18 7L19.5 5.5L18 4Z" fill="#4285F4"/>
+                  <rect x="3" y="4" width="18" height="18" rx="2" fill="#4285F4" opacity="0.1" />
+                  <path d="M19 4H5C3.89 4 3 4.9 3 6V20C3 21.1 3.89 22 5 22H19C20.1 22 21 21.1 21 20V6C21 4.9 20.1 4 19 4Z" stroke="#4285F4" strokeWidth="2" fill="none" />
+                  <path d="M16 2V6M8 2V6M3 10H21" stroke="#4285F4" strokeWidth="1.5" />
+                  <rect x="7" y="12" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <rect x="11" y="12" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <rect x="15" y="12" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <rect x="7" y="16" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <rect x="11" y="16" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <circle cx="18" cy="6" r="2.5" fill="white" />
+                  <path d="M18 4L16.5 5.5L18 7L19.5 5.5L18 4Z" fill="#4285F4" />
                 </svg>
                 <span>Thêm vào Google Calendar</span>
               </button>
