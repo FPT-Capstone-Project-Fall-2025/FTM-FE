@@ -67,7 +67,6 @@ const ManagePermissions: React.FC = () => {
   const loadPermissions = async () => {
     setLoading(true);
     try {
-      // await ftauthorizationService.testFTAuth(selectedFamilyTree?.id || '', auth.token || '');
       const res = await ftauthorizationService.getFTAuths(selectedFamilyTree?.id, paginationData);
       setPaginationData(pre => ({
         ...pre,
@@ -89,7 +88,7 @@ const ManagePermissions: React.FC = () => {
   }, [paginationData.pageIndex, selectedFamilyTree?.id]);
 
   const executeTogglePermission = async (memberIndex: number, featureIndex: number, methodValue: string) => {
-    if (!authList) return;
+    if (!authList || methodValue === "VIEW") return;
 
     const updatedAuthList = deepCopyAuthList(authList);
     const member = updatedAuthList.datalist[memberIndex];
@@ -105,6 +104,11 @@ const ManagePermissions: React.FC = () => {
       feature.methodsList.push(methodValue);
     }
 
+    // Ensure VIEW is always included
+    if (!feature.methodsList.includes("VIEW")) {
+      feature.methodsList.push("VIEW");
+    }
+
     setAuthList(updatedAuthList);
 
     try {
@@ -117,7 +121,6 @@ const ManagePermissions: React.FC = () => {
       const response = await ftauthorizationService.updateFTAuth(updatePayload);
       console.log("API call successful, response:", response.data);
 
-      // Update the state with the response data
       if (response.data) {
         const updatedMemberData = response.data;
         setAuthList(prevAuthList => {
@@ -134,12 +137,10 @@ const ManagePermissions: React.FC = () => {
       }
     } catch (error) {
       console.error("Failed to update permission:", error);
-      // Revert on error
       loadPermissions();
     }
   };
 
-  // Deep copy helper function
   const deepCopyAuthList = (authList: FTAuthList): FTAuthList => {
     return {
       ...authList,
@@ -153,9 +154,8 @@ const ManagePermissions: React.FC = () => {
     };
   };
 
-  // Edit mode handlers
   const handleEditTogglePermission = (memberIndex: number, featureIndex: number, methodValue: string) => {
-    if (!editedAuthList) return;
+    if (!editedAuthList || methodValue === "VIEW") return;
 
     const updatedAuthList = deepCopyAuthList(editedAuthList);
     const member = updatedAuthList.datalist[memberIndex];
@@ -171,6 +171,11 @@ const ManagePermissions: React.FC = () => {
       feature.methodsList.push(methodValue);
     }
 
+    // Ensure VIEW is always included
+    if (!feature.methodsList.includes("VIEW")) {
+      feature.methodsList.push("VIEW");
+    }
+
     setEditedAuthList(updatedAuthList);
   };
 
@@ -179,18 +184,16 @@ const ManagePermissions: React.FC = () => {
 
     setIsSaving(true);
     try {
-      // Collect all changes
       const updates: FTAuth[] = [];
 
       editedAuthList.datalist.forEach((editedMember, memberIndex) => {
         const originalMember = authList.datalist[memberIndex];
         if (originalMember) {
-          // Compare each feature individually to see which ones changed
           let hasChanges = false;
           editedMember.value.forEach((editedFeature, featureIndex) => {
             const originalFeature = originalMember.value[featureIndex];
             if (!originalFeature) {
-              hasChanges = true; // New feature
+              hasChanges = true;
               return;
             }
 
@@ -206,7 +209,6 @@ const ManagePermissions: React.FC = () => {
             }
           });
 
-          // Also check for deleted features (in original but not in edited)
           const allChangedFeatures = editedMember.value;
           const originalFeatureCount = originalMember.value.length;
           if (editedMember.value.length < originalFeatureCount) {
@@ -215,8 +217,6 @@ const ManagePermissions: React.FC = () => {
           }
 
           if (hasChanges) {
-            // Send the COMPLETE authorizationList for this member (not just changed features)
-            // This ensures all permissions are preserved, including unchanged ones
             const update: FTAuth = {
               ftId: editedAuthList.ftId,
               ftMemberId: editedMember.key.id,
@@ -228,7 +228,6 @@ const ManagePermissions: React.FC = () => {
         }
       });
 
-      // Execute all updates
       if (updates.length > 0) {
         console.log("Saving", updates.length, "permission updates");
         const responses = await Promise.all(updates.map(update => {
@@ -237,7 +236,6 @@ const ManagePermissions: React.FC = () => {
         }));
         console.log("All updates completed successfully, responses:", responses);
 
-        // Update state with all response data
         setAuthList(prevAuthList => {
           if (!prevAuthList) return prevAuthList;
 
@@ -283,7 +281,7 @@ const ManagePermissions: React.FC = () => {
   };
 
   const handleTogglePermission = async (memberIndex: number, featureIndex: number, methodValue: string) => {
-    if (!authList) return;
+    if (!authList || methodValue === "VIEW") return;
 
     const member = authList.datalist[memberIndex];
     if (!member) return;
@@ -293,7 +291,6 @@ const ManagePermissions: React.FC = () => {
 
     const isRemoving = feature.methodsList.includes(methodValue);
 
-    // Show confirmation for removing permissions
     if (isRemoving) {
       setConfirmModal({
         isOpen: true,
@@ -306,7 +303,6 @@ const ManagePermissions: React.FC = () => {
         }
       });
     } else {
-      // Directly add permission without confirmation
       executeTogglePermission(memberIndex, featureIndex, methodValue);
     }
   };
@@ -328,7 +324,6 @@ const ManagePermissions: React.FC = () => {
           console.log(response);
 
           toast.success('Xóa quyền truy cập thành công');
-          // Update state - remove the member if all permissions are deleted
           setAuthList(prevAuthList => {
             if (!prevAuthList) return prevAuthList;
             return {
@@ -350,7 +345,6 @@ const ManagePermissions: React.FC = () => {
     if (!selectedFamilyTree?.id) return;
 
     try {
-      // Create permissions with the selected feature code and methods
       const newAuth: FTAuth = {
         ftId: selectedFamilyTree.id,
         ftMemberId: memberId,
@@ -366,7 +360,6 @@ const ManagePermissions: React.FC = () => {
       const response = await ftauthorizationService.addFTAuth(newAuth);
       console.log("Member added successfully, response:", response.data);
 
-      // Update state with the new member data
       if (response.data) {
         const newMemberAuth = response.data;
         setAuthList(prevAuthList => {
@@ -386,11 +379,9 @@ const ManagePermissions: React.FC = () => {
             };
           }
 
-          // Check if member already exists and update, or add new
           const memberExists = prevAuthList.datalist.some(m => m.key.id === newMemberAuth.ftMemberId);
 
           if (memberExists) {
-            // Update existing member's permissions
             return {
               ...prevAuthList,
               datalist: prevAuthList.datalist.map(m =>
@@ -400,7 +391,6 @@ const ManagePermissions: React.FC = () => {
               )
             };
           } else {
-            // Add new member locally using provided fullname and API authorization list
             return {
               ...prevAuthList,
               datalist: [
@@ -524,7 +514,7 @@ const ManagePermissions: React.FC = () => {
               {displayDatalist.map((member, memberIndex) => {
                 const featureCount = member.value.length;
                 return member.value.map((feature, featureIndex) => (
-                  <tr key={`${memberIndex}-${featureIndex}`} className={`transition-colors ${isEditMode ? 'bg-blue-50' : 'hover:bg-blue-100'}`}>
+                  <tr key={`${memberIndex}-${featureIndex}`} className={`transition-colors ${isEditMode ? 'bg-blue-50' : ''}`}>
                     {featureIndex === 0 && (
                       <td className="px-4 py-3 text-sm text-gray-900 border-b border-r border-gray-200" rowSpan={featureCount}>
                         <div className="flex items-center gap-2">
@@ -548,6 +538,7 @@ const ManagePermissions: React.FC = () => {
                     </td>
                     {methodsConfig.map((method) => {
                       const isChecked = feature.methodsList.includes(method.value);
+                      const isViewPermission = method.value === "VIEW";
                       return (
                         <td key={method.value} className="px-4 py-3 text-center border-b border-r border-gray-200">
                           <input
@@ -557,8 +548,13 @@ const ManagePermissions: React.FC = () => {
                               ? handleEditTogglePermission(memberIndex, featureIndex, method.value)
                               : handleTogglePermission(memberIndex, featureIndex, method.value)
                             }
-                            disabled={isEditMode === false}
-                            className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isEditMode === false || isViewPermission}
+                            className={`w-4 h-4 text-purple-600 rounded focus:ring-purple-500 ${isViewPermission
+                                ? 'cursor-not-allowed opacity-50'
+                                : isEditMode
+                                  ? 'cursor-pointer'
+                                  : 'cursor-not-allowed opacity-50'
+                              }`}
                           />
                         </td>
                       );

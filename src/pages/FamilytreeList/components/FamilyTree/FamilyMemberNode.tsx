@@ -96,6 +96,7 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
               src={data.avatar}
               alt={data.name || ''}
               className="w-full h-full rounded-full object-cover"
+              crossOrigin="anonymous"
             />
           ) : (
             <User className="w-6 h-6 text-white" />

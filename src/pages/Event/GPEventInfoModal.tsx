@@ -1,11 +1,16 @@
 // @ts-nocheck
 import { useState } from "react";
 import { Input, Select } from "antd";
-import { X, Calendar, MapPin, Repeat, User, Users, FileText, Trash2, ChevronDown, CalendarPlus, Loader2 } from "lucide-react";
+import { X, Calendar, MapPin, Repeat, User, Users, FileText, Trash2, ChevronDown, CalendarPlus, Loader2, Share } from "lucide-react";
 import "moment/locale/vi";
 import moment from "moment";
 import eventService from "../../services/eventService";
 import { toast } from 'react-toastify';
+import ShareToPostModal from "@/components/shared/ShareToPostModal";
+import { useParams } from "react-router-dom";
+import { useGPMember } from '@/hooks/useGPMember';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
+import { useAppSelector } from '@/hooks/redux';
 
 // API Base URL for images
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
@@ -52,8 +57,18 @@ const GPEventInfoModal = ({
   // Use name or title (title is used by holiday events)
   const eventName = name || title || 'Sự kiện';
 
+  // IMPORTANT: All hooks must be called before any early returns
+  const { id: familyTreeId } = useParams();
+  const { token, user } = useAppSelector(state => state.auth);
+  const currentUserId = getUserIdFromToken(token || '') || user?.userId;
+  const { gpMemberId } = useGPMember(familyTreeId || null, currentUserId || null);
+
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Early return AFTER all hooks
+  if (!isOpenModal) return null;
 
   // Check if this is a Vietnamese holiday event
   const isVietnameseHoliday = extendedProps?.isHoliday === true || (id && id.toString().startsWith('holiday-'));
@@ -83,12 +98,12 @@ const GPEventInfoModal = ({
     setIsDeleting(true);
     try {
       const response = await eventService.deleteEventById(id);
-      
+
       if (response?.data || response?.data?.data) {
         toast.success('Xóa sự kiện thành công!');
         setIsOpenModal(false);
         setEventSelected(null);
-        
+
         // Call callback if provided
         if (onEventDeleted && typeof onEventDeleted === 'function') {
           onEventDeleted();
@@ -154,7 +169,84 @@ const GPEventInfoModal = ({
 
   const menuProps = { items, onClick: handleMenuClick };
 
-  if (!isOpenModal) return null;
+  // Format event data for sharing to post
+  const formatEventForPost = () => {
+    if (!name && !title) return null;
+
+    const eventDate = start ? moment(start).locale("vi").format("DD/MM/YYYY") : '';
+    const eventTime = start && end
+      ? `${moment(start).format("HH:mm")} - ${moment(end).format("HH:mm")}`
+      : '';
+    const weekday = start ? moment(start).locale("vi").format("dddd") : '';
+
+    // Create visually appealing event content
+    let content = '';
+
+    // Event description
+    if (description) {
+      content += `${decodeHTML(description)}\n\n`;
+    }
+
+    // Visual divider
+    content += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    // Event details section
+    content += `📅 **THÔNG TIN SỰ KIỆN**\n\n`;
+
+    if (eventDate) {
+      content += `🗓️ Ngày: **${weekday}, ${eventDate}**\n`;
+    }
+    if (eventTime) {
+      content += `🕐 Giờ: **${eventTime}**\n`;
+    }
+    if (address) {
+      content += `📍 Địa điểm: **${decodeHTML(address)}**\n`;
+    }
+    if (isLunar) {
+      content += `🌙 Sự kiện theo **lịch âm**\n`;
+    }
+
+    content += `\n`;
+
+    // Members section
+    if (memberNamesJoin) {
+      content += `👥 Thành viên tham gia: ${memberNamesJoin}\n\n`;
+    }
+
+    content += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    // Call to action
+    content += `🎉 **ĐỪNG BỎ LỠ SỰ KIỆN NÀY!**\n\n`;
+    content += `👉 Xem chi tiết tại trang Lịch sự kiện của gia tộc\n\n`;
+    content += `#SựKiệnGiaTộc #CùngThamGia #GắnKếtYêuThương`;
+
+    return {
+      type: 'event' as const,
+      title: `🎊 [Sự kiện] ${eventName}`,
+      description: content,
+      imageUrl: imageUrl || null,
+      details: defaultValues
+    };
+  };
+
+  const handleShareEvent = () => {
+    console.log('Event share button clicked!'); // Debug log
+    console.log('familyTreeId:', familyTreeId);
+    console.log('gpMemberId:', gpMemberId);
+    console.log('formatEventForPost():', formatEventForPost());
+
+    if (!familyTreeId) {
+      toast.error('Không tìm thấy thông tin gia tộc. Vui lòng thử lại!');
+      return;
+    }
+
+    if (!gpMemberId) {
+      toast.error('Không thể xác định thành viên. Vui lòng thử lại!');
+      return;
+    }
+
+    setIsShareModalOpen(true);
+  };
 
   return (
     <div
@@ -206,7 +298,7 @@ const GPEventInfoModal = ({
                 <span className="font-medium text-sm">{startTimeText} {startTimeText && endTimeText ? '-' : ''} {endTimeText}</span>
               </div>
             )}
-            
+
             {/* Địa chỉ */}
             {address && (
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
@@ -214,7 +306,7 @@ const GPEventInfoModal = ({
                 <span className="text-sm">{address}</span>
               </div>
             )}
-            
+
             {/* Lặp lại */}
             {recurrence && (
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
@@ -223,18 +315,18 @@ const GPEventInfoModal = ({
                   {recurrence === "ONCE"
                     ? "Không lặp lại"
                     : recurrence === "DAILY"
-                    ? "Mỗi ngày"
-                    : recurrence === "WEEKLY"
-                    ? "Mỗi tuần"
-                    : recurrence === "MONTHLY"
-                    ? "Mỗi tháng"
-                    : recurrence === "YEARLY"
-                    ? "Mỗi năm"
-                    : "Khác"}
+                      ? "Mỗi ngày"
+                      : recurrence === "WEEKLY"
+                        ? "Mỗi tuần"
+                        : recurrence === "MONTHLY"
+                          ? "Mỗi tháng"
+                          : recurrence === "YEARLY"
+                            ? "Mỗi năm"
+                            : "Khác"}
                 </span>
               </div>
             )}
-            
+
             {/* Lịch âm */}
             {isLunar && (
               <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
@@ -242,7 +334,7 @@ const GPEventInfoModal = ({
                 <span className="text-sm text-blue-700 font-medium">Sự kiện theo lịch âm</span>
               </div>
             )}
-            
+
             {/* Thành viên */}
             {memberNamesJoin && (
               <div className="flex items-start gap-3 bg-gray-50 px-3 py-2 rounded-lg col-span-1 md:col-span-2">
@@ -253,7 +345,7 @@ const GPEventInfoModal = ({
                 </div>
               </div>
             )}
-            
+
             {/* Gia phả */}
             {gpNamesJoin && (
               <div className="flex items-start gap-3 bg-gray-50 px-3 py-2 rounded-lg col-span-1 md:col-span-2">
@@ -264,7 +356,7 @@ const GPEventInfoModal = ({
                 </div>
               </div>
             )}
-            
+
             {/* Mô tả */}
             {description && (
               <div className="flex items-start gap-3 bg-gray-50 px-3 py-3 rounded-lg col-span-1 md:col-span-2">
@@ -288,16 +380,16 @@ const GPEventInfoModal = ({
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="3" y="4" width="18" height="18" rx="2" fill="#4285F4" opacity="0.1"/>
-                  <path d="M19 4H5C3.89 4 3 4.9 3 6V20C3 21.1 3.89 22 5 22H19C20.1 22 21 21.1 21 20V6C21 4.9 20.1 4 19 4Z" stroke="#4285F4" strokeWidth="2" fill="none"/>
-                  <path d="M16 2V6M8 2V6M3 10H21" stroke="#4285F4" strokeWidth="1.5"/>
-                  <rect x="7" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <rect x="11" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <rect x="15" y="12" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <rect x="7" y="16" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <rect x="11" y="16" width="2" height="2" rx="0.5" fill="#4285F4"/>
-                  <circle cx="18" cy="6" r="2.5" fill="white"/>
-                  <path d="M18 4L16.5 5.5L18 7L19.5 5.5L18 4Z" fill="#4285F4"/>
+                  <rect x="3" y="4" width="18" height="18" rx="2" fill="#4285F4" opacity="0.1" />
+                  <path d="M19 4H5C3.89 4 3 4.9 3 6V20C3 21.1 3.89 22 5 22H19C20.1 22 21 21.1 21 20V6C21 4.9 20.1 4 19 4Z" stroke="#4285F4" strokeWidth="2" fill="none" />
+                  <path d="M16 2V6M8 2V6M3 10H21" stroke="#4285F4" strokeWidth="1.5" />
+                  <rect x="7" y="12" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <rect x="11" y="12" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <rect x="15" y="12" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <rect x="7" y="16" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <rect x="11" y="16" width="2" height="2" rx="0.5" fill="#4285F4" />
+                  <circle cx="18" cy="6" r="2.5" fill="white" />
+                  <path d="M18 4L16.5 5.5L18 7L19.5 5.5L18 4Z" fill="#4285F4" />
                 </svg>
                 <span>Thêm vào Google Calendar</span>
               </button>
@@ -365,10 +457,34 @@ const GPEventInfoModal = ({
               >
                 Chỉnh sửa
               </button>
+
+              {/* Share to Post Button */}
+              <button
+                onClick={handleShareEvent}
+                disabled={isDeleting || isEditing}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Share className="w-4 h-4" />
+                Chia sẻ lên Bảng tin
+              </button>
             </>
           )}
         </div>
       </div>
+
+      {/* Share to Post Modal */}
+      {isShareModalOpen && familyTreeId && gpMemberId && formatEventForPost() && (
+        <ShareToPostModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          familyTreeId={familyTreeId}
+          gpMemberId={gpMemberId}
+          shareableItem={formatEventForPost()!}
+          onShareSuccess={() => {
+            setIsShareModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -101,7 +101,7 @@ const BasicInfo: React.FC = () => {
 
         } catch (error: any) {
             console.error('Error saving:', error);
-            toast.error(error?.message || 'Có lỗi xảy ra khi cập nhật!');
+            toast.error(error?.response?.data?.Message || 'Có lỗi xảy ra khi cập nhật!');
         } finally {
             setIsSaving(false);
         }
@@ -175,7 +175,7 @@ const BasicInfo: React.FC = () => {
 
         } catch (error: any) {
             console.error('Error deleting:', error);
-            toast.error(error?.message || 'Có lỗi xảy ra khi xóa gia phả!');
+            toast.error(error?.response?.data?.Message || 'Có lỗi xảy ra khi xóa gia phả!');
         }
     };
 

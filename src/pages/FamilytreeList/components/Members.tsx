@@ -50,7 +50,7 @@ const Members: React.FC = () => {
                 };
 
                 // Fetch all FTOwner (usually just 1, but fetch with reasonable limit)
-                const ownerRes = await familyTreeService.getFamilyTreeMembers({
+                const ownerRes = await familyTreeService.getFamilyTreeMembers(selectedFamilyTree.id, {
                     pageIndex: 1,
                     pageSize: 100, // Get all owners (should be just 1, but safe limit)
                     propertyFilters: [
@@ -66,7 +66,7 @@ const Members: React.FC = () => {
                 });
 
                 // Fetch all FTMember (we need all to combine properly)
-                const memberRes = await familyTreeService.getFamilyTreeMembers({
+                const memberRes = await familyTreeService.getFamilyTreeMembers(selectedFamilyTree.id, {
                     pageIndex: 1,
                     pageSize: 1000, // Get all members for proper pagination
                     propertyFilters: [
@@ -110,7 +110,7 @@ const Members: React.FC = () => {
                     }
                 ];
 
-                const res = await familyTreeService.getFamilyTreeMembers({
+                const res = await familyTreeService.getFamilyTreeMembers(selectedFamilyTree.id, {
                     pageIndex: paginationData.pageIndex,
                     pageSize: paginationData.pageSize,
                     propertyFilters: filters,
@@ -292,17 +292,9 @@ const Members: React.FC = () => {
                                 <tr key={member.userId} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            {member.ft?.filePath ? (
-                                                <img
-                                                    src={member.ft.filePath}
-                                                    alt={getMemberDisplayName(member)}
-                                                    className="w-10 h-10 rounded-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-semibold">
-                                                    {getMemberDisplayName(member).charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
+                                            <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-semibold">
+                                                {getMemberDisplayName(member).charAt(0).toUpperCase()}
+                                            </div>
                                             <span className="text-sm font-medium text-gray-900">{getMemberDisplayName(member)}</span>
                                         </div>
                                     </td>
