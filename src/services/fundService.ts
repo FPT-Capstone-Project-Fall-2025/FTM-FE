@@ -154,8 +154,8 @@ export const fundService = {
         typeof d?.receiptUrls === 'string'
           ? d.receiptUrls.split(',').map((s: string) => s.trim()).filter(Boolean)
           : Array.isArray(d?.receiptUrls)
-          ? d.receiptUrls
-          : [],
+            ? d.receiptUrls
+            : [],
     };
   },
 
@@ -209,8 +209,8 @@ export const fundService = {
           typeof e.receiptUrl === 'string'
             ? e.receiptUrl.split(',').map((s: string) => s.trim()).filter(Boolean)
             : Array.isArray(e.receiptUrl)
-            ? e.receiptUrl
-            : [],
+              ? e.receiptUrl
+              : [],
         notes: e.notes ?? null,
         status: e.status ?? e.statusName ?? null,
         requestedById: e.requestedById ?? null,
@@ -269,8 +269,8 @@ export const fundService = {
           typeof e.receiptUrl === 'string'
             ? e.receiptUrl.split(',').map((s: string) => s.trim()).filter(Boolean)
             : Array.isArray(e.receiptUrl)
-            ? e.receiptUrl
-            : [],
+              ? e.receiptUrl
+              : [],
         status: e.status ?? e.statusName ?? null,
         requestedById: e.requestedById ?? null,
         requestedByName: e.requestedByName ?? null,
@@ -335,12 +335,12 @@ export const fundService = {
         proofImages:
           typeof item.proofImages === 'string'
             ? item.proofImages
-                .split(',')
-                .map((s: string) => s.trim())
-                .filter(Boolean)
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
             : Array.isArray(item.proofImages)
-            ? item.proofImages
-            : [],
+              ? item.proofImages
+              : [],
         createdAt: item.createdAt ?? null,
         completedAt: item.completedAt ?? null,
         updatedAt: item.updatedAt ?? null,
@@ -433,13 +433,13 @@ export const fundService = {
   async createFundExpense(payload: CreateFundExpensePayload): Promise<CreateFundExpenseResponse> {
     // Always use FormData as the API expects form-data format
     const formData = new FormData();
-    
+
     // Required fields with exact field names as per API
     formData.append('FundId', payload.fundId);
     formData.append('Amount', payload.amount.toString());
     formData.append('Description', payload.description);
     formData.append('Recipient', payload.recipient);
-    
+
     // Optional fields
     if (payload.campaignId) {
       formData.append('CampaignId', payload.campaignId);
@@ -449,12 +449,12 @@ export const fundService = {
     }
     if (payload.plannedDate) {
       // Format date as ISO string if needed
-      const dateValue = payload.plannedDate.includes('T') 
-        ? payload.plannedDate 
+      const dateValue = payload.plannedDate.includes('T')
+        ? payload.plannedDate
         : `${payload.plannedDate}T00:00:00Z`;
       formData.append('PlannedDate', dateValue);
     }
-    
+
     // Append receipt images if provided
     if (payload.receiptImages && payload.receiptImages.length > 0) {
       payload.receiptImages.forEach(file => {
@@ -467,7 +467,7 @@ export const fundService = {
       `/fund-expenses`,
       formData
     );
-    
+
     const data = unwrap<CreateFundExpenseResponse>(response);
     if (!data) {
       throw new Error('Invalid response from server');
@@ -477,7 +477,7 @@ export const fundService = {
 
   async approveFundExpense(id: string, payload: ApproveFundExpensePayload): Promise<ApproveFundExpenseResponse> {
     const hasImages = payload.paymentProofImages && payload.paymentProofImages.length > 0;
-    
+
     console.log('[fundService.approveFundExpense] Approving expense:', {
       expenseId: id,
       approverId: payload.approverId,
@@ -496,10 +496,10 @@ export const fundService = {
     // Always use FormData (API requires payment proof images)
     const formData = new FormData();
     formData.append('ApproverId', payload.approverId);
-    
+
     // Always append Notes (even if empty) to match API expectations
     formData.append('Notes', payload.notes || '');
-    
+
     // Append payment proof images - API requires at least one
     // Try singular field name first (some APIs use singular for single file, plural for multiple)
     // If that doesn't work, we can try 'PaymentProofImages' (plural)
@@ -528,11 +528,11 @@ export const fundService = {
         console.log(`  ${key}: ${value}`);
       }
     }
-    
+
     // Verify files are actually in FormData
     const fileEntries = formDataEntries.filter(([_, value]) => value instanceof File);
     console.log('[fundService.approveFundExpense] FormData file entries count:', fileEntries.length);
-    
+
     if (fileEntries.length === 0) {
       console.error('[fundService.approveFundExpense] ERROR: No files found in FormData!');
       throw new Error('Payment proof images could not be added to request');
@@ -542,7 +542,7 @@ export const fundService = {
       `/fund-expenses/${id}/approve`,
       formData
     );
-    
+
     const data = unwrap<ApproveFundExpenseResponse>(response);
     if (!data) {
       throw new Error('Invalid response from server');
@@ -917,6 +917,8 @@ export const fundService = {
       totalDonations: payload.totalDonations !== undefined ? Number(payload.totalDonations) : (payload.donations?.length ?? null),
       totalDonors: payload.totalDonors !== undefined ? Number(payload.totalDonors) : null,
       isActive: ((payload.status?.toLowerCase() === 'active') || payload.isActive) ?? null,
+      donations: Array.isArray(payload.donations) ? payload.donations : [],
+      expenses: Array.isArray(payload.expenses) ? payload.expenses : [],
     };
   },
 
@@ -1378,7 +1380,7 @@ export const fundService = {
   }> {
     const response = await api.get<ApiResponse<any>>(
       `/ftcampaignexpense/campaign/${campaignId}`,
-      { params: { page, pageSize} }
+      { params: { page, pageSize } }
     );
     const payload = unwrap<any>(response) ?? {};
     const rawItems = normalizeArray<any>(payload?.items ?? []);
