@@ -130,13 +130,13 @@ export const getAvatarFromGPMember = (gpMember: GPMember | null): string | null 
   const avatarFile = gpMember.ftMemberFiles.find(file => {
     const hasTitle = !!file.title;
     const hasAvatarInTitle = file.title?.includes('Avatar') || false;
-    
+
     // Handle isActive as boolean, string, or number (API might return different types)
-    const isFileActive = file.isActive === true || 
-                        (file.isActive as any) === "true" || 
-                        (file.isActive as any) === 1 ||
-                        !!file.isActive;
-    
+    const isFileActive = file.isActive === true ||
+      (file.isActive as any) === "true" ||
+      (file.isActive as any) === 1 ||
+      !!file.isActive;
+
     console.log(`  Checking file:`, {
       title: file.title,
       hasTitle,
@@ -146,7 +146,7 @@ export const getAvatarFromGPMember = (gpMember: GPMember | null): string | null 
       isFileActive,
       matches: hasTitle && hasAvatarInTitle && isFileActive
     });
-    
+
     return hasTitle && hasAvatarInTitle && isFileActive;
   });
 
@@ -222,7 +222,7 @@ const familyTreeMemberService = {
     try {
       // Create cache key
       const currentCacheKey = `${gpId}-${userId}`;
-      
+
       // Return cached result if available and cache key matches
       if (cachedGPMemberId && cacheKey === currentCacheKey) {
         console.log('Using cached GPMemberId:', cachedGPMemberId);
@@ -252,7 +252,7 @@ const familyTreeMemberService = {
         // Cache the result
         cachedGPMemberId = memberData.id;
         cacheKey = currentCacheKey;
-        
+
         console.log('GPMemberId cached successfully:', cachedGPMemberId);
         return cachedGPMemberId;
       } else {
@@ -275,7 +275,8 @@ const familyTreeMemberService = {
         return gpMemberCacheByUserId.get(cacheKey)!;
       }
       const response: ApiResponse<GPMember> = await api.get(`/ftmember/${gpId}/get-by-userid`, {
-        params: { userId }
+        params: { userId },
+        headers: { 'X-Ftid': gpId }
       });
       const memberData =
         (response as any)?.data?.data ??

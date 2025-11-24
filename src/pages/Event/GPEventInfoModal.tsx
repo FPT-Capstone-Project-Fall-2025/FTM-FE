@@ -1,12 +1,17 @@
 // @ts-nocheck
 import { useState } from "react";
 import { Input, Select } from "antd";
-import { X, Calendar, MapPin, Repeat, User, Users, FileText, Trash2, ChevronDown, CalendarPlus, Loader2 } from "lucide-react";
+import { X, Calendar, MapPin, Repeat, User, Users, FileText, Trash2, ChevronDown, CalendarPlus, Loader2, Share } from "lucide-react";
 import "moment/locale/vi";
 import moment from "moment";
 import eventService from "../../services/eventService";
 import { toast } from 'react-toastify';
 import { getLunarCanChi } from "./utils/convertSolar2Lunar";
+import ShareToPostModal from "@/components/shared/ShareToPostModal";
+import { useParams } from "react-router-dom";
+import { useGPMember } from '@/hooks/useGPMember';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
+import { useAppSelector } from '@/hooks/redux';
 
 // API Base URL for images
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
@@ -54,8 +59,18 @@ const GPEventInfoModal = ({
   // Use name or title (title is used by holiday events)
   const eventName = name || title || 'Sự kiện';
 
+  // IMPORTANT: All hooks must be called before any early returns
+  const { id: familyTreeId } = useParams();
+  const { token, user } = useAppSelector(state => state.auth);
+  const currentUserId = getUserIdFromToken(token || '') || user?.userId;
+  const { gpMemberId } = useGPMember(familyTreeId || null, currentUserId || null);
+
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Early return AFTER all hooks
+  if (!isOpenModal) return null;
 
   // Check if this is a Vietnamese holiday event
   const isVietnameseHoliday = extendedProps?.isHoliday === true || (id && id.toString().startsWith('holiday-'));
@@ -156,7 +171,84 @@ const GPEventInfoModal = ({
 
   const menuProps = { items, onClick: handleMenuClick };
 
-  if (!isOpenModal) return null;
+  // Format event data for sharing to post
+  const formatEventForPost = () => {
+    if (!name && !title) return null;
+
+    const eventDate = start ? moment(start).locale("vi").format("DD/MM/YYYY") : '';
+    const eventTime = start && end
+      ? `${moment(start).format("HH:mm")} - ${moment(end).format("HH:mm")}`
+      : '';
+    const weekday = start ? moment(start).locale("vi").format("dddd") : '';
+
+    // Create visually appealing event content
+    let content = '';
+
+    // Event description
+    if (description) {
+      content += `${decodeHTML(description)}\n\n`;
+    }
+
+    // Visual divider
+    content += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    // Event details section
+    content += `📅 **THÔNG TIN SỰ KIỆN**\n\n`;
+
+    if (eventDate) {
+      content += `🗓️ Ngày: **${weekday}, ${eventDate}**\n`;
+    }
+    if (eventTime) {
+      content += `🕐 Giờ: **${eventTime}**\n`;
+    }
+    if (address) {
+      content += `📍 Địa điểm: **${decodeHTML(address)}**\n`;
+    }
+    if (isLunar) {
+      content += `🌙 Sự kiện theo **lịch âm**\n`;
+    }
+
+    content += `\n`;
+
+    // Members section
+    if (memberNamesJoin) {
+      content += `👥 Thành viên tham gia: ${memberNamesJoin}\n\n`;
+    }
+
+    content += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    // Call to action
+    content += `🎉 **ĐỪNG BỎ LỠ SỰ KIỆN NÀY!**\n\n`;
+    content += `👉 Xem chi tiết tại trang Lịch sự kiện của gia tộc\n\n`;
+    content += `#SựKiệnGiaTộc #CùngThamGia #GắnKếtYêuThương`;
+
+    return {
+      type: 'event' as const,
+      title: `🎊 [Sự kiện] ${eventName}`,
+      description: content,
+      imageUrl: imageUrl || null,
+      details: defaultValues
+    };
+  };
+
+  const handleShareEvent = () => {
+    console.log('Event share button clicked!'); // Debug log
+    console.log('familyTreeId:', familyTreeId);
+    console.log('gpMemberId:', gpMemberId);
+    console.log('formatEventForPost():', formatEventForPost());
+
+    if (!familyTreeId) {
+      toast.error('Không tìm thấy thông tin gia tộc. Vui lòng thử lại!');
+      return;
+    }
+
+    if (!gpMemberId) {
+      toast.error('Không thể xác định thành viên. Vui lòng thử lại!');
+      return;
+    }
+
+    setIsShareModalOpen(true);
+  };
 
   return (
     <div
@@ -385,10 +477,34 @@ const GPEventInfoModal = ({
               >
                 Chỉnh sửa
               </button>
+
+              {/* Share to Post Button */}
+              <button
+                onClick={handleShareEvent}
+                disabled={isDeleting || isEditing}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Share className="w-4 h-4" />
+                Chia sẻ lên Bảng tin
+              </button>
             </>
           )}
         </div>
       </div>
+
+      {/* Share to Post Modal */}
+      {isShareModalOpen && familyTreeId && gpMemberId && formatEventForPost() && (
+        <ShareToPostModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          familyTreeId={familyTreeId}
+          gpMemberId={gpMemberId}
+          shareableItem={formatEventForPost()!}
+          onShareSuccess={() => {
+            setIsShareModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

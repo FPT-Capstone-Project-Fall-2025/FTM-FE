@@ -78,7 +78,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                 totalPages: 0
             };
 
-            const res = await familyTreeService.getFamilyTreeMembers(paginationProps);
+            const res = await familyTreeService.getFamilyTreeMembers(ftId, paginationProps);
             const allMembers = (res.data as any)?.data || [];
 
             setMembers(allMembers);
@@ -101,14 +101,12 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
         }
     }, [isOpen, fetchMembers]);
 
-    // Re-evaluate selected feature when member selection changes
     useEffect(() => {
         const existing = existingFeaturesByMemberId?.[selectedMemberId] || [];
         const firstAvailable = FEATURE_CODES.find(f => !existing.includes(f.value));
         if (firstAvailable) {
             setSelectedFeatureCode(firstAvailable.value);
         } else {
-            // No available features left
             setSelectedFeatureCode("");
         }
     }, [selectedMemberId, existingFeaturesByMemberId]);
@@ -127,11 +125,17 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
         setSubmitting(true);
         try {
             const selectedMember = members.find(m => m.userId === selectedMemberId);
+            // Always include VIEW permission along with selected methods
+            const methodsWithView = [...selectedMethods];
+            if (!methodsWithView.includes('VIEW')) {
+                methodsWithView.push('VIEW');
+            }
+
             await onConfirm(
                 selectedMemberId,
                 selectedMember?.name || selectedMember?.username || "",
                 selectedFeatureCode,
-                selectedMethods
+                methodsWithView
             );
             setSelectedMemberId("");
             setSearchTerm("");
@@ -303,32 +307,44 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                     Chọn quyền
                                 </label>
                                 <div className="space-y-2">
-                                    {METHODS.map(method => (
-                                        <label
-                                            key={method.value}
-                                            className={`flex items-center p-2 rounded-md cursor-pointer transition-colors ${selectedMethods.includes(method.value)
-                                                ? 'bg-green-100 border border-green-400'
-                                                : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                value={method.value}
-                                                checked={selectedMethods.includes(method.value)}
-                                                onChange={e => {
-                                                    if (e.target.checked) {
-                                                        setSelectedMethods([...selectedMethods, method.value]);
-                                                    } else {
-                                                        setSelectedMethods(selectedMethods.filter(m => m !== method.value));
-                                                    }
-                                                }}
-                                                className="w-4 h-4 text-green-600 cursor-pointer"
-                                            />
-                                            <span className="ml-2 text-sm font-medium text-gray-700">
-                                                {method.label}
-                                            </span>
-                                        </label>
-                                    ))}
+                                    {METHODS.map(method => {
+                                        const isViewPermission = method.value === "VIEW";
+                                        const isChecked = isViewPermission || selectedMethods.includes(method.value);
+
+                                        return (
+                                            <label
+                                                key={method.value}
+                                                className={`flex items-center p-2 rounded-md transition-colors ${isViewPermission
+                                                        ? 'bg-gray-100 border border-gray-300 cursor-not-allowed opacity-60'
+                                                        : isChecked
+                                                            ? 'bg-green-100 border border-green-400 cursor-pointer'
+                                                            : 'bg-gray-50 border border-gray-200 hover:bg-gray-100 cursor-pointer'
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    value={method.value}
+                                                    checked={isChecked}
+                                                    disabled={isViewPermission}
+                                                    onChange={e => {
+                                                        if (!isViewPermission) {
+                                                            if (e.target.checked) {
+                                                                setSelectedMethods([...selectedMethods, method.value]);
+                                                            } else {
+                                                                setSelectedMethods(selectedMethods.filter(m => m !== method.value));
+                                                            }
+                                                        }
+                                                    }}
+                                                    className={`w-4 h-4 text-green-600 ${isViewPermission ? 'cursor-not-allowed' : 'cursor-pointer'
+                                                        }`}
+                                                />
+                                                <span className="ml-2 text-sm font-medium text-gray-700">
+                                                    {method.label}
+                                                    {isViewPermission && " (Mặc định)"}
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </>

@@ -178,11 +178,11 @@ const FamilyTreeContent = () => {
 
   // Handle delete node confirmation
   const handleDeleteNodeConfirm = useCallback(async () => {
-    if (!memberToDelete?.id) return;
+    if (!memberToDelete?.id || !selectedFamilyTree?.id) return;
 
     setIsDeletingNode(true);
     try {
-      const response = await familyTreeService.deleteFamilyNode(memberToDelete.id);
+      const response = await familyTreeService.deleteFamilyNode(selectedFamilyTree.id, memberToDelete.id);
       toast.success(response.message)
       // Close the detail panel if the deleted member was selected
       if (selectedMemberId === memberToDelete.id) {

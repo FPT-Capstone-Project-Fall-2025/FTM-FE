@@ -16,19 +16,28 @@ const familyTreeService = {
   },
 
   getFamilyTreeById(id: string): Promise<ApiResponse<Familytree>> {
-    return api.get(`/familytree/${id}`);
+    return api.get(`/familytree/${id}`, {
+      headers: {
+        'X-Ftid': id,
+      }
+    });
   },
 
   updateFamilyTree(id: string, data: FamilytreeUpdateProps): Promise<ApiResponse<Familytree>> {
     return api.put(`/familytree/${id}`, data, {
       headers: {
-        "Content-Type": "multipart/form-data"
+        "Content-Type": "multipart/form-data",
+        'X-Ftid': id,
       }
     });
   },
 
   deleteFamilyTree(id: string): Promise<ApiResponse<boolean>> {
-    return api.delete(`/familytree/${id}`);
+    return api.delete(`/familytree/${id}`, {
+      headers: {
+        'X-Ftid': id,
+      }
+    });
   },
 
   getFamilytrees(props: PaginationProps): Promise<ApiResponse<PaginationResponse<Familytree[]>>> {
@@ -59,6 +68,9 @@ const familyTreeService = {
     return api.get('/ftmember/member-tree', {
       params: {
         ftId
+      },
+      headers: {
+        'X-Ftid': ftId,
       }
     });
   },
@@ -72,23 +84,33 @@ const familyTreeService = {
     });
   },
 
-  getFamilyTreeMembers(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyMemberList[]>>> {
+  getFamilyTreeMembers(ftId: string, props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyMemberList[]>>> {
     return api.get('/ftmember/list-of-ftusers', {
       params: {
         ...props,
         propertyFilters: JSON.stringify(props.propertyFilters)
+      },
+      headers: {
+        'X-Ftid': ftId
       }
     });
   },
 
   getMemberTree(ftId: string): Promise<ApiResponse<FamilytreeDataResponse>> {
-    return api.get(`/ftmember/member-tree?ftId=${ftId}`);
+    return api.get(`/ftmember/member-tree?ftId=${ftId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      }
+    });
   },
 
   getFamilyTreeMemberById(ftId: string, ftMemberId: string): Promise<ApiResponse<FamilyNode>> {
     return api.get(`/ftmember/${ftId}/get-by-memberid`, {
       params: {
         memberId: ftMemberId
+      },
+      headers: {
+        'X-Ftid': ftId,
       }
     });
   },
@@ -134,7 +156,7 @@ const familyTreeService = {
 
     return api.post(`/ftmember/${props.ftId}`, formData, {
       headers: {
-        'X-FtId': props.ftId,
+        'X-Ftid': props.ftId,
       }
     });
   },
@@ -181,7 +203,7 @@ const familyTreeService = {
     // Don't manually set Content-Type header - let the browser set it with the boundary
     return api.put(`/ftmember/${ftId}`, formData, {
       headers: {
-        'X-FtId': ftId,
+        'X-Ftid': ftId,
       }
     });
   },
@@ -190,8 +212,12 @@ const familyTreeService = {
     return api.get(`/ftmember/${ftMemberId}/relationship`);
   },
 
-  deleteFamilyNode(ftMemberId: string): Promise<ApiResponse<string>> {
-    return api.delete(`/ftmember/${ftMemberId}`);
+  deleteFamilyNode(ftId: string, ftMemberId: string): Promise<ApiResponse<string>> {
+    return api.delete(`/ftmember/${ftMemberId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      }
+    });
   },
 
   getInvitationsList(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FTInvitation[]>>> {
