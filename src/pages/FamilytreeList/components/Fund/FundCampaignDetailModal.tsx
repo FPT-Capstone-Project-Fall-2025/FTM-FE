@@ -65,6 +65,8 @@ const renderDonations = (
     );
   }
 
+  console.log(getDonationStatusKey);
+
   return (
     <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
       {donations.map(donation => (

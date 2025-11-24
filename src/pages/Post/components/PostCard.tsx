@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
 import {
   MoreHorizontal,
   ThumbsUp,
@@ -18,7 +17,6 @@ import {
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import type { Post, ReactionType, Comment } from '../../../types/post';
 import PostStats from './PostStats';
-import familyTreeMemberService, { getAvatarFromGPMember, getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
 import PostActions from './PostActions';
 
 // Video component with thumbnail generation
@@ -44,7 +42,7 @@ const VideoWithThumbnail: React.FC<{
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 360;
         const ctx = canvas.getContext('2d');
-        
+
         if (ctx && video.videoWidth > 0) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const posterUrl = canvas.toDataURL('image/jpeg', 0.7);
@@ -54,7 +52,7 @@ const VideoWithThumbnail: React.FC<{
     };
 
     video.addEventListener('loadeddata', generatePoster);
-    
+
     // Also try to generate immediately if already loaded
     if (video.readyState >= 2) {
       generatePoster();
@@ -204,10 +202,10 @@ export const CommentItem: React.FC<{
   setCollapsedReplies?: React.Dispatch<React.SetStateAction<{ [key: string]: boolean }>>;
   showCommentMenu?: string | null;
   setShowCommentMenu?: (id: string | null) => void;
-}> = React.memo(({ 
-  comment, 
-  postId, 
-  depth = 0, 
+}> = React.memo(({
+  comment,
+  postId,
+  depth = 0,
   maxDepth = 1, // Only allow 2 levels: comments (depth 0) and replies (depth 1)
   currentUserGPMemberId,
   userData,
@@ -235,7 +233,7 @@ export const CommentItem: React.FC<{
 
   // Calculate avatar source with priority (Group → current user fallback → api → default)
   const commentAvatar = (comment.gpMemberId === currentUserGPMemberId ? userData.picture : null) || comment.author?.avatar || defaultPicture;
-  
+
   // Debug: Log comment avatar source
   React.useEffect(() => {
     console.log('💬 [CommentItem] Rendering comment:', {
@@ -243,10 +241,10 @@ export const CommentItem: React.FC<{
       authorName: comment.author?.name,
       avatar: commentAvatar,
       isCurrentUser: comment.gpMemberId === currentUserGPMemberId,
-      avatarSource: commentAvatar?.includes('/ftmembers/') ? 'GPMember (ftMemberFiles)' : 
-                    commentAvatar?.includes('/avatars/') ? 'Global Profile' : 
-                    commentAvatar?.includes('ui-avatars.com') ? 'UI Avatars' :
-                    'defaultPicture'
+      avatarSource: commentAvatar?.includes('/ftmembers/') ? 'GPMember (ftMemberFiles)' :
+        commentAvatar?.includes('/avatars/') ? 'Global Profile' :
+          commentAvatar?.includes('ui-avatars.com') ? 'UI Avatars' :
+            'defaultPicture'
     });
   }, [comment.id, comment.author?.name, commentAvatar, comment.gpMemberId, currentUserGPMemberId]);
 
@@ -558,7 +556,7 @@ const PostCard: React.FC<PostCardProps> = ({
   setCollapsedReplies,
 }) => {
 
-  
+
   const [localShowComments, setLocalShowComments] = useState(showComments);
   const [_showEmojiPicker, _setShowEmojiPicker] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
@@ -576,7 +574,7 @@ const PostCard: React.FC<PostCardProps> = ({
       onToggleComments();
       return;
     }
-    
+
     if (showComments) {
       setLocalShowComments(!localShowComments);
     } else {
@@ -796,7 +794,7 @@ const PostCard: React.FC<PostCardProps> = ({
                       </div>
                     );
                   })}
-                  
+
                   {/* New Images/Videos */}
                   {editImagePreviews.map((preview, index) => {
                     const isVideo = editImages[index]?.type.startsWith('video/');
@@ -959,7 +957,7 @@ const PostCard: React.FC<PostCardProps> = ({
         }, [post.id, mediaCount]);
 
         return (
-          <div className="px-6 pb-4 cursor-pointer"  onClick={() => onOpenPostDetail(post)}>
+          <div className="px-6 pb-4 cursor-pointer" onClick={() => onOpenPostDetail(post)}>
             {isSingleMedia ? (
               // Single media - Display with 1:1 aspect ratio (square)
               <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black">
@@ -1075,11 +1073,10 @@ const PostCard: React.FC<PostCardProps> = ({
                         e.stopPropagation();
                         setCurrentMediaIndex(index);
                       }}
-                      className={`w-2 h-2 rounded-full transition-all ${
-                        index === currentMediaIndex 
-                          ? 'bg-white w-6' 
-                          : 'bg-white bg-opacity-50 hover:bg-opacity-75'
-                      }`}
+                      className={`w-2 h-2 rounded-full transition-all ${index === currentMediaIndex
+                        ? 'bg-white w-6'
+                        : 'bg-white bg-opacity-50 hover:bg-opacity-75'
+                        }`}
                       aria-label={`Go to media ${index + 1}`}
                     />
                   ))}
@@ -1112,7 +1109,7 @@ const PostCard: React.FC<PostCardProps> = ({
         onCommentClick={handleToggleComments}
         isInModal={isInModal}
       />
-{/* Comments Section */}
+      {/* Comments Section */}
       {(onToggleComments ? showComments : localShowComments) && (
         <div className="px-6 pb-6 pt-2 border-t border-gray-100 bg-gray-50 rounded-b-lg">
           {/* Comment Input */}
@@ -1163,25 +1160,25 @@ const PostCard: React.FC<PostCardProps> = ({
                   key={comment.id}
                   comment={comment}
                   postId={post.id}
-                  currentUserGPMemberId={currentUserGPMemberId}
+                  currentUserGPMemberId={currentUserGPMemberId || ''}
                   userData={userData}
-                  editingCommentId={editingCommentId}
-                  editCommentContent={editCommentContent}
-                  setEditingCommentId={setEditingCommentId}
-                  setEditCommentContent={setEditCommentContent}
-                  onEditComment={onEditComment}
-                  onDeleteComment={onDeleteComment}
-                  onReportComment={onReportComment}
-                  onLikeComment={onLikeComment}
-                  replyingToComment={replyingToComment}
-                  setReplyingToComment={setReplyingToComment}
-                  replyInputs={replyInputs}
-                  setReplyInputs={setReplyInputs}
-                  onReplySubmit={onReplySubmit}
-                  collapsedReplies={collapsedReplies}
-                  setCollapsedReplies={setCollapsedReplies}
-                  showCommentMenu={showCommentMenu}
-                  setShowCommentMenu={setShowCommentMenu}
+                  editingCommentId={editingCommentId || null}
+                  editCommentContent={editCommentContent || ''}
+                  setEditingCommentId={setEditingCommentId || (() => { })}
+                  setEditCommentContent={setEditCommentContent || (() => { })}
+                  onEditComment={onEditComment || (() => { })}
+                  onDeleteComment={onDeleteComment || (() => { })}
+                  onReportComment={onReportComment || (() => { })}
+                  onLikeComment={onLikeComment || (() => { })}
+                  replyingToComment={replyingToComment || null}
+                  setReplyingToComment={setReplyingToComment || (() => { })}
+                  replyInputs={replyInputs || {}}
+                  setReplyInputs={setReplyInputs || (() => { })}
+                  onReplySubmit={onReplySubmit || (() => { })}
+                  collapsedReplies={collapsedReplies || {}}
+                  setCollapsedReplies={setCollapsedReplies || (() => { })}
+                  showCommentMenu={showCommentMenu || null}
+                  setShowCommentMenu={setShowCommentMenu || (() => { })}
                 />
               ))
             ) : (
