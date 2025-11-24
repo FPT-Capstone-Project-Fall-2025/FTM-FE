@@ -11,7 +11,6 @@ const MemberDetailPanel = ({
   onShowMemberDetail?: () => void;
 }) => {
   const bgColor = member?.gender === 1 ? 'bg-pink-200' : 'bg-blue-200';
-  console.log(member);
   return (
     <>
       {/* Backdrop overlay */}

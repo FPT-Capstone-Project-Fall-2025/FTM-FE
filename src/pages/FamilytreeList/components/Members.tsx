@@ -50,7 +50,7 @@ const Members: React.FC = () => {
                 };
 
                 // Fetch all FTOwner (usually just 1, but fetch with reasonable limit)
-                const ownerRes = await familyTreeService.getFamilyTreeMembers({
+                const ownerRes = await familyTreeService.getFamilyTreeMembers(selectedFamilyTree.id, {
                     pageIndex: 1,
                     pageSize: 100, // Get all owners (should be just 1, but safe limit)
                     propertyFilters: [
@@ -66,7 +66,7 @@ const Members: React.FC = () => {
                 });
 
                 // Fetch all FTMember (we need all to combine properly)
-                const memberRes = await familyTreeService.getFamilyTreeMembers({
+                const memberRes = await familyTreeService.getFamilyTreeMembers(selectedFamilyTree.id, {
                     pageIndex: 1,
                     pageSize: 1000, // Get all members for proper pagination
                     propertyFilters: [
@@ -110,7 +110,7 @@ const Members: React.FC = () => {
                     }
                 ];
 
-                const res = await familyTreeService.getFamilyTreeMembers({
+                const res = await familyTreeService.getFamilyTreeMembers(selectedFamilyTree.id, {
                     pageIndex: paginationData.pageIndex,
                     pageSize: paginationData.pageSize,
                     propertyFilters: filters,
