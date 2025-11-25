@@ -235,7 +235,8 @@ export interface FTAuthList {
       id: string;
       fullname: string;
       avatar?: string | null;
-    }, value: FTAuthProp[]
+    },
+    value: FTAuthProp[]
   }>;
 }
 

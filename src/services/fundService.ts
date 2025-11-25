@@ -53,7 +53,11 @@ const normalizeArray = <T>(value: T | T[] | undefined): T[] => {
 
 export const fundService = {
   async fetchFundsByTree(treeId: string): Promise<Fund[]> {
-    const result = await api.get<ApiResponse<Fund[]>>(`/funds/tree/${treeId}`);
+    const result = await api.get<ApiResponse<Fund[]>>(`/funds/tree/${treeId}`, {
+      headers: {
+        'X-Ftid': treeId,
+      },
+    });
     return normalizeArray(unwrap<Fund[] | Fund>(result));
   },
 
@@ -357,6 +361,7 @@ export const fundService = {
   },
 
   async fetchFundExpenses(
+    ftId: string,
     fundId: string,
     page = 1,
     pageSize = 20
@@ -367,6 +372,9 @@ export const fundService = {
         params: {
           page,
           pageSize,
+        },
+        headers: {
+          'X-Ftid': ftId,
         },
       }
     );
@@ -426,6 +434,9 @@ export const fundService = {
       params: {
         treeId,
       },
+      headers: {
+        'X-Ftid': treeId
+      }
     });
     return normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
   },
@@ -555,6 +566,7 @@ export const fundService = {
   },
 
   async fetchFundDonations(
+    ftId: string,
     fundId: string,
     page = 1,
     pageSize = 20
@@ -565,6 +577,9 @@ export const fundService = {
         params: {
           page,
           pageSize,
+        },
+        headers: {
+          'X-Ftid': ftId,
         },
       }
     );
@@ -608,13 +623,21 @@ export const fundService = {
     };
   },
 
-  async fetchFundDonationStats(fundId: string): Promise<FundDonationStats | null> {
-    const result = await api.get<ApiResponse<FundDonationStats>>(`/donations/fund/${fundId}/stats`);
+  async fetchFundDonationStats(ftId: string, fundId: string): Promise<FundDonationStats | null> {
+    const result = await api.get<ApiResponse<FundDonationStats>>(`/donations/fund/${fundId}/stats`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
     return unwrap<FundDonationStats | null>(result) ?? null;
   },
 
-  async fetchPendingDonations(): Promise<MyPendingDonation[]> {
-    const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/pending`);
+  async fetchPendingDonations(ftId: string): Promise<MyPendingDonation[]> {
+    const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/pending`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
     return normalizeArray(unwrap<MyPendingDonation[] | MyPendingDonation>(result));
   },
 
@@ -696,9 +719,12 @@ export const fundService = {
     return data;
   },
 
-  async fetchMyPendingDonations(userId: string): Promise<MyPendingDonation[]> {
+  async fetchMyPendingDonations(ftId: string, userId: string): Promise<MyPendingDonation[]> {
     const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/my-pending`, {
       params: { userId },
+      headers: {
+        'X-Ftid': ftId,
+      },
     });
     return normalizeArray(unwrap<MyPendingDonation[] | MyPendingDonation>(result));
   },
@@ -736,6 +762,9 @@ export const fundService = {
       params: {
         page,
         pageSize,
+      },
+      headers: {
+        'X-Ftid': treeId,
       },
     });
 
@@ -787,6 +816,7 @@ export const fundService = {
   },
 
   async fetchActiveCampaigns(
+    ftId: string,
     page = 1,
     pageSize = 10
   ): Promise<{
@@ -802,6 +832,9 @@ export const fundService = {
       params: {
         page,
         pageSize,
+      },
+      headers: {
+        'X-Ftid': ftId,
       },
     });
 
@@ -852,8 +885,12 @@ export const fundService = {
     };
   },
 
-  async fetchCampaignById(campaignId: string): Promise<FundCampaign | null> {
-    const response = await api.get<ApiResponse<any>>(`/ftcampaign/${campaignId}`);
+  async fetchCampaignById(ftId: string, campaignId: string): Promise<FundCampaign | null> {
+    const response = await api.get<ApiResponse<any>>(`/ftcampaign/${campaignId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
     const payload = unwrap<any>(response);
     if (!payload) {
       return null;
@@ -1042,17 +1079,25 @@ export const fundService = {
     return normalizeArray(unwrap<CampaignExpense[] | CampaignExpense>(result));
   },
 
-  async fetchCampaignStatistics(campaignId: string): Promise<CampaignStatistics | null> {
+  async fetchCampaignStatistics(ftId: string, campaignId: string): Promise<CampaignStatistics | null> {
     const result = await api.get<ApiResponse<CampaignStatistics>>(
-      `/ftcampaign/${campaignId}/statistics`
+      `/ftcampaign/${campaignId}/statistics`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    }
     );
     const data = unwrap<CampaignStatistics | null>(result);
     return data ?? null;
   },
 
-  async fetchCampaignFinancialSummary(campaignId: string): Promise<CampaignFinancialSummary | null> {
+  async fetchCampaignFinancialSummary(ftId: string, campaignId: string): Promise<CampaignFinancialSummary | null> {
     const result = await api.get<ApiResponse<CampaignFinancialSummary>>(
-      `/ftcampaign/${campaignId}/financial-summary`
+      `/ftcampaign/${campaignId}/financial-summary`, {
+      headers: {
+        'X-Ftid': ftId
+      }
+    }
     );
     return unwrap<CampaignFinancialSummary | null>(result) ?? null;
   },

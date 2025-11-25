@@ -6,6 +6,7 @@ import { Trophy, GraduationCap, Briefcase, Plus, Edit, Trash2, X, Upload, Award,
 import { toast } from 'react-toastify';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import { Select } from 'antd';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type BoardType = 'academic' | 'career';
 
@@ -23,6 +24,7 @@ const HonorBoard: React.FC = () => {
   const [honorToDelete, setHonorToDelete] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedHonor, setSelectedHonor] = useState<HonorData | null>(null);
+  const permissions = usePermissions();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -36,6 +38,10 @@ const HonorBoard: React.FC = () => {
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    permissions.logPermissions('MEMBER');
+  }, [permissions]);
 
   // Fetch all data when component mounts or tree changes
   useEffect(() => {
@@ -74,12 +80,6 @@ const HonorBoard: React.FC = () => {
         ftId: selectedTree.id,
       }));
       setMembers(memberOptions);
-
-      console.log('✅ Loaded all honor board data:', {
-        academic: academicResponse.data?.data?.length || 0,
-        career: careerResponse.data?.data?.length || 0,
-        members: memberOptions.length
-      });
     } catch (error) {
       console.error('Error fetching honor board data:', error);
       toast.error('Không thể tải dữ liệu bảng vinh danh');
@@ -94,7 +94,7 @@ const HonorBoard: React.FC = () => {
       // Map fields based on honor type (academic vs career)
       const organizationName = honor.organizationName || honor.institutionName || '';
       const position = honor.position || honor.degreeOrCertificate || '';
-      
+
       setFormData({
         achievementTitle: honor.achievementTitle,
         organizationName: organizationName,
@@ -295,8 +295,8 @@ const HonorBoard: React.FC = () => {
                 <button
                   onClick={() => setActiveBoard('academic')}
                   className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg font-semibold transition-all ${activeBoard === 'academic'
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md scale-[1.02]'
-                      : 'text-gray-600 hover:bg-gray-100 hover:scale-[1.01]'
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md scale-[1.02]'
+                    : 'text-gray-600 hover:bg-gray-100 hover:scale-[1.01]'
                     }`}
                 >
                   <GraduationCap className="w-5 h-5" />
@@ -307,12 +307,12 @@ const HonorBoard: React.FC = () => {
                     </div>
                   </div>
                 </button>
-                
+
                 <button
                   onClick={() => setActiveBoard('career')}
                   className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-lg font-semibold transition-all ${activeBoard === 'career'
-                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-md scale-[1.02]'
-                      : 'text-gray-600 hover:bg-gray-100 hover:scale-[1.01]'
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-md scale-[1.02]'
+                    : 'text-gray-600 hover:bg-gray-100 hover:scale-[1.01]'
                     }`}
                 >
                   <Briefcase className="w-5 h-5" />
@@ -337,7 +337,7 @@ const HonorBoard: React.FC = () => {
                   <Trophy className="w-5 h-5 text-yellow-500" />
                   Cột mốc thành tích - {activeBoard === 'academic' ? 'Học Tập' : 'Sự Nghiệp'}
                 </h3>
-                
+
                 {/* Add Button - Show only for active tab */}
                 {activeBoard === 'academic' ? (
                   <button
@@ -376,7 +376,7 @@ const HonorBoard: React.FC = () => {
                 <div className="relative">
                   {/* Timeline vertical line */}
                   <div className="absolute left-[10px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-200 via-purple-200 to-pink-200"></div>
-                  
+
                   {/* Timeline Items */}
                   <div className="space-y-6">
                     {(() => {
@@ -409,97 +409,97 @@ const HonorBoard: React.FC = () => {
                           <div className="space-y-3 ml-8">
                             {(groupedByYear[year] || []).map((honor) => (
                               <div key={honor.id} className={`transition-all duration-300 ${!honor.isDisplayed ? 'opacity-60' : ''}`}>
-                            <div 
-                              onClick={() => handleViewDetail(honor)}
-                              className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 border-l-4 border-blue-500 overflow-hidden group cursor-pointer"
-                            >
-                              <div className="p-3">
-                                <div className="flex items-center gap-3">
-                                  {/* Member Photo */}
-                                  <img
-                                    src={honor.memberPhotoUrl || defaultPicture}
-                                    alt={honor.memberFullName}
-                                    className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src = defaultPicture;
-                                    }}
-                                  />
+                                <div
+                                  onClick={() => handleViewDetail(honor)}
+                                  className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 border-l-4 border-blue-500 overflow-hidden group cursor-pointer"
+                                >
+                                  <div className="p-3">
+                                    <div className="flex items-center gap-3">
+                                      {/* Member Photo */}
+                                      <img
+                                        src={honor.memberPhotoUrl || defaultPicture}
+                                        alt={honor.memberFullName}
+                                        className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = defaultPicture;
+                                        }}
+                                      />
 
-                                  {/* Content */}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-3">
+                                      {/* Content */}
                                       <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm font-bold text-gray-900 truncate mb-1">
-                                          {honor.memberFullName}
-                                        </h4>
-                                        
-                                        {/* Achievement Description */}
-                                        <p className="text-xs text-gray-700 mb-1 leading-relaxed">
-                                          Đã <span className="font-bold text-blue-600">{honor.achievementTitle}</span> tại{' '}
-                                          <span className="font-bold text-gray-900">
-                                            {honor.organizationName || honor.institutionName}
-                                          </span>
-                                          
-                                        </p>
-                                      </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                          <div className="flex-1 min-w-0">
+                                            <h4 className="text-sm font-bold text-gray-900 truncate mb-1">
+                                              {honor.memberFullName}
+                                            </h4>
 
-                          {/* Actions */}
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenModal(honor);
-                              }}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Chỉnh sửa"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteClick(honor.id);
-                              }}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Xóa"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                                            {/* Achievement Description */}
+                                            <p className="text-xs text-gray-700 mb-1 leading-relaxed">
+                                              Đã <span className="font-bold text-blue-600">{honor.achievementTitle}</span> tại{' '}
+                                              <span className="font-bold text-gray-900">
+                                                {honor.organizationName || honor.institutionName}
+                                              </span>
+
+                                            </p>
+                                          </div>
+
+                                          {/* Actions */}
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleOpenModal(honor);
+                                              }}
+                                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                              title="Chỉnh sửa"
+                                            >
+                                              <Edit className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteClick(honor.id);
+                                              }}
+                                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                              title="Xóa"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
                                     </div>
+
+                                    {/* Certificate Photo with Description */}
+                                    {(honor.photoUrl || honor.description) && (
+                                      <div className="mt-2 pt-2 border-t border-gray-100">
+                                        <div className="flex gap-3 items-start">
+                                          {/* Certificate Photo */}
+                                          {honor.photoUrl && (
+                                            <img
+                                              src={honor.photoUrl}
+                                              alt="Giấy chứng nhận"
+                                              className="w-24 h-16 object-cover rounded border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex-shrink-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                honor.photoUrl && window.open(honor.photoUrl, '_blank');
+                                              }}
+                                            />
+                                          )}
+
+                                          {/* Description */}
+                                          {honor.description && (
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-xs text-gray-600 line-clamp-2" title={honor.description}>
+                                                {honor.description}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-
-                                {/* Certificate Photo with Description */}
-                                {(honor.photoUrl || honor.description) && (
-                                  <div className="mt-2 pt-2 border-t border-gray-100">
-                                    <div className="flex gap-3 items-start">
-                                      {/* Certificate Photo */}
-                                      {honor.photoUrl && (
-                                        <img
-                                          src={honor.photoUrl}
-                                          alt="Giấy chứng nhận"
-                                          className="w-24 h-16 object-cover rounded border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex-shrink-0"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            honor.photoUrl && window.open(honor.photoUrl, '_blank');
-                                          }}
-                                        />
-                                      )}
-                                      
-                                      {/* Description */}
-                                      {honor.description && (
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-xs text-gray-600 line-clamp-2" title={honor.description}>
-                                            {honor.description}
-                                          </p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
                               </div>
                             ))}
                           </div>
@@ -533,20 +533,18 @@ const HonorBoard: React.FC = () => {
 
               {/* Category Breakdown */}
               <div className="grid grid-cols-2 gap-2">
-                <div className={`rounded-lg p-3 border-2 transition-all ${
-                  activeBoard === 'academic' 
-                    ? 'bg-blue-50 border-blue-500' 
-                    : 'bg-gray-50 border-gray-200'
-                }`}>
+                <div className={`rounded-lg p-3 border-2 transition-all ${activeBoard === 'academic'
+                  ? 'bg-blue-50 border-blue-500'
+                  : 'bg-gray-50 border-gray-200'
+                  }`}>
                   <GraduationCap className="w-5 h-5 text-blue-600 mb-1" />
                   <p className="text-xs text-gray-600">Học tập</p>
                   <p className="text-2xl font-bold text-blue-900">{academicHonors.length}</p>
                 </div>
-                <div className={`rounded-lg p-3 border-2 transition-all ${
-                  activeBoard === 'career' 
-                    ? 'bg-green-50 border-green-500' 
-                    : 'bg-gray-50 border-gray-200'
-                }`}>
+                <div className={`rounded-lg p-3 border-2 transition-all ${activeBoard === 'career'
+                  ? 'bg-green-50 border-green-500'
+                  : 'bg-gray-50 border-gray-200'
+                  }`}>
                   <Briefcase className="w-5 h-5 text-green-600 mb-1" />
                   <p className="text-xs text-gray-600">Sự nghiệp</p>
                   <p className="text-2xl font-bold text-green-900">{careerHonors.length}</p>
@@ -598,11 +596,10 @@ const HonorBoard: React.FC = () => {
                     <div className="space-y-2">
                       {topContributors.map((contributor, idx) => (
                         <div key={contributor.gpMemberId} className="flex items-center gap-2 p-1.5 bg-white rounded">
-                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                            idx === 0 ? 'bg-yellow-400 text-white' :
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx === 0 ? 'bg-yellow-400 text-white' :
                             idx === 1 ? 'bg-gray-400 text-white' :
-                            'bg-orange-400 text-white'
-                          }`}>
+                              'bg-orange-400 text-white'
+                            }`}>
                             {idx + 1}
                           </div>
                           <img
@@ -802,14 +799,12 @@ const HonorBoard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, isDisplayed: !formData.isDisplayed })}
-                  className={`hidden ${
-                    formData.isDisplayed ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
+                  className={`hidden ${formData.isDisplayed ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      formData.isDisplayed ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.isDisplayed ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
@@ -860,7 +855,7 @@ const HonorBoard: React.FC = () => {
                   </p>
                 </div>
               </div>
-              
+
               <p className="text-gray-700 mb-6">
                 Bạn có chắc chắn muốn xóa danh hiệu này? Tất cả thông tin liên quan sẽ bị xóa vĩnh viễn.
               </p>

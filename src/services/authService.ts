@@ -26,6 +26,10 @@ const authService = {
   refreshToken(props: RefreshTokenProps): Promise<ApiResponse<AuthResponse>> {
     return api.post('/account/refresh-token', { ...props });
   },
+
+  isTokenExpired(token: string): Promise<ApiResponse<{ isTokenExpired: boolean }>> {
+    return api.post(`/account/token-expiration/${token}`);
+  },
 };
 
 export default authService;

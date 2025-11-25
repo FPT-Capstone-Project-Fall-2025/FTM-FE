@@ -181,7 +181,11 @@ class EventService {
    */
   async getEventsByGp(gpId: string, pageIndex: number = 1, pageSize: number = 1000): Promise<ApiResponse<ApiEventResponse[]>> {
     const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
-      `/ftfamilyevent/by-gp/${gpId}?pageIndex=${pageIndex}&pageSize=${pageSize}`
+      `/ftfamilyevent/by-gp/${gpId}?pageIndex=${pageIndex}&pageSize=${pageSize}`, {
+      headers: {
+        'X-Ftid': gpId,
+      }
+    }
     );
     return response;
   }
@@ -209,7 +213,12 @@ class EventService {
    */
   async getUpcomingEventsByFtId(ftId: string, days: number = 30): Promise<ApiResponse<ApiEventResponse[]>> {
     const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
-      `/ftfamilyevent/upcoming?FTId=${ftId}&days=${days}`
+      `/ftfamilyevent/upcoming?FTId=${ftId}&days=${days}`,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        }
+      }
     );
     return response;
   }
@@ -297,7 +306,7 @@ class EventService {
     memberIds: string[];
   }): Promise<ApiResponse<ApiEventResponse>> {
     const formData = new FormData();
-    
+
     // Add all fields to FormData
     formData.append('Name', data.name);
     formData.append('EventType', data.eventType.toString());
@@ -308,7 +317,7 @@ class EventService {
     formData.append('IsAllDay', data.isAllDay.toString());
     formData.append('IsLunar', data.isLunar.toString());
     formData.append('IsPublic', data.isPublic.toString());
-    
+
     // Add optional fields
     if (data.location) formData.append('Location', data.location);
     if (data.locationName) formData.append('LocationName', data.locationName);
@@ -317,20 +326,20 @@ class EventService {
     if (data.recurrenceEndTime) formData.append('RecurrenceEndTime', data.recurrenceEndTime);
     if (data.targetMemberId) formData.append('TargetMemberId', data.targetMemberId);
     if (data.referenceEventId) formData.append('ReferenceEventId', data.referenceEventId);
-    
+
     // Add member IDs
     data.memberIds.forEach(memberId => {
       formData.append('MemberIds', memberId);
     });
-    
+
     // Add image file if provided
     if (data.file) {
       formData.append('File', data.file);
       console.log('✅ Adding image file to FormData:', data.file.name);
     }
-    
+
     console.log('📤 Sending event with FormData (with file)');
-    
+
     const response = await apiService.post<ApiResponse<ApiEventResponse>>(
       '/ftfamilyevent',
       formData,
@@ -367,7 +376,7 @@ class EventService {
     memberIds: string[];
   }): Promise<ApiResponse<ApiEventResponse>> {
     const formData = new FormData();
-    
+
     // Add all fields to FormData
     formData.append('Name', data.name);
     formData.append('EventType', data.eventType.toString());
@@ -378,7 +387,7 @@ class EventService {
     formData.append('IsAllDay', data.isAllDay.toString());
     formData.append('IsLunar', data.isLunar.toString());
     formData.append('IsPublic', data.isPublic.toString());
-    
+
     // Add optional fields
     if (data.location) formData.append('Location', data.location);
     if (data.locationName) formData.append('LocationName', data.locationName);
@@ -387,20 +396,20 @@ class EventService {
     if (data.recurrenceEndTime) formData.append('RecurrenceEndTime', data.recurrenceEndTime);
     if (data.targetMemberId) formData.append('TargetMemberId', data.targetMemberId);
     if (data.referenceEventId) formData.append('ReferenceEventId', data.referenceEventId);
-    
+
     // Add member IDs
     data.memberIds.forEach(memberId => {
       formData.append('MemberIds', memberId);
     });
-    
+
     // Add image file if provided
     if (data.file) {
       formData.append('File', data.file);
       console.log('✅ Adding image file to FormData for update:', data.file.name);
     }
-    
+
     console.log('📤 Sending event update with FormData (with file)');
-    
+
     const response = await apiService.put<ApiResponse<ApiEventResponse>>(
       `/ftfamilyevent/${eventId}`,
       formData,

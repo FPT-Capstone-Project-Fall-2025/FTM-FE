@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import fundService from '@/services/fundService';
 import type { FundCampaign } from '@/types/fund';
 import { LoadingState, EmptyState } from '@/pages/FamilytreeList/components/Fund/FundLoadingEmpty';
+import { useAppSelector } from '@/hooks/redux';
 
 const CampaignDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState<FundCampaign | null>(null);
+  const selectedFamilytree = useAppSelector((state) => state.familyTreeMetaData.selectedFamilyTree);
 
   useEffect(() => {
     const load = async () => {
@@ -17,7 +19,7 @@ const CampaignDetailPage: React.FC = () => {
         return;
       }
       try {
-        const data = await fundService.fetchCampaignById(id);
+        const data = await fundService.fetchCampaignById(selectedFamilytree?.id || '', id);
         setCampaign(data);
       } finally {
         setLoading(false);

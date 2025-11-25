@@ -4,6 +4,7 @@ import type { FundDonation, FundExpense } from '@/types/fund';
 import { fundService } from '@/services/fundService';
 import { EmptyState } from './FundLoadingEmpty';
 import { Loader2 } from 'lucide-react';
+import { useAppSelector } from '@/hooks/redux';
 
 interface FundHistorySectionProps {
   fundId: string | null;
@@ -24,23 +25,23 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
   getPaymentMethodLabel,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('donations');
-  
+
   // Donations state
   const [donations, setDonations] = useState<FundDonation[]>([]);
   const [donationsLoading, setDonationsLoading] = useState(false);
   const [donationsPage, setDonationsPage] = useState(1);
   const [donationsTotalCount, setDonationsTotalCount] = useState(0);
   const [donationsTotalPages, setDonationsTotalPages] = useState(1);
-  
+
   // Expenses state
   const [expenses, setExpenses] = useState<FundExpense[]>([]);
   const [expensesLoading, setExpensesLoading] = useState(false);
   const [expensesPage, setExpensesPage] = useState(1);
   const [expensesTotalCount, setExpensesTotalCount] = useState(0);
   const [expensesTotalPages, setExpensesTotalPages] = useState(1);
-  
+
   const pageSize = 20;
-  
+
   // Filters
   const [memberFilter, setMemberFilter] = useState<string>('');
   const [sortOption, setSortOption] = useState<SortOption>('date-desc');
@@ -50,6 +51,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
   const [donationStatusFilter, setDonationStatusFilter] = useState<DonationStatusFilter>(defaultDonationStatus);
   const [expenseStatusFilter, setExpenseStatusFilter] = useState<ExpenseStatusFilter>(defaultExpenseStatus);
   const [showFilters, setShowFilters] = useState(false);
+  const selectedFamilytree = useAppSelector((state) => state.familyTreeMetaData.selectedFamilyTree);
 
   // Fetch donations - fetch when fundId changes, not dependent on activeTab
   useEffect(() => {
@@ -63,10 +65,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     const fetchDonations = async () => {
       setDonationsLoading(true);
       try {
-        const response = await fundService.fetchFundDonations(fundId, donationsPage, pageSize);
+        const response = await fundService.fetchFundDonations(selectedFamilytree?.id || '', fundId, donationsPage, pageSize);
         // Ensure donations is always an array
-        const donationsArray = Array.isArray(response.donations) ? response.donations : 
-                              Array.isArray(response) ? response : [];
+        const donationsArray = Array.isArray(response.donations) ? response.donations :
+          Array.isArray(response) ? response : [];
         setDonations(donationsArray);
         setDonationsTotalCount(response.totalCount || donationsArray.length || 0);
         setDonationsTotalPages(response.totalPages || 1);
@@ -95,10 +97,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     const fetchExpenses = async () => {
       setExpensesLoading(true);
       try {
-        const response = await fundService.fetchFundExpenses(fundId, expensesPage, pageSize);
+        const response = await fundService.fetchFundExpenses(selectedFamilytree?.id || '', fundId, expensesPage, pageSize);
         // Ensure expenses is always an array
-        const expensesArray = Array.isArray(response.expenses) ? response.expenses : 
-                             Array.isArray(response) ? response : [];
+        const expensesArray = Array.isArray(response.expenses) ? response.expenses :
+          Array.isArray(response) ? response : [];
         setExpenses(expensesArray);
         setExpensesTotalCount(response.totalCount || expensesArray.length || 0);
         setExpensesTotalPages(response.totalPages || 1);
@@ -145,7 +147,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
 
     // Filter by member
     if (memberFilter) {
-      filtered = filtered.filter(d => 
+      filtered = filtered.filter(d =>
         d.donorName?.toLowerCase().includes(memberFilter.toLowerCase())
       );
     }
@@ -153,10 +155,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     // Filter by status
     if (donationStatusFilter !== 'all') {
       filtered = filtered.filter(d => {
-        const status = typeof d.status === 'string' ? d.status : 
-                       d.status === 0 ? 'Pending' : 
-                       d.status === 1 ? 'Completed' : 
-                       d.status === 2 ? 'Rejected' : 'Pending';
+        const status = typeof d.status === 'string' ? d.status :
+          d.status === 0 ? 'Pending' :
+            d.status === 1 ? 'Completed' :
+              d.status === 2 ? 'Rejected' : 'Pending';
         return status === donationStatusFilter;
       });
     }
@@ -170,7 +172,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
       const getConfirmedDate = (d: FundDonation) => {
         return new Date(d.confirmedOn || '').getTime();
       };
-      
+
       switch (sortOption) {
         case 'date-desc':
           const aDate = getConfirmedDate(a) || getDate(a);
@@ -213,7 +215,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
 
     // Filter by recipient
     if (memberFilter) {
-      filtered = filtered.filter(e => 
+      filtered = filtered.filter(e =>
         e.recipient?.toLowerCase().includes(memberFilter.toLowerCase())
       );
     }
@@ -221,10 +223,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     // Filter by status
     if (expenseStatusFilter !== 'all') {
       filtered = filtered.filter(e => {
-        const status = typeof e.status === 'string' ? e.status : 
-                       e.status === 0 ? 'Pending' : 
-                       e.status === 1 ? 'Approved' : 
-                       e.status === 2 ? 'Rejected' : 'Pending';
+        const status = typeof e.status === 'string' ? e.status :
+          e.status === 0 ? 'Pending' :
+            e.status === 1 ? 'Approved' :
+              e.status === 2 ? 'Rejected' : 'Pending';
         return status === expenseStatusFilter;
       });
     }
@@ -238,7 +240,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
       const getApprovedDate = (e: FundExpense) => {
         return new Date(e.approvedOn || '').getTime();
       };
-      
+
       switch (sortOption) {
         case 'date-desc':
           const aDate = getApprovedDate(a) || getDate(a);
@@ -268,10 +270,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
   const approvedDonationsTotal = useMemo(() => {
     return filteredAndSortedDonations
       .filter(d => {
-        const status = typeof d.status === 'string' ? d.status : 
-                       d.status === 0 ? 'Pending' : 
-                       d.status === 1 ? 'Completed' : 
-                       d.status === 2 ? 'Rejected' : 'Pending';
+        const status = typeof d.status === 'string' ? d.status :
+          d.status === 0 ? 'Pending' :
+            d.status === 1 ? 'Completed' :
+              d.status === 2 ? 'Rejected' : 'Pending';
         return status === 'Completed';
       })
       .reduce((sum, d) => sum + (d.donationMoney || 0), 0);
@@ -281,10 +283,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     if (!Array.isArray(filteredAndSortedExpenses)) return 0;
     return filteredAndSortedExpenses
       .filter(e => {
-        const status = typeof e.status === 'string' ? e.status : 
-                       e.status === 0 ? 'Pending' : 
-                       e.status === 1 ? 'Approved' : 
-                       e.status === 2 ? 'Rejected' : 'Pending';
+        const status = typeof e.status === 'string' ? e.status :
+          e.status === 0 ? 'Pending' :
+            e.status === 1 ? 'Approved' :
+              e.status === 2 ? 'Rejected' : 'Pending';
         return status === 'Approved';
       })
       .reduce((sum, e) => sum + (e.expenseAmount || 0), 0);
@@ -307,14 +309,14 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     ];
 
     const rows = filteredAndSortedDonations.map((donation, index) => {
-      const status = typeof donation.status === 'string' ? donation.status : 
-                     donation.status === 0 ? 'Pending' : 
-                     donation.status === 1 ? 'Completed' : 
-                     donation.status === 2 ? 'Rejected' : 'Pending';
-      
+      const status = typeof donation.status === 'string' ? donation.status :
+        donation.status === 0 ? 'Pending' :
+          donation.status === 1 ? 'Completed' :
+            donation.status === 2 ? 'Rejected' : 'Pending';
+
       const createdDate = (donation as any).createdDate || donation.createdOn;
       const confirmerName = (donation as any).confirmerName || donation.confirmedBy;
-      
+
       return [
         index + 1,
         formatDate(createdDate),
@@ -338,7 +340,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     if (!Array.isArray(filteredAndSortedExpenses) || filteredAndSortedExpenses.length === 0) {
       return;
     }
-    
+
     const headers = [
       'STT',
       'Ngày tạo',
@@ -355,15 +357,15 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     ];
 
     const rows = filteredAndSortedExpenses.map((expense, index) => {
-      const status = typeof expense.status === 'string' ? expense.status : 
-                     expense.status === 0 ? 'Pending' : 
-                     expense.status === 1 ? 'Approved' : 
-                     expense.status === 2 ? 'Rejected' : 'Pending';
-      
+      const status = typeof expense.status === 'string' ? expense.status :
+        expense.status === 0 ? 'Pending' :
+          expense.status === 1 ? 'Approved' :
+            expense.status === 2 ? 'Rejected' : 'Pending';
+
       const createdDate = (expense as any).createdDate || expense.createdOn;
       const approverName = (expense as any).approverName || expense.approvedBy;
       const campaignName = (expense as any).campaignName || '';
-      
+
       return [
         index + 1,
         formatDate(createdDate),
@@ -386,7 +388,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
   const exportToCSV = (headers: string[], rows: any[][], filename: string) => {
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => 
+      ...rows.map(row =>
         row.map(cell => {
           const cellStr = String(cell || '');
           if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
@@ -444,8 +446,8 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
 
   const currentTotalCount = activeTab === 'donations' ? donationsTotalCount : expensesTotalCount;
   const currentLoading = activeTab === 'donations' ? donationsLoading : expensesLoading;
-  const hasActiveFilters = memberFilter || 
-    (activeTab === 'donations' ? donationStatusFilter !== defaultDonationStatus : expenseStatusFilter !== defaultExpenseStatus) || 
+  const hasActiveFilters = memberFilter ||
+    (activeTab === 'donations' ? donationStatusFilter !== defaultDonationStatus : expenseStatusFilter !== defaultExpenseStatus) ||
     sortOption !== 'date-desc';
 
   return (
@@ -478,15 +480,15 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
           </button>
           {((activeTab === 'donations' && Array.isArray(filteredAndSortedDonations) && filteredAndSortedDonations.length > 0) ||
             (activeTab === 'expenses' && Array.isArray(filteredAndSortedExpenses) && filteredAndSortedExpenses.length > 0)) && (
-            <button
-              type="button"
-              onClick={activeTab === 'donations' ? handleExportDonationsExcel : handleExportExpensesExcel}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Xuất Excel
-            </button>
-          )}
+              <button
+                type="button"
+                onClick={activeTab === 'donations' ? handleExportDonationsExcel : handleExportExpensesExcel}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Xuất Excel
+              </button>
+            )}
         </div>
       </div>
 
@@ -498,11 +500,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
             setActiveTab('donations');
             resetFilters();
           }}
-          className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
-            activeTab === 'donations'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+          className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'donations'
+            ? 'border-blue-600 text-blue-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
         >
           Đóng góp ({donationsTotalCount})
         </button>
@@ -512,11 +513,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
             setActiveTab('expenses');
             resetFilters();
           }}
-          className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
-            activeTab === 'expenses'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+          className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'expenses'
+            ? 'border-blue-600 text-blue-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
         >
           Chi tiêu ({expensesTotalCount})
         </button>
@@ -535,7 +535,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
               Xóa tất cả
             </button>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Member/Recipient Filter */}
             <div>
@@ -648,11 +648,11 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                 </thead>
                 <tbody>
                   {filteredAndSortedDonations.map(donation => {
-                    const status = typeof donation.status === 'string' ? donation.status : 
-                                   donation.status === 0 ? 'Pending' : 
-                                   donation.status === 1 ? 'Completed' : 
-                                   donation.status === 2 ? 'Rejected' : 'Pending';
-                    
+                    const status = typeof donation.status === 'string' ? donation.status :
+                      donation.status === 0 ? 'Pending' :
+                        donation.status === 1 ? 'Completed' :
+                          donation.status === 2 ? 'Rejected' : 'Pending';
+
                     const statusConfig = {
                       'Completed': { label: 'Đã xác nhận', className: 'bg-green-100 text-green-700' },
                       'Pending': { label: 'Đang chờ', className: 'bg-yellow-100 text-yellow-700' },
@@ -740,11 +740,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                           key={pageNum}
                           type="button"
                           onClick={() => handleDonationsPageChange(pageNum)}
-                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${
-                            donationsPage === pageNum
-                              ? 'bg-blue-600 text-white'
-                              : 'border border-gray-300 hover:bg-gray-50'
-                          }`}
+                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${donationsPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                            }`}
                         >
                           {pageNum}
                         </button>
@@ -792,11 +791,11 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                 </thead>
                 <tbody>
                   {Array.isArray(filteredAndSortedExpenses) && filteredAndSortedExpenses.map(expense => {
-                    const status = typeof expense.status === 'string' ? expense.status : 
-                                   expense.status === 0 ? 'Pending' : 
-                                   expense.status === 1 ? 'Approved' : 
-                                   expense.status === 2 ? 'Rejected' : 'Pending';
-                    
+                    const status = typeof expense.status === 'string' ? expense.status :
+                      expense.status === 0 ? 'Pending' :
+                        expense.status === 1 ? 'Approved' :
+                          expense.status === 2 ? 'Rejected' : 'Pending';
+
                     const statusConfig = {
                       'Approved': { label: 'Đã phê duyệt', className: 'bg-green-100 text-green-700' },
                       'Pending': { label: 'Đang chờ', className: 'bg-yellow-100 text-yellow-700' },
@@ -884,11 +883,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                           key={pageNum}
                           type="button"
                           onClick={() => handleExpensesPageChange(pageNum)}
-                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${
-                            expensesPage === pageNum
-                              ? 'bg-blue-600 text-white'
-                              : 'border border-gray-300 hover:bg-gray-50'
-                          }`}
+                          className={`px-3 py-2 text-sm rounded-lg transition-colors ${expensesPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                            }`}
                         >
                           {pageNum}
                         </button>
