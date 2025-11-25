@@ -348,7 +348,6 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
       'Người nhận',
       'Số tiền',
       'Mô tả',
-      'Sự kiện',
       'Ngày dự kiến',
       'Trạng thái',
       'Người phê duyệt',
@@ -784,7 +783,6 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                     <th className="px-4 py-3 font-semibold">Người nhận</th>
                     <th className="px-4 py-3 font-semibold">Số tiền</th>
                     <th className="px-4 py-3 font-semibold">Mô tả</th>
-                    <th className="px-4 py-3 font-semibold">Sự kiện</th>
                     <th className="px-4 py-3 font-semibold">Trạng thái</th>
                     <th className="px-4 py-3 font-semibold">Người phê duyệt</th>
                   </tr>
@@ -822,9 +820,6 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
                         </td>
                         <td className="px-4 py-3 text-gray-700">
                           {expense.expenseDescription || '—'}
-                        </td>
-                        <td className="px-4 py-3 text-gray-700">
-                          {expense.expenseEvent || '—'}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${statusConfig.className}`}>

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Wallet, QrCode, Upload, Image as ImageIcon } from 'lucide-react';
 import fundService from '@/services/fundService';
 import { toast } from 'react-toastify';
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
+import { useException } from '@/hooks/useException';
 
 type PaymentMethod = 'Cash' | 'VietQR';
 
@@ -30,6 +32,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
   const [proofFiles, setProofFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { isOpen: isExceptionOpen, message: exceptionMessage, timestamp: exceptionTimestamp, showException, hideException } = useException();
 
   useEffect(() => {
     if (!isOpen) {
@@ -71,16 +74,16 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
   const handleCreateDonation = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!campaignId) {
-      toast.error('Không xác định được chiến dịch.');
+      showException('Không xác định được chiến dịch.');
       return;
     }
     if (!memberId) {
-      toast.error('Không xác định được thành viên.');
+      showException('Không xác định được thành viên.');
       return;
     }
     const numericAmount = Number(amount.replace(/\D/g, ''));
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      toast.error('Số tiền ủng hộ không hợp lệ.');
+      showException('Số tiền ủng hộ không hợp lệ.');
       return;
     }
 
@@ -108,7 +111,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
       }
     } catch (err: any) {
       console.error('Create campaign donation failed:', err);
-      toast.error(err?.response?.data?.message || err?.message || 'Không thể tạo yêu cầu ủng hộ.');
+      showException(err);
     } finally {
       setSubmitting(false);
     }
@@ -116,11 +119,11 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
 
   const handleUploadProof = async () => {
     if (!donationId) {
-      toast.error('Chưa có mã giao dịch để tải xác minh.');
+      showException('Chưa có mã giao dịch để tải xác minh.');
       return;
     }
     if (!proofFiles.length) {
-      toast.error('Vui lòng chọn ít nhất một ảnh xác minh.');
+      showException('Vui lòng chọn ít nhất một ảnh xác minh.');
       return;
     }
     try {
@@ -130,7 +133,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Upload campaign donation proof failed:', err);
-      toast.error(err?.response?.data?.message || err?.message || 'Không thể tải ảnh xác minh.');
+      showException(err);
     } finally {
       setUploading(false);
     }
@@ -159,7 +162,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
                 type="text"
                 value={isAnonymous ? 'Ẩn danh' : donorName}
                 readOnly={!isAnonymous}
-                onChange={() => {}}
+                onChange={() => { }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
               <label className="inline-flex items-center gap-2 text-sm text-gray-600 mt-2">
@@ -284,16 +287,16 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
                 className="hidden"
                 onChange={handleFilesSelected}
               />
-                 <button
-                  type="button"
-                  onClick={handleChooseFiles}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  Chọn ảnh xác minh
-                </button>
+              <button
+                type="button"
+                onClick={handleChooseFiles}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                Chọn ảnh xác minh
+              </button>
               <div className="flex items-center justify-end gap-2 border-t border-gray-200 mt-4 pt-4">
-             
+
 
 
                 <button
@@ -368,6 +371,14 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Exception Popup */}
+      <ExceptionPopup
+        isOpen={isExceptionOpen}
+        message={exceptionMessage}
+        timestamp={exceptionTimestamp}
+        onClose={hideException}
+      />
     </div>
   );
 };

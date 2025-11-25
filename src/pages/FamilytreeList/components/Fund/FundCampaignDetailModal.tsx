@@ -21,7 +21,8 @@ import { useParams } from 'react-router-dom';
 import { useGPMember } from '@/hooks/useGPMember';
 import { getUserIdFromToken } from '@/utils/jwtUtils';
 import { useAppSelector } from '@/hooks/redux';
-import { toast } from 'react-toastify';
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
+import { useException } from '@/hooks/useException';
 
 type StatusKey = 'active' | 'upcoming' | 'completed' | 'cancelled';
 
@@ -77,7 +78,7 @@ const renderDonations = (
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-emerald-600 font-semibold">
-              {formatCurrency(Number(donation.donationMoney ?? 0))}
+              {formatCurrency(Number(donation.donationAmount ?? 0))}
             </span>
             <span className="text-gray-500 text-xs">
               {getPaymentMethodLabel(donation.paymentMethod)}
@@ -149,6 +150,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
   const { gpMemberId } = useGPMember(familyTreeId || null, currentUserId || null);
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const { isOpen: isExceptionOpen, message: exceptionMessage, timestamp: exceptionTimestamp, showException, hideException } = useException();
 
   // Early return AFTER all hooks
   if (!isOpen) return null;
@@ -224,12 +226,12 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
     console.log('formatCampaignForPost():', formatCampaignForPost());
 
     if (!familyTreeId) {
-      toast.error('Không tìm thấy thông tin gia tộc. Vui lòng thử lại!');
+      showException('Không tìm thấy thông tin gia tộc. Vui lòng thử lại!');
       return;
     }
 
     if (!gpMemberId) {
-      toast.error('Không thể xác định thành viên. Vui lòng thử lại!');
+      showException('Không thể xác định thành viên. Vui lòng thử lại!');
       return;
     }
 
@@ -487,6 +489,14 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
           }}
         />
       )}
+
+      {/* Exception Popup */}
+      <ExceptionPopup
+        isOpen={isExceptionOpen}
+        message={exceptionMessage}
+        timestamp={exceptionTimestamp}
+        onClose={hideException}
+      />
     </div>
   );
 };
