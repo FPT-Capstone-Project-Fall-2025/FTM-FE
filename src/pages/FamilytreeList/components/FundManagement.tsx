@@ -1191,7 +1191,7 @@ const FundManagement: React.FC = () => {
       }
       setMyCampaignPendingLoading(true);
       try {
-        const items = await fundService.fetchMyPendingCampaignDonations(userIdForApi);
+        const items = await fundService.fetchMyPendingCampaignDonations(selectedTree?.id || '', userIdForApi);
         setMyCampaignPending(items.map(x => ({
           id: x.id,
           campaignId: x.campaignId,
@@ -1225,8 +1225,8 @@ const FundManagement: React.FC = () => {
     setHistoryLoading(true);
     try {
       const [donationsRes, expensesRes] = await Promise.all([
-        fundService.fetchCampaignDonationsHistory(campaignId, donationPage, 10),
-        fundService.fetchCampaignExpensesHistory(campaignId, expensePage, 10),
+        fundService.fetchCampaignDonationsHistory(selectedTree?.id || '', campaignId, donationPage, 10),
+        fundService.fetchCampaignExpensesHistory(selectedTree?.id || '', campaignId, expensePage, 10),
       ]);
       setHistoryDonations(donationsRes.items.map(x => ({
         id: x.id,
@@ -1646,7 +1646,7 @@ const FundManagement: React.FC = () => {
           payload.notes = notes;
         }
 
-        await createCampaign(payload);
+        await createCampaign(selectedTree?.id || '', payload);
         toast.success('Đã tạo chiến dịch gây quỹ mới.');
         // Refresh campaigns to show the newly created campaign
         await refreshCampaigns(1);
@@ -1937,7 +1937,7 @@ const FundManagement: React.FC = () => {
                     }
                     setCreateExpenseSubmitting(true);
                     const trimmedNotes = createExpenseForm.notes.trim();
-                    await fundService.createCampaignExpense({
+                    await fundService.createCampaignExpense(selectedTree?.id || '', {
                       campaignId: createExpenseForm.campaignId,
                       requestedById: gpMemberId || currentUserId || '',
                       amount: amountNum,
@@ -2450,7 +2450,7 @@ const FundManagement: React.FC = () => {
                       if (!userIdForApi) return;
                       try {
                         setMyCampaignPendingLoading(true);
-                        const items = await fundService.fetchMyPendingCampaignDonations(userIdForApi);
+                        const items = await fundService.fetchMyPendingCampaignDonations(selectedTree?.id || '', userIdForApi);
                         setMyCampaignPending(items.map(x => ({
                           id: x.id,
                           campaignId: x.campaignId,
@@ -2562,11 +2562,11 @@ const FundManagement: React.FC = () => {
                                             e.currentTarget.value = '';
                                             if (!files.length) return;
                                             try {
-                                              await fundService.uploadCampaignDonationProof(item.id, files);
+                                              await fundService.uploadCampaignDonationProof(selectedTree?.id || '', item.id, files);
                                               toast.success('Đã upload ảnh xác minh. Vui lòng chờ quản trị viên xác nhận.');
                                               const userIdForApi = gpMemberId || currentUserId || '';
                                               if (userIdForApi) {
-                                                const items = await fundService.fetchMyPendingCampaignDonations(userIdForApi);
+                                                const items = await fundService.fetchMyPendingCampaignDonations(selectedTree?.id || '', userIdForApi);
                                                 setMyCampaignPending(items.map(x => ({
                                                   id: x.id,
                                                   campaignId: x.campaignId,

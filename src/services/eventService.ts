@@ -200,6 +200,7 @@ class EventService {
       {
         headers: {
           'Content-Type': 'application/json',
+          'X-Ftid': payload.ftId,
         },
       }
     );
@@ -346,6 +347,7 @@ class EventService {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'X-Ftid': data.ftId,
         },
       }
     );

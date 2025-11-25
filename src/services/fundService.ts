@@ -113,7 +113,7 @@ export const fundService = {
   },
 
   // Create campaign expense request with optional receipt images (multipart)
-  async createCampaignExpense(payload: {
+  async createCampaignExpense(ftId: string, payload: {
     campaignId: string;
     requestedById: string;
     amount: number;
@@ -145,7 +145,11 @@ export const fundService = {
       form.append('ReceiptImages', file);
     });
     // Do NOT manually set Content-Type so boundary is added automatically
-    const response = await api.post<ApiResponse<any>>('/FTCampaignExpense', form);
+    const response = await api.post<ApiResponse<any>>('/FTCampaignExpense', form, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
     const data = unwrap<any>(response);
     const d = data?.data ?? data;
     return {
@@ -959,8 +963,12 @@ export const fundService = {
     };
   },
 
-  async createCampaign(payload: CreateCampaignPayload) {
-    return api.post<ApiResponse<FundCampaign>>(`/ftcampaign`, payload);
+  async createCampaign(ftId: string, payload: CreateCampaignPayload) {
+    return api.post<ApiResponse<FundCampaign>>(`/ftcampaign`, payload, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
   async fetchCampaignDonations(campaignId: string): Promise<CampaignDonation[]> {
@@ -1173,6 +1181,7 @@ export const fundService = {
 
   // Campaign Donation APIs
   async createCampaignDonation(
+    ftId: string,
     campaignId: string,
     payload: CreateCampaignDonationPayload
   ): Promise<CreateCampaignDonationResponse> {
@@ -1183,7 +1192,11 @@ export const fundService = {
 
     const response = await api.post<ApiResponse<CreateCampaignDonationResponse>>(
       `/ftcampaigndonation/campaign/${campaignId}/donate`,
-      payload
+      payload, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    }
     );
 
     console.log('[fundService.createCampaignDonation] API Response:', response);
@@ -1205,6 +1218,7 @@ export const fundService = {
   },
 
   async uploadCampaignDonationProof(
+    ftId: string,
     donationId: string,
     files: File[]
   ): Promise<CampaignDonationProofResponse> {
@@ -1227,7 +1241,11 @@ export const fundService = {
     console.log('[fundService.uploadCampaignDonationProof] FormData keys:', Array.from(formData.keys()));
 
     // Don't set Content-Type header manually - let axios set it automatically with boundary
-    const response = await api.post<ApiResponse<CampaignDonationProofResponse>>(url, formData);
+    const response = await api.post<ApiResponse<CampaignDonationProofResponse>>(url, formData, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
 
     console.log('[fundService.uploadCampaignDonationProof] API Response:', response);
 
@@ -1282,7 +1300,7 @@ export const fundService = {
     return data;
   },
 
-  async fetchMyPendingCampaignDonations(gpMemberId: string): Promise<Array<{
+  async fetchMyPendingCampaignDonations(ftId: string, gpMemberId: string): Promise<Array<{
     id: string;
     campaignId: string;
     campaignName: string | null;
@@ -1301,7 +1319,12 @@ export const fundService = {
     const response = await api.get<ApiResponse<any>>(
       `/ftcampaigndonation/my-pending`,
       // API expects `userId` to be the GP memberId
-      { params: { userId: gpMemberId } }
+      {
+        params: { userId: gpMemberId },
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
     );
     const payload = unwrap<any>(response) ?? [];
     const items = Array.isArray(payload) ? payload : normalizeArray(payload);
@@ -1344,6 +1367,7 @@ export const fundService = {
   },
 
   async fetchCampaignDonationsHistory(
+    ftId: string,
     campaignId: string,
     page = 1,
     pageSize = 10
@@ -1372,7 +1396,7 @@ export const fundService = {
   }> {
     const response = await api.get<ApiResponse<any>>(
       `/ftcampaigndonation/campaign/${campaignId}`,
-      { params: { page, pageSize } }
+      { params: { page, pageSize }, headers: { 'X-Ftid': ftId } }
     );
     const payload = unwrap<any>(response) ?? {};
     const rawItems = normalizeArray<any>(payload?.items ?? []);
@@ -1404,6 +1428,7 @@ export const fundService = {
   },
 
   async fetchCampaignExpensesHistory(
+    ftId: string,
     campaignId: string,
     page = 1,
     pageSize = 10
@@ -1425,7 +1450,7 @@ export const fundService = {
   }> {
     const response = await api.get<ApiResponse<any>>(
       `/ftcampaignexpense/campaign/${campaignId}`,
-      { params: { page, pageSize } }
+      { params: { page, pageSize }, headers: { 'X-Ftid': ftId } }
     );
     const payload = unwrap<any>(response) ?? {};
     const rawItems = normalizeArray<any>(payload?.items ?? []);

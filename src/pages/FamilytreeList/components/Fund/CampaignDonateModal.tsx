@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Wallet, QrCode, Upload, Image as ImageIcon } from 'lucide-react';
 import fundService from '@/services/fundService';
 import { toast } from 'react-toastify';
+import { useAppSelector } from '@/hooks/redux';
 
 type PaymentMethod = 'Cash' | 'VietQR';
 
@@ -30,6 +31,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
   const [proofFiles, setProofFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree)
 
   useEffect(() => {
     if (!isOpen) {
@@ -97,7 +99,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
       if (trimmedNotes) {
         payload.paymentNotes = trimmedNotes;
       }
-      const response = await fundService.createCampaignDonation(campaignId, payload);
+      const response = await fundService.createCampaignDonation(selectedTree?.id || '', campaignId, payload);
       setDonationId(response.donationId);
       setQrCodeUrl(response.qrCodeUrl ?? null);
 
@@ -125,7 +127,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
     }
     try {
       setUploading(true);
-      await fundService.uploadCampaignDonationProof(donationId, proofFiles);
+      await fundService.uploadCampaignDonationProof(selectedTree?.id || '', donationId, proofFiles);
       toast.success('Đã tải ảnh xác minh thành công.');
       onClose();
     } catch (err: any) {
@@ -159,7 +161,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
                 type="text"
                 value={isAnonymous ? 'Ẩn danh' : donorName}
                 readOnly={!isAnonymous}
-                onChange={() => {}}
+                onChange={() => { }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
               <label className="inline-flex items-center gap-2 text-sm text-gray-600 mt-2">
@@ -284,16 +286,16 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
                 className="hidden"
                 onChange={handleFilesSelected}
               />
-                 <button
-                  type="button"
-                  onClick={handleChooseFiles}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  Chọn ảnh xác minh
-                </button>
+              <button
+                type="button"
+                onClick={handleChooseFiles}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                Chọn ảnh xác minh
+              </button>
               <div className="flex items-center justify-end gap-2 border-t border-gray-200 mt-4 pt-4">
-             
+
 
 
                 <button
