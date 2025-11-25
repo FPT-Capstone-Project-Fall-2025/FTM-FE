@@ -1,0 +1,60 @@
+<svg width="64" height="61" viewBox="0 0 64 61" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g filter="url(#filter0_f_4495_39044)">
+<ellipse cx="27.25" cy="44.75" rx="15.75" ry="4.75" fill="#4DB4FF"/>
+</g>
+<g filter="url(#filter1_ddi_4495_39044)">
+<circle cx="42.5" cy="21.5" r="13" fill="url(#paint0_linear_4495_39044)"/>
+</g>
+<foreignObject x="-3" y="7.5" width="61" height="40"><div xmlns="http://www.w3.org/1999/xhtml" style="backdrop-filter:blur(1.75px);clip-path:url(#bgblur_0_4495_39044_clip_path);height:100%;width:100%"></div></foreignObject><g filter="url(#filter2_i_4495_39044)" data-figma-bg-blur-radius="3.5">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M39 26C39 26.3941 38.9848 26.7847 38.955 27.1711C40.5974 25.8148 42.7036 25 45 25C50.2467 25 54.5 29.2533 54.5 34.5C54.5 39.579 50.5143 43.7271 45.5 43.9871V44H45H10H9V43.948C4.22334 43.4483 0.5 39.409 0.5 34.5C0.5 29.5809 4.23876 25.535 9.02966 25.0489C9.52026 17.2078 16.0352 11 24 11C32.2843 11 39 17.7157 39 26Z" fill="url(#paint1_linear_4495_39044)"/>
+</g>
+<defs>
+<filter id="filter0_f_4495_39044" x="0.5" y="29" width="53.5" height="31.5" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="5.5" result="effect1_foregroundBlur_4495_39044"/>
+</filter>
+<filter id="filter1_ddi_4495_39044" x="21.5" y="0.5" width="42" height="42" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset/>
+<feGaussianBlur stdDeviation="4"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0.992157 0 0 0 0 0.773882 0 0 0 0 0 0 0 0 1 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_4495_39044"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset/>
+<feGaussianBlur stdDeviation="2.75"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0.992157 0 0 0 0 0.772549 0 0 0 0 0 0 0 0 0.45 0"/>
+<feBlend mode="normal" in2="effect1_dropShadow_4495_39044" result="effect2_dropShadow_4495_39044"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect2_dropShadow_4495_39044" result="shape"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dx="-0.5" dy="1.5"/>
+<feGaussianBlur stdDeviation="1.25"/>
+<feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 0.9 0 0 0 0 0 0 0 0 0.35 0"/>
+<feBlend mode="normal" in2="shape" result="effect3_innerShadow_4495_39044"/>
+</filter>
+<filter id="filter2_i_4495_39044" x="-3" y="7.5" width="61" height="40" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="1"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0.82 0 0 0 0 1 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="shape" result="effect1_innerShadow_4495_39044"/>
+</filter>
+<clipPath id="bgblur_0_4495_39044_clip_path" transform="translate(3 -7.5)"><path fill-rule="evenodd" clip-rule="evenodd" d="M39 26C39 26.3941 38.9848 26.7847 38.955 27.1711C40.5974 25.8148 42.7036 25 45 25C50.2467 25 54.5 29.2533 54.5 34.5C54.5 39.579 50.5143 43.7271 45.5 43.9871V44H45H10H9V43.948C4.22334 43.4483 0.5 39.409 0.5 34.5C0.5 29.5809 4.23876 25.535 9.02966 25.0489C9.52026 17.2078 16.0352 11 24 11C32.2843 11 39 17.7157 39 26Z"/>
+</clipPath><linearGradient id="paint0_linear_4495_39044" x1="42.5" y1="8.5" x2="42.5" y2="34.5" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FDC500"/>
+<stop offset="1" stop-color="#FD8900"/>
+</linearGradient>
+<linearGradient id="paint1_linear_4495_39044" x1="28.5" y1="55.75" x2="48.75" y2="11" gradientUnits="userSpaceOnUse">
+<stop stop-color="#0082DF"/>
+<stop offset="0.299998" stop-color="#48B2FF" stop-opacity="0.75"/>
+<stop offset="1" stop-color="#3BADFF" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg>

@@ -1,0 +1,84 @@
+/* Vietnamese Holiday Event Styling */
+.holiday-event {
+  font-weight: 600 !important;
+  border-left: 4px solid currentColor !important;
+  padding-left: 4px !important;
+}
+
+.holiday-event .fc-event-title {
+  font-weight: 600 !important;
+}
+
+/* Holiday badge in day cell */
+.fc-daygrid-day.has-holiday {
+  background-color: #FEF2F2 !important;
+}
+
+.fc-daygrid-day.has-holiday .fc-daygrid-day-number {
+  color: #DC2626 !important;
+  font-weight: 600 !important;
+}
+
+/* Holiday indicator dot */
+.holiday-indicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #DC2626;
+}
+
+/* Make holiday events stand out in month view */
+.fc-daygrid-event.holiday-event {
+  opacity: 0.95;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Week view holiday styling */
+.fc-timegrid-event.holiday-event {
+  opacity: 0.9;
+}
+
+/* Day cell styling for holidays */
+.fc-day-today.has-holiday {
+  background-color: #DBEAFE !important;
+  border: 2px solid #3B82F6 !important;
+}
+
+/* Tooltip for holidays */
+.holiday-tooltip {
+  position: absolute;
+  background: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.holiday-tooltip-name {
+  font-weight: 600;
+  color: #1F2937;
+  margin-bottom: 4px;
+}
+
+.holiday-tooltip-desc {
+  color: #6B7280;
+  font-size: 11px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .holiday-event .fc-event-title {
+    font-size: 11px;
+  }
+  
+  .holiday-indicator {
+    width: 4px;
+    height: 4px;
+  }
+}
