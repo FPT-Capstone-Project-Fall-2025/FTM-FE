@@ -4,14 +4,14 @@ import api from './apiService';
 import axios from 'axios';
 
 const ftauthorizationService = {
-  getFTAuths(ftId?: string, props?: PaginationProps): Promise<ApiResponse<PaginationResponse<FTAuthList[]>>> {
+  getFTAuths(ftId: string, props: PaginationProps): Promise<ApiResponse<PaginationResponse<FTAuthList[]>>> {
     return api.get('/ftauthorization/list', {
       params: {
         ...props,
         propertyFilters: JSON.stringify(props?.propertyFilters)
       },
       headers: {
-        'X-FtId': ftId,
+        'X-Ftid': ftId,
       }
     });
   },
@@ -19,7 +19,7 @@ const ftauthorizationService = {
   getMyFTAuths(ftId: string, ftMemberId: string): Promise<ApiResponse<PaginationResponse<FTAuthList[]>>> {
     return api.get(`/ftauthorization/${ftId}/member/${ftMemberId}/list`, {
       headers: {
-        'X-FtId': ftId,
+        'X-Ftid': ftId,
       }
     });
   },
@@ -27,7 +27,7 @@ const ftauthorizationService = {
   addFTAuth(props: FTAuth): Promise<ApiResponse<FTAuth>> {
     return api.post('/ftauthorization', props, {
       headers: {
-        'X-FtId': props.ftId,
+        'X-Ftid': props.ftId,
       }
     });
   },
@@ -35,7 +35,7 @@ const ftauthorizationService = {
   updateFTAuth(props: FTAuth): Promise<ApiResponse<FTAuth>> {
     return api.put('/ftauthorization', props, {
       headers: {
-        'X-FtId': props.ftId,
+        'X-Ftid': props.ftId,
       }
     });
   },
@@ -43,7 +43,7 @@ const ftauthorizationService = {
   deleteFTAuth(ftId: string, ftMemberId: string): Promise<ApiResponse<void>> {
     return api.delete(`/ftauthorization/${ftId}/member/${ftMemberId}`, {
       headers: {
-        'X-FtId': ftId,
+        'X-Ftid': ftId,
       }
     });
   },
@@ -52,7 +52,7 @@ const ftauthorizationService = {
     return axios.get(`https://be.dev.familytree.io.vn/authorization/owner`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'X-FtId': ftId,
+        'X-Ftid': ftId,
       }
     });
   }

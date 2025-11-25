@@ -44,15 +44,15 @@ const EventStatistics: React.FC = () => {
   const calculateCountdown = useCallback((eventStartTime: string) => {
     const now = moment();
     const eventDate = moment(eventStartTime);
-    
+
     if (eventDate.isBefore(now)) {
       return { days: 0, weeks: 0, months: 0 };
     }
-    
+
     const totalDays = eventDate.diff(now, 'days');
     const totalWeeks = Math.floor(totalDays / 7);
     const totalMonths = eventDate.diff(now, 'months');
-    
+
     return {
       days: totalDays,
       weeks: totalWeeks,
@@ -65,27 +65,25 @@ const EventStatistics: React.FC = () => {
       try {
         // 1. First, get all family trees for the user
         const familyTreesResponse = await familyTreeService.getMyFamilytrees();
-        console.log('📊 EventStatistics - Family Trees Response:', familyTreesResponse);
-        
+
         const familyTrees = familyTreesResponse?.data || [];
-        
+
         if (familyTrees.data.length === 0) {
-          console.log('📊 EventStatistics - No family trees found');
           setEvents([]);
           setTotalEvent({ oldEventNumber: 0, nextEventNumber: 0 });
           return;
         }
-        
+
         // 2. Fetch events from all family trees
-        const eventPromises = familyTrees.data.map((ft: any) => 
+        const eventPromises = familyTrees.data.map((ft: any) =>
           eventService.getEventsByGp(ft.id).catch((err: any) => {
             console.error(`Error fetching events for ftId ${ft.id}:`, err);
             return { data: { data: [] } };
           })
         );
-        
+
         const eventResponses = await Promise.all(eventPromises);
-        
+
         // 3. Combine all events from all family trees
         const allEventsFromAPI: any[] = [];
         eventResponses.forEach((response: any) => {
@@ -94,27 +92,24 @@ const EventStatistics: React.FC = () => {
             allEventsFromAPI.push(...eventsData);
           }
         });
-        
-        console.log('📊 EventStatistics - Total events from all family trees:', allEventsFromAPI.length);
-        
+
         if (allEventsFromAPI.length === 0) {
-          console.log('📊 EventStatistics - No events found');
           setEvents([]);
           setTotalEvent({ oldEventNumber: 0, nextEventNumber: 0 });
           return;
         }
-        
+
         const now = moment();
-        
+
         // 4. Separate past and upcoming events based on startTime
-        const upcomingEventsFromAPI = allEventsFromAPI.filter((event: any) => 
+        const upcomingEventsFromAPI = allEventsFromAPI.filter((event: any) =>
           moment(event.startTime).isAfter(now)
         );
-        
-        const pastEventsFromAPI = allEventsFromAPI.filter((event: any) => 
+
+        const pastEventsFromAPI = allEventsFromAPI.filter((event: any) =>
           moment(event.startTime).isBefore(now)
         );
-        
+
         // 5. Map upcoming events and calculate countdown
         const mappedEvents = upcomingEventsFromAPI
           .map((event: any) => ({
@@ -127,25 +122,17 @@ const EventStatistics: React.FC = () => {
             statisticsEvent: calculateCountdown(event.startTime),
           }))
           // Sort by closest first
-          .sort((a: Event, b: Event) => 
+          .sort((a: Event, b: Event) =>
             moment(a.startTime).diff(moment(b.startTime))
           );
-        
+
         setEvents(mappedEvents);
         setTotalEvent({
           oldEventNumber: pastEventsFromAPI.length,
           nextEventNumber: upcomingEventsFromAPI.length,
         });
-        
-        console.log('📊 EventStatistics - Final results:', {
-          total: allEventsFromAPI.length,
-          past: pastEventsFromAPI.length,
-          upcoming: upcomingEventsFromAPI.length,
-          mappedEvents,
-        });
-        
+
       } catch (error) {
-        console.error("📊 EventStatistics - Error fetching events:", error);
         // No fallback - show empty state
         setEvents([]);
         setTotalEvent({ oldEventNumber: 0, nextEventNumber: 0 });
@@ -168,27 +155,27 @@ const EventStatistics: React.FC = () => {
   // Update countdown in real-time for selected event
   useEffect(() => {
     if (!selectedEvent) return;
-    
+
     // Update countdown immediately
     const updateCountdown = () => {
       const newCountdown = calculateCountdown(selectedEvent.startTime);
       setCountdown(newCountdown);
-      
+
       // Update the event in the list as well
-      setEvents(prevEvents => 
-        prevEvents.map(event => 
-          event.id === selectedEvent.id 
+      setEvents(prevEvents =>
+        prevEvents.map(event =>
+          event.id === selectedEvent.id
             ? { ...event, statisticsEvent: newCountdown }
             : event
         )
       );
     };
-    
+
     updateCountdown();
-    
+
     // Update every minute
     const interval = setInterval(updateCountdown, 60000);
-    
+
     return () => clearInterval(interval);
   }, [selectedEvent, calculateCountdown]);
 
@@ -222,7 +209,7 @@ const EventStatistics: React.FC = () => {
     const base: string[] = ["days", "weeks", "months"];
     const currentSegment = segmentOrder[1];
     if (!currentSegment) return;
-    
+
     const currentIdx = base.indexOf(currentSegment);
     const prevIdx = (currentIdx - 1 + 3) % 3;
     const prevSegment = base[prevIdx];
@@ -236,7 +223,7 @@ const EventStatistics: React.FC = () => {
     const base: string[] = ["days", "weeks", "months"];
     const currentSegment = segmentOrder[1];
     if (!currentSegment) return;
-    
+
     const currentIdx = base.indexOf(currentSegment);
     const nextIdx = (currentIdx + 1) % 3;
     const nextSegment = base[nextIdx];
@@ -255,7 +242,7 @@ const EventStatistics: React.FC = () => {
           <p className="text-white text-lg font-medium">Không có sự kiện sắp tới</p>
           <p className="text-white/80 text-sm mt-1">Tạo sự kiện mới để theo dõi</p>
         </div>
-        
+
         {/* Bottom Section - Statistics */}
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 shadow-lg">
           <div className="flex items-center justify-around gap-4">
@@ -301,30 +288,30 @@ const EventStatistics: React.FC = () => {
         <div className="flex gap-3">
           {/* Left - Countdown Circle */}
           <div className="flex-1 flex flex-col items-center justify-center">
-          <button
-                onClick={handleCycleUp}
-                className="p-1 hover:bg-white/20 rounded-full transition-colors"
-                aria-label="Cycle up"
-              >
-                <ChevronUp className="w-4 h-4 text-white" />
-              </button>
+            <button
+              onClick={handleCycleUp}
+              className="p-1 hover:bg-white/20 rounded-full transition-colors"
+              aria-label="Cycle up"
+            >
+              <ChevronUp className="w-4 h-4 text-white" />
+            </button>
             <div className="flex items-center justify-center gap-2 mb-1">
-           
+
               <div className="text-white text-xs font-medium uppercase tracking-wider">còn</div>
-              
+
             </div>
-            
+
             <div className="relative">
               {segmentOrder.map((seg, idx) => {
                 // Use real-time countdown state
                 const value = countdown[seg as keyof typeof countdown] || 0;
                 const isCurrent = idx === 1;
-                
+
                 // Only show current segment, hide others
                 if (!isCurrent) {
                   return null;
                 }
-                
+
                 return (
                   <div
                     key={seg}
@@ -341,18 +328,18 @@ const EventStatistics: React.FC = () => {
                 );
               })}
             </div>
-            
+
             <div className="flex items-center justify-center gap-2 mt-1">
-            
+
               <div className="text-white text-xs font-medium uppercase tracking-wider">nữa</div>
             </div>
             <button
-                onClick={handleCycleDown}
-                className="p-1 hover:bg-white/20 rounded-full transition-colors"
-                aria-label="Cycle down"
-              >
-                <ChevronDown className="w-4 h-4 text-white" />
-              </button>
+              onClick={handleCycleDown}
+              className="p-1 hover:bg-white/20 rounded-full transition-colors"
+              aria-label="Cycle down"
+            >
+              <ChevronDown className="w-4 h-4 text-white" />
+            </button>
           </div>
 
           {/* Right - Event Card */}
@@ -366,7 +353,7 @@ const EventStatistics: React.FC = () => {
                 <span className="truncate">{selectedEvent?.name || "Chọn sự kiện"}</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-              
+
               {dropdownOpen && (
                 <div className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-b-lg z-10 max-h-48 overflow-y-auto border border-t-0 border-gray-200">
                   {events.length > 0 ? (
@@ -374,9 +361,8 @@ const EventStatistics: React.FC = () => {
                       <button
                         key={event.id}
                         onClick={() => handleOnChanged(event.id)}
-                        className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 transition-colors ${
-                          selectedEvent?.id === event.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
-                        }`}
+                        className={`w-full px-3 py-2 text-sm text-left hover:bg-blue-50 transition-colors ${selectedEvent?.id === event.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="truncate flex-1">{event.name}</span>

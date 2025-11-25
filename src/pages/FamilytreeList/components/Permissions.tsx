@@ -9,6 +9,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import AddMemberModal from "./AddMemberModal";
 import { toast } from "react-toastify";
 import { getUserIdFromToken } from "@/utils/jwtUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const ManagePermissions: React.FC = () => {
   const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
@@ -56,6 +57,7 @@ const ManagePermissions: React.FC = () => {
     onConfirm: () => { },
     type: 'warning'
   });
+  const permissions = usePermissions();
 
   const methodsConfig = [
     { label: "Truy cập Đọc", value: "VIEW" },
@@ -67,7 +69,7 @@ const ManagePermissions: React.FC = () => {
   const loadPermissions = async () => {
     setLoading(true);
     try {
-      const res = await ftauthorizationService.getFTAuths(selectedFamilyTree?.id, paginationData);
+      const res = await ftauthorizationService.getFTAuths(selectedFamilyTree?.id || '', paginationData);
       setPaginationData(pre => ({
         ...pre,
         ...res.data
@@ -80,6 +82,10 @@ const ManagePermissions: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    permissions.logPermissions('MEMBER');
+  }, [permissions]);
 
   useEffect(() => {
     if (selectedFamilyTree?.id) {
@@ -550,10 +556,10 @@ const ManagePermissions: React.FC = () => {
                             }
                             disabled={isEditMode === false || isViewPermission}
                             className={`w-4 h-4 text-purple-600 rounded focus:ring-purple-500 ${isViewPermission
-                                ? 'cursor-not-allowed opacity-50'
-                                : isEditMode
-                                  ? 'cursor-pointer'
-                                  : 'cursor-not-allowed opacity-50'
+                              ? 'cursor-not-allowed opacity-50'
+                              : isEditMode
+                                ? 'cursor-pointer'
+                                : 'cursor-not-allowed opacity-50'
                               }`}
                           />
                         </td>

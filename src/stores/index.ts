@@ -7,6 +7,7 @@ import familyTreeMetaReducer from "./slices/familyTreeMetaDataSlice";
 import settingsReducer from "./slices/settingsSlice";
 import notificationReducer from "./slices/notificationSlice";
 import connectionReducer from "./slices/connectionSlice";
+import permissionReducer from "./slices/permissionSlice";
 
 const rootReducer = combineReducers({
     // more reducers go here
@@ -16,6 +17,7 @@ const rootReducer = combineReducers({
     settings: settingsReducer,
     notifications: notificationReducer,
     connection: connectionReducer,
+    permissions: permissionReducer,
 });
 
 const persistConfig = {

@@ -102,7 +102,6 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   // Create debounced filter handler to reduce API calls
   const debouncedHandleFilter = useMemo(
     () => debounce((filters: { eventType: EventType[]; eventGp: string[]; eventLocation: string }) => {
-      console.log('🔍 EventSidebar - Applying filters:', filters);
       handleFilter(filters);
     }, 300), // 300ms delay - only trigger after user stops changing filters
     [handleFilter]
@@ -111,19 +110,16 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   // Apply filters with debounce (except on initial mount)
   useEffect(() => {
     const filters = { eventType: eventTypes, eventGp: eventGroups, eventLocation };
-    console.log('🔍 EventSidebar - Filter state changed:', filters);
-    
+
     // On initial mount, apply filters immediately to fetch data
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      console.log('🔍 EventSidebar - Initial mount, applying filters immediately');
       handleFilter(filters);
     } else {
       // On subsequent changes, use debounce to reduce API calls
-      console.log('🔍 EventSidebar - Debouncing filter update');
       debouncedHandleFilter(filters);
     }
-    
+
     // Cleanup: cancel pending debounced calls on unmount
     return () => {
       debouncedHandleFilter.cancel();
@@ -149,12 +145,12 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         setEventLocation("");
 
         // Set default to Đà Nẵng
-        const daNangCity = finalList.find(c => 
-          c.name.toLowerCase().includes('đà nẵng') || 
+        const daNangCity = finalList.find(c =>
+          c.name.toLowerCase().includes('đà nẵng') ||
           c.name.toLowerCase().includes('da nang') ||
           c.code === 'dn'
         );
-        
+
         if (daNangCity) {
           setEventLocation(daNangCity.code);
           // Fetch weather for Đà Nẵng by default
@@ -166,7 +162,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         console.error("Error preparing sidebar data:", error);
         // Use fallback on error
         setListCity(MOCK_CITIES);
-        
+
         // Set default to Đà Nẵng from MOCK_CITIES
         const daNangCity = MOCK_CITIES.find(c => c.code === 'dn');
         if (daNangCity) {
@@ -199,7 +195,6 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         // Auto-select all family groups on initialization
         const allGroupIds = mappedGps.map(gp => gp.value);
         setEventGroups(allGroupIds);
-        console.log('🎯 Auto-selected all family groups:', allGroupIds);
       } catch (error) {
         console.error("Error fetching family trees:", error);
         setEventGp([]);
@@ -298,7 +293,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
       const reverseGeoRes = await fetch(reverseGeoUrl);
       let cityName = '';
       let stateName = '';
-      
+
       if (reverseGeoRes.ok) {
         const reverseGeoData = await reverseGeoRes.json();
         if (Array.isArray(reverseGeoData) && reverseGeoData.length > 0) {
@@ -319,7 +314,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
       const temp = typeof data.main?.temp === 'number' ? data.main.temp : NaN;
 
       const displayCityName = cityName || data.name || 'Vị trí hiện tại';
-      
+
       setWeather({
         temp,
         icon: icon ? `https://openweathermap.org/img/wn/${icon}@2x.png` : '',
@@ -330,7 +325,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
       // Update event location to show in dropdown (only if listCity is loaded)
       if (listCity.length > 0) {
         let foundCity: CityItem | undefined;
-        
+
         // First try: exact name match
         if (cityName) {
           foundCity = listCity.find(c => {
@@ -346,28 +341,28 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
             return cityNameLower.includes(cityListNameLower) || cityListNameLower.includes(cityNameLower);
           });
         }
-        
+
         // Second try: find by coordinates (find nearest city)
         if (!foundCity) {
           let nearestCity: CityItem | undefined;
           let nearestDistance = Infinity;
-          
+
           listCity.forEach(city => {
             if (typeof city.lat === 'number' && typeof city.lon === 'number') {
               const distance = Math.sqrt(
                 Math.pow(city.lat - lat, 2) + Math.pow(city.lon - lon, 2)
               );
-              
+
               if (distance < nearestDistance && distance < 0.5) { // Within ~50km
                 nearestDistance = distance;
                 nearestCity = city;
               }
             }
           });
-          
+
           foundCity = nearestCity;
         }
-        
+
         // Third try: find by state/province name if available
         if (!foundCity && stateName) {
           foundCity = listCity.find(c => {
@@ -376,7 +371,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
             return cityNameLower.includes(stateNameLower) || stateNameLower.includes(cityNameLower);
           });
         }
-        
+
         if (foundCity) {
           setEventLocation(foundCity.code);
           console.log('✅ Tự động chọn dropdown:', foundCity.name, '(Code:', foundCity.code + ')');
@@ -671,8 +666,8 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
             <div className="text-sm text-gray-500">Chọn địa điểm để xem thời tiết</div>
           )}
         </div>
- 
-        
+
+
         {/* Province dropdown and location button in one row */}
         <div className="flex gap-2 mb-2">
           <div className="relative flex-1">
@@ -692,7 +687,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
               ))}
             </select>
           </div>
-          
+
           {/* Use current location button */}
           <button
             onClick={handleUseCurrentLocation}
@@ -708,7 +703,7 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
             )}
           </button>
         </div>
-        
+
         {/* Location error message */}
         {locationError && (
           <div className="text-xs text-red-500 mb-2">{locationError}</div>

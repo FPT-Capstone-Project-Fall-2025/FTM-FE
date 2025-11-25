@@ -178,9 +178,9 @@ export const useFundManagementData = (
       setError(null);
       try {
         const [donationsRes, donationStatsRes, expensesRes] = await Promise.all([
-          fundService.fetchFundDonations(fundId, 1, 100), // Fetch first 100 donations
-          fundService.fetchFundDonationStats(fundId),
-          fundService.fetchFundExpenses(fundId, 1, 100), // Fetch first 100 expenses
+          fundService.fetchFundDonations(familyTreeId || '', fundId, 1, 100), // Fetch first 100 donations
+          fundService.fetchFundDonationStats(familyTreeId || '', fundId),
+          fundService.fetchFundExpenses(familyTreeId || '', fundId, 1, 100), // Fetch first 100 expenses
         ]);
 
         // Extract donations array from response
@@ -251,7 +251,7 @@ export const useFundManagementData = (
 
     setMyPendingLoading(true);
     try {
-      const list = await fundService.fetchMyPendingDonations(requesterId);
+      const list = await fundService.fetchMyPendingDonations(familyTreeId || '', requesterId);
       setMyPendingDonations(list);
     } catch (err) {
       console.error('Failed to load my pending donations', err);
@@ -264,7 +264,7 @@ export const useFundManagementData = (
   const refreshPendingDonations = useCallback(async () => {
     setPendingDonationsLoading(true);
     try {
-      const list = await fundService.fetchPendingDonations();
+      const list = await fundService.fetchPendingDonations(familyTreeId || '');
       setPendingDonations(list);
     } catch (err) {
       console.error('Failed to load pending donations', err);
@@ -276,25 +276,11 @@ export const useFundManagementData = (
 
   const uploadDonationProof = useCallback(
     async (donationId: string, files: File[]): Promise<void> => {
-      console.log('[useFundManagementData.uploadDonationProof] Starting upload', {
-        donationId,
-        fundDonationId: donationId,
-        filesCount: files.length,
-        fileNames: files.map(f => f.name),
-      });
-
       setActionLoading(true);
       setError(null);
       try {
-        console.log('[useFundManagementData.uploadDonationProof] Calling fundService.uploadDonationProof with donationId:', donationId);
         await fundService.uploadDonationProof(donationId, files);
-        console.log('[useFundManagementData.uploadDonationProof] Upload successful');
       } catch (err) {
-        console.error('[useFundManagementData.uploadDonationProof] Failed to upload donation proof', {
-          error: err,
-          donationId,
-          fundDonationId: donationId,
-        });
         throw err;
       } finally {
         setActionLoading(false);
@@ -402,7 +388,7 @@ export const useFundManagementData = (
       const nextPage = page ?? activeCampaignPagination.page;
       const nextPageSize = activeCampaignPagination.pageSize;
       try {
-        const result = await fundService.fetchActiveCampaigns(nextPage, nextPageSize);
+        const result = await fundService.fetchActiveCampaigns(familyTreeId || '', nextPage, nextPageSize);
         setActiveCampaigns(result.items);
         setActiveCampaignPagination({
           page: result.page ?? nextPage,
@@ -485,18 +471,7 @@ export const useFundManagementData = (
         if (input.campaignId) {
           payload.campaignId = input.campaignId;
         }
-
-        const response = await fundService.createFundExpense(payload);
-
-        // Response contains expenseId, status, receiptCount, receiptUrls, warning
-        // We can use this for logging or future enhancements
-        console.log('Expense created:', {
-          expenseId: response.expenseId,
-          status: response.status,
-          receiptCount: response.receiptCount,
-          warning: response.warning,
-        });
-
+        await fundService.createFundExpense(payload);
         await loadFundDetails(activeFund.id);
       } finally {
         setActionLoading(false);
@@ -536,24 +511,10 @@ export const useFundManagementData = (
 
       setActionLoading(true);
       try {
-        console.log('[useFundManagementData.approveExpense] Calling approve with:', {
-          expenseId,
-          approverId: approver,
-          notes,
-          paymentProofImagesCount: paymentProofImages?.length || 0,
-          paymentProofImages: paymentProofImages?.map(f => ({ name: f.name, size: f.size, type: f.type })) || [],
-        });
-
-        const response = await fundService.approveFundExpense(expenseId, {
+        await fundService.approveFundExpense(expenseId, {
           approverId: approver,
           notes: notes ?? null,
           paymentProofImages: paymentProofImages && paymentProofImages.length > 0 ? paymentProofImages : [],
-        });
-
-        console.log('[useFundManagementData.approveExpense] Approval successful:', {
-          expenseId: response.id,
-          newFundBalance: response.newFundBalance,
-          paymentProofUrl: response.paymentProofUrl,
         });
 
         await loadFundDetails(activeFund.id);
@@ -646,9 +607,9 @@ export const useFundManagementData = (
       setError(null);
       try {
         const [campaign, statisticsRes, summaryRes] = await Promise.all([
-          fundService.fetchCampaignById(campaignId),
-          fundService.fetchCampaignStatistics(campaignId),
-          fundService.fetchCampaignFinancialSummary(campaignId),
+          fundService.fetchCampaignById(familyTreeId || '', campaignId),
+          fundService.fetchCampaignStatistics(familyTreeId || '', campaignId),
+          fundService.fetchCampaignFinancialSummary(familyTreeId || '', campaignId),
         ]);
 
         if (!campaign) {

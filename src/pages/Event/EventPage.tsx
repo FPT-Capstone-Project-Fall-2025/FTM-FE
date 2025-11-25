@@ -27,6 +27,7 @@ import type {
   CalendarSelectInfo,
 } from '@/types/event';
 import { normalizeEventType } from '@/utils/eventUtils';
+import { usePermissions } from '@/hooks/usePermissions';
 
 
 // Configure moment
@@ -63,11 +64,16 @@ const EventPage: React.FC = () => {
   const [eventSelected, setEventSelected] = useState<FamilyEvent | null>(null);
   const [isSearchResultsOpen, setIsSearchResultsOpen] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<FamilyEvent[]>([]);
+  const permissions = usePermissions();
 
   // Debug: Log modal state changes
   useEffect(() => {
     console.log('GPEventDetailsModal state changed:', isOpenGPEventDetailsModal);
   }, [isOpenGPEventDetailsModal]);
+
+  useEffect(() => {
+    permissions.logPermissions('EVENT')
+  }, [permissions]);
 
   // Initialize loading
   useEffect(() => {
@@ -182,21 +188,21 @@ const EventPage: React.FC = () => {
   // Search events handler (triggered on Enter)
   const handleSearchEvents = useCallback(async () => {
     if (!search.trim()) return;
-    
+
     try {
       console.log('🔍 Searching for events:', search);
-      
+
       // Import eventService
       const eventServiceModule = await import('../../services/eventService');
       const eventService = eventServiceModule.default;
-      
+
       // Search in all family groups
       if (eventFilters?.eventGp && eventFilters.eventGp.length > 0) {
         const searchPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
             const response = await eventService.getEventsByGp(ftId);
             const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
-            
+
             // Filter events by search term
             return events.filter((event: any) => {
               const searchLower = search.toLowerCase();
@@ -212,10 +218,10 @@ const EventPage: React.FC = () => {
             return [];
           }
         });
-        
+
         const resultsArrays = await Promise.all(searchPromises);
         const allResults = resultsArrays.flat();
-        
+
         console.log('🔍 Search results:', allResults.length, 'events found');
         setSearchResults(allResults);
         setIsSearchResultsOpen(true);
@@ -367,107 +373,107 @@ const EventPage: React.FC = () => {
               <>
                 {/* Header Section */}
                 <div className="mb-3 flex-shrink-0">
-                 
-                    {/* Search Bar */}
-                    <div className="relative mb-3">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Tìm kiếm..."
-                        value={search}
-                        onChange={handleSearchChange}
-                        onKeyPress={handleSearchKeyPress}
-                        className="w-full pl-10 pr-24 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      />
-                      
-                      {/* Enter button/icon */}
+
+                  {/* Search Bar */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm..."
+                      value={search}
+                      onChange={handleSearchChange}
+                      onKeyPress={handleSearchKeyPress}
+                      className="w-full pl-10 pr-24 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    />
+
+                    {/* Enter button/icon */}
+                    <button
+                      onClick={handleSearchEvents}
+                      className="absolute right-12 top-1/2 transform -translate-y-1/2 flex items-center gap-1 px-2 py-1 bg-gray-300 hover:bg-gray-400 text-white rounded text-xs font-medium transition-colors"
+                      title="Tìm kiếm (Enter)"
+                      type="button"
+                    >
+                      <CornerDownLeft className="w-3 h-3" />
+
+                    </button>
+
+                    {search && (
                       <button
-                        onClick={handleSearchEvents}
-                        className="absolute right-12 top-1/2 transform -translate-y-1/2 flex items-center gap-1 px-2 py-1 bg-gray-300 hover:bg-gray-400 text-white rounded text-xs font-medium transition-colors"
-                        title="Tìm kiếm (Enter)"
+                        onClick={handleClearSearch}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                        title="Xóa tìm kiếm"
                         type="button"
                       >
-                        <CornerDownLeft className="w-3 h-3" />
-                       
+                        ×
                       </button>
-                      
-                      {search && (
-                        <button
-                          onClick={handleClearSearch}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-2xl leading-none"
-                          title="Xóa tìm kiếm"
-                          type="button"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
+                    )}
+                  </div>
 
-                    {/* Calendar Controls */}
-                    <div className="pb-2 border-b border-gray-200">
-                      <div className="flex justify-between items-center flex-wrap gap-2">
-                        {/* Navigation Controls */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={handlePrev}
-                              className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                              aria-label="Previous"
-                            >
-                              <ChevronLeft className="w-4 h-4 text-gray-600" />
-                            </button>
-                            <button
-                              onClick={handleToday}
-                              className="px-3 py-2 rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 transition-colors font-medium"
-                            >
-                              Hôm nay
-                            </button>
-                            <button
-                              onClick={handleNext}
-                              className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                              aria-label="Next"
-                            >
-                              <ChevronRight className="w-4 h-4 text-gray-600" />
-                            </button>
-                          </div>
-
-                          {/* Date Display with Picker */}
-                          <div className="relative">
-                            <button
-                              onClick={() => setOpenDatePicker(!openDatePicker)}
-                              className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
-                            >
-                              <Calendar className="w-4 h-4 text-gray-600" />
-                              <span>{getDateDisplayText}</span>
-                            </button>
-                            <DatePicker
-                              open={openDatePicker}
-                              value={dayjs(currentDate)}
-                              onChange={handleSelectedDate}
-                              onOpenChange={setOpenDatePicker}
-                              style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
-                              getPopupContainer={(trigger: any) => trigger.parentElement || document.body}
-                            />
-                          </div>
+                  {/* Calendar Controls */}
+                  <div className="pb-2 border-b border-gray-200">
+                    <div className="flex justify-between items-center flex-wrap gap-2">
+                      {/* Navigation Controls */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handlePrev}
+                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            aria-label="Previous"
+                          >
+                            <ChevronLeft className="w-4 h-4 text-gray-600" />
+                          </button>
+                          <button
+                            onClick={handleToday}
+                            className="px-3 py-2 rounded-lg border border-blue-500 text-blue-500 hover:bg-blue-50 transition-colors font-medium"
+                          >
+                            Hôm nay
+                          </button>
+                          <button
+                            onClick={handleNext}
+                            className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                            aria-label="Next"
+                          >
+                            <ChevronRight className="w-4 h-4 text-gray-600" />
+                          </button>
                         </div>
 
-                        {/* Right Side Controls */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                          {/* View Mode Selector */}
-                          <Radio.Group
-                            value={viewMode}
-                            onChange={(e: any) => setViewMode(e.target.value as ViewMode)}
-                            buttonStyle="solid"
-                            size="middle"
+                        {/* Date Display with Picker */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenDatePicker(!openDatePicker)}
+                            className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
                           >
-                            <Radio.Button value="day">Ngày</Radio.Button>
-                            <Radio.Button value="week">Tuần</Radio.Button>
-                            <Radio.Button value="month">Tháng</Radio.Button>
-                            <Radio.Button value="year">Năm</Radio.Button>
-                          </Radio.Group>
+                            <Calendar className="w-4 h-4 text-gray-600" />
+                            <span>{getDateDisplayText}</span>
+                          </button>
+                          <DatePicker
+                            open={openDatePicker}
+                            value={dayjs(currentDate)}
+                            onChange={handleSelectedDate}
+                            onOpenChange={setOpenDatePicker}
+                            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+                            getPopupContainer={(trigger: any) => trigger.parentElement || document.body}
+                          />
+                        </div>
+                      </div>
 
-                          {/* Weather Toggle */}
-                          {/* <button
+                      {/* Right Side Controls */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {/* View Mode Selector */}
+                        <Radio.Group
+                          value={viewMode}
+                          onChange={(e: any) => setViewMode(e.target.value as ViewMode)}
+                          buttonStyle="solid"
+                          size="middle"
+                        >
+                          <Radio.Button value="day">Ngày</Radio.Button>
+                          <Radio.Button value="week">Tuần</Radio.Button>
+                          <Radio.Button value="month">Tháng</Radio.Button>
+                          <Radio.Button value="year">Năm</Radio.Button>
+                        </Radio.Group>
+
+                        {/* Weather Toggle */}
+                        {/* <button
                             onClick={() => setViewWeather(!viewWeather)}
                             className={`p-2.5 rounded-lg transition-colors ${viewWeather
                               ? 'bg-blue-500 text-white border-blue-500'
@@ -478,33 +484,33 @@ const EventPage: React.FC = () => {
                           >
                             <CloudSun className="w-4 h-4" />
                           </button> */}
-                        </div>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Calendar View Content */}
-                  <div className="mt-2 min-h-[400px] max-h-[calc(100vh-280px)] overflow-auto">
-                    {initialLoading ? (
-                      <div className="flex justify-center items-center py-20 min-h-[400px]">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                      </div>
-                    ) : error ? (
-                      <div className="text-center py-20 min-h-[400px]">
-                        <p className="text-red-500 mb-5">{error}</p>
-                        <button
-                          onClick={() => setReload(!reload)}
-                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                        >
-                          Thử lại
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-full">
-                        {renderCalendar()}
-                      </div>
-                    )}
-        </div>
+                {/* Calendar View Content */}
+                <div className="mt-2 min-h-[400px] max-h-[calc(100vh-280px)] overflow-auto">
+                  {initialLoading ? (
+                    <div className="flex justify-center items-center py-20 min-h-[400px]">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-20 min-h-[400px]">
+                      <p className="text-red-500 mb-5">{error}</p>
+                      <button
+                        onClick={() => setReload(!reload)}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        Thử lại
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-full">
+                      {renderCalendar()}
+                    </div>
+                  )}
+                </div>
               </>
             </div>
           </div>
@@ -597,10 +603,10 @@ const EventPage: React.FC = () => {
                           eventType: normalizeEventType(event.eventType),
                           recurrence: event.recurrenceType === 'NONE' || event.recurrenceType === 0 ? 'ONCE'
                             : event.recurrenceType === 1 ? 'DAILY'
-                            : event.recurrenceType === 2 ? 'WEEKLY'
-                            : event.recurrenceType === 3 ? 'MONTHLY'
-                            : event.recurrenceType === 4 ? 'YEARLY'
-                            : 'ONCE',
+                              : event.recurrenceType === 2 ? 'WEEKLY'
+                                : event.recurrenceType === 3 ? 'MONTHLY'
+                                  : event.recurrenceType === 4 ? 'YEARLY'
+                                    : 'ONCE',
                           memberNames: event.eventMembers?.map((m: any) => m.memberName || m.name) || [],
                           gpNames: [],
                           gpIds: event.ftId ? [event.ftId] : [],
@@ -656,21 +662,20 @@ const EventPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="ml-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'WEDDING' ? 'bg-pink-100 text-pink-700' :
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'WEDDING' ? 'bg-pink-100 text-pink-700' :
                             event.eventType === 1 ? 'bg-pink-100 text-pink-700' :
-                            typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'BIRTHDAY' ? 'bg-blue-100 text-blue-700' :
-                            event.eventType === 2 ? 'bg-blue-100 text-blue-700' :
-                            typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'FUNERAL' ? 'bg-gray-100 text-gray-700' :
-                            event.eventType === 0 ? 'bg-gray-100 text-gray-700' :
-                            'bg-purple-100 text-purple-700'
-                          }`}>
-                            {typeof event.eventType === 'string' ? event.eventType : 
-                             event.eventType === 0 ? 'Giỗ' :
-                             event.eventType === 1 ? 'Cưới' :
-                             event.eventType === 2 ? 'Sinh nhật - Mừng thọ' :
-                             event.eventType === 3 ? 'Lễ' :
-                             'Khác'}
+                              typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'BIRTHDAY' ? 'bg-blue-100 text-blue-700' :
+                                event.eventType === 2 ? 'bg-blue-100 text-blue-700' :
+                                  typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'FUNERAL' ? 'bg-gray-100 text-gray-700' :
+                                    event.eventType === 0 ? 'bg-gray-100 text-gray-700' :
+                                      'bg-purple-100 text-purple-700'
+                            }`}>
+                            {typeof event.eventType === 'string' ? event.eventType :
+                              event.eventType === 0 ? 'Giỗ' :
+                                event.eventType === 1 ? 'Cưới' :
+                                  event.eventType === 2 ? 'Sinh nhật - Mừng thọ' :
+                                    event.eventType === 3 ? 'Lễ' :
+                                      'Khác'}
                           </span>
                         </div>
                       </div>

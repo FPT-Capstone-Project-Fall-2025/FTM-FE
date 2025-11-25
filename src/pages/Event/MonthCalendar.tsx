@@ -92,7 +92,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
   // Fetch events and weather data
   const fetchEventsAndForecasts = useCallback(async () => {
     if (!combinedFilters.year || !combinedFilters.month) return;
-    
+
     try {
       let allEvents: FamilyEvent[] = [];
 
@@ -102,17 +102,13 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
       const firstDayOfWeek = startOfMonth.clone().startOf('week'); // Monday of the first week
       const endOfMonth = startOfMonth.clone().endOf('month');
       const lastDayOfWeek = endOfMonth.clone().endOf('week'); // Sunday of the last week
-      
+
       const startDate = firstDayOfWeek.toDate();
       const endDate = lastDayOfWeek.toDate();
 
       // Check if family groups are selected
       if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
-        console.log('📅 MonthCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
-        console.log('📅 MonthCalendar - Year:', year, 'Month:', month);
-        
-        console.log('📅 MonthCalendar - Date range:', startDate, 'to', endDate);
-        
+
         // Fetch events for each selected family group using getEventsByGp API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
@@ -120,7 +116,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
             const response = await eventService.getEventsByGp(ftId);
             // Handle nested data structure: response.data.data.data
             const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
-            
+
             // Filter events to only include those in the current month view
             const filteredEvents = events.filter((event: any) => {
               const eventStart = moment(event.startTime);
@@ -132,9 +128,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
                 (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
               );
             });
-            
-            console.log(`📅 Events from ftId ${ftId}:`, filteredEvents.length, 'events (filtered from', events.length, 'total)');
-            console.log(`📅 Sample raw event from ${ftId}:`, filteredEvents[0]);
+
             return filteredEvents;
           } catch (error) {
             console.error(`Error fetching events for ftId ${ftId}:`, error);
@@ -144,12 +138,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
 
         const eventArrays = await Promise.all(eventPromises);
         allEvents = eventArrays.flat() as any as FamilyEvent[];
-        
-        console.log('📅 MonthCalendar - Total raw events from all groups:', allEvents.length);
-        console.log('📅 MonthCalendar - Raw events:', allEvents);
+
       } else {
         // No family groups selected - show empty
-        console.log('📅 MonthCalendar - No family groups selected, showing empty calendar');
         allEvents = [];
       }
 
@@ -159,70 +150,63 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
         let normalizedRecurrence = 'ONCE';
         if (event.recurrenceType) {
           if (typeof event.recurrenceType === 'string') {
-            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
-              ? 'ONCE' 
+            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE'
+              ? 'ONCE'
               : event.recurrenceType.toUpperCase();
           } else if (typeof event.recurrenceType === 'number') {
             normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
               : event.recurrenceType === 1 ? 'DAILY'
-              : event.recurrenceType === 2 ? 'WEEKLY'
-              : event.recurrenceType === 3 ? 'MONTHLY'
-              : event.recurrenceType === 4 ? 'YEARLY'
-              : 'ONCE';
+                : event.recurrenceType === 2 ? 'WEEKLY'
+                  : event.recurrenceType === 3 ? 'MONTHLY'
+                    : event.recurrenceType === 4 ? 'YEARLY'
+                      : 'ONCE';
           }
         }
         return { ...event, recurrence: normalizedRecurrence };
       });
-      
+
       // Generate recurring event instances for the month view
       const expandedEvents = processRecurringEvents(eventsWithRecurrence, startDate, endDate);
-      
-      console.log('📅 MonthCalendar - Expanded events (with recurring):', expandedEvents.length);
-      
-      // Filter and map events
-      console.log('📅 MonthCalendar - Event type filter:', eventFilters?.eventType);
-      console.log('📅 MonthCalendar - Raw events before mapping:', expandedEvents);
-      
+
       let apiEvents: CalendarEvent[] = expandedEvents
         .filter((event: any) => {
           // Normalize eventType to uppercase for comparison
           const normalizedEventType = normalizeEventType(event.eventType);
-          
+
           // Filter by event type if filters are set
           if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
             const eventTypeMatches = eventFilters.eventType.includes(normalizedEventType);
-            console.log(`📅 Event ${event.name} type ${event.eventType} -> ${normalizedEventType} matches filter:`, eventTypeMatches);
             if (!eventTypeMatches) {
               return false;
             }
           }
-          
+
           return true;
         })
         .map((event: any) => {
           // Normalize eventType from API (can be string "Wedding" or number 1)
           const normalizedEventType = normalizeEventType(event.eventType);
-          
+
           // Normalize recurrenceType from API (can be "None" or 0)
           let normalizedRecurrence = 'ONCE';
           if (event.recurrenceType) {
             if (typeof event.recurrenceType === 'string') {
-              normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
-                ? 'ONCE' 
+              normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE'
+                ? 'ONCE'
                 : event.recurrenceType.toUpperCase();
             } else if (typeof event.recurrenceType === 'number') {
               normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
                 : event.recurrenceType === 1 ? 'DAILY'
-                : event.recurrenceType === 2 ? 'WEEKLY'
-                : event.recurrenceType === 3 ? 'MONTHLY'
-                : event.recurrenceType === 4 ? 'YEARLY'
-                : 'ONCE';
+                  : event.recurrenceType === 2 ? 'WEEKLY'
+                    : event.recurrenceType === 3 ? 'MONTHLY'
+                      : event.recurrenceType === 4 ? 'YEARLY'
+                        : 'ONCE';
             }
           }
-          
+
           // Extract member names from eventMembers array
           const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
-          
+
           const mappedEvent = {
             ...event,
             id: event.id,
@@ -254,20 +238,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
               location: event.location || '',
             }
           };
-          
-          console.log(`📅 Mapped event: ${event.name}`, {
-            original: event,
-            mapped: mappedEvent,
-            start: mappedEvent.start,
-            end: mappedEvent.end,
-            allDay: mappedEvent.allDay,
-            type: mappedEvent.type,
-            eventType: mappedEvent.eventType
-          });
-          
           return mappedEvent;
         });
-      
+
       // Add Vietnamese holidays to calendar
       const vietnameseHolidays = getHolidaysForYear(year);
       const holidayEvents = vietnameseHolidays
@@ -276,11 +249,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
           return holidayMonth === month;
         })
         .map(holiday => formatHolidayForCalendar(holiday, year));
-      
-      console.log('📅 MonthCalendar - Events after filtering:', apiEvents.length, 'events');
-      console.log('📅 MonthCalendar - Vietnamese holidays:', holidayEvents.length, 'holidays');
-      console.log('📅 MonthCalendar - All mapped events:', apiEvents);
-      
+
       // Combine user events and holidays
       const combinedEvents = [...apiEvents, ...holidayEvents as any];
       setEvents(combinedEvents);
@@ -312,9 +281,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
 
   const renderEventContent = useCallback((arg: EventContentArg) => (
     <div className="custom-event">
-      <EventTypeLabel 
-        type={arg.event.extendedProps.type} 
-        title={arg.event.title} 
+      <EventTypeLabel
+        type={arg.event.extendedProps.type}
+        title={arg.event.title}
       />
     </div>
   ), []);
@@ -327,7 +296,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
       const dayKey = moment(args.date).format("YYYY-MM-DD");
       const weather = weatherData[dayKey];
       const isPast = dateObj.isBefore(moment(), 'day');
-      
+
       return (
         <div className={`flex flex-col items-center p-1 w-full ${isPast ? 'opacity-50' : ''}`}>
           <div className={`text-base font-semibold mb-0.5 ${isPast ? 'text-gray-400' : 'text-gray-900'}`}>
@@ -340,9 +309,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
           )}
           {weather && viewWeather && (
             <div className="flex items-center gap-1 text-xs">
-              <img 
-                src={weather.icon} 
-                alt="weather" 
+              <img
+                src={weather.icon}
+                alt="weather"
                 className="w-4 h-4"
               />
               <span className={`text-[0.7rem] ${isPast ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -388,14 +357,12 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
   // Handle date click to create new event
   const handleDateClick = useCallback((arg: any) => {
     const clickedDate = moment(arg.date);
-    
+
     // Only allow creating events for future dates
     if (clickedDate.isBefore(moment(), 'day')) {
       return;
     }
-    
-    console.log('📅 Date clicked:', clickedDate.format('YYYY-MM-DD'));
-    
+
     // Open modal with clicked date for new event creation
     setEventSelected({
       id: '',
@@ -432,7 +399,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
     const handleMouseMove = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const dayCell = target.closest('.fc-daygrid-day');
-      
+
       if (dayCell) {
         const dateAttr = dayCell.getAttribute('data-date');
         if (dateAttr && hoveredDay?.date === dateAttr) {
@@ -444,13 +411,13 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
     const handleDayCellEnter = (e: Event) => {
       const target = e.currentTarget as HTMLElement;
       const dateAttr = target.getAttribute('data-date');
-      
+
       if (dateAttr) {
         const mouseEvent = e as unknown as MouseEvent;
-        setHoveredDay({ 
-          date: dateAttr, 
-          x: mouseEvent.clientX, 
-          y: mouseEvent.clientY 
+        setHoveredDay({
+          date: dateAttr,
+          x: mouseEvent.clientX,
+          y: mouseEvent.clientY
         });
         setTooltipPosition({ x: mouseEvent.clientX, y: mouseEvent.clientY });
       }

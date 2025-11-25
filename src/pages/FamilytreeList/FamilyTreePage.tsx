@@ -12,6 +12,10 @@ import { setSelectedFamilyTree } from "@/stores/slices/familyTreeMetaDataSlice";
 import Invitations from "./components/Invitations";
 import ManagePermissions from "./components/Permissions";
 import ftauthorizationService from "@/services/familyTreeAuth";
+import { getUserIdFromToken } from "@/utils/jwtUtils";
+import { clearPermissions, setError, setLoading, setPermissions } from "@/stores/slices/permissionSlice";
+import { extractUserPermissions } from "@/utils/permissionUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const tabs = [
   { id: 'basic', label: 'THÔNG TIN CƠ BẢN' },
@@ -31,6 +35,8 @@ const FamilyTreePage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
+  const auth = useAppSelector(state => state.auth);
+  const permissions = usePermissions();
 
   // Get initial tab from URL params or localStorage
   const getInitialTab = (): 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund' => {
@@ -63,6 +69,50 @@ const FamilyTreePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund'>(getInitialTab());
   const [isHeaderMinimized, setIsHeaderMinimized] = useState(getInitialHeaderState());
 
+  useEffect(() => {
+    const fetchAuths = async () => {
+      if (!selectedTree || !auth.token) return;
+
+      try {
+        dispatch(setLoading(true));
+
+        const response = await ftauthorizationService.getFTAuths(selectedTree.id, {
+          pageIndex: 0,
+          pageSize: 10000,
+          propertyFilters: [
+            { "name": "FtId", "operation": "EQUAL", "value": selectedTree.id },
+            { "name": "AuthorizedMember.UserId", "operation": "NOTEQUAL", "value": null },
+            { "name": "AuthorizedMember.UserId", "operation": "EQUAL", "value": getUserIdFromToken(auth.token) }
+          ],
+          totalItems: 0,
+          totalPages: 0
+        });
+
+        const userPermissions = extractUserPermissions(response.data.data);
+
+        dispatch(setPermissions({
+          ftId: selectedTree.id,
+          permissions: userPermissions
+        }));
+
+        console.log('Permissions loaded for:', selectedTree.name);
+        permissions.logPermissions('MEMBER')
+      } catch (error) {
+        console.error('Error fetching permissions:', error);
+        dispatch(setError('Failed to load permissions'));
+      }
+    };
+
+    fetchAuths();
+
+    // Cleanup
+    return () => {
+      if (selectedTree) {
+        dispatch(clearPermissions(selectedTree.id));
+      }
+    };
+  }, [selectedTree, auth.token, dispatch]);
+
   // Update URL and localStorage when tab changes
   const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund') => {
     setActiveTab(tabId);
@@ -84,14 +134,6 @@ const FamilyTreePage: React.FC = () => {
       console.error('Failed to clear localStorage:', error);
     }
   };
-
-  useEffect(() => {
-    const fetchAuths = async () => {
-      const response = await ftauthorizationService.getFTAuths();
-      console.log(response);
-    }
-    fetchAuths();
-  }, [])
 
   // Save header minimized state to localStorage
   useEffect(() => {

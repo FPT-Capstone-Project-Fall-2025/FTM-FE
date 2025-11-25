@@ -190,7 +190,7 @@ const familyTreeMemberService = {
     try {
       const response: ApiResponse<GPMember> = await api.get(
         `/ftmember/${ftId}/get-by-memberid`,
-        { params: { memberId: ftMemberId } }
+        { params: { memberId: ftMemberId }, headers: { 'X-Ftid': ftId } }
       );
 
       const memberData =
@@ -232,7 +232,12 @@ const familyTreeMemberService = {
       console.log('Fetching GPMemberId from API...');
       const response: ApiResponse<GPMember> = await api.get(
         `/ftmember/${gpId}/get-by-userid`,
-        { params: { userId } }
+        {
+          params: { userId },
+          headers: {
+            'X-Ftid': gpId
+          }
+        }
       );
 
       console.log('GPMember API response:', response);

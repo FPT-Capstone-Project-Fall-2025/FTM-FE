@@ -27,7 +27,6 @@ const provinceService = {
   async getAllProvinces(): Promise<ApiResponse<ProvinceListResponse>> {
     try {
       const res = await api.get("/account/provinces");
-      console.log("Fetched provinces:", res);
       return res;
     } catch (error: any) {
       console.error("Failed to fetch provinces:", error.message || error);
@@ -38,7 +37,6 @@ const provinceService = {
   async getProvinceByCode(code: string): Promise<ApiResponse<ProvinceData>> {
     try {
       const res = await api.get(`/province/${code}`);
-      console.log(`Province [${code}]:`, res);
       return res;
     } catch (error: any) {
       console.error(`Failed to fetch province code=${code}:`, error.message || error);
@@ -49,7 +47,6 @@ const provinceService = {
   async searchProvinces(keyword: string): Promise<ApiResponse<ProvinceListResponse>> {
     try {
       const res = await api.get(`/province?search=${encodeURIComponent(keyword)}`);
-      console.log(`Search provinces "${keyword}" =>`, res);
       return res;
     } catch (error: any) {
       console.error("Failed to search provinces:", error.message || error);
