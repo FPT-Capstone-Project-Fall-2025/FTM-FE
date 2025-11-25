@@ -471,7 +471,18 @@ export const useFundManagementData = (
         if (input.campaignId) {
           payload.campaignId = input.campaignId;
         }
-        await fundService.createFundExpense(payload);
+
+        const response = await fundService.createFundExpense(payload);
+
+        // Response contains expenseId, status, receiptCount, receiptUrls, warning
+        // We can use this for logging or future enhancements
+        console.log('Expense created:', {
+          expenseId: response.expenseId,
+          status: response.status,
+          receiptCount: response.receiptCount,
+          warning: response.warning,
+        });
+
         await loadFundDetails(activeFund.id);
       } finally {
         setActionLoading(false);

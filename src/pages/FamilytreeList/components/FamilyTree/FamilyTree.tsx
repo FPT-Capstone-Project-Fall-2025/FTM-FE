@@ -183,7 +183,7 @@ const FamilyTreeContent = () => {
     setIsDeletingNode(true);
     try {
       const response = await familyTreeService.deleteFamilyNode(selectedFamilyTree.id, memberToDelete.id);
-      toast.success(response.data)
+      toast.success(response.message)
       // Close the detail panel if the deleted member was selected
       if (selectedMemberId === memberToDelete.id) {
         dispatch(setSelectedMember(null));

@@ -6,6 +6,7 @@ import "moment/locale/vi";
 import moment from "moment";
 import eventService from "../../services/eventService";
 import { toast } from 'react-toastify';
+import { getLunarCanChi } from "./utils/convertSolar2Lunar";
 import ShareToPostModal from "@/components/shared/ShareToPostModal";
 import { useParams } from "react-router-dom";
 import { useGPMember } from '@/hooks/useGPMember';
@@ -317,6 +318,21 @@ const GPEventInfoModal = ({
               </div>
             )}
 
+            {/* Lịch âm */}
+            {/* {isLunar && ( */}
+            <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
+              <span className="text-blue-600 text-lg">🌙</span>
+              <span className="text-sm text-blue-700 font-medium">
+                {(() => {
+                  if (!start) return "Sự kiện theo lịch âm";
+                  const d = new Date(start);
+                  const { ngay, thang, nam } = getLunarCanChi(d.getDate(), d.getMonth() + 1, d.getFullYear());
+                  return `Ngày ${ngay}, Tháng ${thang}, Năm ${nam}`;
+                })()}
+              </span>
+            </div>
+            {/* )} */}
+
             {/* Lặp lại */}
             {recurrence && (
               <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
@@ -337,13 +353,7 @@ const GPEventInfoModal = ({
               </div>
             )}
 
-            {/* Lịch âm */}
-            {isLunar && (
-              <div className="flex items-center gap-3 bg-blue-50 px-3 py-2 rounded-lg">
-                <span className="text-blue-600 text-lg">🌙</span>
-                <span className="text-sm text-blue-700 font-medium">Sự kiện theo lịch âm</span>
-              </div>
-            )}
+
 
             {/* Thành viên */}
             {memberNamesJoin && (
