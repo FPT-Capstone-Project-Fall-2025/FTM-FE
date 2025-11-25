@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Wallet, QrCode, Upload, Image as ImageIcon } from 'lucide-react';
 import fundService from '@/services/fundService';
 import { toast } from 'react-toastify';
+import { useAppSelector } from '@/hooks/redux';
 import ExceptionPopup from '@/components/shared/ExceptionPopup';
 import { useException } from '@/hooks/useException';
 
@@ -32,6 +33,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
   const [proofFiles, setProofFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree)
   const { isOpen: isExceptionOpen, message: exceptionMessage, timestamp: exceptionTimestamp, showException, hideException } = useException();
 
   useEffect(() => {
@@ -100,7 +102,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
       if (trimmedNotes) {
         payload.paymentNotes = trimmedNotes;
       }
-      const response = await fundService.createCampaignDonation(campaignId, payload);
+      const response = await fundService.createCampaignDonation(selectedTree?.id || '', campaignId, payload);
       setDonationId(response.donationId);
       setQrCodeUrl(response.qrCodeUrl ?? null);
 
@@ -128,7 +130,7 @@ const CampaignDonateModal: React.FC<CampaignDonateModalProps> = ({
     }
     try {
       setUploading(true);
-      await fundService.uploadCampaignDonationProof(donationId, proofFiles);
+      await fundService.uploadCampaignDonationProof(selectedTree?.id || '', donationId, proofFiles);
       toast.success('Đã tải ảnh xác minh thành công.');
       onClose();
     } catch (err: any) {

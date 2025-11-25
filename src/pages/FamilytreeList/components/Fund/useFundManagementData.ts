@@ -101,7 +101,7 @@ export interface UseFundManagementDataReturn {
   pendingExpenses: FundExpense[];
   pendingExpensesLoading: boolean;
   refreshPendingExpenses: () => Promise<void>;
-  createCampaign: (input: CampaignCreationInput) => Promise<void>;
+  createCampaign: (ftId: string, input: CampaignCreationInput) => Promise<void>;
   loadCampaignDetail: (campaignId: string) => Promise<CampaignDetail | null>;
   refreshCampaigns: (page?: number) => Promise<void>;
   changeCampaignPage: (page: number) => Promise<void>;
@@ -576,7 +576,7 @@ export const useFundManagementData = (
   }, [refreshPendingExpenses]);
 
   const createCampaign = useCallback(
-    async (input: CampaignCreationInput) => {
+    async (ftId: string, input: CampaignCreationInput) => {
       if (!familyTreeId) {
         throw new Error('Thiếu thông tin gia tộc.');
       }
@@ -603,7 +603,7 @@ export const useFundManagementData = (
         if (input.isPublic !== undefined) payload.isPublic = input.isPublic;
         if (input.imageUrl) payload.imageUrl = input.imageUrl;
 
-        await fundService.createCampaign(payload);
+        await fundService.createCampaign(ftId, payload);
         // Note: Campaign refresh is handled by the caller (handleSubmitCampaign)
       } finally {
         setActionLoading(false);
