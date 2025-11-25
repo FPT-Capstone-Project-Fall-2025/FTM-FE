@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAppSelector } from '@/hooks/redux';
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
+import { useException } from '@/hooks/useException';
 import FundOverviewSection, {
   type OverviewContributor,
   type OverviewTransaction,
@@ -357,6 +359,7 @@ const FundManagement: React.FC = () => {
     proofImages: string[];
   }>>([]);
   const permissions = usePermissions();
+  const { isOpen: isExceptionOpen, message: exceptionMessage, timestamp: exceptionTimestamp, showException, hideException } = useException();
 
 
   useEffect(() => {
@@ -365,7 +368,7 @@ const FundManagement: React.FC = () => {
 
   useEffect(() => {
     if (error) {
-      toast.error(error);
+      showException(error);
     }
   }, [error]);
 
@@ -570,7 +573,7 @@ const FundManagement: React.FC = () => {
       toast.success('Đã làm mới dữ liệu quỹ');
     } catch (err) {
       console.error(err);
-      toast.error('Không thể làm mới dữ liệu quỹ');
+      showException('Không thể làm mới dữ liệu quỹ');
     } finally {
       setIsRefreshing(false);
     }
@@ -579,7 +582,7 @@ const FundManagement: React.FC = () => {
   const handleCreateFund = useCallback(
     async (form: FundCreateForm) => {
       if (!selectedTree?.id) {
-        toast.error('Không xác định được gia tộc để tạo quỹ.');
+        showException('Không xác định được gia tộc để tạo quỹ.');
         return;
       }
 
@@ -603,7 +606,7 @@ const FundManagement: React.FC = () => {
           error?.response?.data?.message ||
           error?.message ||
           'Không thể tạo quỹ. Vui lòng kiểm tra lại thông tin.';
-        toast.error(message);
+        showException(message);
       }
     },
     [createFund, refreshAll, selectedTree?.id]
@@ -611,7 +614,7 @@ const FundManagement: React.FC = () => {
 
   const handleOpenDeposit = useCallback(() => {
     if (!activeFund) {
-      toast.error('Vui lòng chọn quỹ để đóng góp.');
+      showException('Vui lòng chọn quỹ để đóng góp.');
       return;
     }
     setIsDepositModalOpen(true);
@@ -630,7 +633,7 @@ const FundManagement: React.FC = () => {
 
   const handleOpenWithdraw = useCallback(() => {
     if (!activeFund) {
-      toast.error('Vui lòng chọn quỹ để rút tiền.');
+      showException('Vui lòng chọn quỹ để rút tiền.');
       return;
     }
     setIsWithdrawalModalOpen(true);
@@ -642,7 +645,7 @@ const FundManagement: React.FC = () => {
 
   const handleOpenEditFund = useCallback(() => {
     if (!activeFund) {
-      toast.error('Vui lòng chọn quỹ để chỉnh sửa.');
+      showException('Vui lòng chọn quỹ để chỉnh sửa.');
       return;
     }
     setIsEditFundModalOpen(true);
@@ -655,7 +658,7 @@ const FundManagement: React.FC = () => {
   const handleSubmitEditFund = useCallback(
     async (form: FundEditForm) => {
       if (!activeFund) {
-        toast.error('Vui lòng chọn quỹ để chỉnh sửa.');
+        showException('Vui lòng chọn quỹ để chỉnh sửa.');
         return;
       }
 
@@ -676,7 +679,7 @@ const FundManagement: React.FC = () => {
         await refreshAll();
       } catch (error: any) {
         console.error('Update fund failed:', error);
-        toast.error(
+        showException(
           error?.response?.data?.message ||
           error?.message ||
           'Không thể cập nhật thông tin quỹ. Vui lòng thử lại.'
@@ -696,21 +699,21 @@ const FundManagement: React.FC = () => {
   const handleSubmitDeposit = useCallback(
     async (form: FundDepositForm) => {
       if (!activeFund?.id) {
-        toast.error('Không xác định được quỹ để đóng góp.');
+        showException('Không xác định được quỹ để đóng góp.');
         return;
       }
       if (!gpMemberId) {
-        toast.error(
+        showException(
           'Không xác định được thành viên gia tộc để ghi nhận khoản đóng góp.'
         );
         return;
       }
       if (!donorName) {
-        toast.error('Không xác định được tên người đóng góp.');
+        showException('Không xác định được tên người đóng góp.');
         return;
       }
       if (form.amount <= 0) {
-        toast.error('Số tiền cần lớn hơn 0.');
+        showException('Số tiền cần lớn hơn 0.');
         return;
       }
 
@@ -770,7 +773,7 @@ const FundManagement: React.FC = () => {
         }
       } catch (error: any) {
         console.error('Deposit failed:', error);
-        toast.error(
+        showException(
           error?.response?.data?.message ||
           error?.message ||
           'Không thể đóng góp quỹ. Vui lòng thử lại.'
@@ -791,18 +794,18 @@ const FundManagement: React.FC = () => {
   const handleSubmitProof = useCallback(
     async ({ files, note }: { files: File[]; note: string }) => {
       if (!recentDonation?.id) {
-        toast.error('Không tìm thấy thông tin khoản đóng góp trước đó.');
+        showException('Không tìm thấy thông tin khoản đóng góp trước đó.');
         return;
       }
       if (!gpMemberId) {
-        toast.error('Không xác định được thành viên xác nhận.');
+        showException('Không xác định được thành viên xác nhận.');
         return;
       }
       setProofSubmitting(true);
       try {
         await uploadDonationProof(recentDonation.id, files);
         if (!gpMemberId) {
-          toast.error('Không xác định được thành viên gia tộc để xác nhận.');
+          showException('Không xác định được thành viên gia tộc để xác nhận.');
           return;
         }
         await confirmDonation(recentDonation.id, gpMemberId, note.trim() || undefined);
@@ -817,7 +820,7 @@ const FundManagement: React.FC = () => {
         setIsProofModalOpen(false);
       } catch (error: any) {
         console.error('Upload proof failed:', error);
-        toast.error(
+        showException(
           error?.response?.data?.message ||
           'Không thể tải xác minh và xác nhận khoản đóng góp quỹ. Vui lòng thử lại.'
         );
@@ -840,31 +843,31 @@ const FundManagement: React.FC = () => {
       event.preventDefault();
 
       if (!activeFund) {
-        toast.error('Vui lòng chọn quỹ trước khi tạo yêu cầu.');
+        showException('Vui lòng chọn quỹ trước khi tạo yêu cầu.');
         return;
       }
 
       // Parse amount from string (may contain formatted value)
       const amountValue = Number(withdrawalForm.amount.replace(/\D/g, ''));
       if (!Number.isFinite(amountValue) || amountValue <= 0) {
-        toast.error('Số tiền rút tộci lớn hơn 0.');
+        showException('Số tiền rút tộci lớn hơn 0.');
         return;
       }
 
       // Validate against computed balance
       if (amountValue > computedBalance) {
-        toast.error(`Số tiền rút không được vượt quá số dư hiện tại (${formatCurrency(computedBalance)}).`);
+        showException(`Số tiền rút không được vượt quá số dư hiện tại (${formatCurrency(computedBalance)}).`);
         return;
       }
 
       if (!withdrawalForm.reason.trim()) {
-        toast.error('Vui lòng nhập lý do chi tiêu.');
+        showException('Vui lòng nhập lý do chi tiêu.');
         return;
       }
 
       // Validate receipt images
       if (!withdrawalForm.receiptImages || withdrawalForm.receiptImages.length === 0) {
-        toast.error('Vui lòng upload ít nhất một ảnh hóa đơn/xác minh.');
+        showException('Vui lòng upload ít nhất một ảnh hóa đơn/xác minh.');
         return;
       }
 
@@ -876,7 +879,7 @@ const FundManagement: React.FC = () => {
         })();
 
       if (!recipientName) {
-        toast.error('Không xác định được tên người tạo yêu cầu.');
+        showException('Không xác định được tên người tạo yêu cầu.');
         return;
       }
 
@@ -918,7 +921,7 @@ const FundManagement: React.FC = () => {
         setManagementScope('fund');
       } catch (error: any) {
         console.error('Create withdrawal failed:', error);
-        toast.error(
+        showException(
           error?.response?.data?.message ||
           error?.message ||
           'Không thể tạo yêu cầu rút tiền.'
@@ -1060,7 +1063,7 @@ const FundManagement: React.FC = () => {
         setCampaignDetail(detail);
         setIsCampaignDetailOpen(true);
       } catch (error) {
-        toast.error('Không thể tải chi tiết chiến dịch.');
+        showException('Không thể tải chi tiết chiến dịch.');
       }
     },
     [loadCampaignDetail]
@@ -1097,7 +1100,7 @@ const FundManagement: React.FC = () => {
       // setCampaignApprovalTotalCount(pending.length);
     } catch (err) {
       console.error('Failed to load campaign approvals', err);
-      toast.error('Không thể tải danh sách ủng hộ cần phê duyệt.');
+      showException('Không thể tải danh sách ủng hộ cần phê duyệt.');
       setCampaignPendingDonations([]);
     } finally {
       setCampaignApprovalsLoading(false);
@@ -1112,7 +1115,7 @@ const FundManagement: React.FC = () => {
   const handleConfirmCampaignPendingDonation = useCallback(
     async (donationId: string, notes?: string) => {
       if (!gpMemberId) {
-        toast.error('Không xác định được người xác nhận.');
+        showException('Không xác định được người xác nhận.');
         throw new Error('Missing confirmer');
       }
       try {
@@ -1132,7 +1135,7 @@ const FundManagement: React.FC = () => {
         await refreshCampaigns(1);
       } catch (err: any) {
         console.error('Confirm campaign donation failed:', err);
-        toast.error(
+        showException(
           err?.response?.data?.message || err?.message || 'Không thể xác nhận ủng hộ.'
         );
         throw err;
@@ -1144,7 +1147,7 @@ const FundManagement: React.FC = () => {
   const handleRejectCampaignPendingDonation = useCallback(
     async (donationId: string, reason?: string) => {
       if (!gpMemberId) {
-        toast.error('Không xác định được người từ chối.');
+        showException('Không xác định được người từ chối.');
         throw new Error('Missing rejector');
       }
       try {
@@ -1163,7 +1166,7 @@ const FundManagement: React.FC = () => {
         }
       } catch (err: any) {
         console.error('Reject campaign donation failed:', err);
-        toast.error(
+        showException(
           err?.response?.data?.message || err?.message || 'Không thể từ chối ủng hộ.'
         );
         throw err;
@@ -1204,7 +1207,7 @@ const FundManagement: React.FC = () => {
         })));
       } catch (err) {
         console.error('Failed to load my campaign pending donations', err);
-        toast.error('Không thể tải yêu cầu ủng hộ đang chờ của bạn.');
+        showException('Không thể tải yêu cầu ủng hộ đang chờ của bạn.');
       } finally {
         setMyCampaignPendingLoading(false);
       }
@@ -1250,7 +1253,7 @@ const FundManagement: React.FC = () => {
       setHistoryExpenseTotalPages(expensesRes.totalPages);
     } catch (err) {
       console.error('Failed to load campaign history', err);
-      toast.error('Không thể tải lịch sử giao dịch.');
+      showException('Không thể tải lịch sử giao dịch.');
     } finally {
       setHistoryLoading(false);
     }
@@ -1365,7 +1368,7 @@ const FundManagement: React.FC = () => {
       );
     } catch (err) {
       console.error('Failed to load campaign expense approvals', err);
-      toast.error('Không thể tải danh sách chi tiêu cần duyệt.');
+      showException('Không thể tải danh sách chi tiêu cần duyệt.');
       setCampaignPendingExpenses([]);
     } finally {
       setCampaignExpenseApprovalsLoading(false);
@@ -1383,11 +1386,11 @@ const FundManagement: React.FC = () => {
       payload: { notes?: string; paymentProofImages: File[] }
     ) => {
       if (!gpMemberId) {
-        toast.error('Không xác định được người phê duyệt.');
+        showException('Không xác định được người phê duyệt.');
         throw new Error('Missing approver');
       }
       if (!payload.paymentProofImages || payload.paymentProofImages.length === 0) {
-        toast.error('Vui lòng chọn ít nhất một ảnh xác minh thanh toán.');
+        showException('Vui lòng chọn ít nhất một ảnh xác minh thanh toán.');
         throw new Error('Missing payment proof');
       }
       const trimmedNotes = payload.notes?.trim();
@@ -1401,7 +1404,7 @@ const FundManagement: React.FC = () => {
         await loadCampaignExpenseApprovals(gpMemberId);
       } catch (err: any) {
         console.error('Approve campaign expense failed:', err);
-        toast.error(
+        showException(
           err?.response?.data?.message || err?.message || 'Không thể phê duyệt chi tiêu.'
         );
         throw err;
@@ -1413,7 +1416,7 @@ const FundManagement: React.FC = () => {
   const handleRejectCampaignExpense = useCallback(
     async (expenseId: string, reason?: string) => {
       if (!gpMemberId) {
-        toast.error('Không xác định được người từ chối.');
+        showException('Không xác định được người từ chối.');
         throw new Error('Missing rejector');
       }
       const trimmedReason = reason?.trim();
@@ -1426,7 +1429,7 @@ const FundManagement: React.FC = () => {
         await loadCampaignExpenseApprovals(gpMemberId);
       } catch (err: any) {
         console.error('Reject campaign expense failed:', err);
-        toast.error(
+        showException(
           err?.response?.data?.message || err?.message || 'Không thể từ chối chi tiêu.'
         );
         throw err;
@@ -1480,7 +1483,7 @@ const FundManagement: React.FC = () => {
           });
 
           if (validFiles.length === 0) {
-            toast.error('Vui lòng chọn ít nhất một ảnh xác minh thanh toán.');
+            showException('Vui lòng chọn ít nhất một ảnh xác minh thanh toán.');
             return;
           }
 
@@ -1504,7 +1507,7 @@ const FundManagement: React.FC = () => {
         await refreshPendingExpenses();
       } catch (error: any) {
         console.error('Handle request action failed:', error);
-        toast.error(
+        showException(
           error?.response?.data?.message ||
           error?.message ||
           'Không thể xử lý yêu cầu.'
@@ -1528,7 +1531,7 @@ const FundManagement: React.FC = () => {
 
   const handleOpenCampaignModal = useCallback(() => {
     if (!selectedTree?.id) {
-      toast.error('Vui lòng chọn gia tộc để tạo chiến dịch.');
+      showException('Vui lòng chọn gia tộc để tạo chiến dịch.');
       return;
     }
     const organizerName = getDisplayNameFromGPMember(gpMember) || gpMember?.fullname || authUser?.name || '';
@@ -1559,7 +1562,7 @@ const FundManagement: React.FC = () => {
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (!selectedTree?.id) {
-        toast.error('Không xác định được gia tộc.');
+        showException('Không xác định được gia tộc.');
         return;
       }
 
@@ -1575,14 +1578,14 @@ const FundManagement: React.FC = () => {
       for (const [field, message] of requiredFields) {
         const value = campaignForm[field];
         if (typeof value === 'string' ? !value.trim() : !value) {
-          toast.error(message);
+          showException(message);
           return;
         }
       }
 
       const targetAmountNumber = Number(campaignForm.targetAmount);
       if (!Number.isFinite(targetAmountNumber) || targetAmountNumber < 0) {
-        toast.error('Số tiền mục tiêu tộci lớn hơn hoặc bằng 0.');
+        showException('Số tiền mục tiêu tộci lớn hơn hoặc bằng 0.');
         return;
       }
 
@@ -1590,7 +1593,7 @@ const FundManagement: React.FC = () => {
         const start = new Date(campaignForm.startDate);
         const end = new Date(campaignForm.endDate);
         if (end < start) {
-          toast.error('Ngày kết thúc tộci sau ngày bắt đầu.');
+          showException('Ngày kết thúc tộci sau ngày bắt đầu.');
           return;
         }
       }
@@ -1654,7 +1657,7 @@ const FundManagement: React.FC = () => {
         handleCloseCampaignModal();
       } catch (err: any) {
         console.error('Create campaign failed:', err);
-        toast.error(
+        showException(
           err?.response?.data?.message ||
           err?.message ||
           'Không thể tạo chiến dịch. Vui lòng thử lại.'
@@ -1923,16 +1926,16 @@ const FundManagement: React.FC = () => {
                 onClick={async () => {
                   try {
                     if (!createExpenseForm.campaignId) {
-                      toast.error('Vui lòng chọn chiến dịch.');
+                      showException('Vui lòng chọn chiến dịch.');
                       return;
                     }
                     if (!gpMemberId && !currentUserId) {
-                      toast.error('Không xác định được người yêu cầu.');
+                      showException('Không xác định được người yêu cầu.');
                       return;
                     }
                     const amountNum = Number(createExpenseForm.amount);
                     if (!Number.isFinite(amountNum) || amountNum <= 0) {
-                      toast.error('Số tiền không hợp lệ.');
+                      showException('Số tiền không hợp lệ.');
                       return;
                     }
                     setCreateExpenseSubmitting(true);
@@ -1951,7 +1954,7 @@ const FundManagement: React.FC = () => {
                   } catch (err: any) {
                     console.error('Create campaign expense failed:', err);
                     const apiMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message;
-                    toast.error(apiMsg || 'Không thể tạo yêu cầu rút tiền.');
+                    showException(apiMsg || 'Không thể tạo yêu cầu rút tiền.');
                   } finally {
                     setCreateExpenseSubmitting(false);
                   }
@@ -2146,7 +2149,7 @@ const FundManagement: React.FC = () => {
                         errorMessage = 'Vui lòng đợi vài giây rồi thử lại upload ảnh xác minh.';
                       }
 
-                      toast.error(errorMessage);
+                      showException(errorMessage);
                       throw error;
                     }
                   }}
@@ -2190,7 +2193,7 @@ const FundManagement: React.FC = () => {
                   onRefresh={refreshPendingDonations}
                   onConfirm={async (donationId, confirmationNotes) => {
                     if (!gpMemberId) {
-                      toast.error('Không xác định được thành viên gia tộc để xác nhận.');
+                      showException('Không xác định được thành viên gia tộc để xác nhận.');
                       return;
                     }
                     try {
@@ -2204,7 +2207,7 @@ const FundManagement: React.FC = () => {
                       setManagementScope('fund');
                     } catch (error: any) {
                       console.error('Confirm donation failed:', error);
-                      toast.error(
+                      showException(
                         error?.response?.data?.message ||
                         error?.message ||
                         'Không thể xác nhận đóng góp. Vui lòng thử lại.'
@@ -2214,7 +2217,7 @@ const FundManagement: React.FC = () => {
                   }}
                   onReject={async (donationId, reason) => {
                     if (!gpMemberId) {
-                      toast.error('Không xác định được thành viên gia tộc để từ chối.');
+                      showException('Không xác định được thành viên gia tộc để từ chối.');
                       return;
                     }
                     try {
@@ -2225,7 +2228,7 @@ const FundManagement: React.FC = () => {
                       await refreshMyPendingDonations();
                     } catch (error: any) {
                       console.error('Reject donation failed:', error);
-                      toast.error(
+                      showException(
                         error?.response?.data?.message ||
                         error?.message ||
                         'Không thể từ chối đóng góp. Vui lòng thử lại.'
@@ -2580,7 +2583,7 @@ const FundManagement: React.FC = () => {
                                               }
                                             } catch (err: any) {
                                               console.error('Upload campaign donation proof failed:', err);
-                                              toast.error(err?.response?.data?.message || err?.message || 'Không thể upload ảnh xác minh.');
+                                              showException(err?.response?.data?.message || err?.message || 'Không thể upload ảnh xác minh.');
                                             }
                                           }}
                                         />
@@ -2898,6 +2901,14 @@ const FundManagement: React.FC = () => {
           setIsCampaignDonateOpen(false);
           setSelectedCampaignId(null);
         }}
+      />
+
+      {/* Exception Popup */}
+      <ExceptionPopup
+        isOpen={isExceptionOpen}
+        message={exceptionMessage}
+        timestamp={exceptionTimestamp}
+        onClose={hideException}
       />
     </div>
   );
