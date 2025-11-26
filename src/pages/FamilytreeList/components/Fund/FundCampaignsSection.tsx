@@ -79,10 +79,25 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
 
     let statusKey: StatusKey = 'active';
     if (start && !Number.isNaN(start.getTime()) && now < start) {
+      // Campaign hasn't started yet
       statusKey = 'upcoming';
     } else if (end && !Number.isNaN(end.getTime()) && now > end) {
+      // Campaign has ended
       statusKey = 'completed';
+    } else if (start && !Number.isNaN(start.getTime()) && end && !Number.isNaN(end.getTime())) {
+      // Campaign has valid start and end dates, check if we're in the range
+      if (now >= start && now <= end) {
+        statusKey = 'active';
+      } else if (now > end) {
+        statusKey = 'completed';
+      } else {
+        statusKey = 'upcoming';
+      }
+    } else if (start && !Number.isNaN(start.getTime()) && now >= start) {
+      // Only start date is valid, and we've passed it
+      statusKey = 'active';
     } else {
+      // Default to active if dates are invalid or missing
       statusKey = 'active';
     }
     const matchesFilter = effectiveFilter === 'all' || effectiveFilter === statusKey;
@@ -99,10 +114,10 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
   const sortedCampaigns =
     effectiveFilter === 'all'
       ? [...filteredCampaigns].sort((a, b) => {
-          const aEnd = a.endDate ? new Date(a.endDate).getTime() : Number.POSITIVE_INFINITY;
-          const bEnd = b.endDate ? new Date(b.endDate).getTime() : Number.POSITIVE_INFINITY;
-          return aEnd - bEnd;
-        })
+        const aEnd = a.endDate ? new Date(a.endDate).getTime() : Number.POSITIVE_INFINITY;
+        const bEnd = b.endDate ? new Date(b.endDate).getTime() : Number.POSITIVE_INFINITY;
+        return aEnd - bEnd;
+      })
       : filteredCampaigns;
 
   const handlePrevPage = () => {
@@ -184,10 +199,25 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
 
               let statusKey: StatusKey = 'active';
               if (start && !Number.isNaN(start.getTime()) && now < start) {
+                // Campaign hasn't started yet
                 statusKey = 'upcoming';
               } else if (end && !Number.isNaN(end.getTime()) && now > end) {
+                // Campaign has ended
                 statusKey = 'completed';
+              } else if (start && !Number.isNaN(start.getTime()) && end && !Number.isNaN(end.getTime())) {
+                // Campaign has valid start and end dates, check if we're in the range
+                if (now >= start && now <= end) {
+                  statusKey = 'active';
+                } else if (now > end) {
+                  statusKey = 'completed';
+                } else {
+                  statusKey = 'upcoming';
+                }
+              } else if (start && !Number.isNaN(start.getTime()) && now >= start) {
+                // Only start date is valid, and we've passed it
+                statusKey = 'active';
               } else {
+                // Default to active if dates are invalid or missing
                 statusKey = 'active';
               }
               const metric =
@@ -200,9 +230,8 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
               return (
                 <div
                   key={campaign.id}
-                  className={`border border-gray-200 rounded-lg p-6 transition-shadow ${
-                    disableDonate ? 'bg-gray-200' : 'hover:shadow-lg'
-                  } cursor-pointer`}
+                  className={`border border-gray-200 rounded-lg p-6 transition-shadow ${disableDonate ? 'bg-gray-200' : 'hover:shadow-lg'
+                    } cursor-pointer`}
                   onClick={() => onOpenDetail(campaign.id)}
                 >
                   <div className="flex items-start justify-between mb-4">
@@ -258,15 +287,15 @@ const FundCampaignsSection: React.FC<FundCampaignsSectionProps> = ({
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                    {!disableDonate && (
-                      <button
-                        onClick={e => { e.stopPropagation(); onDonate(campaign.id); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-semibold"
-                        type="button"
-                      >
-                        Ủng hộ chiến dịch
-                      </button>
-                    )}
+                      {!disableDonate && (
+                        <button
+                          onClick={e => { e.stopPropagation(); onDonate(campaign.id); }}
+                          className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors text-sm font-semibold"
+                          type="button"
+                        >
+                          Ủng hộ chiến dịch
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

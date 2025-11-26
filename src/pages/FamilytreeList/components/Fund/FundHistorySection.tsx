@@ -5,9 +5,11 @@ import { fundService } from '@/services/fundService';
 import { EmptyState } from './FundLoadingEmpty';
 import { Loader2 } from 'lucide-react';
 import { useAppSelector } from '@/hooks/redux';
+import * as XLSX from 'xlsx';
 
 interface FundHistorySectionProps {
   fundId: string | null;
+  fundName?: string;
   formatCurrency: (value?: number | null) => string;
   formatDate: (value?: string | null) => string;
   getPaymentMethodLabel?: (method: unknown) => string;
@@ -20,6 +22,7 @@ type ExpenseStatusFilter = 'all' | 'Approved' | 'Pending' | 'Rejected';
 
 const FundHistorySection: React.FC<FundHistorySectionProps> = ({
   fundId,
+  fundName = 'Quỹ',
   formatCurrency,
   formatDate,
   getPaymentMethodLabel,
@@ -294,6 +297,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
 
   // Export donations to Excel
   const handleExportDonationsExcel = () => {
+    const today = new Date();
+    const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    const title = `Báo cáo thu chi quỹ ${fundName} - ${dateStr}`;
+
     const headers = [
       'STT',
       'Ngày tạo',
@@ -309,10 +316,24 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     ];
 
     const rows = filteredAndSortedDonations.map((donation, index) => {
-      const status = typeof donation.status === 'string' ? donation.status :
-        donation.status === 0 ? 'Pending' :
-          donation.status === 1 ? 'Completed' :
-            donation.status === 2 ? 'Rejected' : 'Pending';
+      // Convert status to Vietnamese
+      let status = '';
+      if (typeof donation.status === 'string') {
+        const statusStr = donation.status.toLowerCase();
+        if (statusStr === 'completed' || statusStr === 'confirmed') {
+          status = 'Đã xác nhận';
+        } else if (statusStr === 'pending') {
+          status = 'Đang chờ';
+        } else if (statusStr === 'rejected') {
+          status = 'Đã từ chối';
+        } else {
+          status = donation.status; // Keep original if unknown
+        }
+      } else {
+        status = donation.status === 0 ? 'Đang chờ' :
+          donation.status === 1 ? 'Đã xác nhận' :
+            donation.status === 2 ? 'Đã từ chối' : 'Đang chờ';
+      }
 
       const createdDate = (donation as any).createdDate || donation.createdOn;
       const confirmerName = (donation as any).confirmerName || donation.confirmedBy;
@@ -332,7 +353,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
       ];
     });
 
-    exportToCSV(headers, rows, `lich-su-dong-gop-${new Date().toISOString().split('T')[0]}.csv`);
+    exportToExcel(title, headers, rows, `bao-cao-dong-gop-${fundName}-${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   // Export expenses to Excel
@@ -341,6 +362,10 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
       return;
     }
 
+    const today = new Date();
+    const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    const title = `Báo cáo thu chi quỹ ${fundName} - ${dateStr}`;
+
     const headers = [
       'STT',
       'Ngày tạo',
@@ -348,6 +373,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
       'Người nhận',
       'Số tiền',
       'Mô tả',
+      'Sự kiện',
       'Ngày dự kiến',
       'Trạng thái',
       'Người phê duyệt',
@@ -356,10 +382,24 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     ];
 
     const rows = filteredAndSortedExpenses.map((expense, index) => {
-      const status = typeof expense.status === 'string' ? expense.status :
-        expense.status === 0 ? 'Pending' :
-          expense.status === 1 ? 'Approved' :
-            expense.status === 2 ? 'Rejected' : 'Pending';
+      // Convert status to Vietnamese
+      let status = '';
+      if (typeof expense.status === 'string') {
+        const statusStr = expense.status.toLowerCase();
+        if (statusStr === 'approved') {
+          status = 'Đã phê duyệt';
+        } else if (statusStr === 'pending') {
+          status = 'Đang chờ';
+        } else if (statusStr === 'rejected') {
+          status = 'Đã từ chối';
+        } else {
+          status = expense.status; // Keep original if unknown
+        }
+      } else {
+        status = expense.status === 0 ? 'Đang chờ' :
+          expense.status === 1 ? 'Đã phê duyệt' :
+            expense.status === 2 ? 'Đã từ chối' : 'Đang chờ';
+      }
 
       const createdDate = (expense as any).createdDate || expense.createdOn;
       const approverName = (expense as any).approverName || expense.approvedBy;
@@ -381,33 +421,75 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
       ];
     });
 
-    exportToCSV(headers, rows, `lich-su-chi-tieu-${new Date().toISOString().split('T')[0]}.csv`);
+    exportToExcel(title, headers, rows, `bao-cao-chi-tieu-${fundName}-${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const exportToCSV = (headers: string[], rows: any[][], filename: string) => {
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row =>
-        row.map(cell => {
-          const cellStr = String(cell || '');
-          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-            return `"${cellStr.replace(/"/g, '""')}"`;
-          }
-          return cellStr;
-        }).join(',')
-      )
-    ].join('\n');
+  const exportToExcel = (title: string, headers: string[], rows: any[][], filename: string) => {
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
 
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Create data array with title and headers
+    const data: any[][] = [
+      [title], // Title row
+      [], // Empty row
+      headers, // Header row
+      ...rows // Data rows
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Merge cells for title (across all columns)
+    const merge = { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } };
+    if (!ws['!merges']) ws['!merges'] = [];
+    ws['!merges'].push(merge);
+
+    // Calculate column widths based on content
+    const colWidths = headers.map((header, i) => {
+      const headerLen = header.length;
+      const maxDataLen = rows.reduce((max, row) => {
+        const cellValue = String(row[i] || '');
+        return Math.max(max, cellValue.length);
+      }, 0);
+      return { wch: Math.max(headerLen, maxDataLen, 10) + 2 };
+    });
+    ws['!cols'] = colWidths;
+
+    // Apply borders and styles to all cells
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    const border = {
+      top: { style: 'thin', color: { rgb: '000000' } },
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left: { style: 'thin', color: { rgb: '000000' } },
+      right: { style: 'thin', color: { rgb: '000000' } }
+    };
+
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellAddress]) continue;
+
+        if (!ws[cellAddress].s) ws[cellAddress].s = {};
+        ws[cellAddress].s.border = border;
+
+        // Style title row
+        if (R === 0) {
+          ws[cellAddress].s.font = { bold: true, sz: 14 };
+          ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
+        }
+        // Style header row
+        else if (R === 2) {
+          ws[cellAddress].s.font = { bold: true };
+          ws[cellAddress].s.fill = { fgColor: { rgb: 'E0E0E0' } };
+          ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
+        }
+      }
+    }
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
+
+    // Generate and download file
+    XLSX.writeFile(wb, filename);
   };
 
   const handleDonationsPageChange = (newPage: number) => {

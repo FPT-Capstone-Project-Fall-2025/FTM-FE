@@ -2170,6 +2170,7 @@ const FundManagement: React.FC = () => {
               ) : (
                 <FundHistorySection
                   fundId={activeFund?.id ?? null}
+                  fundName={activeFund?.fundName ?? 'Quỹ'}
                   formatCurrency={formatCurrency}
                   formatDate={formatDate}
                   getPaymentMethodLabel={getPaymentMethodLabel}

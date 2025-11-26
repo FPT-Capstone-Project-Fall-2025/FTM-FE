@@ -133,7 +133,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
   loading = false,
   formatCurrency,
   formatDate,
-  getCampaignStatusKey,
+  getCampaignStatusKey: _getCampaignStatusKey,
   getCampaignStatusLabel,
   getCampaignStatusBadgeClasses,
   getDonationStatusKey,
@@ -155,7 +155,36 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
   // Early return AFTER all hooks
   if (!isOpen) return null;
 
-  const statusKey = detail ? getCampaignStatusKey(detail.campaign.status) : 'active';
+  // Compute status by comparing start/end date with current time
+  let statusKey: StatusKey = 'active';
+  if (detail) {
+    const now = new Date();
+    const start = detail.campaign.startDate ? new Date(detail.campaign.startDate) : null;
+    const end = detail.campaign.endDate ? new Date(detail.campaign.endDate) : null;
+
+    if (start && !Number.isNaN(start.getTime()) && now < start) {
+      // Campaign hasn't started yet
+      statusKey = 'upcoming';
+    } else if (end && !Number.isNaN(end.getTime()) && now > end) {
+      // Campaign has ended
+      statusKey = 'completed';
+    } else if (start && !Number.isNaN(start.getTime()) && end && !Number.isNaN(end.getTime())) {
+      // Campaign has valid start and end dates, check if we're in the range
+      if (now >= start && now <= end) {
+        statusKey = 'active';
+      } else if (now > end) {
+        statusKey = 'completed';
+      } else {
+        statusKey = 'upcoming';
+      }
+    } else if (start && !Number.isNaN(start.getTime()) && now >= start) {
+      // Only start date is valid, and we've passed it
+      statusKey = 'active';
+    } else {
+      // Default to active if dates are invalid or missing
+      statusKey = 'active';
+    }
+  }
   const totalDonations = detail?.donations.filter(d => getDonationStatusKey(d.status) === 'confirmed').length ?? 0;
   const stats = detail?.statistics;
   const summary = detail?.financialSummary;
