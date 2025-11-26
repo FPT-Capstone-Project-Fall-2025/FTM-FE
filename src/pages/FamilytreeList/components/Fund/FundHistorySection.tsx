@@ -316,10 +316,24 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     ];
 
     const rows = filteredAndSortedDonations.map((donation, index) => {
-      const status = typeof donation.status === 'string' ? donation.status :
-        donation.status === 0 ? 'Đang chờ' :
+      // Convert status to Vietnamese
+      let status = '';
+      if (typeof donation.status === 'string') {
+        const statusStr = donation.status.toLowerCase();
+        if (statusStr === 'completed' || statusStr === 'confirmed') {
+          status = 'Đã xác nhận';
+        } else if (statusStr === 'pending') {
+          status = 'Đang chờ';
+        } else if (statusStr === 'rejected') {
+          status = 'Đã từ chối';
+        } else {
+          status = donation.status; // Keep original if unknown
+        }
+      } else {
+        status = donation.status === 0 ? 'Đang chờ' :
           donation.status === 1 ? 'Đã xác nhận' :
             donation.status === 2 ? 'Đã từ chối' : 'Đang chờ';
+      }
 
       const createdDate = (donation as any).createdDate || donation.createdOn;
       const confirmerName = (donation as any).confirmerName || donation.confirmedBy;
@@ -368,10 +382,24 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
     ];
 
     const rows = filteredAndSortedExpenses.map((expense, index) => {
-      const status = typeof expense.status === 'string' ? expense.status :
-        expense.status === 0 ? 'Đang chờ' :
+      // Convert status to Vietnamese
+      let status = '';
+      if (typeof expense.status === 'string') {
+        const statusStr = expense.status.toLowerCase();
+        if (statusStr === 'approved') {
+          status = 'Đã phê duyệt';
+        } else if (statusStr === 'pending') {
+          status = 'Đang chờ';
+        } else if (statusStr === 'rejected') {
+          status = 'Đã từ chối';
+        } else {
+          status = expense.status; // Keep original if unknown
+        }
+      } else {
+        status = expense.status === 0 ? 'Đang chờ' :
           expense.status === 1 ? 'Đã phê duyệt' :
             expense.status === 2 ? 'Đã từ chối' : 'Đang chờ';
+      }
 
       const createdDate = (expense as any).createdDate || expense.createdOn;
       const approverName = (expense as any).approverName || expense.approvedBy;
