@@ -664,7 +664,7 @@ const FundManagement: React.FC = () => {
 
       setEditFundSubmitting(true);
       try {
-        await fundService.updateFund(activeFund.id, {
+        await fundService.updateFund(selectedTree?.id || '', activeFund.id, {
           fundName: form.fundName,
           ...(form.description ? { description: form.description } : {}),
           bankAccountNumber: form.bankAccountNumber,
@@ -1127,7 +1127,7 @@ const FundManagement: React.FC = () => {
         if (trimmedNotes) {
           payload.notes = trimmedNotes;
         }
-        await fundService.confirmCampaignDonation(donationId, payload);
+        await fundService.confirmCampaignDonation(selectedTree?.id || '', donationId, payload);
         toast.success('Đã xác nhận ủng hộ chiến dịch.');
         if (selectedTree?.id) {
           await loadCampaignApprovals(selectedTree.id);
@@ -1159,7 +1159,7 @@ const FundManagement: React.FC = () => {
         if (trimmedReason) {
           payload.reason = trimmedReason;
         }
-        await fundService.rejectCampaignDonation(donationId, payload);
+        await fundService.rejectCampaignDonation(selectedTree?.id || '', donationId, payload);
         toast.success('Đã từ chối ủng hộ chiến dịch.');
         if (selectedTree?.id) {
           await loadCampaignApprovals(selectedTree.id);
@@ -1352,7 +1352,7 @@ const FundManagement: React.FC = () => {
     }
     setCampaignExpenseApprovalsLoading(true);
     try {
-      const res = await fundService.fetchPendingCampaignExpensesForManager(memberId, 1, 20);
+      const res = await fundService.fetchPendingCampaignExpensesForManager(selectedTree?.id || '', memberId, 1, 20);
       setCampaignPendingExpenses(
         (res.items || []).map(e => ({
           id: e.id,
@@ -1395,7 +1395,7 @@ const FundManagement: React.FC = () => {
       }
       const trimmedNotes = payload.notes?.trim();
       try {
-        await fundService.approveCampaignExpense(expenseId, {
+        await fundService.approveCampaignExpense(selectedTree?.id || '', expenseId, {
           approverId: gpMemberId,
           ...(trimmedNotes ? { approvalNotes: trimmedNotes } : {}),
           paymentProofImages: payload.paymentProofImages,
@@ -1421,7 +1421,7 @@ const FundManagement: React.FC = () => {
       }
       const trimmedReason = reason?.trim();
       try {
-        await fundService.rejectCampaignExpenseManager(expenseId, {
+        await fundService.rejectCampaignExpenseManager(selectedTree?.id || '', expenseId, {
           approverId: gpMemberId,
           ...(trimmedReason ? { rejectionReason: trimmedReason } : {}),
         });

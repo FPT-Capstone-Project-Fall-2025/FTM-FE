@@ -97,6 +97,7 @@ export const fundService = {
 
   // Reject campaign expense (manager)
   async rejectCampaignExpenseManager(
+    ftId: string,
     expenseId: string,
     payload: { approverId: string; rejectionReason?: string }
   ): Promise<boolean> {
@@ -106,7 +107,12 @@ export const fundService = {
     };
     const response = await api.put<ApiResponse<boolean>>(
       `/FTCampaignExpense/${encodeURIComponent(expenseId)}/reject`,
-      body
+      body,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
     );
     const data = unwrap<boolean>(response);
     return Boolean(data);
@@ -239,6 +245,7 @@ export const fundService = {
 
   // Get pending expenses for manager by memberId
   async fetchPendingCampaignExpensesForManager(
+    familyTreeId: string,
     memberId: string,
     page = 1,
     pageSize = 20
@@ -262,7 +269,12 @@ export const fundService = {
   }> {
     const response = await api.get<ApiResponse<any>>(
       `/FTCampaignExpense/pending/manager/${encodeURIComponent(memberId)}`,
-      { params: { page, pageSize } }
+      {
+        params: { page, pageSize },
+        headers: {
+          'X-Ftid': familyTreeId,
+        },
+      }
     );
     const data = unwrap<any>(response)?.data ?? unwrap<any>(response);
     const items = Array.isArray(data?.items) ? data.items : normalizeArray(data?.items ?? []);
@@ -737,7 +749,7 @@ export const fundService = {
     return api.post<ApiResponse<Fund>>(`/funds`, payload);
   },
 
-  async updateFund(fundId: string, payload: {
+  async updateFund(ftId: string, fundId: string, payload: {
     fundName: string;
     description?: string;
     bankAccountNumber: string;
@@ -746,7 +758,11 @@ export const fundService = {
     accountHolderName: string;
     fundManagers?: string;
   }) {
-    return api.put<ApiResponse<Fund>>(`/funds/${fundId}`, payload);
+    return api.put<ApiResponse<Fund>>(`/funds/${fundId}`, payload, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
   async fetchCampaignsByTree(
@@ -1058,7 +1074,12 @@ export const fundService = {
   }>> {
     const response = await api.get<ApiResponse<any>>(
       `/ftcampaigndonation/pending`,
-      { params: { familyTreeId } }
+      {
+        params: { familyTreeId },
+        headers: {
+          'X-Ftid': familyTreeId,
+        },
+      }
     );
     const payload = unwrap<any>(response) ?? [];
     const items = Array.isArray(payload) ? payload : normalizeArray(payload);
@@ -1115,7 +1136,7 @@ export const fundService = {
     return api.post<ApiResponse<CampaignExpense>>(`/FTCampaignExpense`, payload);
   },
 
-  async approveCampaignExpense(id: string, payload: ApproveCampaignExpensePayload) {
+  async approveCampaignExpense(ftId: string, id: string, payload: ApproveCampaignExpensePayload) {
     const hasImages = Array.isArray(payload.paymentProofImages) && payload.paymentProofImages.length > 0;
 
     console.log('[fundService.approveCampaignExpense] Approving campaign expense:', {
@@ -1169,7 +1190,12 @@ export const fundService = {
 
     const response = await api.put<ApiResponse<boolean>>(
       `/FTCampaignExpense/${encodeURIComponent(id)}/approve`,
-      formData
+      formData,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
     );
     const data = unwrap<boolean>(response);
     return Boolean(data);
@@ -1268,6 +1294,7 @@ export const fundService = {
   },
 
   async confirmCampaignDonation(
+    familyTreeId: string,
     donationId: string,
     payload: { donationId: string; confirmedBy: string; notes?: string }
   ): Promise<ConfirmCampaignDonationResponse> {
@@ -1278,7 +1305,12 @@ export const fundService = {
 
     const response = await api.post<ApiResponse<ConfirmCampaignDonationResponse>>(
       `/ftcampaigndonation/${donationId}/confirm`,
-      payload
+      payload,
+      {
+        headers: {
+          'X-Ftid': familyTreeId,
+        },
+      }
     );
 
     console.log('[fundService.confirmCampaignDonation] API Response:', response);
@@ -1349,6 +1381,7 @@ export const fundService = {
   },
 
   async rejectCampaignDonation(
+    familyTreeId: string,
     donationId: string,
     payload: { donationId: string; rejectedBy: string; reason?: string }
   ) {
@@ -1359,7 +1392,12 @@ export const fundService = {
 
     const response = await api.post<ApiResponse<boolean>>(
       `/ftcampaigndonation/${donationId}/reject`,
-      payload
+      payload,
+      {
+        headers: {
+          'X-Ftid': familyTreeId,
+        },
+      }
     );
 
     console.log('[fundService.rejectCampaignDonation] API Response:', response);
