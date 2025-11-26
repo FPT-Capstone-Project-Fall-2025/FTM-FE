@@ -39,7 +39,7 @@ const MemberDropdown: React.FC<{
     const loadMembers = async () => {
         setLoading(true);
         try {
-            const res = await familyTreeService.getFamilyTreeNodes(paginationData);
+            const res = await familyTreeService.getFamilyTreeNodes(selectedFamilyTree?.id || '', paginationData);
             setPaginationData(pre => ({
                 ...pre,
                 ...res.data
@@ -111,8 +111,8 @@ const MemberDropdown: React.FC<{
                                 key={member.id}
                                 onClick={() => handleSelectMember(member)}
                                 className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 ${selectedMember?.id === member.id
-                                        ? 'bg-black text-white hover:bg-black'
-                                        : ''
+                                    ? 'bg-black text-white hover:bg-black'
+                                    : ''
                                     }`}
                             >
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-red-400 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">

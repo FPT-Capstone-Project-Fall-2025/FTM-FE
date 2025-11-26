@@ -30,6 +30,7 @@ export function extractUserPermissions(
     userPermissionData?.value.forEach((authProp) => {
         const featureCode = authProp.featureCode as FeatureCode;
         const methods = authProp.methodsList as PermissionMethod[];
+
         permissions[featureCode] = methods;
     });
 
