@@ -59,6 +59,7 @@
     "reactflow": "^11.11.4",
     "redux-persist": "^6.0.0",
     "sass-embedded": "^1.93.2",
+    "xlsx": "^0.18.5",
     "yup": "^1.7.1"
   },
   "devDependencies": {
@@ -69,6 +70,7 @@
     "@types/react-date-range": "^1.4.10",
     "@types/react-dom": "^19.1.7",
     "@types/react-router-dom": "^5.3.3",
+    "@types/xlsx": "^0.0.35",
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
     "@vitejs/plugin-react": "^5.0.0",
