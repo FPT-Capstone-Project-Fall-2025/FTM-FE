@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { ChevronDown, Search, Users, UserCheck, Eye, X } from "lucide-react";
+import { Search, Users, UserCheck, Eye, X, Trash2 } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import type { PaginationProps } from "@/types/api";
 import type { FamilyMemberList } from "@/types/familytree";
@@ -7,6 +7,7 @@ import familyTreeService from "@/services/familyTreeService";
 import { useAppSelector } from "@/hooks/redux";
 import type { UserProfile } from "@/types/user";
 import userService from "@/services/userService";
+import { toast } from "react-toastify";
 
 type ViewMode = 'member' | 'guest';
 
@@ -34,6 +35,9 @@ const Members: React.FC = () => {
     const [detailProfile, setDetailProfile] = useState<UserProfile | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deletingGuest, setDeletingGuest] = useState<FamilyMemberList | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const loadMembers = useCallback(async () => {
         if (!selectedFamilyTree?.id) return;
@@ -224,6 +228,33 @@ const Members: React.FC = () => {
     const getMemberDisplayName = (member: FamilyMemberList) =>
         member.name || member.username || "Không rõ";
 
+    const handleDeleteGuest = (member: FamilyMemberList) => {
+        setDeletingGuest(member);
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDeleteGuest = async () => {
+        if (!deletingGuest || !selectedFamilyTree?.id) return;
+
+        setIsDeleting(true);
+        try {
+            await familyTreeService.deleteGuestFromFamilyTree(
+                selectedFamilyTree.id,
+                deletingGuest.userId
+            );
+            toast.success('Xóa khách thành công!');
+            // Reload the members list
+            loadMembers();
+        } catch (error) {
+            console.error('Failed to delete guest:', error);
+            toast.error('Không thể xóa khách. Vui lòng thử lại.');
+        } finally {
+            setIsDeleting(false);
+            setShowDeleteConfirm(false);
+            setDeletingGuest(null);
+        }
+    };
+
     return (
         <div className="h-full overflow-hidden space-y-6 flex flex-col p-6 bg-gray-50">
             {/* Header with View Mode Toggle and Search */}
@@ -316,16 +347,19 @@ const Members: React.FC = () => {
                                         {viewMode === 'member' ? (
                                             <button
                                                 onClick={() => handleViewDetail(member)}
-                                                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors text-sm font-medium"
+                                                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors text-sm font-medium cursor-pointer"
                                             >
                                                 <Eye className="w-4 h-4" />
                                                 Xem chi tiết
                                             </button>
                                         ) : (
-                                            <span className="text-xs text-gray-400 flex items-center gap-1 justify-start">
-                                                <ChevronDown className="w-3 h-3" />
-                                                Không khả dụng
-                                            </span>
+                                            <button
+                                                onClick={() => handleDeleteGuest(member)}
+                                                className="flex items-center gap-1 text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                Xóa
+                                            </button>
                                         )}
                                     </td>
                                 </tr>
@@ -364,6 +398,74 @@ const Members: React.FC = () => {
                 error={detailError}
                 onClose={closeDetailModal}
             />
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
+                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-500 to-pink-600">
+                            <Trash2 size={28} className="text-white" />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Xác nhận xóa khách</h3>
+                        <p className="text-gray-600 mb-2 text-center leading-relaxed">
+                            Bạn có chắc chắn muốn xóa khách <span className="font-semibold text-gray-800">{deletingGuest?.name || deletingGuest?.username}</span> khỏi gia phả không?
+                        </p>
+                        <p className="text-sm text-gray-500 mb-6 text-center">
+                            Hành động này không thể hoàn tác.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowDeleteConfirm(false);
+                                    setDeletingGuest(null);
+                                }}
+                                disabled={isDeleting}
+                                className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={confirmDeleteGuest}
+                                disabled={isDeleting}
+                                className="px-6 py-3 font-semibold bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isDeleting ? (
+                                    <span className="flex items-center gap-2">
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        Đang xóa...
+                                    </span>
+                                ) : 'Xóa'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                
+                @keyframes scaleIn {
+                    from {
+                        opacity: 0;
+                        transform: scale(0.95);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
+                
+                .animate-fadeIn {
+                    animation: fadeIn 0.3s ease-out;
+                }
+                
+                .animate-scaleIn {
+                    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+            `}</style>
         </div>
     );
 };

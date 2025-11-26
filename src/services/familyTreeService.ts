@@ -75,11 +75,14 @@ const familyTreeService = {
     });
   },
 
-  getFamilyTreeNodes(props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyNodeList[]>>> {
+  getFamilyTreeNodes(ftId: string, props: PaginationProps): Promise<ApiResponse<PaginationResponse<FamilyNodeList[]>>> {
     return api.get('/ftmember/list', {
       params: {
         ...props,
         propertyFilters: JSON.stringify(props.propertyFilters)
+      },
+      headers: {
+        'X-Ftid': ftId
       }
     });
   },
@@ -214,6 +217,14 @@ const familyTreeService = {
 
   deleteFamilyNode(ftId: string, ftMemberId: string): Promise<ApiResponse<string>> {
     return api.delete(`/ftmember/${ftMemberId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      }
+    });
+  },
+
+  deleteGuestFromFamilyTree(ftId: string, ftGuestId: string): Promise<ApiResponse<string>> {
+    return api.delete(`/ftmember/${ftId}/guest/${ftGuestId}`, {
       headers: {
         'X-Ftid': ftId,
       }

@@ -76,7 +76,7 @@ const FamilyTreePage: React.FC = () => {
       try {
         dispatch(setLoading(true));
 
-        const response = await ftauthorizationService.getFTAuths(selectedTree.id, {
+        const response = await ftauthorizationService.getFTAuthsWithOwner(selectedTree.id, {
           pageIndex: 0,
           pageSize: 10000,
           propertyFilters: [
@@ -96,7 +96,6 @@ const FamilyTreePage: React.FC = () => {
         }));
 
         console.log('Permissions loaded for:', selectedTree.name);
-        permissions.logPermissions('MEMBER')
       } catch (error) {
         console.error('Error fetching permissions:', error);
         dispatch(setError('Failed to load permissions'));
@@ -112,6 +111,10 @@ const FamilyTreePage: React.FC = () => {
       }
     };
   }, [selectedTree, auth.token, dispatch]);
+
+  useEffect(() => {
+    permissions.logPermissions('MEMBER')
+  }, [permissions]);
 
   // Update URL and localStorage when tab changes
   const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund') => {

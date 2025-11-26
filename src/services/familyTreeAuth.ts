@@ -16,6 +16,18 @@ const ftauthorizationService = {
     });
   },
 
+  getFTAuthsWithOwner(ftId: string, props: PaginationProps): Promise<ApiResponse<PaginationResponse<FTAuthList[]>>> {
+    return api.get('/ftauthorization/list-with-owner', {
+      params: {
+        ...props,
+        propertyFilters: JSON.stringify(props?.propertyFilters)
+      },
+      headers: {
+        'X-Ftid': ftId,
+      }
+    });
+  },
+
   getMyFTAuths(ftId: string, ftMemberId: string): Promise<ApiResponse<PaginationResponse<FTAuthList[]>>> {
     return api.get(`/ftauthorization/${ftId}/member/${ftMemberId}/list`, {
       headers: {

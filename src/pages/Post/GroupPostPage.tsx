@@ -147,7 +147,7 @@ const GroupPostPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 relative">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 relative">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-purple-300/20 rounded-full blur-3xl animate-blob"></div>
