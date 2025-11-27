@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import { Select } from 'antd';
 import { usePermissions } from '@/hooks/usePermissions';
+import NoPermission from '@/components/shared/NoPermission';
 
 type BoardType = 'academic' | 'career';
 
@@ -39,10 +40,9 @@ const HonorBoard: React.FC = () => {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
-  useEffect(() => {
-    permissions.logPermissions('MEMBER');
-  }, [permissions]);
-
+  if (!permissions.canView('MEMBER')) {
+    return <NoPermission />;
+  }
   // Fetch all data when component mounts or tree changes
   useEffect(() => {
     if (selectedTree?.id) {

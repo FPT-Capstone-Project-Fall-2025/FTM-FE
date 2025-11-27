@@ -9,6 +9,7 @@ import type { UserProfile } from "@/types/user";
 import userService from "@/services/userService";
 import { toast } from "react-toastify";
 import { usePermissions } from "@/hooks/usePermissions";
+import NoPermission from "@/components/shared/NoPermission";
 
 type ViewMode = 'member' | 'guest';
 
@@ -40,6 +41,10 @@ const Members: React.FC = () => {
     const [deletingGuest, setDeletingGuest] = useState<FamilyMemberList | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const permissions = usePermissions();
+
+    if (!permissions.canView('MEMBER')) {
+        return <NoPermission />;
+    }
 
     const loadMembers = useCallback(async () => {
         if (!selectedFamilyTree?.id) return;

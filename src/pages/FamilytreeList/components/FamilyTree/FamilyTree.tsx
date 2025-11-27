@@ -33,6 +33,7 @@ import { toast } from 'react-toastify';
 import MemberDetailPage from '../../FamilyMemberDetail';
 import FamilyTreeInviteModal from './InviteMember';
 import { usePermissions } from '@/hooks/usePermissions';
+import NoPermission from '@/components/shared/NoPermission';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -86,6 +87,10 @@ const FamilyTreeContent = () => {
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
   const permissions = usePermissions();
+
+  if (!permissions.canView('MEMBER')) {
+    return <NoPermission />;
+  }
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {

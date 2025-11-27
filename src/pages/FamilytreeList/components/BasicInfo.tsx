@@ -1,3 +1,4 @@
+import NoPermission from "@/components/shared/NoPermission";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { usePermissions } from "@/hooks/usePermissions";
 import familyTreeService from "@/services/familyTreeService";
@@ -28,6 +29,10 @@ const BasicInfo: React.FC = () => {
     const [tempFile, setTempFile] = useState<File | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    if (!permissions.canView('MEMBER')) {
+        return <NoPermission />;
+    }
 
     const hasChanges = () => {
         return (
