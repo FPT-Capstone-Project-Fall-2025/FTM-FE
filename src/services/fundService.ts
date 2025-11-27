@@ -1013,6 +1013,76 @@ export const fundService = {
     };
   },
 
+  async fetchCampaignsByManager(
+    managerId: string,
+    page = 1,
+    pageSize = 10
+  ): Promise<{
+    items: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      familyTreeId: string;
+      campaignManagerId: string;
+      targetAmount: number;
+      currentAmount: number;
+      progressPercentage: number;
+      startDate: string | null;
+      endDate: string | null;
+      beneficiaryInfo: string | null;
+      isActive: boolean;
+      createdAt: string | null;
+      updatedAt: string | null;
+      totalDonations: number;
+      totalDonors: number;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  }> {
+    const response = await api.get<ApiResponse<any>>(`/ftcampaign/manager/${managerId}`, {
+      params: {
+        page,
+        pageSize,
+      },
+    });
+
+    const payload = unwrap<any>(response) ?? {};
+    const rawItems = normalizeArray(payload?.items);
+
+    const items = rawItems.map((item: any) => ({
+      id: item.id,
+      name: item.name ?? '',
+      description: item.description ?? null,
+      familyTreeId: item.familyTreeId ?? '',
+      campaignManagerId: item.campaignManagerId ?? '',
+      targetAmount: Number(item.targetAmount ?? 0),
+      currentAmount: Number(item.currentAmount ?? 0),
+      progressPercentage: Number(item.progressPercentage ?? 0),
+      startDate: item.startDate ?? null,
+      endDate: item.endDate ?? null,
+      beneficiaryInfo: item.beneficiaryInfo ?? null,
+      isActive: item.isActive ?? false,
+      createdAt: item.createdAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+      totalDonations: Number(item.totalDonations ?? 0),
+      totalDonors: Number(item.totalDonors ?? 0),
+    }));
+
+    return {
+      items,
+      page: payload?.page ?? page,
+      pageSize: payload?.pageSize ?? pageSize,
+      totalCount: payload?.totalCount ?? items.length,
+      totalPages: payload?.totalPages ?? 1,
+      hasPrevious: payload?.hasPrevious ?? false,
+      hasNext: payload?.hasNext ?? false,
+    };
+  },
+
   async createCampaign(ftId: string, payload: CreateCampaignPayload) {
     return api.post<ApiResponse<FundCampaign>>(`/ftcampaign`, payload, {
       headers: {
