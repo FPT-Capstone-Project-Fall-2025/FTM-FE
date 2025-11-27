@@ -5,6 +5,8 @@ import type { PaginationProps } from "@/types/api";
 import { useAppSelector } from "@/hooks/redux";
 import familyTreeService from "@/services/familyTreeService";
 import type { FTInvitation } from "@/types/familytree";
+import NoPermission from "@/components/shared/NoPermission";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const Invitations: React.FC = () => {
     const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
@@ -24,6 +26,11 @@ const Invitations: React.FC = () => {
         totalPages: 0,
     });
     const [invitationList, setInvitationList] = useState<FTInvitation[]>([]);
+    const permissions = usePermissions();
+
+    if (!permissions.canView('MEMBER')) {
+        return <NoPermission />;
+    }
 
     useEffect(() => {
         setLoading(true);

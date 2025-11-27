@@ -15,7 +15,7 @@ import ftauthorizationService from "@/services/familyTreeAuth";
 import { getUserIdFromToken } from "@/utils/jwtUtils";
 import { clearPermissions, setError, setLoading, setPermissions } from "@/stores/slices/permissionSlice";
 import { extractUserPermissions } from "@/utils/permissionUtils";
-import { usePermissions } from "@/hooks/usePermissions";
+import familyTreeService from "@/services/familyTreeService";
 
 const tabs = [
   { id: 'basic', label: 'THÔNG TIN CƠ BẢN' },
@@ -36,7 +36,7 @@ const FamilyTreePage: React.FC = () => {
   const navigate = useNavigate();
   const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   const auth = useAppSelector(state => state.auth);
-  const permissions = usePermissions();
+  const [isOwner, setIsOwner] = useState<boolean>(false);
 
   // Get initial tab from URL params or localStorage
   const getInitialTab = (): 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund' => {
@@ -113,11 +113,49 @@ const FamilyTreePage: React.FC = () => {
   }, [selectedTree, auth.token, dispatch]);
 
   useEffect(() => {
-    permissions.logPermissions('MEMBER')
-  }, [permissions]);
+    const fetchRole = async () => {
+      if (!selectedTree || !auth.token) return;
+      try {
+        const response = await familyTreeService.getFamilyTreeMembers(selectedTree.id, {
+          pageIndex: 1,
+          pageSize: 100,
+          propertyFilters: [
+            {
+              name: "FTRole",
+              operation: "EQUAL",
+              value: 'FTOwner'
+            },
+            {
+              name: "FTId",
+              operation: "EQUAL",
+              value: selectedTree.id
+            },
+            { "name": "UserId", "operation": "EQUAL", "value": getUserIdFromToken(auth.token) }
+          ],
+          totalItems: 0,
+          totalPages: 0
+        });
+        console.log('Owner check response:', response.data.data);
+        // User is owner if response data is not empty
+        const ownerStatus = response.data.data && response.data.data.length > 0;
+        setIsOwner(ownerStatus);
+        console.log('Is owner:', ownerStatus);
+      } catch (error) {
+        console.error('Error fetching role:', error);
+        setIsOwner(false);
+      }
+    }
+    fetchRole();
+  }, []);
 
   // Update URL and localStorage when tab changes
   const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund') => {
+    // Check if user is trying to access owner-only tabs
+    if (tabId === 'permissions' && !isOwner) {
+      console.warn('Access denied: Permissions tab is only accessible by owners');
+      return;
+    }
+
     setActiveTab(tabId);
     setSearchParams({ tab: tabId });
     try {
@@ -217,18 +255,26 @@ const FamilyTreePage: React.FC = () => {
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-2">
         <nav className="flex space-x-8 sm:space-x-12">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id as 'basic' | 'tree' | 'members' | 'honor-board' | 'fund')}
-              className={`py-3 px-1 border-b-2 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${activeTab === tab.id
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {tabs
+            .filter(tab => {
+              // Filter out permissions tab if user is not owner
+              if (tab.id === 'permissions' && !isOwner) {
+                return false;
+              }
+              return true;
+            })
+            .map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id as 'basic' | 'tree' | 'members' | 'honor-board' | 'fund')}
+                className={`py-3 px-1 border-b-2 font-semibold text-sm sm:text-base transition-colors whitespace-nowrap ${activeTab === tab.id
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
         </nav>
       </div>
       {/* Content Section - flex-1 allows content to expand and scroll */}

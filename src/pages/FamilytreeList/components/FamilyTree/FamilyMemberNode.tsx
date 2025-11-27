@@ -131,20 +131,24 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
       {/* Add/Delete buttons: Hide for deleted nodes */}
       {!isDeleted && (
         <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={(e) => { e.stopPropagation(); data.onAdd?.(); }}
-            className="p-1 bg-green-500 text-white rounded-full hover:bg-green-600 shadow-sm"
-            title="Add child"
-          >
-            <Plus size={16} />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); data.onDelete?.(); }}
-            className="p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-sm"
-            title="Delete member"
-          >
-            <Trash2 size={16} />
-          </button>
+          {data.onAdd && (
+            <button
+              onClick={(e) => { e.stopPropagation(); data.onAdd?.(); }}
+              className="p-1 bg-green-500 text-white rounded-full hover:bg-green-600 shadow-sm"
+              title="Add child"
+            >
+              <Plus size={16} />
+            </button>
+          )}
+          {data.onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); data.onDelete?.(); }}
+              className="p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-sm"
+              title="Delete member"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       )}
     </div>

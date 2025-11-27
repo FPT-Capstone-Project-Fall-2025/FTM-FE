@@ -17,6 +17,7 @@ import {
 import { exportFamilyTree, importFamilyTree } from '@/utils/exportUtils';
 import { toPng } from 'html-to-image';
 import { useReactFlow, getNodesBounds, getViewportForBounds } from 'reactflow';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface FamilyTreeToolbarProps {
     handleInviteUser: () => void;
@@ -32,6 +33,7 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({ handleInviteUser 
     const nodes = useAppSelector(state => state.familyTree.nodes);
     const edges = useAppSelector(state => state.familyTree.edges);
     const members = useAppSelector(state => state.familyTree.members);
+    const permissions = usePermissions();
 
     // Export as Image – improved approach
     const handleExportImage = async () => {
@@ -219,13 +221,15 @@ const FamilyTreeToolbar: React.FC<FamilyTreeToolbarProps> = ({ handleInviteUser 
                 </button>
 
                 {/* Invite */}
-                <button
-                    onClick={handleInviteUser}
-                    className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Mời thành viên"
-                >
-                    <UserPlus className="w-5 h-5 text-gray-700" />
-                </button>
+                {permissions.canAdd('MEMBER') && (
+                    <button
+                        onClick={handleInviteUser}
+                        className="p-2.5 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Mời thành viên"
+                    >
+                        <UserPlus className="w-5 h-5 text-gray-700" />
+                    </button>
+                )}
 
                 <div className="w-px bg-gray-300 h-8" />
 

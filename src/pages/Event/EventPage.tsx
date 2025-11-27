@@ -1,7 +1,6 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { DatePicker, Radio } from 'antd';
 import { Search, Calendar, ChevronLeft, ChevronRight, CornerDownLeft } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
 import moment from 'moment';
 import debounce from 'lodash/debounce';
 import dayjs from 'dayjs';
@@ -27,8 +26,6 @@ import type {
   CalendarSelectInfo,
 } from '@/types/event';
 import { normalizeEventType } from '@/utils/eventUtils';
-import { usePermissions } from '@/hooks/usePermissions';
-
 
 // Configure moment
 moment.locale('vi');
@@ -36,14 +33,6 @@ moment.updateLocale('vi', { week: { dow: 1, doy: 1 } });
 
 const EventPage: React.FC = () => {
   const now = new Date();
-  const [searchParams] = useSearchParams();
-  const tab = searchParams.get('tab');
-
-  // Debug: Log when tab changes
-  useEffect(() => {
-    console.log('EventPage - Current tab:', tab);
-  }, [tab]);
-
   // State Management
   const [viewMode, setViewMode] = useState<ViewMode>('month' as ViewMode);
   const [currentDate, setCurrentDate] = useState<Date>(now);
@@ -55,7 +44,6 @@ const EventPage: React.FC = () => {
   const [openDatePicker, setOpenDatePicker] = useState<boolean>(false);
 
   // Loading states
-  const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [error] = useState<string | null>(null);
 
   // Modal States
@@ -64,24 +52,6 @@ const EventPage: React.FC = () => {
   const [eventSelected, setEventSelected] = useState<FamilyEvent | null>(null);
   const [isSearchResultsOpen, setIsSearchResultsOpen] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<FamilyEvent[]>([]);
-  const permissions = usePermissions();
-
-  // Debug: Log modal state changes
-  useEffect(() => {
-    console.log('GPEventDetailsModal state changed:', isOpenGPEventDetailsModal);
-  }, [isOpenGPEventDetailsModal]);
-
-  useEffect(() => {
-    permissions.logPermissions('EVENT')
-  }, [permissions]);
-
-  // Initialize loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setInitialLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Date Navigation Handlers
   const handleNext = useCallback(() => {
@@ -491,11 +461,7 @@ const EventPage: React.FC = () => {
 
                 {/* Calendar View Content */}
                 <div className="mt-2 min-h-[400px] max-h-[calc(100vh-280px)] overflow-auto">
-                  {initialLoading ? (
-                    <div className="flex justify-center items-center py-20 min-h-[400px]">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                    </div>
-                  ) : error ? (
+                  {error ? (
                     <div className="text-center py-20 min-h-[400px]">
                       <p className="text-red-500 mb-5">{error}</p>
                       <button

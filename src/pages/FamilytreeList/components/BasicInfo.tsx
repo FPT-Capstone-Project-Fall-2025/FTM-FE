@@ -1,4 +1,6 @@
+import NoPermission from "@/components/shared/NoPermission";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
+import { usePermissions } from "@/hooks/usePermissions";
 import familyTreeService from "@/services/familyTreeService";
 import { removeFamilyTree, setSelectedFamilyTree } from "@/stores/slices/familyTreeMetaDataSlice";
 import type { FamilytreeUpdateProps } from "@/types/familytree";
@@ -10,7 +12,7 @@ import { toast } from "react-toastify";
 const BasicInfo: React.FC = () => {
 
     const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
-
+    const permissions = usePermissions();
     const [formData, setFormData] = useState<FamilytreeUpdateProps>({
         Name: selectedTree?.name || '',
         OwnerId: selectedTree?.ownerId || '',
@@ -27,6 +29,10 @@ const BasicInfo: React.FC = () => {
     const [tempFile, setTempFile] = useState<File | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    if (!permissions.canView('MEMBER')) {
+        return <NoPermission />;
+    }
 
     const hasChanges = () => {
         return (
@@ -240,23 +246,6 @@ const BasicInfo: React.FC = () => {
                         />
                     </div>
 
-                    {/* <div>
-                        <label htmlFor="OwnerId" className="block text-sm font-medium text-gray-700 mb-2">
-                            Mã người sở hữu
-                        </label>
-                        <input
-                            type="text"
-                            id="OwnerId"
-                            name="OwnerId"
-                            value={formData.OwnerId}
-                            onChange={handleChange}
-                            disabled={!isEditMode}
-                            className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${!isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''
-                                }`}
-                            placeholder="Nhập mã người sở hữu"
-                        />
-                    </div> */}
-
                     <div>
                         <label htmlFor="Description" className="block text-sm font-medium text-gray-700 mb-2">
                             Ghi chú khác
@@ -277,20 +266,24 @@ const BasicInfo: React.FC = () => {
                     <div className="flex gap-3 justify-end pt-4">
                         {!isEditMode ? (
                             <>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                    className="px-6 py-2 border border-red-500 text-red-500 rounded-lg font-medium hover:bg-red-50 transition-colors"
-                                >
-                                    Xóa gia phả
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleEdit}
-                                    className="px-6 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-900 transition-colors"
-                                >
-                                    Chỉnh sửa
-                                </button>
+                                {permissions.canDelete('MEMBER') && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDeleteConfirm(true)}
+                                        className="px-6 py-2 border border-red-500 text-red-500 rounded-lg font-medium hover:bg-red-50 transition-colors"
+                                    >
+                                        Xóa gia phả
+                                    </button>
+                                )}
+                                {permissions.canUpdate('MEMBER') && (
+                                    <button
+                                        type="button"
+                                        onClick={handleEdit}
+                                        className="px-6 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-900 transition-colors"
+                                    >
+                                        Chỉnh sửa
+                                    </button>
+                                )}
                             </>
                         ) : (
                             <>

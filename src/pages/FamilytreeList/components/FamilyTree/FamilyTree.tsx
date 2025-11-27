@@ -32,6 +32,8 @@ import DeleteConfirmModal from './DeleteConfirmModal';
 import { toast } from 'react-toastify';
 import MemberDetailPage from '../../FamilyMemberDetail';
 import FamilyTreeInviteModal from './InviteMember';
+import { usePermissions } from '@/hooks/usePermissions';
+import NoPermission from '@/components/shared/NoPermission';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -84,6 +86,11 @@ const FamilyTreeContent = () => {
   const [showMemberDetailModal, setShowMemberDetailModal] = useState(false);
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
+  const permissions = usePermissions();
+
+  if (!permissions.canView('MEMBER')) {
+    return <NoPermission />;
+  }
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {
@@ -248,23 +255,23 @@ const FamilyTreeContent = () => {
       data: {
         ...node.data,
         onMemberClick: handleMemberClick,
-        onAdd: () => {
+        onAdd: permissions.canAdd('MEMBER') ? () => {
           const member = members[node.id];
           if (member) {
             setSelectedParent(member);
             fetchAddableRelationships(member.id);
             setIsAddingNewNode(true);
           }
-        },
-        onDelete: () => {
+        } : undefined,
+        onDelete: permissions.canDelete('MEMBER') ? () => {
           const member = members[node.id];
           if (member) {
             setMemberToDelete(member);
           }
-        }
+        } : undefined
       },
     }));
-  }, [nodes, handleMemberClick, members]);
+  }, [nodes, handleMemberClick, members, permissions]);
 
   const handleOpenMemberDetailPage = () => {
     setShowMemberDetailModal(true)
@@ -360,7 +367,7 @@ const FamilyTreeContent = () => {
           </>
 
           {/* Add New Node - Outside ReactFlow to prevent re-renders */}
-          {nodes.length === 0 && (
+          {nodes.length === 0 && permissions.canAdd('MEMBER') && (
             <div className="absolute inset-0 flex items-center justify-center">
               <AddNewNodeButton onOpen={() => setIsAddingNewNode(true)} />
             </div>

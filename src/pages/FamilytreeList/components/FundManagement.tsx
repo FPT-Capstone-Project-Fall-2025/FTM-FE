@@ -58,7 +58,6 @@ import type {
   CampaignDetail,
   FundWithdrawalInput,
 } from './Fund/useFundManagementData';
-import { usePermissions } from '@/hooks/usePermissions';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -358,13 +357,7 @@ const FundManagement: React.FC = () => {
     createdAt: string | null;
     proofImages: string[];
   }>>([]);
-  const permissions = usePermissions();
   const { isOpen: isExceptionOpen, message: exceptionMessage, timestamp: exceptionTimestamp, showException, hideException } = useException();
-
-
-  useEffect(() => {
-    permissions.logPermissions('FUND');
-  }, [permissions]);
 
   useEffect(() => {
     if (error) {
