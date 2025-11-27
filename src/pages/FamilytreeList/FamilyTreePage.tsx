@@ -16,6 +16,7 @@ import { getUserIdFromToken } from "@/utils/jwtUtils";
 import { clearPermissions, setError, setLoading, setPermissions } from "@/stores/slices/permissionSlice";
 import { extractUserPermissions } from "@/utils/permissionUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import familyTreeService from "@/services/familyTreeService";
 
 const tabs = [
   { id: 'basic', label: 'THÔNG TIN CƠ BẢN' },
@@ -113,6 +114,30 @@ const FamilyTreePage: React.FC = () => {
   }, [selectedTree, auth.token, dispatch]);
 
   useEffect(() => {
+    const fetchRole = async () => {
+      if (!selectedTree || !auth.token) return;
+      const response = await familyTreeService.getFamilyTreeMembers(selectedTree.id, {
+        pageIndex: 1,
+        pageSize: 100,
+        propertyFilters: [
+          {
+            name: "FTRole",
+            operation: "EQUAL",
+            value: 'FTOwner'
+          },
+          {
+            name: "FTId",
+            operation: "EQUAL",
+            value: selectedTree.id
+          },
+          { "name": "UserId", "operation": "EQUAL", "value": getUserIdFromToken(auth.token) }
+        ],
+        totalItems: 0,
+        totalPages: 0
+      });
+      console.log(response.data.data);
+    }
+    fetchRole();
     permissions.logPermissions('MEMBER')
   }, [permissions]);
 

@@ -17,6 +17,7 @@ import type {
   CreateFundDonationResponse,
   MyPendingDonation,
 } from '@/types/fund';
+import { useAppSelector } from '@/hooks/redux';
 
 export type CampaignDetail = {
   campaign: FundCampaign;
@@ -163,6 +164,7 @@ export const useFundManagementData = (
   const [pendingDonationsLoading, setPendingDonationsLoading] = useState(false);
   const [creatingFund, setCreatingFund] = useState(false);
   const [donating, setDonating] = useState(false);
+  const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
 
   const activeFund = useMemo(() => {
     if (!activeFundId) {
@@ -178,9 +180,9 @@ export const useFundManagementData = (
       setError(null);
       try {
         const [donationsRes, donationStatsRes, expensesRes] = await Promise.all([
-          fundService.fetchFundDonations(familyTreeId || '', fundId, 1, 100), // Fetch first 100 donations
-          fundService.fetchFundDonationStats(familyTreeId || '', fundId),
-          fundService.fetchFundExpenses(familyTreeId || '', fundId, 1, 100), // Fetch first 100 expenses
+          fundService.fetchFundDonations(selectedTree?.id || '', fundId, 1, 100), // Fetch first 100 donations
+          fundService.fetchFundDonationStats(selectedTree?.id || '', fundId),
+          fundService.fetchFundExpenses(selectedTree?.id || '', fundId, 1, 100), // Fetch first 100 expenses
         ]);
 
         // Extract donations array from response
@@ -251,7 +253,7 @@ export const useFundManagementData = (
 
     setMyPendingLoading(true);
     try {
-      const list = await fundService.fetchMyPendingDonations(familyTreeId || '', requesterId);
+      const list = await fundService.fetchMyPendingDonations(selectedTree?.id || '', requesterId);
       setMyPendingDonations(list);
     } catch (err) {
       console.error('Failed to load my pending donations', err);
@@ -264,7 +266,7 @@ export const useFundManagementData = (
   const refreshPendingDonations = useCallback(async () => {
     setPendingDonationsLoading(true);
     try {
-      const list = await fundService.fetchPendingDonations(familyTreeId || '');
+      const list = await fundService.fetchPendingDonations(selectedTree?.id || '');
       setPendingDonations(list);
     } catch (err) {
       console.error('Failed to load pending donations', err);
@@ -279,7 +281,7 @@ export const useFundManagementData = (
       setActionLoading(true);
       setError(null);
       try {
-        await fundService.uploadDonationProof(donationId, files);
+        await fundService.uploadDonationProof(selectedTree?.id || '', donationId, files);
       } catch (err) {
         throw err;
       } finally {
@@ -294,7 +296,7 @@ export const useFundManagementData = (
       setActionLoading(true);
       setError(null);
       try {
-        await fundService.confirmDonation(donationId, {
+        await fundService.confirmDonation(selectedTree?.id || '', donationId, {
           donationId,
           confirmedBy: confirmerId,
           ...(confirmationNotes ? { notes: confirmationNotes } : {}),
@@ -319,7 +321,7 @@ export const useFundManagementData = (
       setActionLoading(true);
       setError(null);
       try {
-        await fundService.rejectDonation(donationId, {
+        await fundService.rejectDonation(selectedTree?.id || '', donationId, {
           rejectedBy,
           ...(reason ? { reason } : {}),
         });
@@ -355,7 +357,7 @@ export const useFundManagementData = (
       const nextPage = page ?? campaignPagination.page;
       const nextPageSize = campaignPagination.pageSize;
       try {
-        const result = await fundService.fetchCampaignsByTree(familyTreeId, nextPage, nextPageSize);
+        const result = await fundService.fetchCampaignsByTree(selectedTree?.id || '', nextPage, nextPageSize);
         setCampaigns(result.items);
         setCampaignPagination({
           page: result.page ?? nextPage,
@@ -388,7 +390,7 @@ export const useFundManagementData = (
       const nextPage = page ?? activeCampaignPagination.page;
       const nextPageSize = activeCampaignPagination.pageSize;
       try {
-        const result = await fundService.fetchActiveCampaigns(familyTreeId || '', nextPage, nextPageSize);
+        const result = await fundService.fetchActiveCampaigns(selectedTree?.id || '', nextPage, nextPageSize);
         setActiveCampaigns(result.items);
         setActiveCampaignPagination({
           page: result.page ?? nextPage,
@@ -472,7 +474,7 @@ export const useFundManagementData = (
           payload.campaignId = input.campaignId;
         }
 
-        const response = await fundService.createFundExpense(payload);
+        const response = await fundService.createFundExpense(selectedTree?.id || '', payload);
 
         // Response contains expenseId, status, receiptCount, receiptUrls, warning
         // We can use this for logging or future enhancements
@@ -499,7 +501,7 @@ export const useFundManagementData = (
 
     setPendingExpensesLoading(true);
     try {
-      const expenses = await fundService.fetchPendingFundExpenses(familyTreeId);
+      const expenses = await fundService.fetchPendingFundExpenses(selectedTree?.id || '');
       setPendingExpenses(Array.isArray(expenses) ? expenses : []);
     } catch (err) {
       console.error('Failed to fetch pending expenses', err);
@@ -522,7 +524,7 @@ export const useFundManagementData = (
 
       setActionLoading(true);
       try {
-        await fundService.approveFundExpense(expenseId, {
+        await fundService.approveFundExpense(selectedTree?.id || '', expenseId, {
           approverId: approver,
           notes: notes ?? null,
           paymentProofImages: paymentProofImages && paymentProofImages.length > 0 ? paymentProofImages : [],
@@ -553,7 +555,7 @@ export const useFundManagementData = (
 
       setActionLoading(true);
       try {
-        await fundService.rejectFundExpense(expenseId, {
+        await fundService.rejectFundExpense(selectedTree?.id || '', expenseId, {
           rejectedBy: rejectedUser,
           reason: reason ?? null,
         });
@@ -634,8 +636,8 @@ export const useFundManagementData = (
 
         if (!campaign.donations && !campaign.expenses) {
           const [dRes, eRes] = await Promise.all([
-            fundService.fetchCampaignDonations(campaignId),
-            fundService.fetchCampaignExpenses(campaignId),
+            fundService.fetchCampaignDonations(selectedTree?.id || '', campaignId),
+            fundService.fetchCampaignExpenses(selectedTree?.id || '', campaignId),
           ]);
           donationsRes = dRes;
           expensesRes = eRes;
@@ -664,7 +666,7 @@ export const useFundManagementData = (
       setCreatingFund(true);
       setError(null);
       try {
-        const response = await fundService.createFund(payload);
+        const response = await fundService.createFund(selectedTree?.id || '', payload);
         const createdFund = response?.data ?? null;
         if (createdFund) {
           setFunds([createdFund]);
@@ -693,7 +695,7 @@ export const useFundManagementData = (
       setDonating(true);
       setError(null);
       try {
-        const response = await fundService.createFundDonation(fundId, payload);
+        const response = await fundService.createFundDonation(selectedTree?.id || '', fundId, payload);
         // Don't refresh fund details immediately
         // - BankTransfer: Fund details will be refreshed after payment is confirmed
         // - Cash: If requiresManualConfirmation is true, fund details will be refreshed after manager confirms

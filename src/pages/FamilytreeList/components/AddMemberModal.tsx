@@ -78,7 +78,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                 totalPages: 0
             };
 
-            const res = await familyTreeService.getFamilyTreeMembers(ftId, paginationProps);
+            const res = await familyTreeService.getFamilyTreeNodes(ftId, paginationProps);
             const allMembers = (res.data as any)?.data || [];
 
             setMembers(allMembers);
@@ -315,10 +315,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                             <label
                                                 key={method.value}
                                                 className={`flex items-center p-2 rounded-md transition-colors ${isViewPermission
-                                                        ? 'bg-gray-100 border border-gray-300 cursor-not-allowed opacity-60'
-                                                        : isChecked
-                                                            ? 'bg-green-100 border border-green-400 cursor-pointer'
-                                                            : 'bg-gray-50 border border-gray-200 hover:bg-gray-100 cursor-pointer'
+                                                    ? 'bg-gray-100 border border-gray-300 cursor-not-allowed opacity-60'
+                                                    : isChecked
+                                                        ? 'bg-green-100 border border-green-400 cursor-pointer'
+                                                        : 'bg-gray-50 border border-gray-200 hover:bg-gray-100 cursor-pointer'
                                                     }`}
                                             >
                                                 <input

@@ -457,7 +457,7 @@ export const fundService = {
     return normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
   },
 
-  async createFundExpense(payload: CreateFundExpensePayload): Promise<CreateFundExpenseResponse> {
+  async createFundExpense(ftId: string, payload: CreateFundExpensePayload): Promise<CreateFundExpenseResponse> {
     // Always use FormData as the API expects form-data format
     const formData = new FormData();
 
@@ -492,7 +492,12 @@ export const fundService = {
     // Don't set Content-Type header manually - let axios set it automatically with boundary
     const response = await api.post<ApiResponse<CreateFundExpenseResponse>>(
       `/fund-expenses`,
-      formData
+      formData,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
     );
 
     const data = unwrap<CreateFundExpenseResponse>(response);
@@ -502,7 +507,7 @@ export const fundService = {
     return data;
   },
 
-  async approveFundExpense(id: string, payload: ApproveFundExpensePayload): Promise<ApproveFundExpenseResponse> {
+  async approveFundExpense(ftId: string, id: string, payload: ApproveFundExpensePayload): Promise<ApproveFundExpenseResponse> {
     const hasImages = payload.paymentProofImages && payload.paymentProofImages.length > 0;
 
     console.log('[fundService.approveFundExpense] Approving expense:', {
@@ -567,7 +572,12 @@ export const fundService = {
 
     const response = await api.post<ApiResponse<ApproveFundExpenseResponse>>(
       `/fund-expenses/${id}/approve`,
-      formData
+      formData,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
     );
 
     const data = unwrap<ApproveFundExpenseResponse>(response);
@@ -577,8 +587,12 @@ export const fundService = {
     return data;
   },
 
-  async rejectFundExpense(id: string, payload: RejectFundExpensePayload) {
-    return api.post<ApiResponse<boolean>>(`/fund-expenses/${id}/reject`, payload);
+  async rejectFundExpense(ftId: string, id: string, payload: RejectFundExpensePayload) {
+    return api.post<ApiResponse<boolean>>(`/fund-expenses/${id}/reject`, payload, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
   async fetchFundDonations(
@@ -658,13 +672,18 @@ export const fundService = {
   },
 
   async confirmDonation(
+    ftId: string,
     donationId: string,
     payload: { donationId: string; confirmedBy: string; notes?: string }
   ) {
-    return api.post<ApiResponse<ConfirmDonationResponse>>(`/donations/${donationId}/confirm`, payload);
+    return api.post<ApiResponse<ConfirmDonationResponse>>(`/donations/${donationId}/confirm`, payload, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
-  async uploadDonationProof(donationId: string, files: File[]): Promise<UploadDonationProofResponse> {
+  async uploadDonationProof(ftId: string, donationId: string, files: File[]): Promise<UploadDonationProofResponse> {
     console.log('[fundService.uploadDonationProof] Starting upload proof', {
       donationId,
       filesCount: files.length,
@@ -692,7 +711,12 @@ export const fundService = {
     // When sending FormData, axios will automatically set Content-Type: multipart/form-data; boundary=...
     const response = await api.post<ApiResponse<UploadDonationProofResponse>>(
       url,
-      formData
+      formData,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
       // Don't pass headers config - let axios handle FormData automatically
     );
 
@@ -716,17 +740,23 @@ export const fundService = {
     return data;
   },
 
-  async rejectDonation(donationId: string, payload: { rejectedBy: string; reason?: string }) {
-    return api.post<ApiResponse<boolean>>(`/donations/${donationId}/reject`, payload);
+  async rejectDonation(ftId: string, donationId: string, payload: { rejectedBy: string; reason?: string }) {
+    return api.post<ApiResponse<boolean>>(`/donations/${donationId}/reject`, payload, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
-  async createFundDonation(
-    fundId: string,
-    payload: CreateFundDonationPayload
-  ): Promise<CreateFundDonationResponse> {
+  async createFundDonation(ftId: string, fundId: string, payload: CreateFundDonationPayload): Promise<CreateFundDonationResponse> {
     const response = await api.post<ApiResponse<CreateFundDonationResponse>>(
       `/funds/${fundId}/donate`,
-      payload
+      payload,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
     );
     const data = unwrap<CreateFundDonationResponse>(response);
     if (!data) {
@@ -745,8 +775,12 @@ export const fundService = {
     return normalizeArray(unwrap<MyPendingDonation[] | MyPendingDonation>(result));
   },
 
-  async createFund(payload: CreateFundPayload) {
-    return api.post<ApiResponse<Fund>>(`/funds`, payload);
+  async createFund(ftId: string, payload: CreateFundPayload) {
+    return api.post<ApiResponse<Fund>>(`/funds`, payload, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
   async updateFund(ftId: string, fundId: string, payload: {
@@ -987,8 +1021,12 @@ export const fundService = {
     });
   },
 
-  async fetchCampaignDonations(campaignId: string): Promise<CampaignDonation[]> {
-    const result = await api.get<ApiResponse<CampaignDonation[]>>(`/ftcampaign/${campaignId}/donations`);
+  async fetchCampaignDonations(ftId: string, campaignId: string): Promise<CampaignDonation[]> {
+    const result = await api.get<ApiResponse<CampaignDonation[]>>(`/ftcampaign/${campaignId}/donations`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
     return normalizeArray(unwrap<CampaignDonation[] | CampaignDonation>(result));
   },
 
@@ -1103,8 +1141,12 @@ export const fundService = {
     }));
   },
 
-  async fetchCampaignExpenses(campaignId: string): Promise<CampaignExpense[]> {
-    const result = await api.get<ApiResponse<CampaignExpense[]>>(`/ftcampaign/${campaignId}/expenses`);
+  async fetchCampaignExpenses(ftId: string, campaignId: string): Promise<CampaignExpense[]> {
+    const result = await api.get<ApiResponse<CampaignExpense[]>>(`/ftcampaign/${campaignId}/expenses`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
     return normalizeArray(unwrap<CampaignExpense[] | CampaignExpense>(result));
   },
 
