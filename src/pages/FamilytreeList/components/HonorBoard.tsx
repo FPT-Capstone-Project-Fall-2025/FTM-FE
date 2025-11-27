@@ -339,23 +339,26 @@ const HonorBoard: React.FC = () => {
                 </h3>
 
                 {/* Add Button - Show only for active tab */}
-                {activeBoard === 'academic' ? (
-                  <button
-                    onClick={() => handleOpenModal()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Thêm thành tích học tập
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleOpenModal()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors shadow-sm hover:shadow-md"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Thêm thành tích sự nghiệp
-                  </button>
-                )}
+                {permissions.canAdd('MEMBER') && (
+                  activeBoard === 'academic' ? (
+                    <button
+                      onClick={() => handleOpenModal()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Thêm thành tích học tập
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleOpenModal()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors shadow-sm hover:shadow-md"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Thêm thành tích sự nghiệp
+                    </button>
+                  )
+                )
+                }
               </div>
             </div>
 
@@ -445,26 +448,30 @@ const HonorBoard: React.FC = () => {
 
                                           {/* Actions */}
                                           <div className="flex items-center gap-1">
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleOpenModal(honor);
-                                              }}
-                                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                              title="Chỉnh sửa"
-                                            >
-                                              <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteClick(honor.id);
-                                              }}
-                                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                              title="Xóa"
-                                            >
-                                              <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            {permissions.canUpdate('MEMBER') && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleOpenModal(honor);
+                                                }}
+                                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                title="Chỉnh sửa"
+                                              >
+                                                <Edit className="w-4 h-4" />
+                                              </button>
+                                            )}
+                                            {permissions.canDelete('MEMBER') && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDeleteClick(honor.id);
+                                                }}
+                                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Xóa"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
                                       </div>
@@ -963,16 +970,18 @@ const HonorBoard: React.FC = () => {
 
               {/* Action Buttons */}
               <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    handleCloseDetail();
-                    handleOpenModal(selectedHonor);
-                  }}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <Edit className="w-4 h-4" />
-                  Chỉnh sửa
-                </button>
+                {permissions.canUpdate('MEMBER') && (
+                  <button
+                    onClick={() => {
+                      handleCloseDetail();
+                      handleOpenModal(selectedHonor);
+                    }}
+                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Chỉnh sửa
+                  </button>
+                )}
                 <button
                   onClick={handleCloseDetail}
                   className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"

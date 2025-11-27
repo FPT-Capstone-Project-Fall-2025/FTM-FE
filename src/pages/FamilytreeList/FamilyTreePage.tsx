@@ -15,7 +15,6 @@ import ftauthorizationService from "@/services/familyTreeAuth";
 import { getUserIdFromToken } from "@/utils/jwtUtils";
 import { clearPermissions, setError, setLoading, setPermissions } from "@/stores/slices/permissionSlice";
 import { extractUserPermissions } from "@/utils/permissionUtils";
-import { usePermissions } from "@/hooks/usePermissions";
 import familyTreeService from "@/services/familyTreeService";
 
 const tabs = [
@@ -37,7 +36,6 @@ const FamilyTreePage: React.FC = () => {
   const navigate = useNavigate();
   const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   const auth = useAppSelector(state => state.auth);
-  const permissions = usePermissions();
   const [isOwner, setIsOwner] = useState<boolean>(false);
 
   // Get initial tab from URL params or localStorage
@@ -148,8 +146,7 @@ const FamilyTreePage: React.FC = () => {
       }
     }
     fetchRole();
-    permissions.logPermissions('MEMBER')
-  }, [permissions]);
+  }, []);
 
   // Update URL and localStorage when tab changes
   const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund') => {

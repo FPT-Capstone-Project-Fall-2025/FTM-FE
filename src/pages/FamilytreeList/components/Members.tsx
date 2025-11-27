@@ -8,6 +8,7 @@ import { useAppSelector } from "@/hooks/redux";
 import type { UserProfile } from "@/types/user";
 import userService from "@/services/userService";
 import { toast } from "react-toastify";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type ViewMode = 'member' | 'guest';
 
@@ -38,6 +39,7 @@ const Members: React.FC = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deletingGuest, setDeletingGuest] = useState<FamilyMemberList | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const permissions = usePermissions();
 
     const loadMembers = useCallback(async () => {
         if (!selectedFamilyTree?.id) return;
@@ -353,13 +355,15 @@ const Members: React.FC = () => {
                                                 Xem chi tiết
                                             </button>
                                         ) : (
-                                            <button
-                                                onClick={() => handleDeleteGuest(member)}
-                                                className="flex items-center gap-1 text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                                Xóa
-                                            </button>
+                                            permissions.canDelete('MEMBER') && (
+                                                <button
+                                                    onClick={() => handleDeleteGuest(member)}
+                                                    className="flex items-center gap-1 text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Xóa
+                                                </button>
+                                            )
                                         )}
                                     </td>
                                 </tr>

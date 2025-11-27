@@ -20,6 +20,7 @@ import familyTreeService from '@/services/familyTreeService';
 import { toast } from 'react-toastify';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface MemberDetailPageProps {
     ftId: string | undefined;
@@ -41,6 +42,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
     const [selectedFileIndex, setSelectedFileIndex] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const avatarInputRef = useRef<HTMLInputElement>(null);
+    const permissions = usePermissions();
 
     useEffect(() => {
         const fetchMemberDetail = async () => {
@@ -464,45 +466,45 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                             <p className="text-sm text-white/80">ID: {data.id}</p>
                         </div>
                     </div>
-
                     <div className="flex items-center gap-2">
-                        {!isEditing ? (
-                            <button
-                                onClick={startEdit}
-                                disabled={loading}
-                                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg flex items-center gap-2 transition-colors"
-                            >
-                                <Edit className="w-4 h-4" />
-                                Chỉnh sửa
-                            </button>
-                        ) : (
-                            <>
+                        {permissions.canUpdate('MEMBER') && (
+                            !isEditing ? (
                                 <button
-                                    onClick={handleSave}
+                                    onClick={startEdit}
                                     disabled={loading}
-                                    className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg flex items-center gap-2 transition-colors"
                                 >
-                                    {loading ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            Đang lưu...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Save className="w-4 h-4" />
-                                            Lưu
-                                        </>
-                                    )}
+                                    <Edit className="w-4 h-4" />
+                                    Chỉnh sửa
                                 </button>
-                                <button
-                                    onClick={cancelEdit}
-                                    disabled={loading}
-                                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-                                >
-                                    Hủy
-                                </button>
-                            </>
-                        )}
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={loading}
+                                        className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                Đang lưu...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="w-4 h-4" />
+                                                Lưu
+                                            </>
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={cancelEdit}
+                                        disabled={loading}
+                                        className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                                    >
+                                        Hủy
+                                    </button>
+                                </>
+                            ))}
                         <button
                             onClick={onClose}
                             disabled={loading}
