@@ -1068,14 +1068,14 @@ const FundManagement: React.FC = () => {
   }, []);
 
   // Campaign approvals data
-  const loadCampaignApprovals = useCallback(async (familyTreeId: string) => {
-    if (!familyTreeId) {
+  const loadCampaignApprovals = useCallback(async (ftId: string, ftMemberId: string) => {
+    if (!ftMemberId || !ftId) {
       setCampaignPendingDonations([]);
       return;
     }
     setCampaignApprovalsLoading(true);
     try {
-      const items = await fundService.fetchPendingCampaignDonationsByTree(familyTreeId);
+      const items = await fundService.fetchPendingCampaignDonationsByManager(ftId, ftMemberId);
       const pending = items.filter(item => String(item.status || '').toLowerCase() === 'pending');
       setCampaignPendingDonations(
         pending.map(p => ({
@@ -1101,9 +1101,9 @@ const FundManagement: React.FC = () => {
   }, []);
 
   const handleRefreshCampaignApprovals = useCallback(() => {
-    if (!selectedTree?.id) return;
-    void loadCampaignApprovals(selectedTree.id);
-  }, [selectedTree?.id, loadCampaignApprovals]);
+    if (!gpMemberId || !selectedTree?.id) return;
+    void loadCampaignApprovals(selectedTree.id, gpMemberId);
+  }, [gpMemberId, selectedTree?.id, loadCampaignApprovals]);
 
   const handleConfirmCampaignPendingDonation = useCallback(
     async (donationId: string, notes?: string) => {
@@ -1122,8 +1122,8 @@ const FundManagement: React.FC = () => {
         }
         await fundService.confirmCampaignDonation(selectedTree?.id || '', donationId, payload);
         toast.success('Đã xác nhận ủng hộ chiến dịch.');
-        if (selectedTree?.id) {
-          await loadCampaignApprovals(selectedTree.id);
+        if (gpMemberId && selectedTree?.id) {
+          await loadCampaignApprovals(selectedTree.id, gpMemberId);
         }
         await refreshCampaigns(1);
       } catch (err: any) {
@@ -1154,8 +1154,8 @@ const FundManagement: React.FC = () => {
         }
         await fundService.rejectCampaignDonation(selectedTree?.id || '', donationId, payload);
         toast.success('Đã từ chối ủng hộ chiến dịch.');
-        if (selectedTree?.id) {
-          await loadCampaignApprovals(selectedTree.id);
+        if (gpMemberId && selectedTree?.id) {
+          await loadCampaignApprovals(selectedTree.id, gpMemberId);
         }
       } catch (err: any) {
         console.error('Reject campaign donation failed:', err);
@@ -1171,10 +1171,10 @@ const FundManagement: React.FC = () => {
   // No per-campaign selection; approvals tab shows all pending donations
 
   useEffect(() => {
-    if (managementScope === 'campaign' && campaignTab === 'approvals' && selectedTree?.id) {
-      void loadCampaignApprovals(selectedTree.id);
+    if (managementScope === 'campaign' && campaignTab === 'approvals' && gpMemberId && selectedTree?.id) {
+      void loadCampaignApprovals(selectedTree.id, gpMemberId);
     }
-  }, [managementScope, campaignTab, selectedTree?.id, loadCampaignApprovals]);
+  }, [managementScope, campaignTab, gpMemberId, selectedTree?.id, loadCampaignApprovals]);
 
   // Load my campaign pending donations when opening "my" tab
   useEffect(() => {
@@ -2879,7 +2879,7 @@ const FundManagement: React.FC = () => {
       <FundCampaignModal
         isOpen={isCampaignModalOpen}
         formState={campaignForm}
-        organizerName={getDisplayNameFromGPMember(gpMember) || gpMember?.fullname || authUser?.name || ''}
+        organizerName={authUser?.name || getDisplayNameFromGPMember(gpMember) || gpMember?.fullname || ''}
         onClose={handleCloseCampaignModal}
         onFormChange={handleCampaignFormChange}
         onSubmit={handleSubmitCampaign}

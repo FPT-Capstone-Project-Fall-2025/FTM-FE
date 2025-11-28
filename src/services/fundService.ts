@@ -1162,8 +1162,11 @@ export const fundService = {
     };
   },
 
-  async fetchPendingCampaignDonationsByTree(
-    familyTreeId: string
+
+
+  async fetchPendingCampaignDonationsByManager(
+    ftId: string,
+    managerId: string
   ): Promise<Array<{
     id: string;
     campaignId: string;
@@ -1181,16 +1184,22 @@ export const fundService = {
     completedAt: string | null;
   }>> {
     const response = await api.get<ApiResponse<any>>(
-      `/ftcampaigndonation/pending`,
+      `/ftcampaign/manager/${managerId}`,
       {
-        params: { familyTreeId },
         headers: {
-          'X-Ftid': familyTreeId,
+          'X-Ftid': ftId,
+        },
+        params: {
+          page: 1,
+          pageSize: 100, // Fetch all pending donations for now
         },
       }
     );
-    const payload = unwrap<any>(response) ?? [];
-    const items = Array.isArray(payload) ? payload : normalizeArray(payload);
+    const payload = unwrap<any>(response) ?? {};
+    // Handle both paginated response and array response just in case
+    const rawItems = payload.items ? payload.items : (Array.isArray(payload) ? payload : []);
+    const items = normalizeArray(rawItems);
+
     return items.map((item: any) => ({
       id: item.id,
       campaignId: item.campaignId,
