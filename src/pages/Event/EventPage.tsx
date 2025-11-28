@@ -134,11 +134,6 @@ const EventPage: React.FC = () => {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setSearch(value);
-      setEventFilters((prev) => ({
-        ...(prev || {}),
-        search: value,
-      }));
-      handleSearch(value);
     },
     [handleSearch]
   );
