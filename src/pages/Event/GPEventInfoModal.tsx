@@ -12,6 +12,7 @@ import { useParams } from "react-router-dom";
 import { useGPMember } from '@/hooks/useGPMember';
 import { getUserIdFromToken } from '@/utils/jwtUtils';
 import { useAppSelector } from '@/hooks/redux';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // API Base URL for images
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
@@ -68,6 +69,12 @@ const GPEventInfoModal = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Get family tree ID from the event (use first gpId if available, otherwise use URL param)
+  const eventFamilyTreeId = defaultValues?.gpIds?.[0] || familyTreeId;
+
+  // Load permissions for the family tree this event belongs to
+  const permissions = usePermissions(eventFamilyTreeId);
 
   // Early return AFTER all hooks
   if (!isOpenModal) return null;
@@ -431,52 +438,58 @@ const GPEventInfoModal = ({
                 <span>Thêm vào Google Calendar</span>
               </button>
 
-              {recurrence === "ONCE" ? (
-                <button
-                  onClick={handleDelete}
-                  disabled={isDeleting || isEditing}
-                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Đang xóa...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      <span>Xóa</span>
-                    </>
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={handleDelete}
-                  disabled={isDeleting || isEditing}
-                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Đang xóa...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      <ChevronDown className="w-4 h-4" />
-                      <span>Xóa</span>
-                    </>
-                  )}
-                </button>
+              {/* Delete button - only show if user has EVENT.DELETE permission */}
+              {permissions.canDelete('EVENT') && (
+                recurrence === "ONCE" ? (
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting || isEditing}
+                    className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Đang xóa...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>Xóa</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting || isEditing}
+                    className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Đang xóa...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <ChevronDown className="w-4 h-4" />
+                        <span>Xóa</span>
+                      </>
+                    )}
+                  </button>
+                )
               )}
 
-              <button
-                onClick={handelOnUpdate}
-                disabled={isDeleting || isEditing}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Chỉnh sửa
-              </button>
+              {/* Edit button - only show if user has EVENT.UPDATE permission */}
+              {permissions.canUpdate('EVENT') && (
+                <button
+                  onClick={handelOnUpdate}
+                  disabled={isDeleting || isEditing}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Chỉnh sửa
+                </button>
+              )}
 
               {/* Share to Post Button */}
               <button

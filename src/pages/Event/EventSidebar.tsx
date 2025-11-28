@@ -8,6 +8,7 @@ import EventStatistics from "./EventStatistics";
 import provinceService from "../../services/provinceService";
 import familyTreeService from "../../services/familyTreeService";
 import debounce from 'lodash/debounce';
+import { useMultiTreePermissions } from '@/hooks/useMultiTreePermissions';
 
 /**
  * EventSidebar Component
@@ -88,6 +89,9 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const isInitialMount = useRef<boolean>(true);
+  const [allFamilyTreeIds, setAllFamilyTreeIds] = useState<string[]>([]);
+  const [allFamilyTrees, setAllFamilyTrees] = useState<{ id: string; name: string }[]>([]);
+  const treePermissions = useMultiTreePermissions(allFamilyTreeIds);
 
   // Toggle checkbox selection
   const toggleCheckbox = <T,>(list: T[], setList: (value: T[]) => void, value: T) => {
@@ -185,19 +189,17 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
         const response: any = await familyTreeService.getAllFamilyTrees(1, 100);
         const familyTrees = response?.data?.data?.data || response?.data?.data || [];
 
-        const mappedGps: GPItem[] = familyTrees.map((tree: any) => ({
-          label: tree.name || 'Gia tộc',
-          value: tree.id,
+        // Store all family trees and their IDs
+        const trees = familyTrees.map((tree: any) => ({
+          id: tree.id,
+          name: tree.name || 'Gia tộc',
         }));
-
-        setEventGp(mappedGps);
-
-        // Auto-select all family groups on initialization
-        const allGroupIds = mappedGps.map(gp => gp.value);
-        setEventGroups(allGroupIds);
+        setAllFamilyTrees(trees);
+        setAllFamilyTreeIds(trees.map((t: any) => t.id));
       } catch (error) {
         console.error("Error fetching family trees:", error);
-        setEventGp([]);
+        setAllFamilyTrees([]);
+        setAllFamilyTreeIds([]);
       } finally {
         setLoadingFamilyTrees(false);
       }
@@ -205,6 +207,31 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
 
     fetchFamilyTrees();
   }, []);
+
+  // Filter family trees based on EVENT.VIEW permission
+  useEffect(() => {
+    if (allFamilyTrees.length === 0 || treePermissions.length === 0) {
+      return;
+    }
+    // Filter to only trees where user has EVENT.VIEW permission
+    const accessibleTrees = allFamilyTrees.filter(tree => {
+      const treePermission = treePermissions.find(tp => tp.ftId === tree.id);
+      return treePermission && treePermission.canView('EVENT');
+    });
+    const mappedGps: GPItem[] = accessibleTrees.map(tree => ({
+      label: tree.name,
+      value: tree.id,
+    }));
+    setEventGp(mappedGps);
+    // Auto-select all accessible family groups on initialization
+    const allGroupIds = mappedGps.map(gp => gp.value);
+    setEventGroups(allGroupIds);
+    console.log('📊 Permission filtering:', {
+      total: allFamilyTrees.length,
+      accessible: accessibleTrees.length,
+      filtered: allFamilyTrees.length - accessibleTrees.length
+    });
+  }, [allFamilyTrees, treePermissions]);
 
   // Filter cities by user input
   const locationFilteredItems = listCity.filter((item) =>
@@ -456,20 +483,25 @@ const EventSidebar: React.FC<EventSidebarProps> = ({
     }
   };
 
+  // Check if user can add events in ANY family tree
+  const canAddEvent = treePermissions.some(tp => tp.canAdd('EVENT'));
+
   // --- Render ---
   return (
     <div className="w-full p-5 bg-white rounded-lg">
-      <button
-        onClick={() => {
-          setEventSelected(null);
-          setIsOpenGPEventDetailsModal(true);
-        }}
-        className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg h-10 text-[15px] font-medium mb-4 flex items-center justify-center gap-2 transition-colors"
-      >
-        <Plus className="w-5 h-5" />
-        <span>Thêm sự kiện mới</span>
-      </button>
-
+      {/* Only show Add Event button if user has EVENT.ADD permission in at least one family tree */}
+      {canAddEvent && (
+        <button
+          onClick={() => {
+            setEventSelected(null);
+            setIsOpenGPEventDetailsModal(true);
+          }}
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-lg h-10 text-[15px] font-medium mb-4 flex items-center justify-center gap-2 transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Thêm sự kiện mới</span>
+        </button>
+      )}
       {/* Event Type Section */}
       <div>
         <div

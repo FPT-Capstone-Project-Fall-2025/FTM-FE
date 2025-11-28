@@ -184,6 +184,15 @@ const BasicInfo: React.FC = () => {
     // Display priority: tempImage (new upload) > currentImage (saved)
     const displayImage = tempImage || currentImage;
 
+    // Show loading state while permissions are being fetched
+    if (permissions.isLoading) {
+        return (
+            <div className="h-full flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        );
+    }
+
     if (!permissions.canView('MEMBER')) {
         return <NoPermission />;
     }
@@ -310,118 +319,122 @@ const BasicInfo: React.FC = () => {
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Image Upload Popup */}
-            {showImagePopup && (
-                <div className="fixed inset-0 bg-black/50 bg-opacity-60 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
-                        <button
-                            onClick={handleImagePopupCancel}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-
-                        <h2 className="text-xl font-semibold mb-4">Thay đổi ảnh gia phả</h2>
-                        <p className="text-sm text-gray-500 mb-2">Hãy chọn ảnh đại diện của bạn</p>
-                        <p className="text-sm text-gray-400 mb-6">Định dạng: JPEG, JPG, PNG, GIF<br />Kích thước tối đa: 25MB</p>
-
-                        {/* Image Preview */}
-                        {displayImage && (
-                            <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
-                                <img src={displayImage} alt="Preview" className="w-full h-48 object-cover" />
-                            </div>
-                        )}
-
-                        {/* Hidden file input */}
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png,image/gif"
-                            onChange={handleImageSelect}
-                            className="hidden"
-                        />
-
-                        <div className="space-y-3 mb-6">
-                            <button
-                                onClick={openFileSelector}
-                                className="w-full px-4 py-3 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                Chọn ảnh
-                            </button>
-
-                            {displayImage && (
-                                <button
-                                    onClick={handleImageDelete}
-                                    className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    Xóa ảnh hiện tại
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="flex gap-3 justify-end">
+            {
+                showImagePopup && (
+                    <div className="fixed inset-0 bg-black/50 bg-opacity-60 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
                             <button
                                 onClick={handleImagePopupCancel}
-                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
                             >
-                                Hủy
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
                             </button>
-                            <button
-                                onClick={handleImageSave}
-                                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                            >
-                                LƯU
-                            </button>
+
+                            <h2 className="text-xl font-semibold mb-4">Thay đổi ảnh gia phả</h2>
+                            <p className="text-sm text-gray-500 mb-2">Hãy chọn ảnh đại diện của bạn</p>
+                            <p className="text-sm text-gray-400 mb-6">Định dạng: JPEG, JPG, PNG, GIF<br />Kích thước tối đa: 25MB</p>
+
+                            {/* Image Preview */}
+                            {displayImage && (
+                                <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
+                                    <img src={displayImage} alt="Preview" className="w-full h-48 object-cover" />
+                                </div>
+                            )}
+
+                            {/* Hidden file input */}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/jpg,image/png,image/gif"
+                                onChange={handleImageSelect}
+                                className="hidden"
+                            />
+
+                            <div className="space-y-3 mb-6">
+                                <button
+                                    onClick={openFileSelector}
+                                    className="w-full px-4 py-3 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Chọn ảnh
+                                </button>
+
+                                {displayImage && (
+                                    <button
+                                        onClick={handleImageDelete}
+                                        className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Xóa ảnh hiện tại
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={handleImagePopupCancel}
+                                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleImageSave}
+                                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                                >
+                                    LƯU
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Delete Confirmation Popup */}
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 bg-opacity-60 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                        <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
-                            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                        </div>
+            {
+                showDeleteConfirm && (
+                    <div className="fixed inset-0 bg-black/50 bg-opacity-60 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+                                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
 
-                        <h2 className="text-xl font-semibold text-center mb-2">Xác nhận xóa gia phả</h2>
-                        <p className="text-sm text-gray-600 text-center mb-6">
-                            Bạn có chắc chắn muốn xóa gia phả <span className="font-semibold">"{selectedTree?.name}"</span>?
-                            <br />
-                            Hành động này không thể hoàn tác!
-                        </p>
+                            <h2 className="text-xl font-semibold text-center mb-2">Xác nhận xóa gia phả</h2>
+                            <p className="text-sm text-gray-600 text-center mb-6">
+                                Bạn có chắc chắn muốn xóa gia phả <span className="font-semibold">"{selectedTree?.name}"</span>?
+                                <br />
+                                Hành động này không thể hoàn tác!
+                            </p>
 
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setShowDeleteConfirm(false)}
-                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleDelete}
-                                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
-                            >
-                                Xóa
-                            </button>
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                                >
+                                    Xóa
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
