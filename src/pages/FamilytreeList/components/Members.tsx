@@ -14,7 +14,7 @@ import NoPermission from "@/components/shared/NoPermission";
 type ViewMode = 'member' | 'guest';
 
 const Members: React.FC = () => {
-
+    const permissions = usePermissions();
     const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree)
     const [searchTerm, setSearchTerm] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>('member');
@@ -40,11 +40,6 @@ const Members: React.FC = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deletingGuest, setDeletingGuest] = useState<FamilyMemberList | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    const permissions = usePermissions();
-
-    if (!permissions.canView('MEMBER')) {
-        return <NoPermission />;
-    }
 
     const loadMembers = useCallback(async () => {
         if (!selectedFamilyTree?.id) return;
@@ -261,6 +256,11 @@ const Members: React.FC = () => {
             setDeletingGuest(null);
         }
     };
+
+    // Check permissions after all hooks are called
+    if (!permissions.canView('MEMBER')) {
+        return <NoPermission />;
+    }
 
     return (
         <div className="h-full overflow-hidden space-y-6 flex flex-col p-6 bg-gray-50">

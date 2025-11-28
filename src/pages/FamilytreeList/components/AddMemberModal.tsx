@@ -83,7 +83,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
             setMembers(allMembers);
             if (allMembers.length > 0) {
-                setSelectedMemberId(allMembers[0].userId);
+                setSelectedMemberId(allMembers[0].id);
             } else {
                 setSelectedMemberId("");
             }
@@ -153,7 +153,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     if (!isOpen) return null;
 
     const getMemberDisplayName = (member: FamilyMemberList) =>
-        member.name || member.username || "Không rõ tên";
+        member.fullname || member.username || "Không rõ tên";
 
     const filteredMembers = members.filter(member =>
         getMemberDisplayName(member).toLowerCase().includes(searchTerm.toLowerCase())
@@ -218,7 +218,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                             getMemberDisplayName(m).toLowerCase().includes(value.toLowerCase())
                                         );
                                         if (filtered.length > 0 && !selectedMemberId && filtered[0]) {
-                                            setSelectedMemberId(filtered[0].userId);
+                                            setSelectedMemberId(filtered[0].id);
                                         }
                                     }}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -239,7 +239,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                             <div
                                                 key={member.userId}
                                                 onClick={() => {
-                                                    setSelectedMemberId(member.userId);
+                                                    setSelectedMemberId(member.id);
                                                     setSearchTerm("");
                                                 }}
                                                 className={`p-3 rounded-md cursor-pointer flex items-center space-x-3 transition-colors ${selectedMemberId === member.userId

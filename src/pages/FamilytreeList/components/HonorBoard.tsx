@@ -39,10 +39,6 @@ const HonorBoard: React.FC = () => {
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-
-  if (!permissions.canView('MEMBER')) {
-    return <NoPermission />;
-  }
   // Fetch all data when component mounts or tree changes
   useEffect(() => {
     if (selectedTree?.id) {
@@ -276,6 +272,10 @@ const HonorBoard: React.FC = () => {
 
   const currentHonors = activeBoard === 'academic' ? academicHonors : careerHonors;
   const sortedHonors = [...currentHonors].sort((a, b) => b.yearOfAchievement - a.yearOfAchievement);
+
+  if (!permissions.canView('MEMBER')) {
+    return <NoPermission />;
+  }
 
   return (
     <div className="h-full flex flex-col">

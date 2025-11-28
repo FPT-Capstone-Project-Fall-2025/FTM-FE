@@ -24,11 +24,7 @@ const MemberDropdown: React.FC<{
                 operation: "EQUAL",
                 value: selectedFamilyTree ? selectedFamilyTree.id : ''
             },
-            {
-                name: "isDeleted",
-                operation: "EQUAL",
-                value: 'false'
-            }
+            { "name": "UserId", "operation": "EQUAL", "value": null },
         ],
         totalItems: 0,
         totalPages: 0,
@@ -54,9 +50,6 @@ const MemberDropdown: React.FC<{
 
     useEffect(() => {
         loadMembers();
-    }, []);
-
-    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsOpen(false);

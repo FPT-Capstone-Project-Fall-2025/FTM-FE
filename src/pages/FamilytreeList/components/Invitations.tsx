@@ -28,10 +28,6 @@ const Invitations: React.FC = () => {
     const [invitationList, setInvitationList] = useState<FTInvitation[]>([]);
     const permissions = usePermissions();
 
-    if (!permissions.canView('MEMBER')) {
-        return <NoPermission />;
-    }
-
     useEffect(() => {
         setLoading(true);
         const fetchInvitationsList = async () => {
@@ -71,6 +67,10 @@ const Invitations: React.FC = () => {
     const getStatusLabel = (status: string) => {
         return status === 'PENDING' ? "Chưa duyệt" : status === 'ACCEPTED' ? "Đã chấp nhận" : "Từ chối";
     };
+
+    if (!permissions.canView('MEMBER')) {
+        return <NoPermission />;
+    }
 
     return (
         <div className="h-full overflow-hidden space-y-6 flex flex-col p-6 bg-gray-50">
