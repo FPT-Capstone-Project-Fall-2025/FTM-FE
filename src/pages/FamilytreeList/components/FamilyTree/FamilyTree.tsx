@@ -88,10 +88,6 @@ const FamilyTreeContent = () => {
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
   const permissions = usePermissions();
 
-  if (!permissions.canView('MEMBER')) {
-    return <NoPermission />;
-  }
-
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {
     setLocalNodes(reduxNodes);
@@ -302,6 +298,10 @@ const FamilyTreeContent = () => {
     z-index: 50;
   }
 `;
+
+  if (!permissions.canView('MEMBER')) {
+    return <NoPermission />;
+  }
 
   if (loading) {
     return (

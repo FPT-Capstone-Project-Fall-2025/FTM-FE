@@ -30,10 +30,6 @@ const BasicInfo: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    if (!permissions.canView('MEMBER')) {
-        return <NoPermission />;
-    }
-
     const hasChanges = () => {
         return (
             formData.Name !== (selectedTree?.name || '') ||
@@ -187,6 +183,10 @@ const BasicInfo: React.FC = () => {
 
     // Display priority: tempImage (new upload) > currentImage (saved)
     const displayImage = tempImage || currentImage;
+
+    if (!permissions.canView('MEMBER')) {
+        return <NoPermission />;
+    }
 
     return (
         <div className="h-full overflow-y-auto">

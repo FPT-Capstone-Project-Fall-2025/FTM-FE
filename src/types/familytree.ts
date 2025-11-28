@@ -78,9 +78,10 @@ export interface FamilyNodeList {
 
 export interface FamilyMemberList {
   userId: string;
-  id?: string;
+  id: string;
   ftMemberId?: string;
   name: string;
+  fullname: string;
   username: string;
   ftRole: string;
   ft: {
