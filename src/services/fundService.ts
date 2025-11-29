@@ -303,6 +303,64 @@ export const fundService = {
     };
   },
 
+  // Get pending donations for manager by memberId
+  async fetchPendingCampaignDonationsForManager(
+    familyTreeId: string,
+    memberId: string,
+    page = 1,
+    pageSize = 20
+  ): Promise<{
+    items: Array<{
+      id: string;
+      campaignId: string;
+      campaignName: string | null;
+      donorName: string | null;
+      amount: number;
+      message: string | null;
+      status: string | null;
+      proofImages: string[];
+      createdAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  }> {
+    const response = await api.get<ApiResponse<any>>(
+      `/ftcampaigndonation/pending/manager/${encodeURIComponent(memberId)}`,
+      {
+        params: { page, pageSize },
+        headers: {
+          'X-Ftid': familyTreeId,
+        },
+      }
+    );
+    const data = unwrap<any>(response)?.data ?? unwrap<any>(response);
+    const items = Array.isArray(data?.items) ? data.items : normalizeArray(data?.items ?? []);
+    return {
+      items: items.map((d: any) => ({
+        id: d.id,
+        campaignId: d.campaignId,
+        campaignName: d.campaignName ?? null,
+        donorName: d.donorName ?? null,
+        amount: Number(d.amount ?? 0),
+        message: d.message ?? null,
+        status: d.status ?? d.statusName ?? null,
+        proofImages:
+          typeof d.proofImages === 'string'
+            ? d.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+            : Array.isArray(d.proofImages)
+              ? d.proofImages.filter(Boolean)
+              : [],
+        createdAt: d.createdAt ?? null,
+      })),
+      page: Number(data?.page ?? page),
+      pageSize: Number(data?.pageSize ?? pageSize),
+      totalCount: Number(data?.totalCount ?? 0),
+      totalPages: Number(data?.totalPages ?? 1),
+    };
+  },
+
   async fetchCampaignDonationsByUser(
     userId: string,
     page = 1,

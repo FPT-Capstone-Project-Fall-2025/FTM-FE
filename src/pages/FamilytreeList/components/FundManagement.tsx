@@ -1075,22 +1075,21 @@ const FundManagement: React.FC = () => {
     }
     setCampaignApprovalsLoading(true);
     try {
-      const items = await fundService.fetchPendingCampaignDonationsByManager(ftId, ftMemberId);
-      const pending = items.filter(item => String(item.status || '').toLowerCase() === 'pending');
+      const res = await fundService.fetchPendingCampaignDonationsForManager(ftId, ftMemberId, 1, 20);
       setCampaignPendingDonations(
-        pending.map(p => ({
+        (res.items || []).map(p => ({
           id: p.id,
           campaignId: p.campaignId,
           campaignName: p.campaignName ?? null,
-          donorName: p.donorName,
+          donorName: p.donorName ?? null,
           amount: p.amount,
-          message: p.message,
-          status: p.status,
-          createdAt: p.createdAt,
-          proofImages: p.proofImages,
+          message: p.message ?? null,
+          status: p.status ?? null,
+          createdAt: p.createdAt ?? null,
+          proofImages: p.proofImages || [],
         }))
       );
-      // setCampaignApprovalTotalCount(pending.length);
+      // setCampaignApprovalTotalCount(res.totalCount);
     } catch (err) {
       console.error('Failed to load campaign approvals', err);
       showException('Không thể tải danh sách ủng hộ cần phê duyệt.');
