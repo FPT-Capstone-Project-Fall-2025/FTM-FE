@@ -18,6 +18,7 @@ import { EVENT_TYPE, EVENT_TYPE_CONFIG } from "./EventTypeLabel";
 import { toast } from 'react-toastify';
 import { normalizeEventType } from "../../utils/eventUtils";
 import { getLunarCanChi } from "./utils/convertSolar2Lunar";
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
 
 // Types
 interface EventFormData {
@@ -151,6 +152,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   const [selectedMembers, setSelectedMembers] = useState<MemberOption[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [currentUserGPMemberId, setCurrentUserGPMemberId] = useState<string>("");
+  const [errorPopup, setErrorPopup] = useState<{ isOpen: boolean; message: string; timestamp: Date }>({
+    isOpen: false,
+    message: '',
+    timestamp: new Date()
+  });
 
   const methods = useForm<EventFormData>({
     defaultValues: defaultValues || {
@@ -606,7 +612,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
       // Validate start time is before end time (skip if isAllDay, as endTime is auto-set)
       if (!isAllDay && !isBefore(new Date(data.startTime), new Date(data.endTime))) {
-        toast.error("Thời gian bắt đầu phải trước thời gian kết thúc");
+        setErrorPopup({
+          isOpen: true,
+          message: "Thời gian bắt đầu phải trước thời gian kết thúc",
+          timestamp: new Date()
+        });
         setIsSubmit(false);
         return;
       }
@@ -642,7 +652,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         "822994d5-7acd-41f8-b12b-e0a634d74440";
 
       if (!ftId) {
-        toast.error("Không tìm thấy ID gia tộc");
+        setErrorPopup({
+          isOpen: true,
+          message: "Không tìm thấy ID gia tộc",
+          timestamp: new Date()
+        });
         setIsSubmit(false);
         return;
       }
@@ -738,11 +752,19 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         }
         reset();
       } else {
-        toast.error(response.message || `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sự kiện`);
+        setErrorPopup({
+          isOpen: true,
+          message: response.message || `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sự kiện`,
+          timestamp: new Date()
+        });
       }
     } catch (error: any) {
       console.error(`Error ${eventSelected && (eventSelected as any).id ? 'updating' : 'creating'} event:`, error);
-      toast.error(error?.message || `Có lỗi xảy ra khi ${eventSelected && (eventSelected as any).id ? 'cập nhật' : 'tạo'} sự kiện`);
+      setErrorPopup({
+        isOpen: true,
+        message: error?.response?.data?.message || `Có lỗi xảy ra khi ${eventSelected && (eventSelected as any).id ? 'cập nhật' : 'tạo'} sự kiện`,
+        timestamp: new Date()
+      });
     } finally {
       setIsSubmit(false);
     }
@@ -775,7 +797,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       };
       reader.onerror = (error) => {
         console.error('FileReader error:', error);
-        toast.error('Lỗi khi đọc file ảnh');
+        setErrorPopup({
+          isOpen: true,
+          message: 'Lỗi khi đọc file ảnh',
+          timestamp: new Date()
+        });
       };
       reader.readAsDataURL(file.originFileObj);
     } else if (info.fileList.length === 0) {
@@ -1348,6 +1374,14 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Exception Popup */}
+      <ExceptionPopup
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        timestamp={errorPopup.timestamp}
+        onClose={() => setErrorPopup({ isOpen: false, message: '', timestamp: new Date() })}
+      />
     </Modal>
   );
 };

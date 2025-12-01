@@ -1,5 +1,7 @@
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
 import OccupationSkeleton from '@/components/skeleton/OccupationSkeleton';
 import CustomDatePicker from '@/components/ui/DatePicker';
+import { useErrorPopup } from '@/hooks/useErrorPopup';
 import biographyService from '@/services/biographyService';
 import type { Education, WorkExperience, WorkPosition } from '@/types/biography';
 import { Edit2, Plus, Trash2, Briefcase, GraduationCap, MapPin, Calendar } from 'lucide-react';
@@ -82,6 +84,7 @@ const Occupation = () => {
     const [editPosition, setEditPosition] = useState<WorkPosition | null>(null);
     const [editingPositionIndex, setEditingPositionIndex] = useState<number | null>(null);
     const [isAddingPosition, setIsAddingPosition] = useState(false);
+    const { errorPopup, showError, closeError } = useErrorPopup();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -97,7 +100,7 @@ const Occupation = () => {
                 setOriginalWorkExperiences(workRes.data);
             } catch (error) {
                 console.log(error);
-                toast.error('Không thể tải dữ liệu');
+                showError('Không thể tải dữ liệu');
             } finally {
                 setInitialLoading(false);
             }
@@ -183,15 +186,15 @@ const Occupation = () => {
     const handleAddPosition = () => {
         // Validation
         if (!newPosition.title.trim()) {
-            toast.error('Vui lòng nhập tên vị trí');
+            showError('Vui lòng nhập tên vị trí');
             return;
         }
         if (!newPosition.startDate) {
-            toast.error('Vui lòng chọn ngày bắt đầu cho vị trí');
+            showError('Vui lòng chọn ngày bắt đầu cho vị trí');
             return;
         }
         if (!newPosition.endDate) {
-            toast.error('Vui lòng chọn ngày kết thúc cho vị trí');
+            showError('Vui lòng chọn ngày kết thúc cho vị trí');
             return;
         }
 
@@ -252,15 +255,15 @@ const Occupation = () => {
 
         // Validation
         if (!editPosition.title.trim()) {
-            toast.error('Vui lòng nhập tên vị trí');
+            showError('Vui lòng nhập tên vị trí');
             return;
         }
         if (!editPosition.startDate) {
-            toast.error('Vui lòng chọn ngày bắt đầu cho vị trí');
+            showError('Vui lòng chọn ngày bắt đầu cho vị trí');
             return;
         }
         if (!editPosition.endDate) {
-            toast.error('Vui lòng chọn ngày kết thúc cho vị trí');
+            showError('Vui lòng chọn ngày kết thúc cho vị trí');
             return;
         }
 
@@ -308,19 +311,19 @@ const Occupation = () => {
     const handleSaveNewWork = async () => {
         // Validation
         if (!newWork.companyName.trim()) {
-            toast.error('Vui lòng nhập tên công ty');
+            showError('Vui lòng nhập tên công ty');
             return;
         }
         if (!newWork.location.trim()) {
-            toast.error('Vui lòng nhập địa điểm');
+            showError('Vui lòng nhập địa điểm');
             return;
         }
         if (!newWork.startDate) {
-            toast.error('Vui lòng chọn ngày bắt đầu');
+            showError('Vui lòng chọn ngày bắt đầu');
             return;
         }
         if (!newWork.isCurrent && !newWork.endDate) {
-            toast.error('Vui lòng chọn ngày kết thúc hoặc chọn "Đang làm việc"');
+            showError('Vui lòng chọn ngày kết thúc hoặc chọn "Đang làm việc"');
             return;
         }
 
@@ -334,7 +337,7 @@ const Occupation = () => {
             toast.success('Thêm công việc thành công');
         } catch (error) {
             console.log(error);
-            toast.error('Không thể thêm công việc');
+            showError('Không thể thêm công việc');
         } finally {
             setIsAddingNewLoading(false);
         }
@@ -358,19 +361,19 @@ const Occupation = () => {
     const handleUpdateWork = async () => {
         // Validation
         if (!editWork.companyName.trim()) {
-            toast.error('Vui lòng nhập tên công ty');
+            showError('Vui lòng nhập tên công ty');
             return;
         }
         if (!editWork.location.trim()) {
-            toast.error('Vui lòng nhập địa điểm');
+            showError('Vui lòng nhập địa điểm');
             return;
         }
         if (!editWork.startDate) {
-            toast.error('Vui lòng chọn ngày bắt đầu');
+            showError('Vui lòng chọn ngày bắt đầu');
             return;
         }
         if (!editWork.isCurrent && !editWork.endDate) {
-            toast.error('Vui lòng chọn ngày kết thúc hoặc chọn "Đang làm việc"');
+            showError('Vui lòng chọn ngày kết thúc hoặc chọn "Đang làm việc"');
             return;
         }
 
@@ -391,7 +394,7 @@ const Occupation = () => {
             toast.success('Cập nhật công việc thành công');
         } catch (error) {
             console.log(error);
-            toast.error('Không thể cập nhật công việc');
+            showError('Không thể cập nhật công việc');
         } finally {
             setIsUpdateLoading(false);
         }
@@ -414,23 +417,23 @@ const Occupation = () => {
     const handleSaveNewEducation = async () => {
         // Validation
         if (!newEducation.institutionName.trim()) {
-            toast.error('Vui lòng nhập tên trường');
+            showError('Vui lòng nhập tên trường');
             return;
         }
         // if (!newEducation.major.trim()) {
-        //     toast.error('Vui lòng nhập chuyên ngành');
+        //     showError('Vui lòng nhập chuyên ngành');
         //     return;
         // }
         if (!newEducation.startDate) {
-            toast.error('Vui lòng chọn ngày bắt đầu');
+            showError('Vui lòng chọn ngày bắt đầu');
             return;
         }
         if (!newEducation.isCurrent && !newEducation.endDate) {
-            toast.error('Vui lòng chọn ngày kết thúc hoặc chọn "Đang học"');
+            showError('Vui lòng chọn ngày kết thúc hoặc chọn "Đang học"');
             return;
         }
         if (!newEducation.location.trim()) {
-            toast.error('Vui lòng nhập địa điểm');
+            showError('Vui lòng nhập địa điểm');
             return;
         }
 
@@ -442,7 +445,7 @@ const Occupation = () => {
             toast.success('Thêm học vấn thành công');
         } catch (error) {
             console.log(error);
-            toast.error('Không thể thêm học vấn');
+            showError('Không thể thêm học vấn');
         }
     };
 
@@ -463,23 +466,23 @@ const Occupation = () => {
     const handleUpdateEducation = async () => {
         // Validation
         if (!editEducation.institutionName.trim()) {
-            toast.error('Vui lòng nhập tên trường');
+            showError('Vui lòng nhập tên trường');
             return;
         }
         if (!editEducation.major.trim()) {
-            toast.error('Vui lòng nhập chuyên ngành');
+            showError('Vui lòng nhập chuyên ngành');
             return;
         }
         if (!editEducation.startDate) {
-            toast.error('Vui lòng chọn ngày bắt đầu');
+            showError('Vui lòng chọn ngày bắt đầu');
             return;
         }
         if (!editEducation.isCurrent && !editEducation.endDate) {
-            toast.error('Vui lòng chọn ngày kết thúc hoặc chọn "Đang học"');
+            showError('Vui lòng chọn ngày kết thúc hoặc chọn "Đang học"');
             return;
         }
         if (!editEducation.location.trim()) {
-            toast.error('Vui lòng nhập địa điểm');
+            showError('Vui lòng nhập địa điểm');
             return;
         }
 
@@ -494,7 +497,7 @@ const Occupation = () => {
             toast.success('Cập nhật học vấn thành công');
         } catch (error) {
             console.log(error);
-            toast.error('Không thể cập nhật học vấn');
+            showError('Không thể cập nhật học vấn');
         }
     };
 
@@ -517,7 +520,7 @@ const Occupation = () => {
             toast.success('Lưu thông tin thành công');
         } catch (error) {
             console.log(error);
-            toast.error('Không thể lưu thông tin');
+            showError('Không thể lưu thông tin');
         }
     };
 
@@ -540,7 +543,7 @@ const Occupation = () => {
             toast.success('Xóa công việc thành công');
         } catch (error) {
             console.log(error);
-            toast.error('Không thể xóa công việc');
+            showError('Không thể xóa công việc');
         } finally {
             setShowDeleteWorkConfirm(false);
             setDeleteWorkId(null);
@@ -566,7 +569,7 @@ const Occupation = () => {
             toast.success('Xóa học vấn thành công');
         } catch (error) {
             console.log(error);
-            toast.error('Không thể xóa học vấn');
+            showError('Không thể xóa học vấn');
         } finally {
             setShowDeleteConfirm(false);
             setDeleteEducationId(null);
@@ -737,760 +740,768 @@ const Occupation = () => {
     }
 
     return (
-        <div className="h-full bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 py-8">
-            <div className="mx-auto">
-                <div className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-3xl border border-gray-200 overflow-hidden">
-                    <div className="p-10">
-                        {/* Work Experience Section */}
-                        <div className="mb-12">
-                            <div className="flex justify-between items-center mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                                        <Briefcase size={24} className="text-white" />
+        <>
+            <div className="h-full bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 py-8">
+                <div className="mx-auto">
+                    <div className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-3xl border border-gray-200 overflow-hidden">
+                        <div className="p-10">
+                            {/* Work Experience Section */}
+                            <div className="mb-12">
+                                <div className="flex justify-between items-center mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                                            <Briefcase size={24} className="text-white" />
+                                        </div>
+                                        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                                            Công việc
+                                        </h2>
                                     </div>
-                                    <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                                        Công việc
-                                    </h2>
+                                    <button
+                                        onClick={addWorkExperience}
+                                        className="flex items-center gap-2 text-white font-semibold px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                                    >
+                                        <Plus size={20} />
+                                        THÊM CÔNG VIỆC
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={addWorkExperience}
-                                    className="flex items-center gap-2 text-white font-semibold px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
-                                >
-                                    <Plus size={20} />
-                                    THÊM CÔNG VIỆC
-                                </button>
-                            </div>
 
-                            {/* Gradient separator */}
-                            <div className="h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full mb-8"></div>
+                                {/* Gradient separator */}
+                                <div className="h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full mb-8"></div>
 
-                            <div className="space-y-6">
-                                {/* Add New Work Form */}
-                                {isAddingNewWork && (
-                                    <div className="relative overflow-hidden border-2 border-blue-300 rounded-2xl p-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-xl animate-fadeIn">
-                                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-200 to-indigo-200 rounded-full blur-3xl opacity-20 -mr-32 -mt-32"></div>
+                                <div className="space-y-6">
+                                    {/* Add New Work Form */}
+                                    {isAddingNewWork && (
+                                        <div className="relative overflow-hidden border-2 border-blue-300 rounded-2xl p-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-xl animate-fadeIn">
+                                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-200 to-indigo-200 rounded-full blur-3xl opacity-20 -mr-32 -mt-32"></div>
 
-                                        <h4 className="font-bold text-xl mb-6 text-gray-800 relative z-10 flex items-center gap-2">
-                                            <div className="w-1.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
-                                            Thêm công việc mới
-                                        </h4>
-                                        <div className="space-y-5 relative z-10">
-                                            <div>
-                                                <label className="block text-sm font-semibold mb-2 text-gray-800">
-                                                    Tên công ty <span className="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={newWork.companyName}
-                                                    onChange={(e) => handleWorkChange('companyName', e.target.value)}
-                                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
-                                                    placeholder="Nhập tên công ty"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-semibold mb-2 text-gray-800 flex items-center gap-2">
-                                                    <MapPin size={16} className="text-blue-500" />
-                                                    Địa điểm <span className="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={newWork.location}
-                                                    onChange={(e) => handleWorkChange('location', e.target.value)}
-                                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
-                                                    placeholder="Nhập địa điểm"
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-5">
-                                                <CustomDatePicker
-                                                    isEditing={isAddingNewWork}
-                                                    label='Ngày bắt đầu'
-                                                    value={newWork.startDate}
-                                                    onChange={(date) => handleWorkChange('startDate', date ? date : '')}
-                                                />
-                                                <CustomDatePicker
-                                                    label='Ngày kết thúc'
-                                                    isEditing={isAddingNewWork && !newWork.isCurrent}
-                                                    value={newWork.endDate}
-                                                    onChange={(date) => handleWorkChange('endDate', date ? date : '')}
-                                                />
-                                            </div>
-
-                                            <div className="flex items-center gap-3 p-4 bg-white rounded-xl border-2 border-gray-200">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={newWork.isCurrent}
-                                                    onChange={(e) => handleWorkChange('isCurrent', e.target.checked)}
-                                                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                                                />
-                                                <label className="text-sm font-medium text-gray-700 cursor-pointer">Đang làm việc</label>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-semibold mb-2 text-gray-800">Mô tả</label>
-                                                <textarea
-                                                    value={newWork.description}
-                                                    onChange={(e) => handleWorkChange('description', e.target.value)}
-                                                    className="w-full h-28 border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200 resize-none"
-                                                    placeholder="Nhập mô tả..."
-                                                />
-                                            </div>
-
-                                            {renderWorkPositionsSection(newWork)}
-
-                                            <div className="flex justify-end gap-4 pt-4">
-                                                <button
-                                                    onClick={handleCancelNewWork}
-                                                    className="px-6 py-3 font-medium border-2 border-gray-300 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 cursor-pointer"
-                                                >
-                                                    Hủy
-                                                </button>
-                                                <button
-                                                    onClick={handleSaveNewWork}
-                                                    disabled={isAddingNewLoading}
-                                                    className="px-6 py-3 font-medium bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    {isAddingNewLoading ? (
-                                                        <span className="flex items-center gap-2">
-                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                            Đang lưu...
-                                                        </span>
-                                                    ) : 'Lưu'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Existing Work Entries */}
-                                {workExperiences.map((work) => (
-                                    <div key={work.id} className="group relative overflow-hidden border-2 border-gray-200 rounded-2xl p-6 bg-white hover:border-blue-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
-                                        {/* Gradient overlay on hover */}
-                                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                                        <div className="relative z-10">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-3">
-                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
-                                                            <Briefcase size={20} className="text-white" />
-                                                        </div>
-                                                        <h3 className="font-bold text-xl text-gray-800">{work.companyName}</h3>
-                                                    </div>
-                                                    <div className="flex flex-col gap-2 ml-13">
-                                                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                            <MapPin size={14} className="text-blue-500" />
-                                                            <span>{work.location}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Calendar size={14} className="text-blue-500" />
-                                                            <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700">
-                                                                {formatDisplayDate(work.startDate)} - {work.isCurrent ? 'Hiện tại' : formatDisplayDate(work.endDate)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2 ml-4">
-                                                    <button
-                                                        onClick={() => handleEditWork(work.id)}
-                                                        className="p-3 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-xl transition-all duration-200 cursor-pointer"
-                                                        title="Chỉnh sửa"
-                                                    >
-                                                        <Edit2 size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteWork(work.id)}
-                                                        className="p-3 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-xl transition-all duration-200 cursor-pointer"
-                                                        title="Xóa"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {work.description && (
-                                                <p className="text-sm text-gray-700 leading-relaxed mb-4 pl-13 border-l-4 border-blue-200 ml-13">{work.description}</p>
-                                            )}
-
-                                            {work.positions && work.positions.length > 0 && (
-                                                <div className="mt-5 pl-13 ml-13 border-l-2 border-dashed border-blue-200">
-                                                    <h4 className="text-sm font-bold mb-3 text-gray-800 flex items-center gap-2">
-                                                        <div className="w-1 h-4 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
-                                                        Vị trí công việc:
-                                                    </h4>
-                                                    <div className="space-y-3">
-                                                        {work.positions.map((position) => (
-                                                            <div key={position.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
-                                                                <p className="font-semibold text-sm text-gray-800 mb-1">{position.title}</p>
-                                                                <p className="text-gray-600 text-xs mb-2 flex items-center gap-2">
-                                                                    <Calendar size={12} className="text-blue-500" />
-                                                                    {formatDisplayDate(position.startDate)} - {formatDisplayDate(position.endDate)}
-                                                                </p>
-                                                                {position.description && (
-                                                                    <p className="text-gray-700 text-sm mt-2 pl-3 border-l-2 border-blue-300">{position.description}</p>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Education Section */}
-                        <div>
-                            <div className="flex justify-between items-center mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-                                        <GraduationCap size={24} className="text-white" />
-                                    </div>
-                                    <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                                        Học vấn
-                                    </h2>
-                                </div>
-                                <button
-                                    onClick={addEducation}
-                                    className="flex items-center gap-2 text-white font-semibold px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
-                                >
-                                    <Plus size={20} />
-                                    THÊM HỌC VẤN
-                                </button>
-                            </div>
-
-                            {/* Gradient separator */}
-                            <div className="h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 rounded-full mb-8"></div>
-
-                            <div className="space-y-6">
-                                {/* Add New Education Form */}
-                                {isAddingNew && (
-                                    <div className="relative overflow-hidden border-2 border-purple-300 rounded-2xl p-6 bg-gradient-to-br from-purple-50 via-white to-pink-50 shadow-xl animate-fadeIn">
-                                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200 to-pink-200 rounded-full blur-3xl opacity-20 -mr-32 -mt-32"></div>
-
-                                        <h4 className="font-bold text-xl mb-6 text-gray-800 relative z-10 flex items-center gap-2">
-                                            <div className="w-1.5 h-6 bg-gradient-to-b from-purple-500 to-pink-600 rounded-full"></div>
-                                            Thêm học vấn mới
-                                        </h4>
-                                        <div className="space-y-5 relative z-10">
-                                            <div>
-                                                <label className="block text-sm font-semibold mb-2 text-gray-800">
-                                                    Tên trường <span className="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={newEducation.institutionName}
-                                                    onChange={(e) => handleEducationChange('institutionName', e.target.value)}
-                                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
-                                                    placeholder="Nhập tên trường"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-semibold mb-2 text-gray-800">
-                                                    Chuyên ngành
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={newEducation.major}
-                                                    onChange={(e) => handleEducationChange('major', e.target.value)}
-                                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
-                                                    placeholder="Nhập chuyên ngành"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-semibold mb-2 text-gray-800 flex items-center gap-2">
-                                                    <MapPin size={16} className="text-purple-500" />
-                                                    Địa điểm <span className="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={newEducation.location}
-                                                    onChange={(e) => handleEducationChange('location', e.target.value)}
-                                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
-                                                    placeholder="Nhập địa điểm"
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-5">
-                                                <CustomDatePicker
-                                                    isEditing={isAddingNew}
-                                                    label='Ngày bắt đầu'
-                                                    value={newEducation.startDate}
-                                                    onChange={(date) => handleEducationChange('startDate', date ? date : '')}
-                                                />
-                                                <CustomDatePicker
-                                                    label='Ngày kết thúc'
-                                                    isEditing={isAddingNew}
-                                                    value={newEducation.endDate}
-                                                    onChange={(date) => handleEducationChange('endDate', date ? date : '')}
-                                                />
-                                            </div>
-
-                                            <div className="flex items-center gap-3 p-4 bg-white rounded-xl border-2 border-gray-200">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={newEducation.isCurrent}
-                                                    onChange={(e) => handleEducationChange('isCurrent', e.target.checked)}
-                                                    className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer"
-                                                />
-                                                <label className="text-sm font-medium text-gray-700 cursor-pointer">Đang học</label>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-semibold mb-2 text-gray-800">Mô tả</label>
-                                                <textarea
-                                                    value={newEducation.description}
-                                                    onChange={(e) => handleEducationChange('description', e.target.value)}
-                                                    className="w-full h-28 border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 resize-none"
-                                                    placeholder="Nhập mô tả..."
-                                                />
-                                            </div>
-
-                                            <div className="flex justify-end gap-4 pt-4">
-                                                <button
-                                                    onClick={handleCancelNewEducation}
-                                                    className="px-6 py-3 font-medium border-2 border-gray-300 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 cursor-pointer"
-                                                >
-                                                    Hủy
-                                                </button>
-                                                <button
-                                                    onClick={handleSaveNewEducation}
-                                                    className="px-6 py-3 font-medium bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl hover:from-purple-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
-                                                >
-                                                    Lưu
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Existing Education Entries */}
-                                {educations.map((edu) => (
-                                    <div key={edu.id} className="group relative overflow-hidden border-2 border-gray-200 rounded-2xl p-6 bg-white hover:border-purple-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
-                                        {/* Gradient overlay on hover */}
-                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-pink-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                                        <div className="relative z-10">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-3">
-                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-md">
-                                                            <GraduationCap size={20} className="text-white" />
-                                                        </div>
-                                                        <h3 className="font-bold text-xl text-gray-800">{edu.institutionName}</h3>
-                                                    </div>
-                                                    <div className="flex flex-col gap-2 ml-13">
-                                                        <p className="text-sm font-medium text-gray-700">{edu.major}</p>
-                                                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                            <MapPin size={14} className="text-purple-500" />
-                                                            <span>{edu.location}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Calendar size={14} className="text-purple-500" />
-                                                            <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700">
-                                                                {formatDisplayDate(edu.startDate)} - {edu.isCurrent ? 'Hiện tại' : formatDisplayDate(edu.endDate)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2 ml-4">
-                                                    <button
-                                                        onClick={() => handleEditEducation(edu.id)}
-                                                        className="p-3 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded-xl transition-all duration-200 cursor-pointer"
-                                                        title="Chỉnh sửa"
-                                                    >
-                                                        <Edit2 size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteEducation(edu.id)}
-                                                        className="p-3 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-xl transition-all duration-200 cursor-pointer"
-                                                        title="Xóa"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {edu.description && (
-                                                <div className="mt-4 pl-13 ml-13">
-                                                    <label className="font-semibold text-sm mb-2 block text-gray-800 flex items-center gap-2">
-                                                        <div className="w-1 h-4 bg-gradient-to-b from-purple-500 to-pink-600 rounded-full"></div>
-                                                        Mô tả
+                                            <h4 className="font-bold text-xl mb-6 text-gray-800 relative z-10 flex items-center gap-2">
+                                                <div className="w-1.5 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
+                                                Thêm công việc mới
+                                            </h4>
+                                            <div className="space-y-5 relative z-10">
+                                                <div>
+                                                    <label className="block text-sm font-semibold mb-2 text-gray-800">
+                                                        Tên công ty <span className="text-red-500">*</span>
                                                     </label>
-                                                    <div className="border-2 border-purple-100 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gradient-to-r from-purple-50 to-pink-50">
-                                                        {edu.description}
+                                                    <input
+                                                        type="text"
+                                                        value={newWork.companyName}
+                                                        onChange={(e) => handleWorkChange('companyName', e.target.value)}
+                                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+                                                        placeholder="Nhập tên công ty"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold mb-2 text-gray-800 flex items-center gap-2">
+                                                        <MapPin size={16} className="text-blue-500" />
+                                                        Địa điểm <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={newWork.location}
+                                                        onChange={(e) => handleWorkChange('location', e.target.value)}
+                                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+                                                        placeholder="Nhập địa điểm"
+                                                    />
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-5">
+                                                    <CustomDatePicker
+                                                        isEditing={isAddingNewWork}
+                                                        label='Ngày bắt đầu'
+                                                        value={newWork.startDate}
+                                                        onChange={(date) => handleWorkChange('startDate', date ? date : '')}
+                                                    />
+                                                    <CustomDatePicker
+                                                        label='Ngày kết thúc'
+                                                        isEditing={isAddingNewWork && !newWork.isCurrent}
+                                                        value={newWork.endDate}
+                                                        onChange={(date) => handleWorkChange('endDate', date ? date : '')}
+                                                    />
+                                                </div>
+
+                                                <div className="flex items-center gap-3 p-4 bg-white rounded-xl border-2 border-gray-200">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newWork.isCurrent}
+                                                        onChange={(e) => handleWorkChange('isCurrent', e.target.checked)}
+                                                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                                    />
+                                                    <label className="text-sm font-medium text-gray-700 cursor-pointer">Đang làm việc</label>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold mb-2 text-gray-800">Mô tả</label>
+                                                    <textarea
+                                                        value={newWork.description}
+                                                        onChange={(e) => handleWorkChange('description', e.target.value)}
+                                                        className="w-full h-28 border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200 resize-none"
+                                                        placeholder="Nhập mô tả..."
+                                                    />
+                                                </div>
+
+                                                {renderWorkPositionsSection(newWork)}
+
+                                                <div className="flex justify-end gap-4 pt-4">
+                                                    <button
+                                                        onClick={handleCancelNewWork}
+                                                        className="px-6 py-3 font-medium border-2 border-gray-300 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 cursor-pointer"
+                                                    >
+                                                        Hủy
+                                                    </button>
+                                                    <button
+                                                        onClick={handleSaveNewWork}
+                                                        disabled={isAddingNewLoading}
+                                                        className="px-6 py-3 font-medium bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {isAddingNewLoading ? (
+                                                            <span className="flex items-center gap-2">
+                                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                                Đang lưu...
+                                                            </span>
+                                                        ) : 'Lưu'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Existing Work Entries */}
+                                    {workExperiences.map((work) => (
+                                        <div key={work.id} className="group relative overflow-hidden border-2 border-gray-200 rounded-2xl p-6 bg-white hover:border-blue-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+                                            {/* Gradient overlay on hover */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                                            <div className="relative z-10">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3 mb-3">
+                                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                                                                <Briefcase size={20} className="text-white" />
+                                                            </div>
+                                                            <h3 className="font-bold text-xl text-gray-800">{work.companyName}</h3>
+                                                        </div>
+                                                        <div className="flex flex-col gap-2 ml-13">
+                                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                                <MapPin size={14} className="text-blue-500" />
+                                                                <span>{work.location}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Calendar size={14} className="text-blue-500" />
+                                                                <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700">
+                                                                    {formatDisplayDate(work.startDate)} - {work.isCurrent ? 'Hiện tại' : formatDisplayDate(work.endDate)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2 ml-4">
+                                                        <button
+                                                            onClick={() => handleEditWork(work.id)}
+                                                            className="p-3 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-xl transition-all duration-200 cursor-pointer"
+                                                            title="Chỉnh sửa"
+                                                        >
+                                                            <Edit2 size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteWork(work.id)}
+                                                            className="p-3 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-xl transition-all duration-200 cursor-pointer"
+                                                            title="Xóa"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
                                                     </div>
                                                 </div>
-                                            )}
+
+                                                {work.description && (
+                                                    <p className="text-sm text-gray-700 leading-relaxed mb-4 pl-13 border-l-4 border-blue-200 ml-13">{work.description}</p>
+                                                )}
+
+                                                {work.positions && work.positions.length > 0 && (
+                                                    <div className="mt-5 pl-13 ml-13 border-l-2 border-dashed border-blue-200">
+                                                        <h4 className="text-sm font-bold mb-3 text-gray-800 flex items-center gap-2">
+                                                            <div className="w-1 h-4 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
+                                                            Vị trí công việc:
+                                                        </h4>
+                                                        <div className="space-y-3">
+                                                            {work.positions.map((position) => (
+                                                                <div key={position.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+                                                                    <p className="font-semibold text-sm text-gray-800 mb-1">{position.title}</p>
+                                                                    <p className="text-gray-600 text-xs mb-2 flex items-center gap-2">
+                                                                        <Calendar size={12} className="text-blue-500" />
+                                                                        {formatDisplayDate(position.startDate)} - {formatDisplayDate(position.endDate)}
+                                                                    </p>
+                                                                    {position.description && (
+                                                                        <p className="text-gray-700 text-sm mt-2 pl-3 border-l-2 border-blue-300">{position.description}</p>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Education Section */}
+                            <div>
+                                <div className="flex justify-between items-center mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
+                                            <GraduationCap size={24} className="text-white" />
+                                        </div>
+                                        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                                            Học vấn
+                                        </h2>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
+                                    <button
+                                        onClick={addEducation}
+                                        className="flex items-center gap-2 text-white font-semibold px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                                    >
+                                        <Plus size={20} />
+                                        THÊM HỌC VẤN
+                                    </button>
+                                </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex justify-end gap-4 mt-10 pt-6 border-t-2 border-gray-200">
-                            <button
-                                onClick={handleCancel}
-                                disabled={!hasActiveEditing() && !hasChanges()}
-                                className={`px-8 py-3 font-semibold border-2 border-gray-300 rounded-xl transition-all duration-200 ${hasActiveEditing() || hasChanges()
-                                    ? 'hover:bg-white hover:shadow-lg cursor-pointer'
-                                    : 'opacity-50 cursor-not-allowed'
-                                    }`}
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={!hasChanges()}
-                                className={`px-8 py-3 font-semibold rounded-xl text-white transition-all duration-200 ${hasChanges()
-                                    ? 'bg-gradient-to-r from-gray-800 to-black hover:from-gray-900 hover:to-gray-800 hover:shadow-xl hover:-translate-y-1 cursor-pointer'
-                                    : 'bg-gray-400 cursor-not-allowed'
-                                    }`}
-                            >
-                                Lưu
-                            </button>
+                                {/* Gradient separator */}
+                                <div className="h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 rounded-full mb-8"></div>
+
+                                <div className="space-y-6">
+                                    {/* Add New Education Form */}
+                                    {isAddingNew && (
+                                        <div className="relative overflow-hidden border-2 border-purple-300 rounded-2xl p-6 bg-gradient-to-br from-purple-50 via-white to-pink-50 shadow-xl animate-fadeIn">
+                                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200 to-pink-200 rounded-full blur-3xl opacity-20 -mr-32 -mt-32"></div>
+
+                                            <h4 className="font-bold text-xl mb-6 text-gray-800 relative z-10 flex items-center gap-2">
+                                                <div className="w-1.5 h-6 bg-gradient-to-b from-purple-500 to-pink-600 rounded-full"></div>
+                                                Thêm học vấn mới
+                                            </h4>
+                                            <div className="space-y-5 relative z-10">
+                                                <div>
+                                                    <label className="block text-sm font-semibold mb-2 text-gray-800">
+                                                        Tên trường <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={newEducation.institutionName}
+                                                        onChange={(e) => handleEducationChange('institutionName', e.target.value)}
+                                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
+                                                        placeholder="Nhập tên trường"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold mb-2 text-gray-800">
+                                                        Chuyên ngành
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={newEducation.major}
+                                                        onChange={(e) => handleEducationChange('major', e.target.value)}
+                                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
+                                                        placeholder="Nhập chuyên ngành"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold mb-2 text-gray-800 flex items-center gap-2">
+                                                        <MapPin size={16} className="text-purple-500" />
+                                                        Địa điểm <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={newEducation.location}
+                                                        onChange={(e) => handleEducationChange('location', e.target.value)}
+                                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
+                                                        placeholder="Nhập địa điểm"
+                                                    />
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-5">
+                                                    <CustomDatePicker
+                                                        isEditing={isAddingNew}
+                                                        label='Ngày bắt đầu'
+                                                        value={newEducation.startDate}
+                                                        onChange={(date) => handleEducationChange('startDate', date ? date : '')}
+                                                    />
+                                                    <CustomDatePicker
+                                                        label='Ngày kết thúc'
+                                                        isEditing={isAddingNew}
+                                                        value={newEducation.endDate}
+                                                        onChange={(date) => handleEducationChange('endDate', date ? date : '')}
+                                                    />
+                                                </div>
+
+                                                <div className="flex items-center gap-3 p-4 bg-white rounded-xl border-2 border-gray-200">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newEducation.isCurrent}
+                                                        onChange={(e) => handleEducationChange('isCurrent', e.target.checked)}
+                                                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                                                    />
+                                                    <label className="text-sm font-medium text-gray-700 cursor-pointer">Đang học</label>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold mb-2 text-gray-800">Mô tả</label>
+                                                    <textarea
+                                                        value={newEducation.description}
+                                                        onChange={(e) => handleEducationChange('description', e.target.value)}
+                                                        className="w-full h-28 border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 resize-none"
+                                                        placeholder="Nhập mô tả..."
+                                                    />
+                                                </div>
+
+                                                <div className="flex justify-end gap-4 pt-4">
+                                                    <button
+                                                        onClick={handleCancelNewEducation}
+                                                        className="px-6 py-3 font-medium border-2 border-gray-300 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 cursor-pointer"
+                                                    >
+                                                        Hủy
+                                                    </button>
+                                                    <button
+                                                        onClick={handleSaveNewEducation}
+                                                        className="px-6 py-3 font-medium bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl hover:from-purple-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
+                                                    >
+                                                        Lưu
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Existing Education Entries */}
+                                    {educations.map((edu) => (
+                                        <div key={edu.id} className="group relative overflow-hidden border-2 border-gray-200 rounded-2xl p-6 bg-white hover:border-purple-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+                                            {/* Gradient overlay on hover */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-pink-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                                            <div className="relative z-10">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3 mb-3">
+                                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-md">
+                                                                <GraduationCap size={20} className="text-white" />
+                                                            </div>
+                                                            <h3 className="font-bold text-xl text-gray-800">{edu.institutionName}</h3>
+                                                        </div>
+                                                        <div className="flex flex-col gap-2 ml-13">
+                                                            <p className="text-sm font-medium text-gray-700">{edu.major}</p>
+                                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                                <MapPin size={14} className="text-purple-500" />
+                                                                <span>{edu.location}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Calendar size={14} className="text-purple-500" />
+                                                                <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700">
+                                                                    {formatDisplayDate(edu.startDate)} - {edu.isCurrent ? 'Hiện tại' : formatDisplayDate(edu.endDate)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2 ml-4">
+                                                        <button
+                                                            onClick={() => handleEditEducation(edu.id)}
+                                                            className="p-3 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded-xl transition-all duration-200 cursor-pointer"
+                                                            title="Chỉnh sửa"
+                                                        >
+                                                            <Edit2 size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteEducation(edu.id)}
+                                                            className="p-3 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-xl transition-all duration-200 cursor-pointer"
+                                                            title="Xóa"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {edu.description && (
+                                                    <div className="mt-4 pl-13 ml-13">
+                                                        <label className="font-semibold text-sm mb-2 block text-gray-800 flex items-center gap-2">
+                                                            <div className="w-1 h-4 bg-gradient-to-b from-purple-500 to-pink-600 rounded-full"></div>
+                                                            Mô tả
+                                                        </label>
+                                                        <div className="border-2 border-purple-100 rounded-xl px-4 py-3 text-sm text-gray-700 bg-gradient-to-r from-purple-50 to-pink-50">
+                                                            {edu.description}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex justify-end gap-4 mt-10 pt-6 border-t-2 border-gray-200">
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={!hasActiveEditing() && !hasChanges()}
+                                    className={`px-8 py-3 font-semibold border-2 border-gray-300 rounded-xl transition-all duration-200 ${hasActiveEditing() || hasChanges()
+                                        ? 'hover:bg-white hover:shadow-lg cursor-pointer'
+                                        : 'opacity-50 cursor-not-allowed'
+                                        }`}
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={!hasChanges()}
+                                    className={`px-8 py-3 font-semibold rounded-xl text-white transition-all duration-200 ${hasChanges()
+                                        ? 'bg-gradient-to-r from-gray-800 to-black hover:from-gray-900 hover:to-gray-800 hover:shadow-xl hover:-translate-y-1 cursor-pointer'
+                                        : 'bg-gray-400 cursor-not-allowed'
+                                        }`}
+                                >
+                                    Lưu
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                {/* Edit Work Modal */}
+                {showEditWorkModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                        <div className="bg-white rounded-3xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-gray-200 animate-scaleIn">
+                            <h3 className="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                                    <Edit2 size={20} className="text-white" />
+                                </div>
+                                Chỉnh sửa công việc
+                            </h3>
+
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-gray-800">
+                                        Tên công ty <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editWork.companyName}
+                                        onChange={(e) => handleWorkChange('companyName', e.target.value)}
+                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+                                        placeholder="Nhập tên công ty"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-gray-800 flex items-center gap-2">
+                                        <MapPin size={16} className="text-blue-500" />
+                                        Địa điểm <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editWork.location}
+                                        onChange={(e) => handleWorkChange('location', e.target.value)}
+                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+                                        placeholder="Nhập địa điểm"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-5">
+                                    <CustomDatePicker
+                                        isEditing={showEditWorkModal}
+                                        label='Ngày bắt đầu'
+                                        value={editWork.startDate}
+                                        onChange={(date) => handleWorkChange('startDate', date ? date : '')}
+                                    />
+                                    <CustomDatePicker
+                                        label='Ngày kết thúc'
+                                        isEditing={showEditWorkModal && !editWork.isCurrent}
+                                        value={editWork.endDate}
+                                        onChange={(date) => handleWorkChange('endDate', date ? date : '')}
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
+                                    <input
+                                        type="checkbox"
+                                        checked={editWork.isCurrent}
+                                        onChange={(e) => handleWorkChange('isCurrent', e.target.checked)}
+                                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                    />
+                                    <label className="text-sm font-medium text-gray-700 cursor-pointer">Đang làm việc</label>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-gray-800">Mô tả</label>
+                                    <textarea
+                                        value={editWork.description}
+                                        onChange={(e) => handleWorkChange('description', e.target.value)}
+                                        className="w-full h-28 border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200 resize-none"
+                                        placeholder="Nhập mô tả..."
+                                    />
+                                </div>
+
+                                {renderWorkPositionsSection(editWork)}
+                            </div>
+
+                            <div className="flex justify-end gap-4 mt-8 pt-6 border-t-2 border-gray-200">
+                                <button
+                                    onClick={() => {
+                                        setShowEditWorkModal(false);
+                                        resetPositionForm();
+                                        setEditPosition(null);
+                                        setEditingPositionIndex(null);
+                                    }}
+                                    className="px-8 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleUpdateWork}
+                                    disabled={isUpdateLoading}
+                                    className="px-8 py-3 font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isUpdateLoading ? (
+                                        <span className="flex items-center gap-2">
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Đang cập nhật...
+                                        </span>
+                                    ) : 'Cập nhật'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Work Confirmation Modal */}
+                {showDeleteWorkConfirm && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                        <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
+                            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-500 to-pink-600">
+                                <Trash2 size={28} className="text-white" />
+                            </div>
+                            <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Xác nhận xóa</h3>
+                            <p className="text-gray-600 mb-6 text-center leading-relaxed">
+                                Bạn có chắc chắn muốn xóa công việc này không? Tất cả các vị trí công việc liên quan cũng sẽ bị xóa.
+                            </p>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setShowDeleteWorkConfirm(false)}
+                                    className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={confirmDeleteWork}
+                                    className="px-6 py-3 font-semibold bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
+                                >
+                                    Xóa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Position Confirmation Modal */}
+                {showDeletePositionConfirm && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                        <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
+                            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-500 to-pink-600">
+                                <Trash2 size={28} className="text-white" />
+                            </div>
+                            <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Xác nhận xóa</h3>
+                            <p className="text-gray-600 mb-6 text-center leading-relaxed">
+                                Bạn có chắc chắn muốn xóa vị trí công việc này không?
+                            </p>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowDeletePositionConfirm(false);
+                                        setDeletePositionIndex(null);
+                                    }}
+                                    className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={confirmDeletePosition}
+                                    className="px-6 py-3 font-semibold bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
+                                >
+                                    Xóa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Education Modal */}
+                {showEditEducationModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                        <div className="bg-white rounded-3xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-gray-200 animate-scaleIn">
+                            <h3 className="text-2xl font-bold mb-6 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                                    <Edit2 size={20} className="text-white" />
+                                </div>
+                                Chỉnh sửa học vấn
+                            </h3>
+
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-gray-800">
+                                        Tên trường <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editEducation.institutionName}
+                                        onChange={(e) => handleEducationChange('institutionName', e.target.value)}
+                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
+                                        placeholder="Nhập tên trường"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-gray-800">
+                                        Chuyên ngành
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editEducation.major}
+                                        onChange={(e) => handleEducationChange('major', e.target.value)}
+                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
+                                        placeholder="Nhập chuyên ngành"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-gray-800 flex items-center gap-2">
+                                        <MapPin size={16} className="text-purple-500" />
+                                        Địa điểm <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editEducation.location}
+                                        onChange={(e) => handleEducationChange('location', e.target.value)}
+                                        className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
+                                        placeholder="Nhập địa điểm"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-5">
+                                    <CustomDatePicker
+                                        isEditing={showEditEducationModal}
+                                        label='Ngày bắt đầu'
+                                        value={editEducation.startDate}
+                                        onChange={(date) => handleEducationChange('startDate', date ? date : '')}
+                                    />
+                                    <CustomDatePicker
+                                        label='Ngày kết thúc'
+                                        isEditing={showEditEducationModal}
+                                        value={editEducation.endDate}
+                                        onChange={(date) => handleEducationChange('endDate', date ? date : '')}
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border-2 border-purple-200">
+                                    <input
+                                        type="checkbox"
+                                        checked={editEducation.isCurrent}
+                                        onChange={(e) => handleEducationChange('isCurrent', e.target.checked)}
+                                        className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                                    />
+                                    <label className="text-sm font-medium text-gray-700 cursor-pointer">Đang học</label>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-gray-800">Mô tả</label>
+                                    <textarea
+                                        value={editEducation.description}
+                                        onChange={(e) => handleEducationChange('description', e.target.value)}
+                                        className="w-full h-28 border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 resize-none"
+                                        placeholder="Nhập mô tả..."
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-4 mt-8 pt-6 border-t-2 border-gray-200">
+                                <button
+                                    onClick={() => setShowEditEducationModal(false)}
+                                    className="px-8 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleUpdateEducation}
+                                    className="px-8 py-3 font-semibold bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl hover:from-purple-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
+                                >
+                                    Cập nhật
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Education Confirmation Modal */}
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                        <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
+                            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-500 to-pink-600">
+                                <Trash2 size={28} className="text-white" />
+                            </div>
+                            <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Xác nhận xóa</h3>
+                            <p className="text-gray-600 mb-6 text-center leading-relaxed">
+                                Bạn có chắc chắn muốn xóa học vấn này không?
+                            </p>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={confirmDeleteEducation}
+                                    className="px-6 py-3 font-semibold bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
+                                >
+                                    Xóa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <style>{`
+                    @keyframes fadeIn {
+                        from {
+                            opacity: 0;
+                        }
+                        to {
+                            opacity: 1;
+                        }
+                    }
+                    
+                    @keyframes scaleIn {
+                        from {
+                            opacity: 0;
+                            transform: scale(0.95);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: scale(1);
+                        }
+                    }
+                    
+                    .animate-fadeIn {
+                        animation: fadeIn 0.3s ease-out;
+                    }
+                    
+                    .animate-scaleIn {
+                        animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    }
+                `}</style>
             </div>
-
-            {/* Edit Work Modal */}
-            {showEditWorkModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-                    <div className="bg-white rounded-3xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-gray-200 animate-scaleIn">
-                        <h3 className="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                                <Edit2 size={20} className="text-white" />
-                            </div>
-                            Chỉnh sửa công việc
-                        </h3>
-
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-semibold mb-2 text-gray-800">
-                                    Tên công ty <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={editWork.companyName}
-                                    onChange={(e) => handleWorkChange('companyName', e.target.value)}
-                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
-                                    placeholder="Nhập tên công ty"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold mb-2 text-gray-800 flex items-center gap-2">
-                                    <MapPin size={16} className="text-blue-500" />
-                                    Địa điểm <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={editWork.location}
-                                    onChange={(e) => handleWorkChange('location', e.target.value)}
-                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
-                                    placeholder="Nhập địa điểm"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-5">
-                                <CustomDatePicker
-                                    isEditing={showEditWorkModal}
-                                    label='Ngày bắt đầu'
-                                    value={editWork.startDate}
-                                    onChange={(date) => handleWorkChange('startDate', date ? date : '')}
-                                />
-                                <CustomDatePicker
-                                    label='Ngày kết thúc'
-                                    isEditing={showEditWorkModal && !editWork.isCurrent}
-                                    value={editWork.endDate}
-                                    onChange={(date) => handleWorkChange('endDate', date ? date : '')}
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
-                                <input
-                                    type="checkbox"
-                                    checked={editWork.isCurrent}
-                                    onChange={(e) => handleWorkChange('isCurrent', e.target.checked)}
-                                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                                />
-                                <label className="text-sm font-medium text-gray-700 cursor-pointer">Đang làm việc</label>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold mb-2 text-gray-800">Mô tả</label>
-                                <textarea
-                                    value={editWork.description}
-                                    onChange={(e) => handleWorkChange('description', e.target.value)}
-                                    className="w-full h-28 border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200 resize-none"
-                                    placeholder="Nhập mô tả..."
-                                />
-                            </div>
-
-                            {renderWorkPositionsSection(editWork)}
-                        </div>
-
-                        <div className="flex justify-end gap-4 mt-8 pt-6 border-t-2 border-gray-200">
-                            <button
-                                onClick={() => {
-                                    setShowEditWorkModal(false);
-                                    resetPositionForm();
-                                    setEditPosition(null);
-                                    setEditingPositionIndex(null);
-                                }}
-                                className="px-8 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleUpdateWork}
-                                disabled={isUpdateLoading}
-                                className="px-8 py-3 font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isUpdateLoading ? (
-                                    <span className="flex items-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                        Đang cập nhật...
-                                    </span>
-                                ) : 'Cập nhật'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Work Confirmation Modal */}
-            {showDeleteWorkConfirm && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-                    <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
-                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-500 to-pink-600">
-                            <Trash2 size={28} className="text-white" />
-                        </div>
-                        <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Xác nhận xóa</h3>
-                        <p className="text-gray-600 mb-6 text-center leading-relaxed">
-                            Bạn có chắc chắn muốn xóa công việc này không? Tất cả các vị trí công việc liên quan cũng sẽ bị xóa.
-                        </p>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setShowDeleteWorkConfirm(false)}
-                                className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={confirmDeleteWork}
-                                className="px-6 py-3 font-semibold bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
-                            >
-                                Xóa
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Position Confirmation Modal */}
-            {showDeletePositionConfirm && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-                    <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
-                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-500 to-pink-600">
-                            <Trash2 size={28} className="text-white" />
-                        </div>
-                        <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Xác nhận xóa</h3>
-                        <p className="text-gray-600 mb-6 text-center leading-relaxed">
-                            Bạn có chắc chắn muốn xóa vị trí công việc này không?
-                        </p>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => {
-                                    setShowDeletePositionConfirm(false);
-                                    setDeletePositionIndex(null);
-                                }}
-                                className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={confirmDeletePosition}
-                                className="px-6 py-3 font-semibold bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
-                            >
-                                Xóa
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit Education Modal */}
-            {showEditEducationModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-                    <div className="bg-white rounded-3xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-gray-200 animate-scaleIn">
-                        <h3 className="text-2xl font-bold mb-6 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                                <Edit2 size={20} className="text-white" />
-                            </div>
-                            Chỉnh sửa học vấn
-                        </h3>
-
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-semibold mb-2 text-gray-800">
-                                    Tên trường <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={editEducation.institutionName}
-                                    onChange={(e) => handleEducationChange('institutionName', e.target.value)}
-                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
-                                    placeholder="Nhập tên trường"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold mb-2 text-gray-800">
-                                    Chuyên ngành
-                                </label>
-                                <input
-                                    type="text"
-                                    value={editEducation.major}
-                                    onChange={(e) => handleEducationChange('major', e.target.value)}
-                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
-                                    placeholder="Nhập chuyên ngành"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold mb-2 text-gray-800 flex items-center gap-2">
-                                    <MapPin size={16} className="text-purple-500" />
-                                    Địa điểm <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={editEducation.location}
-                                    onChange={(e) => handleEducationChange('location', e.target.value)}
-                                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200"
-                                    placeholder="Nhập địa điểm"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-5">
-                                <CustomDatePicker
-                                    isEditing={showEditEducationModal}
-                                    label='Ngày bắt đầu'
-                                    value={editEducation.startDate}
-                                    onChange={(date) => handleEducationChange('startDate', date ? date : '')}
-                                />
-                                <CustomDatePicker
-                                    label='Ngày kết thúc'
-                                    isEditing={showEditEducationModal}
-                                    value={editEducation.endDate}
-                                    onChange={(date) => handleEducationChange('endDate', date ? date : '')}
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border-2 border-purple-200">
-                                <input
-                                    type="checkbox"
-                                    checked={editEducation.isCurrent}
-                                    onChange={(e) => handleEducationChange('isCurrent', e.target.checked)}
-                                    className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer"
-                                />
-                                <label className="text-sm font-medium text-gray-700 cursor-pointer">Đang học</label>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold mb-2 text-gray-800">Mô tả</label>
-                                <textarea
-                                    value={editEducation.description}
-                                    onChange={(e) => handleEducationChange('description', e.target.value)}
-                                    className="w-full h-28 border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 resize-none"
-                                    placeholder="Nhập mô tả..."
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-4 mt-8 pt-6 border-t-2 border-gray-200">
-                            <button
-                                onClick={() => setShowEditEducationModal(false)}
-                                className="px-8 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleUpdateEducation}
-                                className="px-8 py-3 font-semibold bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl hover:from-purple-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
-                            >
-                                Cập nhật
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Education Confirmation Modal */}
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-                    <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
-                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-500 to-pink-600">
-                            <Trash2 size={28} className="text-white" />
-                        </div>
-                        <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Xác nhận xóa</h3>
-                        <p className="text-gray-600 mb-6 text-center leading-relaxed">
-                            Bạn có chắc chắn muốn xóa học vấn này không?
-                        </p>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setShowDeleteConfirm(false)}
-                                className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={confirmDeleteEducation}
-                                className="px-6 py-3 font-semibold bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer"
-                            >
-                                Xóa
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <style>{`
-                @keyframes fadeIn {
-                    from {
-                        opacity: 0;
-                    }
-                    to {
-                        opacity: 1;
-                    }
-                }
-                
-                @keyframes scaleIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.95);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-                
-                .animate-fadeIn {
-                    animation: fadeIn 0.3s ease-out;
-                }
-                
-                .animate-scaleIn {
-                    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-                }
-            `}</style>
-        </div>
+            <ExceptionPopup
+                isOpen={errorPopup.isOpen}
+                message={errorPopup.message}
+                timestamp={errorPopup.timestamp}
+                onClose={closeError}
+            />
+        </>
     );
 };
 

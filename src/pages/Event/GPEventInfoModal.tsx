@@ -12,6 +12,8 @@ import { useParams } from "react-router-dom";
 import { useGPMember } from '@/hooks/useGPMember';
 import { getUserIdFromToken } from '@/utils/jwtUtils';
 import { useAppSelector } from '@/hooks/redux';
+import { usePermissions } from '@/hooks/usePermissions';
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
 
 // API Base URL for images
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
@@ -56,19 +58,35 @@ const GPEventInfoModal = ({
     isAllDay,
   } = defaultValues;
 
+
   // Use name or title (title is used by holiday events)
   const eventName = name || title || 'Sự kiện';
 
   // IMPORTANT: All hooks must be called before any early returns
   const { id: familyTreeId } = useParams();
+
+  // Get family tree ID from the event (use first gpId if available, otherwise use URL param)
+  // This must be calculated BEFORE hooks that need it
+  const eventFamilyTreeId = defaultValues?.gpIds?.[0] || familyTreeId;
+
   const { token, user } = useAppSelector(state => state.auth);
   const currentUserId = getUserIdFromToken(token || '') || user?.userId;
-  const { gpMemberId } = useGPMember(familyTreeId || null, currentUserId || null);
+
+  // Use eventFamilyTreeId instead of familyTreeId to get the correct member ID
+  const { gpMemberId } = useGPMember(eventFamilyTreeId || null, currentUserId || null);
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [errorPopup, setErrorPopup] = useState<{ isOpen: boolean; message: string; timestamp: Date }>({
+    isOpen: false,
+    message: '',
+    timestamp: new Date()
+  });
 
+  // Load permissions for the family tree this event belongs to
+  const permissions = usePermissions(eventFamilyTreeId);
+  const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   // Early return AFTER all hooks
   if (!isOpenModal) return null;
 
@@ -91,7 +109,11 @@ const GPEventInfoModal = ({
 
   const handleDelete = async () => {
     if (!id) {
-      toast.error('Không tìm thấy ID sự kiện');
+      setErrorPopup({
+        isOpen: true,
+        message: 'Không tìm thấy ID sự kiện',
+        timestamp: new Date()
+      });
       return;
     }
 
@@ -99,7 +121,7 @@ const GPEventInfoModal = ({
 
     setIsDeleting(true);
     try {
-      const response = await eventService.deleteEventById(id);
+      const response = await eventService.deleteEventById(selectedFamilyTree.id, id);
 
       if (response?.data || response?.data?.data) {
         toast.success('Xóa sự kiện thành công!');
@@ -115,7 +137,11 @@ const GPEventInfoModal = ({
       }
     } catch (error: any) {
       console.error('Error deleting event:', error);
-      toast.error(error?.response?.data?.message || 'Xóa sự kiện thất bại. Vui lòng thử lại!');
+      setErrorPopup({
+        isOpen: true,
+        message: error?.response?.data?.message || 'Xóa sự kiện thất bại. Vui lòng thử lại!',
+        timestamp: new Date()
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -233,17 +259,27 @@ const GPEventInfoModal = ({
 
   const handleShareEvent = () => {
     console.log('Event share button clicked!'); // Debug log
-    console.log('familyTreeId:', familyTreeId);
+    console.log('familyTreeId (from URL):', familyTreeId);
+    console.log('eventFamilyTreeId (from event or URL):', eventFamilyTreeId);
+    console.log('currentUserId:', currentUserId);
     console.log('gpMemberId:', gpMemberId);
     console.log('formatEventForPost():', formatEventForPost());
 
-    if (!familyTreeId) {
-      toast.error('Không tìm thấy thông tin gia tộc. Vui lòng thử lại!');
+    if (!eventFamilyTreeId) {
+      setErrorPopup({
+        isOpen: true,
+        message: 'Không tìm thấy thông tin gia tộc. Vui lòng thử lại!',
+        timestamp: new Date()
+      });
       return;
     }
 
     if (!gpMemberId) {
-      toast.error('Không thể xác định thành viên. Vui lòng thử lại!');
+      setErrorPopup({
+        isOpen: true,
+        message: 'Không thể xác định thành viên. Vui lòng thử lại!',
+        timestamp: new Date()
+      });
       return;
     }
 
@@ -431,52 +467,58 @@ const GPEventInfoModal = ({
                 <span>Thêm vào Google Calendar</span>
               </button>
 
-              {recurrence === "ONCE" ? (
-                <button
-                  onClick={handleDelete}
-                  disabled={isDeleting || isEditing}
-                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Đang xóa...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      <span>Xóa</span>
-                    </>
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={handleDelete}
-                  disabled={isDeleting || isEditing}
-                  className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Đang xóa...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      <ChevronDown className="w-4 h-4" />
-                      <span>Xóa</span>
-                    </>
-                  )}
-                </button>
+              {/* Delete button - only show if user has EVENT.DELETE permission */}
+              {permissions.canDelete('EVENT') && (
+                recurrence === "ONCE" ? (
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting || isEditing}
+                    className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Đang xóa...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>Xóa</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting || isEditing}
+                    className="px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Đang xóa...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <ChevronDown className="w-4 h-4" />
+                        <span>Xóa</span>
+                      </>
+                    )}
+                  </button>
+                )
               )}
 
-              <button
-                onClick={handelOnUpdate}
-                disabled={isDeleting || isEditing}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Chỉnh sửa
-              </button>
+              {/* Edit button - only show if user has EVENT.UPDATE permission */}
+              {permissions.canUpdate('EVENT') && (
+                <button
+                  onClick={handelOnUpdate}
+                  disabled={isDeleting || isEditing}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Chỉnh sửa
+                </button>
+              )}
 
               {/* Share to Post Button */}
               <button
@@ -493,11 +535,11 @@ const GPEventInfoModal = ({
       </div>
 
       {/* Share to Post Modal */}
-      {isShareModalOpen && familyTreeId && gpMemberId && formatEventForPost() && (
+      {isShareModalOpen && eventFamilyTreeId && gpMemberId && formatEventForPost() && (
         <ShareToPostModal
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
-          familyTreeId={familyTreeId}
+          familyTreeId={eventFamilyTreeId}
           gpMemberId={gpMemberId}
           shareableItem={formatEventForPost()!}
           onShareSuccess={() => {
@@ -505,6 +547,14 @@ const GPEventInfoModal = ({
           }}
         />
       )}
+
+      {/* Exception Popup */}
+      <ExceptionPopup
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        timestamp={errorPopup.timestamp}
+        onClose={() => setErrorPopup({ isOpen: false, message: '', timestamp: new Date() })}
+      />
     </div>
   );
 };

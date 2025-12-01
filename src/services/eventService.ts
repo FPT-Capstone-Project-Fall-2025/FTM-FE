@@ -254,9 +254,14 @@ class EventService {
   /**
    * Delete an event by ID
    */
-  async deleteEventById(eventId: string): Promise<ApiResponse<boolean>> {
+  async deleteEventById(ftId: string, eventId: string): Promise<ApiResponse<boolean>> {
     const response = await apiService.delete<ApiResponse<boolean>>(
-      `/ftfamilyevent/${eventId}`
+      `/ftfamilyevent/${eventId}`,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        }
+      }
     );
     return response;
   }

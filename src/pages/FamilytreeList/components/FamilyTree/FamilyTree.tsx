@@ -34,6 +34,8 @@ import MemberDetailPage from '../../FamilyMemberDetail';
 import FamilyTreeInviteModal from './InviteMember';
 import { usePermissions } from '@/hooks/usePermissions';
 import NoPermission from '@/components/shared/NoPermission';
+import { useErrorPopup } from '@/hooks/useErrorPopup';
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -87,6 +89,7 @@ const FamilyTreeContent = () => {
   const [nodes, setLocalNodes, onNodesChange] = useNodesState(reduxNodes);
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
   const permissions = usePermissions();
+  const { errorPopup, showError, closeError } = useErrorPopup();
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {
@@ -163,16 +166,16 @@ const FamilyTreeContent = () => {
 
   const handleAddNewNode = useCallback(async (formData: AddingNodeProps) => {
     try {
-      const response = await familyTreeService.createFamilyNode({
+      await familyTreeService.createFamilyNode({
         ...formData,
         ftId: selectedFamilyTree?.id || "",
       });
-      toast.success(response.message)
+      toast.success('Thêm thành viên thành công!');
       // Re-fetch the family tree to sync with the new node
       dispatch(fetchFamilyTree(selectedFamilyTree!.id));
     } catch (error: any) {
       console.error("Error adding new node:", error);
-      toast.error(error?.response?.data?.message)
+      showError(error?.response?.data?.message)
     } finally {
       setIsAddingNewNode(false);
       setSelectedParent(null);
@@ -185,8 +188,8 @@ const FamilyTreeContent = () => {
 
     setIsDeletingNode(true);
     try {
-      const response = await familyTreeService.deleteFamilyNode(selectedFamilyTree.id, memberToDelete.id);
-      toast.success(response.message)
+      await familyTreeService.deleteFamilyNode(selectedFamilyTree.id, memberToDelete.id);
+      toast.success('Xóa thành viên thành công!');
       // Close the detail panel if the deleted member was selected
       if (selectedMemberId === memberToDelete.id) {
         dispatch(setSelectedMember(null));
@@ -201,7 +204,7 @@ const FamilyTreeContent = () => {
       setMemberToDelete(null);
     } catch (error: any) {
       console.error("Error deleting node:", error);
-      toast.error(error?.response?.data?.Message);
+      showError(error?.response?.data?.Message);
     } finally {
       setIsDeletingNode(false);
     }
@@ -238,7 +241,7 @@ const FamilyTreeContent = () => {
         // setExistingRelationships(mappedRelationships);
       }
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Không thể lấy dữ liệu mối quan hệ");
+      showError(error?.response?.data?.message || "Không thể lấy dữ liệu mối quan hệ");
     } finally {
       setIsLoadingRelationships(false);
     }
@@ -298,6 +301,15 @@ const FamilyTreeContent = () => {
     z-index: 50;
   }
 `;
+
+  // Show loading state while permissions are being fetched
+  if (permissions.isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   if (!permissions.canView('MEMBER')) {
     return <NoPermission />;
@@ -420,6 +432,12 @@ const FamilyTreeContent = () => {
           )}
         </div>
       </div>
+      <ExceptionPopup
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        timestamp={errorPopup.timestamp}
+        onClose={closeError}
+      />
     </>
   );
 };
