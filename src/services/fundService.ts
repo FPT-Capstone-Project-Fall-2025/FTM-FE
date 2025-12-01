@@ -504,7 +504,7 @@ export const fundService = {
   },
 
   async fetchPendingFundExpenses(treeId: string): Promise<FundExpense[]> {
-    const result = await api.get<ApiResponse<FundExpense[]>>(`/fund-expenses/pending`, {
+    const result = await api.get<ApiResponse<{ expenses: FundExpense[] }>>(`/fund-expenses/pending`, {
       params: {
         treeId,
       },
@@ -512,7 +512,12 @@ export const fundService = {
         'X-Ftid': treeId
       }
     });
-    return normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
+    const data = unwrap<{ expenses: FundExpense[] } | FundExpense[]>(result);
+    // Handle nested structure: data.expenses or flat array
+    if (data && typeof data === 'object' && 'expenses' in data) {
+      return normalizeArray(data.expenses);
+    }
+    return normalizeArray(data);
   },
 
   async createFundExpense(ftId: string, payload: CreateFundExpensePayload): Promise<CreateFundExpenseResponse> {
@@ -721,12 +726,17 @@ export const fundService = {
   },
 
   async fetchPendingDonations(ftId: string): Promise<MyPendingDonation[]> {
-    const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/pending`, {
+    const result = await api.get<ApiResponse<{ donations: MyPendingDonation[] }>>(`/donations/pending`, {
       headers: {
         'X-Ftid': ftId,
       },
     });
-    return normalizeArray(unwrap<MyPendingDonation[] | MyPendingDonation>(result));
+    const data = unwrap<{ donations: MyPendingDonation[] } | MyPendingDonation[]>(result);
+    // Handle nested structure: data.donations or flat array
+    if (data && typeof data === 'object' && 'donations' in data) {
+      return normalizeArray(data.donations);
+    }
+    return normalizeArray(data);
   },
 
   async confirmDonation(
