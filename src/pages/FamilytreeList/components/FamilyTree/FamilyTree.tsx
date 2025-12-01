@@ -166,11 +166,11 @@ const FamilyTreeContent = () => {
 
   const handleAddNewNode = useCallback(async (formData: AddingNodeProps) => {
     try {
-      const response = await familyTreeService.createFamilyNode({
+      await familyTreeService.createFamilyNode({
         ...formData,
         ftId: selectedFamilyTree?.id || "",
       });
-      toast.success(response.message)
+      toast.success('Thêm thành viên thành công!');
       // Re-fetch the family tree to sync with the new node
       dispatch(fetchFamilyTree(selectedFamilyTree!.id));
     } catch (error: any) {
@@ -188,8 +188,8 @@ const FamilyTreeContent = () => {
 
     setIsDeletingNode(true);
     try {
-      const response = await familyTreeService.deleteFamilyNode(selectedFamilyTree.id, memberToDelete.id);
-      toast.success(response.message)
+      await familyTreeService.deleteFamilyNode(selectedFamilyTree.id, memberToDelete.id);
+      toast.success('Xóa thành viên thành công!');
       // Close the detail panel if the deleted member was selected
       if (selectedMemberId === memberToDelete.id) {
         dispatch(setSelectedMember(null));

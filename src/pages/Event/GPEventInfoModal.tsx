@@ -58,14 +58,22 @@ const GPEventInfoModal = ({
     isAllDay,
   } = defaultValues;
 
+
   // Use name or title (title is used by holiday events)
   const eventName = name || title || 'Sự kiện';
 
   // IMPORTANT: All hooks must be called before any early returns
   const { id: familyTreeId } = useParams();
+
+  // Get family tree ID from the event (use first gpId if available, otherwise use URL param)
+  // This must be calculated BEFORE hooks that need it
+  const eventFamilyTreeId = defaultValues?.gpIds?.[0] || familyTreeId;
+
   const { token, user } = useAppSelector(state => state.auth);
   const currentUserId = getUserIdFromToken(token || '') || user?.userId;
-  const { gpMemberId } = useGPMember(familyTreeId || null, currentUserId || null);
+
+  // Use eventFamilyTreeId instead of familyTreeId to get the correct member ID
+  const { gpMemberId } = useGPMember(eventFamilyTreeId || null, currentUserId || null);
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -76,12 +84,9 @@ const GPEventInfoModal = ({
     timestamp: new Date()
   });
 
-  // Get family tree ID from the event (use first gpId if available, otherwise use URL param)
-  const eventFamilyTreeId = defaultValues?.gpIds?.[0] || familyTreeId;
-
   // Load permissions for the family tree this event belongs to
   const permissions = usePermissions(eventFamilyTreeId);
-
+  const selectedFamilyTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   // Early return AFTER all hooks
   if (!isOpenModal) return null;
 
@@ -116,7 +121,7 @@ const GPEventInfoModal = ({
 
     setIsDeleting(true);
     try {
-      const response = await eventService.deleteEventById(id);
+      const response = await eventService.deleteEventById(selectedFamilyTree.id, id);
 
       if (response?.data || response?.data?.data) {
         toast.success('Xóa sự kiện thành công!');
@@ -254,11 +259,13 @@ const GPEventInfoModal = ({
 
   const handleShareEvent = () => {
     console.log('Event share button clicked!'); // Debug log
-    console.log('familyTreeId:', familyTreeId);
+    console.log('familyTreeId (from URL):', familyTreeId);
+    console.log('eventFamilyTreeId (from event or URL):', eventFamilyTreeId);
+    console.log('currentUserId:', currentUserId);
     console.log('gpMemberId:', gpMemberId);
     console.log('formatEventForPost():', formatEventForPost());
 
-    if (!familyTreeId) {
+    if (!eventFamilyTreeId) {
       setErrorPopup({
         isOpen: true,
         message: 'Không tìm thấy thông tin gia tộc. Vui lòng thử lại!',
@@ -528,11 +535,11 @@ const GPEventInfoModal = ({
       </div>
 
       {/* Share to Post Modal */}
-      {isShareModalOpen && familyTreeId && gpMemberId && formatEventForPost() && (
+      {isShareModalOpen && eventFamilyTreeId && gpMemberId && formatEventForPost() && (
         <ShareToPostModal
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
-          familyTreeId={familyTreeId}
+          familyTreeId={eventFamilyTreeId}
           gpMemberId={gpMemberId}
           shareableItem={formatEventForPost()!}
           onShareSuccess={() => {

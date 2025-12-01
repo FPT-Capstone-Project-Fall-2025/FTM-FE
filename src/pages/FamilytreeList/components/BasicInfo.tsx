@@ -172,8 +172,8 @@ const BasicInfo: React.FC = () => {
         }
 
         try {
-            const response = await familyTreeService.deleteFamilyTree(selectedTree.id);
-            toast.success(response.message);
+            await familyTreeService.deleteFamilyTree(selectedTree.id);
+            toast.success('Xóa gia phả thành công!');
             setShowDeleteConfirm(false);
             navigate('/family-trees');
             dispatch(removeFamilyTree(selectedTree.id));

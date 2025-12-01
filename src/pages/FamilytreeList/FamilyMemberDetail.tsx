@@ -321,7 +321,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
             setMember(updatedMember);
             setEditedMember({ ...updatedMember });
 
-            toast.success(response.message || 'Cập nhật thành công');
+            toast.success('Cập nhật thành công');
             setIsEditing(false);
         } catch (err: any) {
             console.error('Save error:', err);

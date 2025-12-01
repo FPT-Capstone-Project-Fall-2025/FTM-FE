@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, Users, UserCheck, Eye, X, Trash2 } from "lucide-react";
+import { Search, Users, UserCheck, Eye, X, Trash2, Mail } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import type { PaginationProps } from "@/types/api";
-import type { FamilyMemberList } from "@/types/familytree";
+import type { FamilyMemberList, FamilyNodeList } from "@/types/familytree";
 import familyTreeService from "@/services/familyTreeService";
 import { useAppSelector } from "@/hooks/redux";
 import type { UserProfile } from "@/types/user";
@@ -13,7 +13,7 @@ import NoPermission from "@/components/shared/NoPermission";
 import ExceptionPopup from "@/components/shared/ExceptionPopup";
 import { useErrorPopup } from "@/hooks/useErrorPopup";
 
-type ViewMode = 'member' | 'guest';
+type ViewMode = 'member' | 'guest' | 'unlinked';
 
 const Members: React.FC = () => {
     const permissions = usePermissions();
@@ -35,6 +35,7 @@ const Members: React.FC = () => {
         totalPages: 0,
     });
     const [familyMemberList, setFamilyMemberList] = useState<FamilyMemberList[]>([]);
+    const [unlinkedNodeList, setUnlinkedNodeList] = useState<FamilyNodeList[]>([]);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [detailProfile, setDetailProfile] = useState<UserProfile | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
@@ -42,6 +43,10 @@ const Members: React.FC = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deletingGuest, setDeletingGuest] = useState<FamilyMemberList | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [selectedNodeForInvite, setSelectedNodeForInvite] = useState<FamilyNodeList | null>(null);
+    const [inviteEmail, setInviteEmail] = useState("");
+    const [isInviting, setIsInviting] = useState(false);
     const { errorPopup, showError, closeError } = useErrorPopup();
 
     const loadMembers = useCallback(async () => {
@@ -104,7 +109,8 @@ const Members: React.FC = () => {
                     totalPages: Math.ceil(allMembers.length / paginationData.pageSize)
                 }));
                 setFamilyMemberList(paginatedMembers);
-            } else {
+                setUnlinkedNodeList([]);
+            } else if (viewMode === 'guest') {
                 // For guests view, fetch only FTGuest
                 const filters = [
                     {
@@ -131,6 +137,34 @@ const Members: React.FC = () => {
                     ...res.data
                 }));
                 setFamilyMemberList(res.data.data);
+                setUnlinkedNodeList([]);
+            } else {
+                // For unlinked nodes view, fetch nodes without userId
+                const unlinkedNodeRes = await familyTreeService.getFamilyTreeNodes(selectedFamilyTree.id, {
+                    pageIndex: paginationData.pageIndex,
+                    pageSize: paginationData.pageSize,
+                    propertyFilters: [
+                        {
+                            name: "FTId",
+                            operation: "EQUAL",
+                            value: selectedFamilyTree.id
+                        },
+                        {
+                            name: "userId",
+                            operation: "EQUAL",
+                            value: null
+                        },
+                    ],
+                    totalItems: 0,
+                    totalPages: 0,
+                });
+
+                setPaginationData(pre => ({
+                    ...pre,
+                    ...unlinkedNodeRes.data
+                }));
+                setUnlinkedNodeList(unlinkedNodeRes.data.data);
+                setFamilyMemberList([]);
             }
         } catch (error) {
             console.error("Failed to fetch members:", error);
@@ -260,6 +294,44 @@ const Members: React.FC = () => {
         }
     };
 
+    const handleOpenInviteModal = (node: FamilyNodeList) => {
+        setSelectedNodeForInvite(node);
+        setShowInviteModal(true);
+        setInviteEmail("");
+    };
+
+    const handleCloseInviteModal = () => {
+        setShowInviteModal(false);
+        setSelectedNodeForInvite(null);
+        setInviteEmail("");
+    };
+
+    const handleSendInvite = async () => {
+        if (!selectedFamilyTree?.id || !selectedNodeForInvite?.id || !inviteEmail) return;
+
+        if (!inviteEmail.includes('@')) {
+            showError('Vui lòng nhập địa chỉ email hợp lệ');
+            return;
+        }
+
+        setIsInviting(true);
+        try {
+            await familyTreeService.inviteMemberToFamilyTree(
+                selectedFamilyTree.id,
+                selectedNodeForInvite.id,
+                inviteEmail
+            );
+            toast.success(`Gửi lời mời thành công tới ${inviteEmail}`);
+            handleCloseInviteModal();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || 'Gửi lời mời thất bại. Vui lòng thử lại.';
+            showError(errorMessage);
+            console.error('Failed to send invite:', error);
+        } finally {
+            setIsInviting(false);
+        }
+    };
+
     // Show loading state while permissions are being fetched
     if (permissions.isLoading) {
         return (
@@ -283,7 +355,7 @@ const Members: React.FC = () => {
                     <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
                         <button
                             onClick={() => setViewMode('member')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'member'
+                            className={`flex items-center cursor-pointer gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'member'
                                 ? 'bg-blue-600 text-white shadow-sm'
                                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                 }`}
@@ -293,13 +365,23 @@ const Members: React.FC = () => {
                         </button>
                         <button
                             onClick={() => setViewMode('guest')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'guest'
+                            className={`flex items-center cursor-pointer gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'guest'
                                 ? 'bg-purple-600 text-white shadow-sm'
                                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                                 }`}
                         >
                             <UserCheck className="w-4 h-4" />
                             Khách
+                        </button>
+                        <button
+                            onClick={() => setViewMode('unlinked')}
+                            className={`flex items-center cursor-pointer gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'unlinked'
+                                ? 'bg-green-600 text-white shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                }`}
+                        >
+                            <Users className="w-4 h-4" />
+                            Chưa liên kết
                         </button>
                     </div>
 
@@ -308,7 +390,7 @@ const Members: React.FC = () => {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Tìm kiếm theo tên, username..."
+                            placeholder="Tìm kiếm theo tên, email..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -321,23 +403,77 @@ const Members: React.FC = () => {
                     <table className="w-full">
                         <thead className="sticky top-0 bg-gray-50 z-10">
                             <tr className="border-b border-gray-200">
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Tên</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Username</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Vai trò</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Gia phả</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Thao Tác</th>
+                                {viewMode === 'unlinked' ? (
+                                    <>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Tên đầy đủ</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Giới tính</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ngày sinh</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Thao Tác</th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Tên</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Tài khoản</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Vai trò</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Gia phả</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Thao Tác</th>
+                                    </>
+                                )}
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="text-center py-8 text-gray-500">
+                                    <td colSpan={viewMode === 'unlinked' ? 4 : 5} className="text-center py-8 text-gray-500">
                                         <div className="flex flex-col items-center gap-2">
                                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                                             <span>Đang tải dữ liệu...</span>
                                         </div>
                                     </td>
                                 </tr>
+                            ) : viewMode === 'unlinked' ? (
+                                unlinkedNodeList.length > 0 ? (
+                                    unlinkedNodeList.map(node => (
+                                        <tr key={node.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center font-semibold">
+                                                        {node.fullname?.charAt(0).toUpperCase() || '?'}
+                                                    </div>
+                                                    <span className="text-sm font-medium text-gray-900">{node.fullname || 'Không rõ'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {node.gender === 0 ? 'Nam' : node.gender === 1 ? 'Nữ' : 'Không xác định'}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {node.birthday ? new Date(node.birthday).toLocaleDateString('vi-VN') : 'Không rõ'}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600 font-mono">{node.id}</td>
+                                            <td className="px-6 py-4">
+                                                {permissions.canAdd('MEMBER') && (
+                                                    <button
+                                                        onClick={() => handleOpenInviteModal(node)}
+                                                        className="flex items-center gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                                                    >
+                                                        <Mail className="w-4 h-4" />
+                                                        Mời
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="text-center py-8 text-gray-500">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Users className="w-12 h-12 text-gray-300" />
+                                                <span>Không có nút chưa liên kết nào</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )
                             ) : filteredMembers.length > 0 ? (
                                 filteredMembers.map(member => (
                                     <tr key={member.userId} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
@@ -489,6 +625,59 @@ const Members: React.FC = () => {
                     }
                 `}</style>
             </div>
+            {/* Invite Modal */}
+            {showInviteModal && selectedNodeForInvite && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
+                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-500 to-emerald-600">
+                            <Mail size={28} className="text-white" />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Mời người dùng</h3>
+                        <p className="text-gray-600 mb-2 text-center leading-relaxed">
+                            Gửi lời mời liên kết với <span className="font-semibold text-gray-800">{selectedNodeForInvite.fullname}</span>
+                        </p>
+                        <p className="text-sm text-gray-500 mb-6 text-center">
+                            Người nhận sẽ được mời liên kết tài khoản của họ với nút này trong cây gia phả.
+                        </p>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Email người nhận
+                            </label>
+                            <input
+                                type="email"
+                                value={inviteEmail}
+                                onChange={(e) => setInviteEmail(e.target.value)}
+                                placeholder="nguoidung@gmail.com"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={handleCloseInviteModal}
+                                disabled={isInviting}
+                                className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleSendInvite}
+                                disabled={isInviting || !inviteEmail}
+                                className="px-6 py-3 font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isInviting ? (
+                                    <span className="flex items-center gap-2">
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        Đang gửi...
+                                    </span>
+                                ) : 'Gửi lời mời'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <ExceptionPopup
                 isOpen={errorPopup.isOpen}
                 message={errorPopup.message}

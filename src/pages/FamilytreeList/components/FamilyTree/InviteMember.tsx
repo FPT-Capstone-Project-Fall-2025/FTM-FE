@@ -33,14 +33,14 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
         try {
             if (inviteType === 'guest' && email) {
                 console.log('Sending invite to guest:', email);
-                const response = await familyTreeService.inviteGuestToFamilyTree(selectedFamilyTree.id, email);
-                toast.success(response.message || `Gửi lời mời thành công tới ${email}`);
+                await familyTreeService.inviteGuestToFamilyTree(selectedFamilyTree.id, email);
+                toast.success(`Gửi lời mời thành công tới ${email}`);
                 setEmail('');
                 onClose();
             } else if (inviteType === 'family' && selectedMember) {
                 console.log('Sending invite to family member:', selectedMember);
-                const response = await familyTreeService.inviteMemberToFamilyTree(selectedFamilyTree.id, selectedMember.id, email);
-                toast.success(response.message || `Gửi lời mời thành công tới ${selectedMember.fullname}`);
+                await familyTreeService.inviteMemberToFamilyTree(selectedFamilyTree.id, selectedMember.id, email);
+                toast.success(`Gửi lời mời thành công tới ${selectedMember.fullname}`);
                 setEmail('');
                 setSelectedMember(null);
                 onClose();

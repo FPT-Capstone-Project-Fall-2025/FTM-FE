@@ -27,7 +27,7 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
     onShareSuccess
 }) => {
     const [postTitle] = useState<string>(shareableItem.title);
-    const [postContent] = useState<string>(shareableItem.description || '');
+    const [postContent, setPostContent] = useState<string>(shareableItem.description || '');
     const [additionalMessage, setAdditionalMessage] = useState<string>('');
     const [status, setStatus] = useState<number>(1); // 1 = Public, 0 = Private
     const [isSharing, setIsSharing] = useState<boolean>(false);
@@ -85,7 +85,10 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.stopPropagation()}
+        >
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex items-center justify-between rounded-t-xl">
@@ -150,7 +153,13 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
                                     <p className="font-medium">{additionalMessage}</p>
                                 </div>
                             )}
-                            <p>{postContent}</p>
+                            <textarea
+                                value={postContent}
+                                onChange={(e) => setPostContent(e.target.value)}
+                                className="w-full bg-transparent border-none focus:ring-0 p-0 text-gray-700 resize-none"
+                                rows={10}
+                                placeholder="Nội dung bài viết..."
+                            />
                         </div>
                     </div>
 

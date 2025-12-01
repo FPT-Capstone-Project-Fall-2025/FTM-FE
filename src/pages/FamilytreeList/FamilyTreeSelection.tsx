@@ -100,15 +100,15 @@ const FamilyTreeSelection: React.FC = () => {
         }
         try {
             setApiLoading(true);
-            const response = await familytreeService.createFamilyTree({
+            await familytreeService.createFamilyTree({
                 name: newTreeData.name,
                 ownerName: newTreeData.ownerName,
-                ownerId: 'ec9eb501-123a-4cef-a2ad-cba7353246c7',
+                ownerId: '',
                 description: newTreeData.description,
                 file: newTreeData.file,
                 gpModecode: 0
             });
-            toast.success(response.message);
+            toast.success('Tạo gia tộc thành công!');
 
             await fetchFamilyTrees();
 
