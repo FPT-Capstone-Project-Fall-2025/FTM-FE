@@ -4,7 +4,6 @@ import { CategoryCode, type AddingNodeProps, type FamilyMember, type FamilyNode 
 import type { Province, Ward } from "@/types/user";
 import { X, Users, User, Baby } from "lucide-react";
 import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { toast } from "react-toastify";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ReactFlow, {
@@ -17,6 +16,8 @@ import ReactFlow, {
   ReactFlowProvider,
 } from "reactflow";
 import "reactflow/dist/style.css";
+import { useErrorPopup } from "@/hooks/useErrorPopup";
+import ExceptionPopup from "@/components/shared/ExceptionPopup";
 
 interface AddNewNodeProps {
   ftId: string;
@@ -146,6 +147,7 @@ const AddNewNode = ({
     fromFTMemberId: parentMember?.id,
     categoryCode: isFirstNode ? CategoryCode.FirstNode : undefined,
   });
+  const { errorPopup, showError, closeError } = useErrorPopup();
 
   // Filter out existing relationships
   const availableRelationships = allRelationships.filter(
@@ -436,14 +438,14 @@ const AddNewNode = ({
 
     // Validate file size (2MB limit)
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Kích thước file không được vượt quá 2MB");
+      showError("Kích thước file không được vượt quá 2MB");
       return;
     }
 
     // Validate file type
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
     if (!allowedTypes.includes(file.type)) {
-      toast.error("Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF");
+      showError("Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF");
       return;
     }
 
@@ -1100,65 +1102,73 @@ const AddNewNode = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-5xl p-8 animate-in fade-in zoom-in">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-lg font-bold text-white mb-2">Thêm thành viên</h2>
-            <p className="text-sm text-gray-400">
-              Hãy chọn mối quan hệ bạn muốn thêm cho{" "}
-              <span className="font-semibold text-white">{parentMember?.name}</span>
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* ReactFlow Tree (Read-only) */}
-        <div
-          className="bg-gray-800 rounded-lg border border-gray-700 mb-6"
-          style={{ height: "450px" }}
-        >
-          <ReactFlowProvider>
-            <ReactFlow
-              nodes={memoizedNodes}
-              edges={edges}
-              fitView
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={true}
-              onNodeClick={(_, node) => {
-                if (node.id !== parentMember?.id) {
-                  handleRelationshipSelect(node.id);
-                }
-              }}
-              proOptions={{ hideAttribution: true }}
-              panOnDrag={false}
-              zoomOnScroll={false}
-              zoomOnPinch={false}
-              zoomOnDoubleClick={false}
+    <>
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-5xl p-8 animate-in fade-in zoom-in">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-white mb-2">Thêm thành viên</h2>
+              <p className="text-sm text-gray-400">
+                Hãy chọn mối quan hệ bạn muốn thêm cho{" "}
+                <span className="font-semibold text-white">{parentMember?.name}</span>
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
             >
-              <Background color="#6b7280" gap={16} />
-            </ReactFlow>
-          </ReactFlowProvider>
-        </div>
+              <X className="w-6 h-6" />
+            </button>
+          </div>
 
-        {/* Cancel Button */}
-        <div className="flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+          {/* ReactFlow Tree (Read-only) */}
+          <div
+            className="bg-gray-800 rounded-lg border border-gray-700 mb-6"
+            style={{ height: "450px" }}
           >
-            Hủy
-          </button>
+            <ReactFlowProvider>
+              <ReactFlow
+                nodes={memoizedNodes}
+                edges={edges}
+                fitView
+                nodesDraggable={false}
+                nodesConnectable={false}
+                elementsSelectable={true}
+                onNodeClick={(_, node) => {
+                  if (node.id !== parentMember?.id) {
+                    handleRelationshipSelect(node.id);
+                  }
+                }}
+                proOptions={{ hideAttribution: true }}
+                panOnDrag={false}
+                zoomOnScroll={false}
+                zoomOnPinch={false}
+                zoomOnDoubleClick={false}
+              >
+                <Background color="#6b7280" gap={16} />
+              </ReactFlow>
+            </ReactFlowProvider>
+          </div>
+
+          {/* Cancel Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+            >
+              Hủy
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+      <ExceptionPopup
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        timestamp={errorPopup.timestamp}
+        onClose={closeError}
+      />
+    </>
   );
 };
 

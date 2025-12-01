@@ -9,6 +9,8 @@ import userService from '@/services/userService';
 import BirthdayPicker from '@/components/ui/DatePicker';
 import { toast } from 'react-toastify';
 import DetailInformationSkeleton from '@/components/skeleton/DetailInformationSkeleton';
+import { useErrorPopup } from '@/hooks/useErrorPopup';
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
 
 const DetailInformation: React.FC = () => {
 
@@ -59,6 +61,7 @@ const DetailInformation: React.FC = () => {
   const [wards, setWards] = useState<Ward[]>([]);
   const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const { errorPopup, showError, closeError } = useErrorPopup();
   // Validation errors state
   const [errors, setErrors] = useState({
     currentPassword: '',
@@ -275,7 +278,7 @@ const DetailInformation: React.FC = () => {
       toast.success('Thay đổi mật khẩu thành công!');
       closePopup();
     } catch (error) {
-      toast.error('Có gì đó không đúng!...');
+      showError('Có gì đó không đúng!...');
     } finally {
       setIsLoading(false);
     }
@@ -285,7 +288,7 @@ const DetailInformation: React.FC = () => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        toast.error('Kích thước file không được vượt quá 2MB');
+        showError('Kích thước file không được vượt quá 2MB');
         return;
       }
 
@@ -296,7 +299,7 @@ const DetailInformation: React.FC = () => {
         'image/gif',
       ];
       if (!allowedTypes.includes(file.type)) {
-        toast.error('Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF');
+        showError('Chỉ chấp nhận file định dạng JPEG, JPG, PNG, GIF');
         return;
       }
 
@@ -890,6 +893,13 @@ const DetailInformation: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ExceptionPopup
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        timestamp={errorPopup.timestamp}
+        onClose={closeError}
+      />
     </>
   );
 };

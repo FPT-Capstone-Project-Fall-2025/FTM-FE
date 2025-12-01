@@ -13,6 +13,7 @@ import { useGPMember } from '@/hooks/useGPMember';
 import { getUserIdFromToken } from '@/utils/jwtUtils';
 import { useAppSelector } from '@/hooks/redux';
 import { usePermissions } from '@/hooks/usePermissions';
+import ExceptionPopup from '@/components/shared/ExceptionPopup';
 
 // API Base URL for images
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
@@ -69,6 +70,11 @@ const GPEventInfoModal = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [errorPopup, setErrorPopup] = useState<{ isOpen: boolean; message: string; timestamp: Date }>({
+    isOpen: false,
+    message: '',
+    timestamp: new Date()
+  });
 
   // Get family tree ID from the event (use first gpId if available, otherwise use URL param)
   const eventFamilyTreeId = defaultValues?.gpIds?.[0] || familyTreeId;
@@ -98,7 +104,11 @@ const GPEventInfoModal = ({
 
   const handleDelete = async () => {
     if (!id) {
-      toast.error('Không tìm thấy ID sự kiện');
+      setErrorPopup({
+        isOpen: true,
+        message: 'Không tìm thấy ID sự kiện',
+        timestamp: new Date()
+      });
       return;
     }
 
@@ -122,7 +132,11 @@ const GPEventInfoModal = ({
       }
     } catch (error: any) {
       console.error('Error deleting event:', error);
-      toast.error(error?.response?.data?.message || 'Xóa sự kiện thất bại. Vui lòng thử lại!');
+      setErrorPopup({
+        isOpen: true,
+        message: error?.response?.data?.message || 'Xóa sự kiện thất bại. Vui lòng thử lại!',
+        timestamp: new Date()
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -245,12 +259,20 @@ const GPEventInfoModal = ({
     console.log('formatEventForPost():', formatEventForPost());
 
     if (!familyTreeId) {
-      toast.error('Không tìm thấy thông tin gia tộc. Vui lòng thử lại!');
+      setErrorPopup({
+        isOpen: true,
+        message: 'Không tìm thấy thông tin gia tộc. Vui lòng thử lại!',
+        timestamp: new Date()
+      });
       return;
     }
 
     if (!gpMemberId) {
-      toast.error('Không thể xác định thành viên. Vui lòng thử lại!');
+      setErrorPopup({
+        isOpen: true,
+        message: 'Không thể xác định thành viên. Vui lòng thử lại!',
+        timestamp: new Date()
+      });
       return;
     }
 
@@ -518,6 +540,14 @@ const GPEventInfoModal = ({
           }}
         />
       )}
+
+      {/* Exception Popup */}
+      <ExceptionPopup
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        timestamp={errorPopup.timestamp}
+        onClose={() => setErrorPopup({ isOpen: false, message: '', timestamp: new Date() })}
+      />
     </div>
   );
 };
