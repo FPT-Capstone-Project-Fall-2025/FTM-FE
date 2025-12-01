@@ -712,7 +712,7 @@ export const fundService = {
   },
 
   async fetchFundDonationStats(ftId: string, fundId: string): Promise<FundDonationStats | null> {
-    const result = await api.get<ApiResponse<FundDonationStats>>(`/donations/fund/${fundId}/stats`, {
+    const result = await api.get<ApiResponse<FundDonationStats>>(`/donations/fund/${fundId}/statistics`, {
       headers: {
         'X-Ftid': ftId,
       },
