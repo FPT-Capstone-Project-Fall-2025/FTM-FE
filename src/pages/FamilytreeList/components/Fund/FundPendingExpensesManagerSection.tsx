@@ -8,7 +8,7 @@ interface StatusBadge {
   className: string;
 }
 
-interface FundApprovalsSectionProps {
+interface FundPendingExpensesManagerSectionProps {
   pendingExpenses: FundExpense[];
   formatCurrency: (value?: number | null) => string;
   formatDate: (value?: string | null) => string;
@@ -16,7 +16,7 @@ interface FundApprovalsSectionProps {
   onRequestAction: (expense: FundExpense, action: 'approve' | 'reject') => void;
 }
 
-const FundApprovalsSection: React.FC<FundApprovalsSectionProps> = ({
+const FundPendingExpensesManagerSection: React.FC<FundPendingExpensesManagerSectionProps> = ({
   pendingExpenses,
   formatCurrency,
   formatDate,
@@ -180,4 +180,4 @@ const FundApprovalsSection: React.FC<FundApprovalsSectionProps> = ({
   );
 };
 
-export default FundApprovalsSection;
+export default FundPendingExpensesManagerSection;

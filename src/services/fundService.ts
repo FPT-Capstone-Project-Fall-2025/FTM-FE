@@ -504,15 +504,40 @@ export const fundService = {
   },
 
   async fetchPendingFundExpenses(treeId: string): Promise<FundExpense[]> {
-    const result = await api.get<ApiResponse<FundExpense[]>>(`/fund-expenses/pending`, {
-      params: {
-        treeId,
-      },
+    const result = await api.get<ApiResponse<any>>(`/fund-expenses/pending`, {
+      // Backend expects fundId + pagination; treeId is passed via header
+      // Callers currently don't pass fundId, so API will return all pending for this family tree
       headers: {
-        'X-Ftid': treeId
-      }
+        'X-Ftid': treeId,
+      },
     });
-    return normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
+
+    const payload = unwrap<any>(result);
+    const data = payload?.data ?? payload;
+
+    // New API shape: { data: { expenses: [...], totalCount, page, ... } }
+    if (data && Array.isArray(data.expenses)) {
+      return data.expenses.map((expense: any) => ({
+        ...expense,
+        // Normalize date fields so UI can always read createdOn
+        createdOn: expense.createdOn || expense.createdDate || expense.createdAt || null,
+      })) as FundExpense[];
+    }
+
+    // Fallback: try to treat data directly as an array (older or unexpected shapes)
+    if (Array.isArray(data)) {
+      return data.map((expense: any) => ({
+        ...expense,
+        createdOn: expense.createdOn || expense.createdDate || expense.createdAt || null,
+      })) as FundExpense[];
+    }
+
+    // Last resort: unwrap into FundExpense[] using previous behaviour
+    const legacy = normalizeArray(unwrap<FundExpense[] | FundExpense>(result));
+    return legacy.map(expense => ({
+      ...expense,
+      createdOn: expense.createdOn || (expense as any).createdDate || (expense as any).createdAt || null,
+    }));
   },
 
   async createFundExpense(ftId: string, payload: CreateFundExpensePayload): Promise<CreateFundExpenseResponse> {
@@ -721,11 +746,63 @@ export const fundService = {
   },
 
   async fetchPendingDonations(ftId: string): Promise<MyPendingDonation[]> {
-    const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/pending`, {
+    const result = await api.get<ApiResponse<any>>(`/donations/pending`, {
       headers: {
         'X-Ftid': ftId,
       },
     });
+
+    const payload = unwrap<any>(result);
+    const data = payload?.data ?? payload;
+
+    // New API shape: { data: { donations: [...], totalCount, page, ... } }
+    if (data && Array.isArray(data.donations)) {
+      return data.donations.map((d: any) => ({
+        id: d.id,
+        donationMoney: Number(d.donationMoney ?? d.donationAmount ?? d.amount ?? 0),
+        donorName: d.donorName ?? null,
+        paymentMethod: d.paymentMethod ?? null,
+        paymentNotes: d.paymentNotes ?? null,
+        createdDate: d.createdDate ?? d.createdOn ?? d.createdAt ?? null,
+        fundName: d.fundName ?? null,
+        fundId: d.fundId ?? null,
+        treeId: d.treeId ?? null,
+        status: d.status ?? null,
+        payOSOrderCode: d.payOSOrderCode ?? d.orderCode ?? null,
+        // Backend may return null / string / array for proofImages; normalize to array
+        proofImages:
+          typeof d.proofImages === 'string'
+            ? d.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+            : Array.isArray(d.proofImages)
+              ? d.proofImages.filter(Boolean)
+              : null,
+      })) as MyPendingDonation[];
+    }
+
+    // Fallback if API ever returns array directly
+    if (Array.isArray(data)) {
+      return data.map((d: any) => ({
+        id: d.id,
+        donationMoney: Number(d.donationMoney ?? d.donationAmount ?? d.amount ?? 0),
+        donorName: d.donorName ?? null,
+        paymentMethod: d.paymentMethod ?? null,
+        paymentNotes: d.paymentNotes ?? null,
+        createdDate: d.createdDate ?? d.createdOn ?? d.createdAt ?? null,
+        fundName: d.fundName ?? null,
+        fundId: d.fundId ?? null,
+        treeId: d.treeId ?? null,
+        status: d.status ?? null,
+        payOSOrderCode: d.payOSOrderCode ?? d.orderCode ?? null,
+        proofImages:
+          typeof d.proofImages === 'string'
+            ? d.proofImages.split(',').map((s: string) => s.trim()).filter(Boolean)
+            : Array.isArray(d.proofImages)
+              ? d.proofImages.filter(Boolean)
+              : null,
+      })) as MyPendingDonation[];
+    }
+
+    // Last resort: use legacy behaviour
     return normalizeArray(unwrap<MyPendingDonation[] | MyPendingDonation>(result));
   },
 

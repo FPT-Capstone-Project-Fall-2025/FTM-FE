@@ -47,7 +47,7 @@ import {
   type WithdrawalFormState,
 } from './Fund/FundWithdrawalSection';
 import FundWithdrawalModal from './Fund/FundWithdrawalModal';
-import FundApprovalsSection from './Fund/FundApprovalsSection';
+import FundPendingExpensesManagerSection  from './Fund/FundPendingExpensesManagerSection';
 import FundDonationHistorySection from './Fund/FundDonationHistorySection';
 import FundPendingDonationsSection from './Fund/FundPendingDonationsSection';
 import FundPendingDonationsManagerSection from './Fund/FundPendingDonationsManagerSection';
@@ -478,10 +478,10 @@ const FundManagement: React.FC = () => {
 
   const uniqueContributorCount = useMemo(() => {
     if (
-      donationStats?.totalDonations !== undefined &&
-      donationStats.totalDonations !== null
+      donationStats?.totalDonors !== undefined &&
+      donationStats.totalDonors !== null
     ) {
-      return Number(donationStats.totalDonations) || 0;
+      return Number(donationStats.totalDonors) || 0;
     }
     if (!Array.isArray(donations)) {
       return 0;
@@ -490,7 +490,7 @@ const FundManagement: React.FC = () => {
       donation => donation.ftMemberId || donation.donorName || donation.id
     );
     return new Set(keys).size;
-  }, [donationStats?.totalDonations, donations]);
+  }, [donationStats?.totalDonors, donations]);
 
   const recentContributors: OverviewContributor[] = useMemo(() => {
     if (donationStats?.recentDonors?.length) {
@@ -2241,7 +2241,7 @@ const FundManagement: React.FC = () => {
                 <LoadingState message="Đang tải yêu cầu rút tiền..." />
               </div>
             ) : (
-              <FundApprovalsSection
+              <FundPendingExpensesManagerSection
                 pendingExpenses={pendingExpenses}
                 formatCurrency={formatCurrency}
                 formatDate={formatDate}
