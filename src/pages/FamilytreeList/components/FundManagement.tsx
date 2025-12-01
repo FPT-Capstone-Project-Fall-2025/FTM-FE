@@ -24,7 +24,8 @@ import type {
 } from '@/types/fund';
 import { useGPMember } from '@/hooks/useGPMember';
 import { getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
-import familyTreeMemberService, { type FTRole } from '@/services/familyTreeMemberService';
+import { type FTRole } from '@/services/familyTreeMemberService';
+import ftauthorizationService from '@/services/familyTreeAuth';
 import fundService from '@/services/fundService';
 import FundCreateModal, {
   type BankInfo,
@@ -193,6 +194,9 @@ const FundManagement: React.FC = () => {
   );
   const { user: authUser, token } = useAppSelector(state => state.auth);
 
+  const [memberRole, setMemberRole] = useState<FTRole | null>(null);
+  const [hasFundUpdatePermission, setHasFundUpdatePermission] = useState(false);
+
   const currentUserId = useMemo(
     () => authUser?.userId || (token ? getUserIdFromToken(token) : null),
     [authUser?.userId, token]
@@ -259,7 +263,7 @@ const FundManagement: React.FC = () => {
   const [fundPage, setFundPage] = useState(0);
   const itemsPerPage = 3;
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [memberRole, setMemberRole] = useState<FTRole | null>(null);
+
   const [banks] = useState<BankInfo[]>(DEFAULT_BANKS);
   const [bankLogos] = useState<Record<string, string>>(BANK_LOGOS);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
@@ -1678,19 +1682,56 @@ const FundManagement: React.FC = () => {
     setFundPage(prev => Math.min(prev, maxPage));
   }, [funds.length]);
 
-  // Fetch member role
+  // Fetch member role and permissions
   useEffect(() => {
     const fetchMemberRole = async () => {
       if (!selectedTree?.id || !gpMemberId) {
         setMemberRole(null);
+        setHasFundUpdatePermission(false);
         return;
       }
       try {
-        const role = await familyTreeMemberService.getMemberRole(selectedTree.id, gpMemberId);
-        setMemberRole(role);
+        // Use getFTAuthsWithOwner to get detailed permissions including Owner check
+        // Cast params to any to avoid strict PaginationProps check
+        const res = await ftauthorizationService.getFTAuthsWithOwner(selectedTree.id, {
+          pageIndex: 0,
+          pageSize: 1000,
+        } as any);
+
+        if (res.data && res.data.data) {
+          // Cast data to expected structure as the type definition might be mismatched
+          const authList = res.data.data as unknown as Array<{
+            key: { id: string; fullname: string };
+            value: Array<{ featureCode: string; methodsList: string[] }>;
+          }>;
+
+          // Find the current user's auth record
+          const userAuth = authList.find(auth => auth.key.id === gpMemberId);
+
+          if (userAuth) {
+            // Check if user is Owner
+            if (userAuth.key.fullname === 'Owner') {
+              setMemberRole('FTOwner');
+            } else {
+              setMemberRole('FTMember'); // Default to member if not owner
+            }
+
+            // Check for FUND feature with UPDATE permission
+            const fundAuth = userAuth.value.find(v => v.featureCode === 'FUND');
+            if (fundAuth && fundAuth.methodsList.includes('UPDATE')) {
+              setHasFundUpdatePermission(true);
+            } else {
+              setHasFundUpdatePermission(false);
+            }
+          } else {
+            setMemberRole(null);
+            setHasFundUpdatePermission(false);
+          }
+        }
       } catch (error) {
-        console.error('Failed to fetch member role:', error);
+        console.error('Failed to fetch member role and permissions:', error);
         setMemberRole(null);
+        setHasFundUpdatePermission(false);
       }
     };
     void fetchMemberRole();
@@ -1961,8 +2002,10 @@ const FundManagement: React.FC = () => {
       {managementScope === 'fund' && (
         <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
           {FUND_TAB_ITEMS.filter(tab => {
-            // Hide tab if it requires owner role and user is not owner
-            if (tab.requiresOwner && memberRole !== 'FTOwner') {
+            // Hide tab if it requires owner role and user is not owner AND does not have fund update permission
+            if (tab.requiresOwner) {
+              if (memberRole === 'FTOwner') return true;
+              if (hasFundUpdatePermission) return true;
               return false;
             }
             return true;
@@ -1989,782 +2032,778 @@ const FundManagement: React.FC = () => {
           })}
         </div>
       )}
-
-      {/* Campaign tabs removed - using unified list */}
-
-      {managementScope === 'fund' && (
-        <>
-          {fundTab === 'overview' && (
-            <div className="space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFundPage(prev => Math.max(prev - 1, 0))}
-                      disabled={fundPage === 0}
-                      className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="text-sm text-gray-500">
-                      {fundPage + 1}/{totalPages}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFundPage(prev => Math.min(prev + 1, totalPages - 1))
-                      }
-                      disabled={fundPage >= totalPages - 1}
-                      className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
+      {fundTab === 'overview' && (
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFundPage(prev => Math.max(prev - 1, 0))}
+                  disabled={fundPage === 0}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-500">
+                  {fundPage + 1}/{totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFundPage(prev => Math.min(prev + 1, totalPages - 1))
+                  }
+                  disabled={fundPage >= totalPages - 1}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-              {funds.length === 0 ? (
-                <div className="flex flex-col items-center justify-center bg-white border border-dashed border-gray-200 rounded-xl py-10 text-center">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                    Gia tộc này chưa có quỹ
-                  </h4>
-                  <p className="text-sm text-gray-500 max-w-sm mb-4">
-                    Hãy khởi tạo quỹ đầu tiên để bắt đầu quản lý tài chính và các
-                    khoản đóng góp của gia đình.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    Tạo quỹ mới
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <FundOverviewSection
-                    activeFund={activeFund}
-                    computedBalance={computedBalance}
-                    totalIncome={totalIncome}
-                    totalExpense={totalExpense}
-                    uniqueContributorCount={uniqueContributorCount}
-                    pendingExpenseCount={pendingExpenses.length}
-                    currentFundPurpose={currentFundPurpose}
-                    lastUpdated={lastUpdated}
-                    recentContributors={recentContributors}
-                    transactions={transactions}
-                    formatCurrency={formatCurrency}
-                    formatDate={formatDate}
-                    onNavigateHistory={() => undefined}
-                    loading={fundDataLoading}
-                    onDeposit={handleOpenDeposit}
-                    depositDisabled={depositButtonDisabled}
-                    showDepositButton
-                    onWithdraw={handleOpenWithdraw}
-                    withdrawDisabled={depositButtonDisabled}
-                    showWithdrawButton
-                    onEdit={handleOpenEditFund}
-                    isOwner={memberRole === 'FTOwner'}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {fundTab === 'donations' && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                {fundDataLoading ? (
-                  <LoadingState message="Đang tải lịch sử đóng góp quỹ..." />
-                ) : (
-                  <FundDonationHistorySection
-                    donations={donations}
-                    formatCurrency={formatCurrency}
-                    formatDate={formatDate}
-                    getPaymentMethodLabel={getPaymentMethodLabel}
-                    getDonationStatusKey={getDonationStatusKey}
-                  />
-                )}
-              </div>
-              <div id="my-pending-donations-section">
-                <FundPendingDonationsSection
-                  pendingDonations={myPendingDonations}
-                  loading={myPendingLoading}
-                  onRefresh={handleRefreshMyPending}
-                  onUploadProof={async (donationId, files) => {
-                    console.log('[FundManagement.onUploadProof] Starting upload proof', {
-                      donationId,
-                      fundDonationId: donationId,
-                      filesCount: files.length,
-                      fileNames: files.map(f => f.name),
-                      myPendingDonations: myPendingDonations.map(d => ({ id: d.id, status: d.status })),
-                    });
-
-                    try {
-                      // Always refresh myPendingDonations first to ensure we have the latest data
-                      console.log('[FundManagement.onUploadProof] Refreshing myPendingDonations to get latest data...');
-                      await handleRefreshMyPending();
-
-                      // Wait a bit for state to update
-                      await new Promise(resolve => setTimeout(resolve, 300));
-
-                      // Now upload proof - API will validate if donation exists
-                      console.log('[FundManagement.onUploadProof] Calling uploadDonationProof with donationId:', donationId);
-                      await uploadDonationProof(donationId, files);
-                      console.log('[FundManagement.onUploadProof] Upload successful');
-                      toast.success('Đã upload ảnh xác minh thành công. Vui lòng chờ quản trị viên xác nhận.');
-                      await handleRefreshMyPending();
-                    } catch (error: any) {
-                      console.error('[FundManagement.onUploadProof] Upload proof failed:', {
-                        error,
-                        donationId,
-                        fundDonationId: donationId,
-                        errorResponse: error?.response,
-                        errorMessage: error?.response?.data?.message || error?.message,
-                        errorStatus: error?.response?.status,
-                        errorUrl: error?.config?.url,
-                        errorMethod: error?.config?.method,
-                        myPendingDonationIds: myPendingDonations.map(d => d.id),
-                      });
-
-                      let errorMessage = error?.response?.data?.message || error?.message || 'Không thể upload ảnh xác minh. Vui lòng thử lại.';
-
-                      // Handle 404 specifically - donation not found
-                      if (error?.response?.status === 404) {
-                        errorMessage = `Không tìm thấy yêu cầu đóng góp quỹ (ID: ${donationId}). Yêu cầu có thể đã bị xóa hoặc không thuộc về bạn. Vui lòng refresh trang và thử lại.`;
-                        console.log('[FundManagement.onUploadProof] 404 error, refreshing donations...');
-                        await handleRefreshMyPending();
-                      } else if (error?.response?.status === 400 && errorMessage.includes('not found')) {
-                        console.log('[FundManagement.onUploadProof] Donation not found (400), refreshing...');
-                        await handleRefreshMyPending();
-                        errorMessage = 'Vui lòng đợi vài giây rồi thử lại upload ảnh xác minh.';
-                      }
-
-                      showException(errorMessage);
-                      throw error;
-                    }
-                  }}
-                  formatCurrency={formatCurrency}
-                  formatDate={formatDate}
-                  getPaymentMethodLabel={getPaymentMethodLabel}
-                />
-              </div>
-            </div>
-          )}
-
-          {fundTab === 'history' && (
-            <div>
-              {fundDataLoading ? (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <LoadingState message="Đang tải lịch sử giao dịch..." />
-                </div>
-              ) : (
-                <FundHistorySection
-                  fundId={activeFund?.id ?? null}
-                  fundName={activeFund?.fundName ?? 'Quỹ'}
-                  formatCurrency={formatCurrency}
-                  formatDate={formatDate}
-                  getPaymentMethodLabel={getPaymentMethodLabel}
-                />
-              )}
-            </div>
-          )}
-
-          {fundTab === 'approvals' && (
-            <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${memberRole === 'FTOwner'
-              ? 'bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 p-6 rounded-lg border border-purple-200'
-              : ''
-              }`}>
-              {/* Column 1: Đóng góp */}
-              <div className="flex flex-col min-h-0">
-                <FundPendingDonationsManagerSection
-                  pendingDonations={pendingDonations}
-                  loading={pendingDonationsLoading}
-                  confirming={actionLoading}
-                  rejecting={actionLoading}
-                  onRefresh={refreshPendingDonations}
-                  onConfirm={async (donationId, confirmationNotes) => {
-                    if (!gpMemberId) {
-                      showException('Không xác định được thành viên gia tộc để xác nhận.');
-                      return;
-                    }
-                    try {
-                      await confirmDonation(donationId, gpMemberId, confirmationNotes);
-                      toast.success('Đã xác nhận đóng góp quỹ thành công.');
-                      // Refresh fund details to update balance
-                      await refreshFundDetails();
-                      await refreshAll();
-                      // Switch to overview tab
-                      setFundTab('overview');
-                      setManagementScope('fund');
-                    } catch (error: any) {
-                      console.error('Confirm donation failed:', error);
-                      showException(
-                        error?.response?.data?.message ||
-                        error?.message ||
-                        'Không thể xác nhận đóng góp. Vui lòng thử lại.'
-                      );
-                      throw error;
-                    }
-                  }}
-                  onReject={async (donationId, reason) => {
-                    if (!gpMemberId) {
-                      showException('Không xác định được thành viên gia tộc để từ chối.');
-                      return;
-                    }
-                    try {
-                      await rejectDonation(donationId, gpMemberId, reason);
-                      toast.success('Đã từ chối đóng góp quỹ thành công.');
-                      // Refresh data after rejection
-                      await refreshPendingDonations();
-                      await refreshMyPendingDonations();
-                    } catch (error: any) {
-                      console.error('Reject donation failed:', error);
-                      showException(
-                        error?.response?.data?.message ||
-                        error?.message ||
-                        'Không thể từ chối đóng góp. Vui lòng thử lại.'
-                      );
-                      throw error;
-                    }
-                  }}
-                  formatCurrency={formatCurrency}
-                  formatDate={formatDate}
-                  getPaymentMethodLabel={getPaymentMethodLabel}
-                  confirmerId={gpMemberId ?? ''}
-                />
-              </div>
-
-              {/* Column 2: Rút tiền */}
-              <div className="flex flex-col min-h-0">
-                {fundDataLoading ? (
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <LoadingState message="Đang tải yêu cầu rút tiền..." />
-                  </div>
-                ) : (
-                  <FundApprovalsSection
-                    pendingExpenses={pendingExpenses}
-                    formatCurrency={formatCurrency}
-                    formatDate={formatDate}
-                    getStatusBadge={getExpenseStatusBadge}
-                    onRequestAction={handleRequestAction}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {managementScope === 'campaign' && (
-        <>
-          {/* Campaign Tabs */}
-          <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCampaignTab('all')}
-              className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${campaignTab === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-600 hover:text-blue-600'
-                }`}
-            >
-              Tất cả chiến dịch
-            </button>
-            <button
-              type="button"
-              onClick={() => setCampaignTab('my')}
-              className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${campaignTab === 'my'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-600 hover:text-blue-600'
-                }`}
-            >
-              Ủng hộ chiến dịch & yêu cầu của tôi
-            </button>
-            <button
-              type="button"
-              onClick={() => setCampaignTab('history')}
-              className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${campaignTab === 'history'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-600 hover:text-blue-600'
-                }`}
-            >
-              Lịch sử giao dịch
-            </button>
-            {memberRole === 'FTOwner' && (
-              <button
-                type="button"
-                onClick={() => setCampaignTab('approvals')}
-                className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${campaignTab === 'approvals'
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                  : 'text-purple-700 hover:text-purple-800'
-                  }`}
-              >
-                Phê duyệt yêu cầu
-              </button>
             )}
           </div>
+          {funds.length === 0 ? (
+            <div className="flex flex-col items-center justify-center bg-white border border-dashed border-gray-200 rounded-xl py-10 text-center">
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                Gia tộc này chưa có quỹ
+              </h4>
+              <p className="text-sm text-gray-500 max-w-sm mb-4">
+                Hãy khởi tạo quỹ đầu tiên để bắt đầu quản lý tài chính và các
+                khoản đóng góp của gia đình.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Tạo quỹ mới
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <FundOverviewSection
+                activeFund={activeFund}
+                computedBalance={computedBalance}
+                totalIncome={totalIncome}
+                totalExpense={totalExpense}
+                uniqueContributorCount={uniqueContributorCount}
+                pendingExpenseCount={pendingExpenses.length}
+                currentFundPurpose={currentFundPurpose}
+                lastUpdated={lastUpdated}
+                recentContributors={recentContributors}
+                transactions={transactions}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                onNavigateHistory={() => undefined}
+                loading={fundDataLoading}
+                onDeposit={handleOpenDeposit}
+                depositDisabled={depositButtonDisabled}
+                showDepositButton
+                onWithdraw={handleOpenWithdraw}
+                withdrawDisabled={depositButtonDisabled}
+                showWithdrawButton
+                onEdit={handleOpenEditFund}
+                isOwner={memberRole === 'FTOwner'}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
-          {campaignTab === 'all' ? (
-            <>
-              {campaignsLoading ? (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <LoadingState message="Đang tải danh sách chiến dịch..." />
-                </div>
-              ) : (
-                <FundCampaignsSection
-                  campaigns={campaigns}
-                  campaignSearch={campaignSearch}
-                  campaignFilter={campaignFilter}
-                  onSearchChange={setCampaignSearch}
-                  onFilterChange={setCampaignFilter}
-                  onOpenDetail={handleOpenCampaignDetail}
-                  onDonate={(id) => {
-                    // Open donation modal from campaign list
-                    setSelectedCampaignId(id);
-                    setIsCampaignDonateOpen(true);
-                  }}
-                  formatCurrency={formatCurrency}
-                  formatDate={formatDate}
-                  getCampaignStatusLabel={getCampaignStatusLabel}
-                  getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
-                  metrics={campaignMetrics}
-                  currentPage={campaignPagination.page}
-                  totalPages={campaignPagination.totalPages}
-                  totalCount={campaignPagination.totalCount}
-                  pageSize={campaignPagination.pageSize}
-                  onPageChange={changeCampaignPage}
-                  title="Tất cả chiến dịch"
-                  subtitle="Danh sách tất cả các chiến dịch gây quỹ"
-                  showCreateButton={false}
-                  showStatusFilter={true}
-                />
-              )}
-            </>
-          ) : campaignTab === 'my' ? (
-            <div className="space-y-4">
-              <div className="bg-white rounded-lg shadow p-4 overflow-x-auto">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base font-bold text-gray-900">Lịch sử ủng hộ của tôi</h3>
-                </div>
-                {myCampaignPendingLoading ? (
-                  <LoadingState message="Đang tải ủng hộ của bạn..." />
-                ) : myCampaignPending.length === 0 ? (
-                  <EmptyState title="Chưa có ủng hộ" description="Bạn chưa có giao dịch ủng hộ nào." />
-                ) : (
-                  <>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200 text-left text-gray-600">
-                          <th className="px-4 py-3 font-semibold">Số tiền</th>
-                          <th className="px-4 py-3 font-semibold">Chiến dịch</th>
-                          <th className="px-4 py-3 font-semibold">Người đóng góp</th>
-                          <th className="px-4 py-3 font-semibold">Phương thức</th>
-                          <th className="px-4 py-3 font-semibold">Ghi chú</th>
-                          <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                          <th className="px-4 py-3 font-semibold">Thời gian</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {myCampaignPending.map(row => {
-                          const method = row.proofImages.length > 0 ? 'Tiền mặt' : 'VietQR';
-                          const statusKey = String((row as any).status || '').toLowerCase();
-                          const statusLabel =
-                            statusKey === 'completed'
-                              ? 'Đã xác nhận'
-                              : statusKey === 'rejected'
-                                ? 'Đã từ chối'
-                                : 'Đang chờ';
-                          const statusClass =
-                            statusKey === 'completed'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : statusKey === 'rejected'
-                                ? 'bg-red-100 text-red-600'
-                                : 'bg-amber-100 text-amber-700';
-                          return (
-                            <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
-                              <td className="px-4 py-3 font-bold text-emerald-600">
-                                {formatCurrency(row.amount)}
-                              </td>
-                              <td className="px-4 py-3 text-gray-700">
-                                {row.campaignName || '—'}
-                              </td>
-                              <td className="px-4 py-3 text-gray-700">{row.donorName || 'Ẩn danh'}</td>
-                              <td className="px-4 py-3 text-gray-700">{method}</td>
-                              <td className="px-4 py-3 text-gray-600">{row.message || '—'}</td>
-                              <td className="px-4 py-3">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusClass}`}>
-                                  {statusLabel}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-gray-600">{formatDate(row.createdAt)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {myCampaignTotalPages > 1 && (
-                      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-                        <div className="text-sm text-gray-600">
-                          Trang {myCampaignPage} / {myCampaignTotalPages} ({myCampaignTotalCount} mục)
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setMyCampaignPage(Math.max(1, myCampaignPage - 1))}
-                            disabled={myCampaignPage === 1}
-                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            ‹
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setMyCampaignPage(Math.min(myCampaignTotalPages, myCampaignPage + 1))}
-                            disabled={myCampaignPage === myCampaignTotalPages}
-                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            ›
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+      {fundTab === 'donations' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            {fundDataLoading ? (
+              <LoadingState message="Đang tải lịch sử đóng góp quỹ..." />
+            ) : (
+              <FundDonationHistorySection
+                donations={donations}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                getPaymentMethodLabel={getPaymentMethodLabel}
+                getDonationStatusKey={getDonationStatusKey}
+              />
+            )}
+          </div>
+          <div id="my-pending-donations-section">
+            <FundPendingDonationsSection
+              pendingDonations={myPendingDonations}
+              loading={myPendingLoading}
+              onRefresh={handleRefreshMyPending}
+              onUploadProof={async (donationId, files) => {
+                console.log('[FundManagement.onUploadProof] Starting upload proof', {
+                  donationId,
+                  fundDonationId: donationId,
+                  filesCount: files.length,
+                  fileNames: files.map(f => f.name),
+                  myPendingDonations: myPendingDonations.map(d => ({ id: d.id, status: d.status })),
+                });
+
+                try {
+                  // Always refresh myPendingDonations first to ensure we have the latest data
+                  console.log('[FundManagement.onUploadProof] Refreshing myPendingDonations to get latest data...');
+                  await handleRefreshMyPending();
+
+                  // Wait a bit for state to update
+                  await new Promise(resolve => setTimeout(resolve, 300));
+
+                  // Now upload proof - API will validate if donation exists
+                  console.log('[FundManagement.onUploadProof] Calling uploadDonationProof with donationId:', donationId);
+                  await uploadDonationProof(donationId, files);
+                  console.log('[FundManagement.onUploadProof] Upload successful');
+                  toast.success('Đã upload ảnh xác minh thành công. Vui lòng chờ quản trị viên xác nhận.');
+                  await handleRefreshMyPending();
+                } catch (error: any) {
+                  console.error('[FundManagement.onUploadProof] Upload proof failed:', {
+                    error,
+                    donationId,
+                    fundDonationId: donationId,
+                    errorResponse: error?.response,
+                    errorMessage: error?.response?.data?.message || error?.message,
+                    errorStatus: error?.response?.status,
+                    errorUrl: error?.config?.url,
+                    errorMethod: error?.config?.method,
+                    myPendingDonationIds: myPendingDonations.map(d => d.id),
+                  });
+
+                  let errorMessage = error?.response?.data?.message || error?.message || 'Không thể upload ảnh xác minh. Vui lòng thử lại.';
+
+                  // Handle 404 specifically - donation not found
+                  if (error?.response?.status === 404) {
+                    errorMessage = `Không tìm thấy yêu cầu đóng góp quỹ (ID: ${donationId}). Yêu cầu có thể đã bị xóa hoặc không thuộc về bạn. Vui lòng refresh trang và thử lại.`;
+                    console.log('[FundManagement.onUploadProof] 404 error, refreshing donations...');
+                    await handleRefreshMyPending();
+                  } else if (error?.response?.status === 400 && errorMessage.includes('not found')) {
+                    console.log('[FundManagement.onUploadProof] Donation not found (400), refreshing...');
+                    await handleRefreshMyPending();
+                    errorMessage = 'Vui lòng đợi vài giây rồi thử lại upload ảnh xác minh.';
+                  }
+
+                  showException(errorMessage);
+                  throw error;
+                }
+              }}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              getPaymentMethodLabel={getPaymentMethodLabel}
+            />
+          </div>
+        </div>
+      )}
+
+      {fundTab === 'history' && (
+        <div>
+          {fundDataLoading ? (
+            <div className="bg-white rounded-lg shadow p-6">
+              <LoadingState message="Đang tải lịch sử giao dịch..." />
+            </div>
+          ) : (
+            <FundHistorySection
+              fundId={activeFund?.id ?? null}
+              fundName={activeFund?.fundName ?? 'Quỹ'}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              getPaymentMethodLabel={getPaymentMethodLabel}
+            />
+          )}
+        </div>
+      )}
+
+      {fundTab === 'approvals' && (
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${memberRole === 'FTOwner'
+          ? 'bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 p-6 rounded-lg border border-purple-200'
+          : ''
+          }`}>
+          {/* Column 1: Đóng góp */}
+          <div className="flex flex-col min-h-0">
+            <FundPendingDonationsManagerSection
+              pendingDonations={pendingDonations}
+              loading={pendingDonationsLoading}
+              confirming={actionLoading}
+              rejecting={actionLoading}
+              onRefresh={refreshPendingDonations}
+              onConfirm={async (donationId, confirmationNotes) => {
+                if (!gpMemberId) {
+                  showException('Không xác định được thành viên gia tộc để xác nhận.');
+                  return;
+                }
+                try {
+                  await confirmDonation(donationId, gpMemberId, confirmationNotes);
+                  toast.success('Đã xác nhận đóng góp quỹ thành công.');
+                  // Refresh fund details to update balance
+                  await refreshFundDetails();
+                  await refreshAll();
+                  // Switch to overview tab
+                  setFundTab('overview');
+                  setManagementScope('fund');
+                } catch (error: any) {
+                  console.error('Confirm donation failed:', error);
+                  showException(
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    'Không thể xác nhận đóng góp. Vui lòng thử lại.'
+                  );
+                  throw error;
+                }
+              }}
+              onReject={async (donationId, reason) => {
+                if (!gpMemberId) {
+                  showException('Không xác định được thành viên gia tộc để từ chối.');
+                  return;
+                }
+                try {
+                  await rejectDonation(donationId, gpMemberId, reason);
+                  toast.success('Đã từ chối đóng góp quỹ thành công.');
+                  // Refresh data after rejection
+                  await refreshPendingDonations();
+                  await refreshMyPendingDonations();
+                } catch (error: any) {
+                  console.error('Reject donation failed:', error);
+                  showException(
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    'Không thể từ chối đóng góp. Vui lòng thử lại.'
+                  );
+                  throw error;
+                }
+              }}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              getPaymentMethodLabel={getPaymentMethodLabel}
+              confirmerId={gpMemberId ?? ''}
+            />
+          </div>
+
+          {/* Column 2: Rút tiền */}
+          <div className="flex flex-col min-h-0">
+            {fundDataLoading ? (
+              <div className="bg-white rounded-lg shadow p-6">
+                <LoadingState message="Đang tải yêu cầu rút tiền..." />
               </div>
+            ) : (
+              <FundApprovalsSection
+                pendingExpenses={pendingExpenses}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                getStatusBadge={getExpenseStatusBadge}
+                onRequestAction={handleRequestAction}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
-              {/* Yêu cầu nạp của tôi - danh sách các khoản đang chờ xác minh */}
-              <div className="bg-white rounded-lg shadow p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Yêu cầu nạp của tôi</h3>
-                    <p className="text-sm text-gray-500">Các khoản ủng hộ đang chờ quản trị viên xác minh</p>
+
+      {
+        managementScope === 'campaign' && (
+          <>
+            {/* Campaign Tabs */}
+            <div className="bg-white rounded-lg shadow px-4 py-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCampaignTab('all')}
+                className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${campaignTab === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-blue-600'
+                  }`}
+              >
+                Tất cả chiến dịch
+              </button>
+              <button
+                type="button"
+                onClick={() => setCampaignTab('my')}
+                className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${campaignTab === 'my'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-blue-600'
+                  }`}
+              >
+                Ủng hộ chiến dịch & yêu cầu của tôi
+              </button>
+              <button
+                type="button"
+                onClick={() => setCampaignTab('history')}
+                className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${campaignTab === 'history'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-blue-600'
+                  }`}
+              >
+                Lịch sử giao dịch
+              </button>
+              {memberRole === 'FTOwner' && (
+                <button
+                  type="button"
+                  onClick={() => setCampaignTab('approvals')}
+                  className={`px-3 py-2 text-sm font-semibold rounded-md transition-colors ${campaignTab === 'approvals'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
+                    : 'text-purple-700 hover:text-purple-800'
+                    }`}
+                >
+                  Phê duyệt yêu cầu
+                </button>
+              )}
+            </div>
+
+            {campaignTab === 'all' ? (
+              <>
+                {campaignsLoading ? (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <LoadingState message="Đang tải danh sách chiến dịch..." />
                   </div>
+                ) : (
+                  <FundCampaignsSection
+                    campaigns={campaigns}
+                    campaignSearch={campaignSearch}
+                    campaignFilter={campaignFilter}
+                    onSearchChange={setCampaignSearch}
+                    onFilterChange={setCampaignFilter}
+                    onOpenDetail={handleOpenCampaignDetail}
+                    onDonate={(id) => {
+                      // Open donation modal from campaign list
+                      setSelectedCampaignId(id);
+                      setIsCampaignDonateOpen(true);
+                    }}
+                    formatCurrency={formatCurrency}
+                    formatDate={formatDate}
+                    getCampaignStatusLabel={getCampaignStatusLabel}
+                    getCampaignStatusBadgeClasses={getCampaignStatusBadgeClasses}
+                    metrics={campaignMetrics}
+                    currentPage={campaignPagination.page}
+                    totalPages={campaignPagination.totalPages}
+                    totalCount={campaignPagination.totalCount}
+                    pageSize={campaignPagination.pageSize}
+                    onPageChange={changeCampaignPage}
+                    title="Tất cả chiến dịch"
+                    subtitle="Danh sách tất cả các chiến dịch gây quỹ"
+                    showCreateButton={false}
+                    showStatusFilter={true}
+                  />
+                )}
+              </>
+            ) : campaignTab === 'my' ? (
+              <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow p-4 overflow-x-auto">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-bold text-gray-900">Lịch sử ủng hộ của tôi</h3>
+                  </div>
+                  {myCampaignPendingLoading ? (
+                    <LoadingState message="Đang tải ủng hộ của bạn..." />
+                  ) : myCampaignPending.length === 0 ? (
+                    <EmptyState title="Chưa có ủng hộ" description="Bạn chưa có giao dịch ủng hộ nào." />
+                  ) : (
+                    <>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 text-left text-gray-600">
+                            <th className="px-4 py-3 font-semibold">Số tiền</th>
+                            <th className="px-4 py-3 font-semibold">Chiến dịch</th>
+                            <th className="px-4 py-3 font-semibold">Người đóng góp</th>
+                            <th className="px-4 py-3 font-semibold">Phương thức</th>
+                            <th className="px-4 py-3 font-semibold">Ghi chú</th>
+                            <th className="px-4 py-3 font-semibold">Trạng thái</th>
+                            <th className="px-4 py-3 font-semibold">Thời gian</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {myCampaignPending.map(row => {
+                            const method = row.proofImages.length > 0 ? 'Tiền mặt' : 'VietQR';
+                            const statusKey = String((row as any).status || '').toLowerCase();
+                            const statusLabel =
+                              statusKey === 'completed'
+                                ? 'Đã xác nhận'
+                                : statusKey === 'rejected'
+                                  ? 'Đã từ chối'
+                                  : 'Đang chờ';
+                            const statusClass =
+                              statusKey === 'completed'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : statusKey === 'rejected'
+                                  ? 'bg-red-100 text-red-600'
+                                  : 'bg-amber-100 text-amber-700';
+                            return (
+                              <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                <td className="px-4 py-3 font-bold text-emerald-600">
+                                  {formatCurrency(row.amount)}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  {row.campaignName || '—'}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">{row.donorName || 'Ẩn danh'}</td>
+                                <td className="px-4 py-3 text-gray-700">{method}</td>
+                                <td className="px-4 py-3 text-gray-600">{row.message || '—'}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusClass}`}>
+                                    {statusLabel}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-gray-600">{formatDate(row.createdAt)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {myCampaignTotalPages > 1 && (
+                        <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                          <div className="text-sm text-gray-600">
+                            Trang {myCampaignPage} / {myCampaignTotalPages} ({myCampaignTotalCount} mục)
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setMyCampaignPage(Math.max(1, myCampaignPage - 1))}
+                              disabled={myCampaignPage === 1}
+                              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              ‹
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMyCampaignPage(Math.min(myCampaignTotalPages, myCampaignPage + 1))}
+                              disabled={myCampaignPage === myCampaignTotalPages}
+                              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              ›
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Yêu cầu nạp của tôi - danh sách các khoản đang chờ xác minh */}
+                <div className="bg-white rounded-lg shadow p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Yêu cầu nạp của tôi</h3>
+                      <p className="text-sm text-gray-500">Các khoản ủng hộ đang chờ quản trị viên xác minh</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const userIdForApi = gpMemberId || currentUserId || '';
+                        if (!userIdForApi) return;
+                        try {
+                          setMyCampaignPendingLoading(true);
+                          const items = await fundService.fetchMyPendingCampaignDonations(selectedTree?.id || '', userIdForApi);
+                          setMyCampaignPending(items.map(x => ({
+                            id: x.id,
+                            campaignId: x.campaignId,
+                            campaignName: x.campaignName ?? null,
+                            donorName: x.donorName ?? null,
+                            amount: x.amount ?? 0,
+                            message: x.message ?? null,
+                            createdAt: x.createdAt ?? null,
+                            proofImages: x.proofImages ?? [],
+                          })));
+                        } finally {
+                          setMyCampaignPendingLoading(false);
+                        }
+                      }}
+                      disabled={myCampaignPendingLoading}
+                      className="inline-flex items-center gap-2 px-3 py-1 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      Làm mới
+                    </button>
+                  </div>
+                  {myCampaignPendingLoading ? (
+                    <div className="bg-white rounded-lg">
+                      <LoadingState message="Đang tải yêu cầu nạp của bạn..." />
+                    </div>
+                  ) : myCampaignPending.length === 0 ? (
+                    <EmptyState title="Không có yêu cầu nạp đang chờ" description="Bạn chưa có yêu cầu nạp nào cần xác minh." />
+                  ) : (
+                    <div className="space-y-4">
+                      {(() => {
+                        const sorted = myCampaignPending
+                          .slice()
+                          .sort((a, b) => {
+                            const an = (a.campaignName || '').localeCompare(b.campaignName || '');
+                            if (an !== 0) return an;
+                            const ad = getDateValue(a.createdAt);
+                            const bd = getDateValue(b.createdAt);
+                            return bd - ad;
+                          });
+                        const groups = sorted.reduce<Record<string, typeof sorted>>((acc, item) => {
+                          const key = item.campaignId || 'unknown';
+                          if (!acc[key]) acc[key] = [];
+                          acc[key].push(item);
+                          return acc;
+                        }, {});
+                        return Object.values(groups).map(group => {
+                          if (!group.length) return null;
+                          const first = group[0];
+                          const groupKey = first?.campaignId || 'unknown';
+                          const collapsed = myPendingCollapsed[groupKey] ?? true; // default collapsed
+                          return (
+                            <div key={groupKey} className="rounded-lg border bg-white shadow-sm overflow-hidden">
+                              <button
+                                type="button"
+                                className="w-full px-4 py-3 border-b bg-gray-50 flex items-center justify-between hover:bg-gray-100"
+                                onClick={() => {
+                                  setMyPendingCollapsed(prev => ({
+                                    ...prev,
+                                    [groupKey]: !(prev[groupKey] ?? true),
+                                  }));
+                                }}
+                              >
+                                <p className="text-sm font-semibold text-gray-900 text-left">
+                                  {first?.campaignName || '—'}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                                    {group.length} yêu cầu
+                                  </span>
+                                  <span className="text-gray-500 text-base">
+                                    {collapsed ? '▸' : '▾'}
+                                  </span>
+                                </div>
+                              </button>
+                              {!collapsed && (
+                                <div className="divide-y">
+                                  {group.map(item => (
+                                    <div key={item.id} className="p-4 hover:bg-gray-50 cursor-pointer flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                      <div>
+                                        <p className="font-semibold text-gray-900">{item.donorName || 'Bạn'}</p>
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                          <span className="text-sm font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                                            {formatCurrency(item.amount)}
+                                          </span>
+                                          <span className="text-xs text-gray-500">{formatDate(item.createdAt)}</span>
+                                        </div>
+                                        {item.message && <p className="text-xs text-gray-600 mt-1">{item.message}</p>}
+                                        {item.proofImages.length > 0 ? (
+                                          <div className="flex gap-2 mt-2 flex-wrap">
+                                            {item.proofImages.map((url, idx) => (
+                                              <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                                                Xác minh {idx + 1}
+                                              </a>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="text-xs text-gray-500 mt-2">Chưa có ảnh xác minh thanh toán</p>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <label className="px-3 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
+                                          Tải ảnh xác minh
+                                          <input
+                                            type="file"
+                                            multiple
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                              const files = e.target.files ? Array.from(e.target.files) : [];
+                                              e.currentTarget.value = '';
+                                              if (!files.length) return;
+                                              try {
+                                                await fundService.uploadCampaignDonationProof(selectedTree?.id || '', item.id, files);
+                                                toast.success('Đã upload ảnh xác minh. Vui lòng chờ quản trị viên xác nhận.');
+                                                const userIdForApi = gpMemberId || currentUserId || '';
+                                                if (userIdForApi) {
+                                                  const items = await fundService.fetchMyPendingCampaignDonations(selectedTree?.id || '', userIdForApi);
+                                                  setMyCampaignPending(items.map(x => ({
+                                                    id: x.id,
+                                                    campaignId: x.campaignId,
+                                                    campaignName: x.campaignName ?? null,
+                                                    donorName: x.donorName ?? null,
+                                                    amount: x.amount ?? 0,
+                                                    message: x.message ?? null,
+                                                    createdAt: x.createdAt ?? null,
+                                                    proofImages: x.proofImages ?? [],
+                                                  })));
+                                                }
+                                              } catch (err: any) {
+                                                console.error('Upload campaign donation proof failed:', err);
+                                                showException(err?.response?.data?.message || err?.message || 'Không thể upload ảnh xác minh.');
+                                              }
+                                            }}
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : campaignTab === 'history' ? (
+              <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow p-4 flex flex-wrap items-center gap-3">
+                  <label className="text-sm font-semibold text-gray-700">Chọn chiến dịch</label>
+                  <select
+                    value={historySelectedCampaignId ?? ''}
+                    onChange={e => {
+                      const id = e.target.value || null;
+                      setHistorySelectedCampaignId(id);
+                      setHistoryDonationPage(1);
+                      setHistoryExpensePage(1);
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="">-- Chọn chiến dịch --</option>
+                    {campaigns.map(c => (
+                      <option key={c.id} value={c.id}>{c.campaignName}</option>
+                    ))}
+                  </select>
                   <button
                     type="button"
-                    onClick={async () => {
-                      const userIdForApi = gpMemberId || currentUserId || '';
-                      if (!userIdForApi) return;
-                      try {
-                        setMyCampaignPendingLoading(true);
-                        const items = await fundService.fetchMyPendingCampaignDonations(selectedTree?.id || '', userIdForApi);
-                        setMyCampaignPending(items.map(x => ({
-                          id: x.id,
-                          campaignId: x.campaignId,
-                          campaignName: x.campaignName ?? null,
-                          donorName: x.donorName ?? null,
-                          amount: x.amount ?? 0,
-                          message: x.message ?? null,
-                          createdAt: x.createdAt ?? null,
-                          proofImages: x.proofImages ?? [],
-                        })));
-                      } finally {
-                        setMyCampaignPendingLoading(false);
+                    className="px-3 py-2 text-sm font-semibold rounded-lg border border-gray-300 hover:bg-gray-50"
+                    disabled={!historySelectedCampaignId || historyLoading}
+                    onClick={() => {
+                      if (historySelectedCampaignId) {
+                        void loadCampaignHistory(historySelectedCampaignId, 1, 1);
+                        setHistoryDonationPage(1);
+                        setHistoryExpensePage(1);
                       }
                     }}
-                    disabled={myCampaignPendingLoading}
-                    className="inline-flex items-center gap-2 px-3 py-1 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     Làm mới
                   </button>
                 </div>
-                {myCampaignPendingLoading ? (
-                  <div className="bg-white rounded-lg">
-                    <LoadingState message="Đang tải yêu cầu nạp của bạn..." />
-                  </div>
-                ) : myCampaignPending.length === 0 ? (
-                  <EmptyState title="Không có yêu cầu nạp đang chờ" description="Bạn chưa có yêu cầu nạp nào cần xác minh." />
-                ) : (
-                  <div className="space-y-4">
-                    {(() => {
-                      const sorted = myCampaignPending
-                        .slice()
-                        .sort((a, b) => {
-                          const an = (a.campaignName || '').localeCompare(b.campaignName || '');
-                          if (an !== 0) return an;
-                          const ad = getDateValue(a.createdAt);
-                          const bd = getDateValue(b.createdAt);
-                          return bd - ad;
-                        });
-                      const groups = sorted.reduce<Record<string, typeof sorted>>((acc, item) => {
-                        const key = item.campaignId || 'unknown';
-                        if (!acc[key]) acc[key] = [];
-                        acc[key].push(item);
-                        return acc;
-                      }, {});
-                      return Object.values(groups).map(group => {
-                        if (!group.length) return null;
-                        const first = group[0];
-                        const groupKey = first?.campaignId || 'unknown';
-                        const collapsed = myPendingCollapsed[groupKey] ?? true; // default collapsed
-                        return (
-                          <div key={groupKey} className="rounded-lg border bg-white shadow-sm overflow-hidden">
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <h4 className="text-sm font-bold text-gray-900 mb-3">Đóng góp</h4>
+                    {historyLoading ? (
+                      <LoadingState message="Đang tải đóng góp..." />
+                    ) : historySelectedCampaignId ? (
+                      historyDonations.length === 0 ? (
+                        <EmptyState title="Chưa có đóng góp" description="Không có dữ liệu để hiển thị." />
+                      ) : (
+                        <div className="space-y-3">
+                          {historyDonations.map(d => (
+                            <div key={d.id} className="p-3 border rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <p className="font-semibold text-gray-900">{d.donorName || 'Ẩn danh'}</p>
+                                <span className="text-sm font-semibold text-emerald-700">{formatCurrency(d.amount)}</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
+                                <span>{d.status || '—'}</span>
+                                <span>{formatDate(d.createdAt)}</span>
+                              </div>
+                              {d.message && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{d.message}</p>}
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between pt-2">
                             <button
                               type="button"
-                              className="w-full px-4 py-3 border-b bg-gray-50 flex items-center justify-between hover:bg-gray-100"
+                              className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
+                              disabled={historyDonationPage <= 1 || historyLoading || !historySelectedCampaignId}
                               onClick={() => {
-                                setMyPendingCollapsed(prev => ({
-                                  ...prev,
-                                  [groupKey]: !(prev[groupKey] ?? true),
-                                }));
+                                if (historySelectedCampaignId && historyDonationPage > 1) {
+                                  setHistoryDonationPage(p => p - 1);
+                                }
                               }}
                             >
-                              <p className="text-sm font-semibold text-gray-900 text-left">
-                                {first?.campaignName || '—'}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                                  {group.length} yêu cầu
-                                </span>
-                                <span className="text-gray-500 text-base">
-                                  {collapsed ? '▸' : '▾'}
-                                </span>
-                              </div>
+                              ← Trước
                             </button>
-                            {!collapsed && (
-                              <div className="divide-y">
-                                {group.map(item => (
-                                  <div key={item.id} className="p-4 hover:bg-gray-50 cursor-pointer flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                    <div>
-                                      <p className="font-semibold text-gray-900">{item.donorName || 'Bạn'}</p>
-                                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                        <span className="text-sm font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                                          {formatCurrency(item.amount)}
-                                        </span>
-                                        <span className="text-xs text-gray-500">{formatDate(item.createdAt)}</span>
-                                      </div>
-                                      {item.message && <p className="text-xs text-gray-600 mt-1">{item.message}</p>}
-                                      {item.proofImages.length > 0 ? (
-                                        <div className="flex gap-2 mt-2 flex-wrap">
-                                          {item.proofImages.map((url, idx) => (
-                                            <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
-                                              Xác minh {idx + 1}
-                                            </a>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <p className="text-xs text-gray-500 mt-2">Chưa có ảnh xác minh thanh toán</p>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <label className="px-3 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
-                                        Tải ảnh xác minh
-                                        <input
-                                          type="file"
-                                          multiple
-                                          accept="image/*"
-                                          className="hidden"
-                                          onChange={async (e) => {
-                                            const files = e.target.files ? Array.from(e.target.files) : [];
-                                            e.currentTarget.value = '';
-                                            if (!files.length) return;
-                                            try {
-                                              await fundService.uploadCampaignDonationProof(selectedTree?.id || '', item.id, files);
-                                              toast.success('Đã upload ảnh xác minh. Vui lòng chờ quản trị viên xác nhận.');
-                                              const userIdForApi = gpMemberId || currentUserId || '';
-                                              if (userIdForApi) {
-                                                const items = await fundService.fetchMyPendingCampaignDonations(selectedTree?.id || '', userIdForApi);
-                                                setMyCampaignPending(items.map(x => ({
-                                                  id: x.id,
-                                                  campaignId: x.campaignId,
-                                                  campaignName: x.campaignName ?? null,
-                                                  donorName: x.donorName ?? null,
-                                                  amount: x.amount ?? 0,
-                                                  message: x.message ?? null,
-                                                  createdAt: x.createdAt ?? null,
-                                                  proofImages: x.proofImages ?? [],
-                                                })));
-                                              }
-                                            } catch (err: any) {
-                                              console.error('Upload campaign donation proof failed:', err);
-                                              showException(err?.response?.data?.message || err?.message || 'Không thể upload ảnh xác minh.');
-                                            }
-                                          }}
-                                        />
-                                      </label>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            <span className="text-xs text-gray-500">Trang {historyDonationPage}/{historyDonationTotalPages}</span>
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
+                              disabled={historyDonationPage >= historyDonationTotalPages || historyLoading || !historySelectedCampaignId}
+                              onClick={() => {
+                                if (historySelectedCampaignId && historyDonationPage < historyDonationTotalPages) {
+                                  setHistoryDonationPage(p => p + 1);
+                                }
+                              }}
+                            >
+                              Sau →
+                            </button>
                           </div>
-                        );
-                      });
-                    })()}
+                        </div>
+                      )
+                    ) : (
+                      <EmptyState title="Chưa chọn chiến dịch" description="Vui lòng chọn chiến dịch để xem lịch sử." />
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-          ) : campaignTab === 'history' ? (
-            <div className="space-y-4">
-              <div className="bg-white rounded-lg shadow p-4 flex flex-wrap items-center gap-3">
-                <label className="text-sm font-semibold text-gray-700">Chọn chiến dịch</label>
-                <select
-                  value={historySelectedCampaignId ?? ''}
-                  onChange={e => {
-                    const id = e.target.value || null;
-                    setHistorySelectedCampaignId(id);
-                    setHistoryDonationPage(1);
-                    setHistoryExpensePage(1);
-                  }}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                >
-                  <option value="">-- Chọn chiến dịch --</option>
-                  {campaigns.map(c => (
-                    <option key={c.id} value={c.id}>{c.campaignName}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="px-3 py-2 text-sm font-semibold rounded-lg border border-gray-300 hover:bg-gray-50"
-                  disabled={!historySelectedCampaignId || historyLoading}
-                  onClick={() => {
-                    if (historySelectedCampaignId) {
-                      void loadCampaignHistory(historySelectedCampaignId, 1, 1);
-                      setHistoryDonationPage(1);
-                      setHistoryExpensePage(1);
-                    }
-                  }}
-                >
-                  Làm mới
-                </button>
-              </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h4 className="text-sm font-bold text-gray-900 mb-3">Đóng góp</h4>
-                  {historyLoading ? (
-                    <LoadingState message="Đang tải đóng góp..." />
-                  ) : historySelectedCampaignId ? (
-                    historyDonations.length === 0 ? (
-                      <EmptyState title="Chưa có đóng góp" description="Không có dữ liệu để hiển thị." />
-                    ) : (
-                      <div className="space-y-3">
-                        {historyDonations.map(d => (
-                          <div key={d.id} className="p-3 border rounded-lg">
-                            <div className="flex items-center justify-between">
-                              <p className="font-semibold text-gray-900">{d.donorName || 'Ẩn danh'}</p>
-                              <span className="text-sm font-semibold text-emerald-700">{formatCurrency(d.amount)}</span>
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <h4 className="text-sm font-bold text-gray-900 mb-3">Chi tiêu</h4>
+                    {historyLoading ? (
+                      <LoadingState message="Đang tải chi tiêu..." />
+                    ) : historySelectedCampaignId ? (
+                      historyExpenses.length === 0 ? (
+                        <EmptyState title="Chưa có chi tiêu" description="Không có dữ liệu để hiển thị." />
+                      ) : (
+                        <div className="space-y-3">
+                          {historyExpenses.map(e => (
+                            <div key={e.id} className="p-3 border rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <p className="font-semibold text-gray-900">{e.description || 'Chi tiêu'}</p>
+                                <span className="text-sm font-semibold text-red-700">-{formatCurrency(e.amount)}</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
+                                <span>{e.status || '—'}</span>
+                                <span>{formatDate(e.createdAt)}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
-                              <span>{d.status || '—'}</span>
-                              <span>{formatDate(d.createdAt)}</span>
-                            </div>
-                            {d.message && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{d.message}</p>}
+                          ))}
+                          <div className="flex items-center justify-between pt-2">
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
+                              disabled={historyExpensePage <= 1 || historyLoading || !historySelectedCampaignId}
+                              onClick={() => {
+                                if (historySelectedCampaignId && historyExpensePage > 1) {
+                                  setHistoryExpensePage(p => p - 1);
+                                }
+                              }}
+                            >
+                              ← Trước
+                            </button>
+                            <span className="text-xs text-gray-500">Trang {historyExpensePage}/{historyExpenseTotalPages}</span>
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
+                              disabled={historyExpensePage >= historyExpenseTotalPages || historyLoading || !historySelectedCampaignId}
+                              onClick={() => {
+                                if (historySelectedCampaignId && historyExpensePage < historyExpenseTotalPages) {
+                                  setHistoryExpensePage(p => p + 1);
+                                }
+                              }}
+                            >
+                              Sau →
+                            </button>
                           </div>
-                        ))}
-                        <div className="flex items-center justify-between pt-2">
-                          <button
-                            type="button"
-                            className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
-                            disabled={historyDonationPage <= 1 || historyLoading || !historySelectedCampaignId}
-                            onClick={() => {
-                              if (historySelectedCampaignId && historyDonationPage > 1) {
-                                setHistoryDonationPage(p => p - 1);
-                              }
-                            }}
-                          >
-                            ← Trước
-                          </button>
-                          <span className="text-xs text-gray-500">Trang {historyDonationPage}/{historyDonationTotalPages}</span>
-                          <button
-                            type="button"
-                            className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
-                            disabled={historyDonationPage >= historyDonationTotalPages || historyLoading || !historySelectedCampaignId}
-                            onClick={() => {
-                              if (historySelectedCampaignId && historyDonationPage < historyDonationTotalPages) {
-                                setHistoryDonationPage(p => p + 1);
-                              }
-                            }}
-                          >
-                            Sau →
-                          </button>
                         </div>
-                      </div>
-                    )
-                  ) : (
-                    <EmptyState title="Chưa chọn chiến dịch" description="Vui lòng chọn chiến dịch để xem lịch sử." />
-                  )}
+                      )
+                    ) : (
+                      <EmptyState title="Chưa chọn chiến dịch" description="Vui lòng chọn chiến dịch để xem lịch sử." />
+                    )}
+                  </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h4 className="text-sm font-bold text-gray-900 mb-3">Chi tiêu</h4>
-                  {historyLoading ? (
-                    <LoadingState message="Đang tải chi tiêu..." />
-                  ) : historySelectedCampaignId ? (
-                    historyExpenses.length === 0 ? (
-                      <EmptyState title="Chưa có chi tiêu" description="Không có dữ liệu để hiển thị." />
-                    ) : (
-                      <div className="space-y-3">
-                        {historyExpenses.map(e => (
-                          <div key={e.id} className="p-3 border rounded-lg">
-                            <div className="flex items-center justify-between">
-                              <p className="font-semibold text-gray-900">{e.description || 'Chi tiêu'}</p>
-                              <span className="text-sm font-semibold text-red-700">-{formatCurrency(e.amount)}</span>
-                            </div>
-                            <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
-                              <span>{e.status || '—'}</span>
-                              <span>{formatDate(e.createdAt)}</span>
-                            </div>
-                          </div>
-                        ))}
-                        <div className="flex items-center justify-between pt-2">
-                          <button
-                            type="button"
-                            className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
-                            disabled={historyExpensePage <= 1 || historyLoading || !historySelectedCampaignId}
-                            onClick={() => {
-                              if (historySelectedCampaignId && historyExpensePage > 1) {
-                                setHistoryExpensePage(p => p - 1);
-                              }
-                            }}
-                          >
-                            ← Trước
-                          </button>
-                          <span className="text-xs text-gray-500">Trang {historyExpensePage}/{historyExpenseTotalPages}</span>
-                          <button
-                            type="button"
-                            className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
-                            disabled={historyExpensePage >= historyExpenseTotalPages || historyLoading || !historySelectedCampaignId}
-                            onClick={() => {
-                              if (historySelectedCampaignId && historyExpensePage < historyExpenseTotalPages) {
-                                setHistoryExpensePage(p => p + 1);
-                              }
-                            }}
-                          >
-                            Sau →
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  ) : (
-                    <EmptyState title="Chưa chọn chiến dịch" description="Vui lòng chọn chiến dịch để xem lịch sử." />
-                  )}
-                </div>
               </div>
+            ) : (
+              // Approvals tab
+              <div className="space-y-4">
+                <CampainPendingDonationsManagerSection
+                  pendingDonations={campaignPendingDonations}
+                  loading={campaignApprovalsLoading}
+                  onRefresh={handleRefreshCampaignApprovals}
+                  formatCurrency={formatCurrency}
+                  formatDate={formatDate}
+                  onConfirm={handleConfirmCampaignPendingDonation}
+                  onReject={handleRejectCampaignPendingDonation}
+                  pendingExpenses={campaignPendingExpenses}
+                  expenseLoading={campaignExpenseApprovalsLoading}
+                  onRefreshExpenses={handleRefreshCampaignExpenseApprovals}
+                  onApproveExpense={handleApproveCampaignExpense}
+                  onRejectExpense={handleRejectCampaignExpense}
+                  expenseActionsDisabled={!gpMemberId}
+                />
+              </div>
+            )}
+          </>
+        )}
 
-            </div>
-          ) : (
-            // Approvals tab
-            <div className="space-y-4">
-              <CampainPendingDonationsManagerSection
-                pendingDonations={campaignPendingDonations}
-                loading={campaignApprovalsLoading}
-                onRefresh={handleRefreshCampaignApprovals}
-                formatCurrency={formatCurrency}
-                formatDate={formatDate}
-                onConfirm={handleConfirmCampaignPendingDonation}
-                onReject={handleRejectCampaignPendingDonation}
-                pendingExpenses={campaignPendingExpenses}
-                expenseLoading={campaignExpenseApprovalsLoading}
-                onRefreshExpenses={handleRefreshCampaignExpenseApprovals}
-                onApproveExpense={handleApproveCampaignExpense}
-                onRejectExpense={handleRejectCampaignExpense}
-                expenseActionsDisabled={!gpMemberId}
-              />
-            </div>
-          )}
-        </>
-      )}
 
       <FundCreateModal
         isOpen={showCreateModal}
@@ -2903,7 +2942,7 @@ const FundManagement: React.FC = () => {
         timestamp={exceptionTimestamp}
         onClose={hideException}
       />
-    </div>
+    </div >
   );
 };
 
