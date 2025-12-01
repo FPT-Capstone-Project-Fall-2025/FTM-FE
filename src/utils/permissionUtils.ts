@@ -26,6 +26,13 @@ export function extractUserPermissions(
     // API is already filtered by userId in the request, so we can directly use the first item
     const userPermissionData = ftAuthData.datalist[0];
 
+    // Extract owner role from key.fullname
+    if (userPermissionData?.key?.fullname === 'Owner') {
+        permissions.isOwner = true;
+    } else {
+        permissions.isOwner = false;
+    }
+
     // Map the permissions to our structure
     userPermissionData?.value.forEach((authProp) => {
         const featureCode = authProp.featureCode as FeatureCode;

@@ -25,7 +25,6 @@ import type {
 import { useGPMember } from '@/hooks/useGPMember';
 import { getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
 import { type FTRole } from '@/services/familyTreeMemberService';
-import ftauthorizationService from '@/services/familyTreeAuth';
 import fundService from '@/services/fundService';
 import FundCreateModal, {
   type BankInfo,
@@ -194,8 +193,7 @@ const FundManagement: React.FC = () => {
   );
   const { user: authUser, token } = useAppSelector(state => state.auth);
 
-  const [memberRole, setMemberRole] = useState<FTRole | null>(null);
-  const [hasFundUpdatePermission, setHasFundUpdatePermission] = useState(false);
+
 
   const currentUserId = useMemo(
     () => authUser?.userId || (token ? getUserIdFromToken(token) : null),
@@ -1682,60 +1680,22 @@ const FundManagement: React.FC = () => {
     setFundPage(prev => Math.min(prev, maxPage));
   }, [funds.length]);
 
-  // Fetch member role and permissions
-  useEffect(() => {
-    const fetchMemberRole = async () => {
-      if (!selectedTree?.id || !gpMemberId) {
-        setMemberRole(null);
-        setHasFundUpdatePermission(false);
-        return;
-      }
-      try {
-        // Use getFTAuthsWithOwner to get detailed permissions including Owner check
-        // Cast params to any to avoid strict PaginationProps check
-        const res = await ftauthorizationService.getFTAuthsWithOwner(selectedTree.id, {
-          pageIndex: 0,
-          pageSize: 1000,
-        } as any);
+  // Derive member role and permissions from Redux state (reusing data fetched in FamilyTreePage)
+  const currentPermissions = useAppSelector(state =>
+    selectedTree?.id ? state.permissions.permissions[selectedTree.id] : undefined
+  );
 
-        if (res.data && res.data.data) {
-          // Cast data to expected structure as the type definition might be mismatched
-          const authList = res.data.data as unknown as Array<{
-            key: { id: string; fullname: string };
-            value: Array<{ featureCode: string; methodsList: string[] }>;
-          }>;
+  // Derive memberRole from permissions
+  const memberRole = useMemo<FTRole | null>(() => {
+    if (!currentPermissions) return null;
+    return currentPermissions.isOwner ? 'FTOwner' : 'FTMember';
+  }, [currentPermissions]);
 
-          // Find the current user's auth record
-          const userAuth = authList.find(auth => auth.key.id === gpMemberId);
-
-          if (userAuth) {
-            // Check if user is Owner
-            if (userAuth.key.fullname === 'Owner') {
-              setMemberRole('FTOwner');
-            } else {
-              setMemberRole('FTMember'); // Default to member if not owner
-            }
-
-            // Check for FUND feature with UPDATE permission
-            const fundAuth = userAuth.value.find(v => v.featureCode === 'FUND');
-            if (fundAuth && fundAuth.methodsList.includes('UPDATE')) {
-              setHasFundUpdatePermission(true);
-            } else {
-              setHasFundUpdatePermission(false);
-            }
-          } else {
-            setMemberRole(null);
-            setHasFundUpdatePermission(false);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch member role and permissions:', error);
-        setMemberRole(null);
-        setHasFundUpdatePermission(false);
-      }
-    };
-    void fetchMemberRole();
-  }, [selectedTree?.id, gpMemberId]);
+  // Derive hasFundUpdatePermission from permissions
+  const hasFundUpdatePermission = useMemo(() => {
+    if (!currentPermissions || !currentPermissions.FUND) return false;
+    return currentPermissions.FUND.includes('UPDATE');
+  }, [currentPermissions]);
 
   useEffect(() => {
     if (!activeFund) return;
