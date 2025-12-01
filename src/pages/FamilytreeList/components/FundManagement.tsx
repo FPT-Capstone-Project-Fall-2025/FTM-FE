@@ -1992,7 +1992,7 @@ const FundManagement: React.FC = () => {
           })}
         </div>
       )}
-      {fundTab === 'overview' && (
+      {managementScope === 'fund' && fundTab === 'overview' && (
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             {totalPages > 1 && (
@@ -2070,7 +2070,7 @@ const FundManagement: React.FC = () => {
         </div>
       )}
 
-      {fundTab === 'donations' && (
+      {managementScope === 'fund' && fundTab === 'donations' && (
         <div className="space-y-6">
           <div className="bg-white rounded-lg shadow p-6">
             {fundDataLoading ? (
@@ -2151,7 +2151,7 @@ const FundManagement: React.FC = () => {
         </div>
       )}
 
-      {fundTab === 'history' && (
+      {managementScope === 'fund' && fundTab === 'history' && (
         <div>
           {fundDataLoading ? (
             <div className="bg-white rounded-lg shadow p-6">
@@ -2169,7 +2169,7 @@ const FundManagement: React.FC = () => {
         </div>
       )}
 
-      {fundTab === 'approvals' && (
+      {managementScope === 'fund' && fundTab === 'approvals' && (
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${memberRole === 'FTOwner'
           ? 'bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 p-6 rounded-lg border border-purple-200'
           : ''
