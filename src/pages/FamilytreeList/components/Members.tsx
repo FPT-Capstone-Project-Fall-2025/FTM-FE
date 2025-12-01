@@ -47,6 +47,10 @@ const Members: React.FC = () => {
     const [selectedNodeForInvite, setSelectedNodeForInvite] = useState<FamilyNodeList | null>(null);
     const [inviteEmail, setInviteEmail] = useState("");
     const [isInviting, setIsInviting] = useState(false);
+    const [unlinkedNodeDetailModalOpen, setUnlinkedNodeDetailModalOpen] = useState(false);
+    const [unlinkedNodeDetailProfile, setUnlinkedNodeDetailProfile] = useState<UserProfile | null>(null);
+    const [unlinkedNodeDetailLoading, setUnlinkedNodeDetailLoading] = useState(false);
+    const [unlinkedNodeDetailError, setUnlinkedNodeDetailError] = useState<string | null>(null);
     const { errorPopup, showError, closeError } = useErrorPopup();
 
     const loadMembers = useCallback(async () => {
@@ -148,11 +152,6 @@ const Members: React.FC = () => {
                             name: "FTId",
                             operation: "EQUAL",
                             value: selectedFamilyTree.id
-                        },
-                        {
-                            name: "userId",
-                            operation: "EQUAL",
-                            value: null
                         },
                     ],
                     totalItems: 0,
@@ -332,6 +331,32 @@ const Members: React.FC = () => {
         }
     };
 
+    const closeUnlinkedNodeDetailModal = () => {
+        setUnlinkedNodeDetailModalOpen(false);
+        setUnlinkedNodeDetailProfile(null);
+        setUnlinkedNodeDetailError(null);
+        setUnlinkedNodeDetailLoading(false);
+    };
+
+    const handleViewUnlinkedNodeDetail = async (node: FamilyNodeList) => {
+        if (!node.userId) return;
+
+        setUnlinkedNodeDetailModalOpen(true);
+        setUnlinkedNodeDetailLoading(true);
+        setUnlinkedNodeDetailError(null);
+        setUnlinkedNodeDetailProfile(null);
+
+        try {
+            const res = await userService.getProfileByUserId(node.userId);
+            setUnlinkedNodeDetailProfile(res.data);
+        } catch (error) {
+            console.error("Failed to load member detail:", error);
+            setUnlinkedNodeDetailError("Không thể tải thông tin chi tiết. Vui lòng thử lại.");
+        } finally {
+            setUnlinkedNodeDetailLoading(false);
+        }
+    };
+
     // Show loading state while permissions are being fetched
     if (permissions.isLoading) {
         return (
@@ -408,7 +433,7 @@ const Members: React.FC = () => {
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Tên đầy đủ</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Giới tính</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ngày sinh</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Trạng thái</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Thao Tác</th>
                                     </>
                                 ) : (
@@ -450,16 +475,36 @@ const Members: React.FC = () => {
                                             <td className="px-6 py-4 text-sm text-gray-600">
                                                 {node.birthday ? new Date(node.birthday).toLocaleDateString('vi-VN') : 'Không rõ'}
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 font-mono">{node.id}</td>
                                             <td className="px-6 py-4">
-                                                {permissions.canAdd('MEMBER') && (
+                                                {node.userId ? (
+                                                    <span className="px-3 py-1 text-xs font-medium rounded-md border bg-green-100 text-green-800 border-green-200">
+                                                        Đã liên kết
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-3 py-1 text-xs font-medium rounded-md border bg-amber-100 text-amber-800 border-amber-200">
+                                                        Chưa liên kết
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {node.userId ? (
                                                     <button
-                                                        onClick={() => handleOpenInviteModal(node)}
-                                                        className="flex items-center gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                                                        onClick={() => handleViewUnlinkedNodeDetail(node)}
+                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
                                                     >
-                                                        <Mail className="w-4 h-4" />
-                                                        Mời
+                                                        <Eye className="w-4 h-4" />
+                                                        Xem chi tiết
                                                     </button>
+                                                ) : (
+                                                    permissions.canAdd('MEMBER') && (
+                                                        <button
+                                                            onClick={() => handleOpenInviteModal(node)}
+                                                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                                                        >
+                                                            <Mail className="w-4 h-4" />
+                                                            Mời
+                                                        </button>
+                                                    )
                                                 )}
                                             </td>
                                         </tr>
@@ -629,7 +674,7 @@ const Members: React.FC = () => {
             {showInviteModal && selectedNodeForInvite && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
                     <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
-                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-500 to-emerald-600">
+                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500">
                             <Mail size={28} className="text-white" />
                         </div>
                         <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Mời người dùng</h3>
@@ -649,7 +694,7 @@ const Members: React.FC = () => {
                                 value={inviteEmail}
                                 onChange={(e) => setInviteEmail(e.target.value)}
                                 placeholder="nguoidung@gmail.com"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                                 autoFocus
                             />
                         </div>
@@ -665,7 +710,7 @@ const Members: React.FC = () => {
                             <button
                                 onClick={handleSendInvite}
                                 disabled={isInviting || !inviteEmail}
-                                className="px-6 py-3 font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-6 py-3 font-semibold bg-gradient-to-r from-blue-400 to-cyan-500 text-white rounded-xl hover:from-blue-500 hover:to-cyan-600 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isInviting ? (
                                     <span className="flex items-center gap-2">
@@ -678,6 +723,13 @@ const Members: React.FC = () => {
                     </div>
                 </div>
             )}
+            <MemberDetailModal
+                open={unlinkedNodeDetailModalOpen}
+                loading={unlinkedNodeDetailLoading}
+                profile={unlinkedNodeDetailProfile}
+                error={unlinkedNodeDetailError}
+                onClose={closeUnlinkedNodeDetailModal}
+            />
             <ExceptionPopup
                 isOpen={errorPopup.isOpen}
                 message={errorPopup.message}
