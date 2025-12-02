@@ -62,9 +62,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
   const parentsOf = new Map<string, Set<string>>();
   const partnerPairs = new Set<string>();
 
-  // NEW: Track which partner each child belongs to for polygamy cases
-  const childToPartnerMap = new Map<string, { parent: string; partner: string }>();
-
   Object.keys(members).forEach(memberId => {
     childrenOf.set(memberId, []);
     parentsOf.set(memberId, new Set());
@@ -78,11 +75,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
 
         childIds.forEach(childId => {
           if (!members[childId]) return;
-
-          // NEW: Track which partner this child came from
-          if (partnerId && members[partnerId]) {
-            childToPartnerMap.set(childId, { parent: memberId, partner: partnerId });
-          }
 
           if (!childrenOf.get(memberId)!.includes(childId)) {
             childrenOf.get(memberId)!.push(childId);
@@ -326,9 +318,9 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     }
   });
 
-  // Step 7: Enhanced spouse positioning with polygamy awareness
-  const MIN_FAMILY_SPACING = 400;
-  const SPOUSE_SPACING = 220;
+  // Step 7: Group spouse clusters and separate different families - Conform to D3 by preserving original cluster centers
+  const MIN_FAMILY_SPACING = 350; // Buffer for nudging only if overlaps
+  const SPOUSE_SPACING = 200; // Internal cluster spacing, close to D3 nodeSize[0]/1.4 for compatibility
 
   const nodesByGen = new Map<number, string[]>();
 
@@ -381,6 +373,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       spouseClusters.push(cluster);
     });
 
+    // Calculate original avgX from D3 for each cluster (preserve D3 positioning)
     spouseClusters.forEach(cluster => {
       const avgX =
         cluster.reduce((sum, id) => sum + positionMap.get(id)!.x, 0) /
@@ -388,10 +381,14 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       (cluster as any).avgX = avgX;
     });
 
+    // Sort by original avgX to check for overlaps later
     spouseClusters.sort((a, b) => (a as any).avgX - (b as any).avgX);
 
+    // Reposition WITHIN clusters around their original D3 avgX (no cumulative shift)
     spouseClusters.forEach(cluster => {
       const originalAvgX = (cluster as any).avgX;
+      const clusterWidth = (cluster.length - 1) * SPOUSE_SPACING;
+      const startX = originalAvgX - clusterWidth / 2;
 
       if (cluster.length === 1) {
         positionMap.set(cluster[0]!, {
@@ -402,9 +399,6 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         const [id1, id2] = cluster.sort(
           (a, b) => positionMap.get(a)!.x - positionMap.get(b)!.x
         );
-        const clusterWidth = SPOUSE_SPACING;
-        const startX = originalAvgX - clusterWidth / 2;
-
         positionMap.set(id1!, {
           x: startX,
           y: positionMap.get(id1!)!.y,
@@ -414,6 +408,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
           y: positionMap.get(id2!)!.y,
         });
       } else {
+        // Symmetric positioning for >2
         let centerPerson = cluster[0]!;
         let maxSpouses = 0;
 
@@ -428,35 +423,34 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         const spouses = Array.from(spouseGraph.get(centerPerson)!).filter(id =>
           cluster.includes(id)
         );
-
         spouses.sort((a, b) => positionMap.get(a)!.x - positionMap.get(b)!.x);
 
-        const totalWidth = spouses.length * SPOUSE_SPACING;
-        const startX = originalAvgX - totalWidth / 2;
+        const numLeft = Math.floor(spouses.length / 2);
+        const numRight = spouses.length - numLeft;
+        const centerIndex = numLeft;
 
-        const centerIndex = Math.floor(spouses.length / 2);
         positionMap.set(centerPerson, {
           x: startX + centerIndex * SPOUSE_SPACING,
           y: positionMap.get(centerPerson)!.y,
         });
 
-        spouses.forEach((spouseId, idx) => {
-          let xPos: number;
-          if (idx < centerIndex) {
-            xPos = startX + idx * SPOUSE_SPACING;
-          } else {
-            xPos = startX + (idx + 1) * SPOUSE_SPACING;
-          }
-
-          positionMap.set(spouseId, {
-            x: xPos,
-            y: positionMap.get(spouseId)!.y,
+        for (let i = 0; i < numLeft; i++) {
+          positionMap.set(spouses[i]!, {
+            x: startX + (centerIndex - 1 - i) * SPOUSE_SPACING,
+            y: positionMap.get(spouses[i]!)!.y,
           });
-        });
+        }
+
+        for (let i = 0; i < numRight; i++) {
+          positionMap.set(spouses[numLeft + i]!, {
+            x: startX + (centerIndex + 1 + i) * SPOUSE_SPACING,
+            y: positionMap.get(spouses[numLeft + i]!)!.y,
+          });
+        }
       }
     });
 
-    let cumulativeShift = 0;
+    // Collision avoidance: Nudge overlapping clusters rightward if needed (preserves D3 order)
     for (let i = 1; i < spouseClusters.length; i++) {
       const prevCluster = spouseClusters[i - 1]!;
       const currCluster = spouseClusters[i]!;
@@ -468,23 +462,18 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         ...currCluster.map(id => positionMap.get(id)!.x)
       );
 
-      const gap = currMinX - prevMaxX;
-
-      if (gap < MIN_FAMILY_SPACING / 2) {
-        const nudge = MIN_FAMILY_SPACING / 2 - gap + 80;
-        cumulativeShift += nudge;
-
-        for (let j = i; j < spouseClusters.length; j++) {
-          spouseClusters[j]?.forEach(id => {
-            const pos = positionMap.get(id)!;
-            positionMap.set(id, { x: pos.x + nudge, y: pos.y });
-          });
-        }
+      if (currMinX - prevMaxX < MIN_FAMILY_SPACING / 2) {
+        const nudge = MIN_FAMILY_SPACING / 2 - (currMinX - prevMaxX) + 50;
+        currCluster?.forEach(id => {
+          const pos = positionMap.get(id)!;
+          positionMap.set(id, { x: pos.x + nudge, y: pos.y });
+        });
       }
     }
   }
 
-  // Step 8: CRITICAL - Enhanced children positioning with proper polygamy handling
+  // Step 8: CRITICAL - Recursively recenter ALL children under their parents (top-down for hierarchy)
+  // This must run AFTER Step 7 completes all spouse positioning
   const sortedGens = Array.from(nodesByGen.keys()).sort((a, b) => a - b);
 
   for (let i = 0; i < sortedGens.length - 1; i++) {
@@ -496,39 +485,27 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
 
     if (nextGenNodes.length === 0) continue;
 
-    // NEW: Group children by SPECIFIC partner, not just parent pair
-    const childrenByPartnerKey = new Map<string, string[]>();
+    // Group children by their parent set
+    const childrenByParentSet = new Map<string, string[]>();
 
     nextGenNodes.forEach(childId => {
-      const partnerInfo = childToPartnerMap.get(childId);
+      const parentIds = Array.from(parentsOf.get(childId) || []).filter(
+        pId =>
+          members[pId] && component.has(pId) && currentGenNodes.includes(pId)
+      );
 
-      if (partnerInfo) {
-        // This child came from a specific parent-partner combination
-        const { parent, partner } = partnerInfo;
-        const key = [parent, partner].sort().join('-');
+      if (parentIds.length === 0) return;
 
-        if (!childrenByPartnerKey.has(key)) {
-          childrenByPartnerKey.set(key, []);
-        }
-        childrenByPartnerKey.get(key)!.push(childId);
-      } else {
-        // Fallback to old method
-        const parentIds = Array.from(parentsOf.get(childId) || []).filter(
-          pId => members[pId] && component.has(pId) && currentGenNodes.includes(pId)
-        );
+      const parentKey = parentIds.sort().join('-');
 
-        if (parentIds.length > 0) {
-          const key = parentIds.sort().join('-');
-          if (!childrenByPartnerKey.has(key)) {
-            childrenByPartnerKey.set(key, []);
-          }
-          childrenByPartnerKey.get(key)!.push(childId);
-        }
+      if (!childrenByParentSet.has(parentKey)) {
+        childrenByParentSet.set(parentKey, []);
       }
+      childrenByParentSet.get(parentKey)!.push(childId);
     });
 
-    // Identify polygamous parents
-    const polygamousParents = new Map<string, string[]>();
+    // Identify polygamy situations in current generation
+    const polygamyParents = new Map<string, Set<string>>(); // parent -> all their partners
     currentGenNodes.forEach(personId => {
       const person = members[personId];
       if (person?.partners && person.partners.length > 1) {
@@ -536,80 +513,80 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
           p => members[p] && component.has(p) && currentGenNodes.includes(p)
         );
         if (validPartners.length > 1) {
-          // Sort partners by their X position
-          validPartners.sort((a, b) => {
-            const posA = positionMap.get(a);
-            const posB = positionMap.get(b);
-            return (posA?.x || 0) - (posB?.x || 0);
-          });
-          polygamousParents.set(personId, validPartners);
+          polygamyParents.set(personId, new Set(validPartners));
         }
       }
     });
 
-    // Create sibling groups
+    // Create sibling groups with their metadata
     const siblingGroups: Array<{
-      key: string;
+      parentKey: string;
       children: string[];
-      parentIds: string[];
-      centerX: number;
-      isPolygamy: boolean;
-      polygamyIndex?: number;
-      totalPolygamyBranches?: number;
+      parentCenterX: number;
+      childSpacing: number;
     }> = [];
 
-    childrenByPartnerKey.forEach((children, key) => {
-      const parentIds = key.split('-').filter(id => members[id]);
+    childrenByParentSet.forEach((children, parentKey) => {
+      const parentIds = parentKey.split('-').filter(id => members[id]);
+
       if (parentIds.length === 0) return;
 
+      // CRITICAL: Get parent positions AFTER Step 7 spouse adjustments
       const parentPositions = parentIds
         .map(id => positionMap.get(id))
         .filter(pos => pos !== undefined) as { x: number; y: number }[];
 
       if (parentPositions.length === 0) return;
 
-      const baseCenterX =
+      // Calculate fresh parent center using CURRENT positions
+      const parentCenterX =
         parentPositions.reduce((sum, pos) => sum + pos.x, 0) /
         parentPositions.length;
 
-      // Check if this is a polygamy branch
-      let isPolygamy = false;
-      let polygamyIndex: number | undefined;
-      let totalPolygamyBranches: number | undefined;
-
+      // Dynamic spacing tied to D3 nodeSize (280 base); compress for large groups to stay under parents
+      let childSpacing = 280; // Match D3 horizontal nodeSize for compatibility
+      if (children.length > 3) {
+        childSpacing = Math.max(150, (280 * 3) / children.length);
+      }
+      // ===== POLYGAMY OFFSET: Position children towards their specific parent =====
+      let polygamyOffset = 0;
       if (parentIds.length === 2) {
         const [p1, p2] = parentIds;
-        if (polygamousParents.has(p1!)) {
-          isPolygamy = true;
-          const partners = polygamousParents.get(p1!)!;
-          polygamyIndex = partners.indexOf(p2!);
-          totalPolygamyBranches = partners.length;
-        } else if (polygamousParents.has(p2!)) {
-          isPolygamy = true;
-          const partners = polygamousParents.get(p2!)!;
-          polygamyIndex = partners.indexOf(p1!);
-          totalPolygamyBranches = partners.length;
+        const p1Partners = members[p1!]?.partners || [];
+        const p2Partners = members[p2!]?.partners || [];
+        const p1HasMultiple = p1Partners.length > 1;
+        const p2HasMultiple = p2Partners.length > 1;
+        // One parent has multiple partners (polygamy case)
+        if (p1HasMultiple || p2HasMultiple) {
+          const centerParent = p1HasMultiple ? p1! : p2!;
+          const spouseParent = p1HasMultiple ? p2! : p1!;
+          const centerPos = positionMap.get(centerParent);
+          const spousePos = positionMap.get(spouseParent);
+          if (centerPos && spousePos) {
+            // Determine which side the spouse is on
+            const spouseIsLeft = spousePos.x < centerPos.x;
+            const parentDistance = Math.abs(spousePos.x - centerPos.x);
+
+            // Position children halfway between center and spouse (50% offset)
+            const offsetAmount = parentDistance * 0.5;
+            polygamyOffset = spouseIsLeft ? -offsetAmount : offsetAmount;
+          }
         }
       }
-
+      const finalCenterX = parentCenterX + polygamyOffset;
       siblingGroups.push({
-        key,
+        parentKey,
         children,
-        parentIds,
-        centerX: baseCenterX,
-        isPolygamy,
-        polygamyIndex,
-        totalPolygamyBranches,
+        parentCenterX: finalCenterX, // Use adjusted center for polygamy
+        childSpacing,
       });
     });
 
-    // Sort by center X
-    siblingGroups.sort((a, b) => a.centerX - b.centerX);
+    // Sort sibling groups by parent center X
+    siblingGroups.sort((a, b) => a.parentCenterX - b.parentCenterX);
 
-    // Position groups with MASSIVE spacing for polygamy
-    const NORMAL_SPACING = 250;
-    const POLYGAMY_BRANCH_SPACING = 800; // MUCH larger spacing between polygamy branches
-    const CHILD_SPACING = 280;
+    // Position each sibling group centered under their parents
+    const MIN_GROUP_GAP = 180; // Minimum gap between sibling groups
 
     siblingGroups.forEach((group, idx) => {
       const sortedChildren = [...group.children].sort((a, b) => {
@@ -618,40 +595,36 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         return (posA?.x || 0) - (posB?.x || 0);
       });
 
-      const totalWidth = (sortedChildren.length - 1) * CHILD_SPACING;
-      let targetCenterX = group.centerX;
+      const totalWidth = (sortedChildren.length - 1) * group.childSpacing;
+      let centerX = group.parentCenterX;
 
-      // Apply spacing logic
+      // Check for collision with previous group only
       if (idx > 0) {
         const prevGroup = siblingGroups[idx - 1]!;
         const prevChildren = prevGroup.children;
 
+        // Get rightmost child of previous group from current positions
         const prevRightX = Math.max(
           ...prevChildren.map(id => positionMap.get(id)?.x || -Infinity)
         );
 
-        const currLeftX = targetCenterX - totalWidth / 2;
+        const currLeftX = centerX - totalWidth / 2;
         const gap = currLeftX - prevRightX;
 
-        // Use much larger spacing if either group is a polygamy branch
-        const requiredGap = (group.isPolygamy || prevGroup.isPolygamy)
-          ? POLYGAMY_BRANCH_SPACING
-          : NORMAL_SPACING;
-
-        if (gap < requiredGap) {
-          const shift = requiredGap - gap + 100;
-          targetCenterX += shift;
+        // Only shift if there's actual overlap
+        if (gap < MIN_GROUP_GAP) {
+          centerX += (MIN_GROUP_GAP - gap);
         }
       }
 
-      // Position children
-      const startX = targetCenterX - totalWidth / 2;
+      // Position children symmetrically around center
+      const startX = centerX - totalWidth / 2;
 
       sortedChildren.forEach((childId, index) => {
         const childPos = positionMap.get(childId);
         if (childPos) {
           positionMap.set(childId, {
-            x: startX + index * CHILD_SPACING,
+            x: startX + index * group.childSpacing,
             y: childPos.y,
           });
         }
@@ -664,6 +637,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     .map(([memberId, member]) => {
       const pos = positionMap.get(memberId) || { x: 0, y: 0 };
 
+      // Check if person is divorced
       const isDivorced = (member as any)?.isDivorced;
 
       return {
@@ -672,12 +646,12 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
         data: {
           ...member,
           label: member.name || 'Unknown',
-          isDivorced,
+          isDivorced, // Pass divorce status to node component
         },
         position: pos,
         style: {
           minWidth: '180px',
-          border: isDivorced ? '2px dashed #9ca3af' : undefined,
+          border: isDivorced ? '2px dashed #9ca3af' : undefined, // Dashed border for divorced
           opacity: isDivorced ? 0.85 : 1,
         },
       };
@@ -686,16 +660,17 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
   const flowEdges: Edge[] = [];
   const processedChildEdges = new Set<string>();
 
+  // Generate colors for polygamy cases
   const polygamyColors = [
-    '#3b82f6',
-    '#ef4444',
-    '#10b981',
-    '#f59e0b',
-    '#8b5cf6',
-    '#ec4899',
+    '#3b82f6', // blue
+    '#ef4444', // red
+    '#10b981', // green
+    '#f59e0b', // amber
+    '#8b5cf6', // purple
+    '#ec4899', // pink
   ];
-
-  const polygamyMap = new Map<string, string[]>();
+  // Identify polygamy cases (people with multiple partners)
+  const polygamyMap = new Map<string, string[]>(); // personId -> [partner1, partner2, ...]
 
   Object.entries(members).forEach(([memberId, member]) => {
     if (!component.has(memberId)) return;
@@ -706,7 +681,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       }
     }
   });
-
+  // Create color map for parent pairs in polygamy situations
   const parentPairColors = new Map<string, string>();
 
   polygamyMap.forEach((partners, centerId) => {
@@ -716,23 +691,25 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
     });
   });
 
+  // Parent-child edges with color coding
   parentsOf.forEach((parentIds, childId) => {
     if (!component.has(childId) || !members[childId]) return;
     const parents = Array.from(parentIds).filter(
       p => members[p] && component.has(p)
     );
-
-    let edgeColor = '#94a3b8';
+    // Determine edge color based on parent pair
+    let edgeColor = '#94a3b8'; // default gray
 
     if (parents.length === 2) {
       const pairKey = parents.sort().join('-');
+
+      // Check if either parent is in a polygamy situation
       const isPolygamy = parents.some(p => polygamyMap.has(p));
 
       if (isPolygamy && parentPairColors.has(pairKey)) {
         edgeColor = parentPairColors.get(pairKey)!;
       }
     }
-
     parents.forEach(parentId => {
       const edgeId = `child-${parentId}-${childId}`;
       if (!processedChildEdges.has(edgeId)) {
@@ -770,6 +747,7 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       if (!processedPartnerPairs.has(pair)) {
         processedPartnerPairs.add(pair);
 
+        // Check if either person is divorced (from this specific partner)
         const member1 = members[memberId];
         const member2 = members[partnerId];
         const isDivorced = (member1 as any)?.isDivorced || (member2 as any)?.isDivorced;
@@ -781,10 +759,10 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
           type: 'straight',
           animated: false,
           style: {
-            stroke: isDivorced ? '#9ca3af' : '#e879f9',
+            stroke: isDivorced ? '#9ca3af' : '#e879f9', // gray if divorced, pink if not
             strokeWidth: 2,
-            strokeDasharray: isDivorced ? '10,5' : '5,5',
-            opacity: isDivorced ? 0.5 : 1,
+            strokeDasharray: isDivorced ? '10,5' : '5,5', // different dash pattern
+            opacity: isDivorced ? 0.5 : 1, // faded if divorced
           },
         });
       }

@@ -13,7 +13,7 @@ interface LayoutNode {
     width: number;
     height: number;
     level: number;
-    partnerId?: string;
+    partnerId?: string | undefined;
 }
 
 export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
@@ -138,7 +138,6 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
 
     const layoutNodes = new Map<string, LayoutNode>();
     const levels = new Map<number, string[]>();
-    const visited = new Set<string>();
 
     // Assign levels using BFS from root
     function assignLevels(startId: string) {
