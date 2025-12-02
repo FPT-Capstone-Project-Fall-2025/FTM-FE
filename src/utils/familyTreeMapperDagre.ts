@@ -132,7 +132,7 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
     // ========== CUSTOM FAMILY TREE LAYOUT ==========
     const NODE_WIDTH = 180;
     const NODE_HEIGHT = 100;
-    const HORIZONTAL_SPACING = 80;
+    const HORIZONTAL_SPACING = 60;
     const VERTICAL_SPACING = 120;
     const PARTNER_SPACING = 20;
 
@@ -326,7 +326,7 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
             type: 'familyMember',
             data: {
                 ...member,
-                label: member.name || 'Unknown',
+                label: member?.name || 'Unknown',
                 isDivorced,
             },
             position: {
