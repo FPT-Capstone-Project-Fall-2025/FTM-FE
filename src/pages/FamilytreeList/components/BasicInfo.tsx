@@ -64,7 +64,7 @@ const BasicInfo: React.FC = () => {
                     totalPages: 0
                 });
                 if (response.data.data && response.data.data.length > 0) {
-                    setUserRole(response.data.data[0].ftRole);
+                    setUserRole(response.data.data[0]!.ftRole);
                 }
             } catch (error) {
                 console.error('Error fetching user role:', error);
@@ -346,7 +346,7 @@ const BasicInfo: React.FC = () => {
                             {!isEditMode ? (
                                 <>
                                     {/* Leave button for FTMember role only */}
-                                    {userRole === 'FTMember' && (
+                                    {(userRole === 'FTMember' || userRole === 'FTGuest') && (
                                         <button
                                             type="button"
                                             onClick={() => setShowLeaveConfirm(true)}
