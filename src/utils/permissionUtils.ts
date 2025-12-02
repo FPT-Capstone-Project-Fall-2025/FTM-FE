@@ -7,19 +7,45 @@ import type { FeatureCode, PermissionMethod, FeaturePermissions } from '@/stores
  * @param userId - Current user's ID (not used since API is already filtered)
  * @returns Feature permissions for the current user
  */
+/**
+ * Inject default permissions for guest users (FTGuest)
+ * Guests only have VIEW permission for MEMBER feature
+ */
+function injectGuestPermissions(): FeaturePermissions {
+    return {
+        MEMBER: ['VIEW'],
+        isOwner: false
+    };
+}
+
+/**
+ * Extract current user's permissions from the API response
+ * @param response - API response containing permission data
+ * @param userRole - Optional user role to identify guests (FTGuest)
+ * @returns Feature permissions for the current user
+ */
 export function extractUserPermissions(
-    response: FTAuthList[]
+    response: FTAuthList[],
+    userRole?: string | null
 ): FeaturePermissions {
     const permissions: FeaturePermissions = {};
 
     // The response is an array with one item containing ftId and datalist
     if (!response || response.length === 0) {
+        // If no response but user is a guest, inject guest permissions
+        if (userRole === 'FTGuest') {
+            return injectGuestPermissions();
+        }
         return permissions;
     }
 
     const ftAuthData = response[0];
 
     if (!ftAuthData || !ftAuthData.datalist || ftAuthData.datalist.length === 0) {
+        // If no datalist but user is a guest, inject guest permissions
+        if (userRole === 'FTGuest') {
+            return injectGuestPermissions();
+        }
         return permissions;
     }
 
@@ -40,6 +66,14 @@ export function extractUserPermissions(
 
         permissions[featureCode] = methods;
     });
+
+    // Double check: if permissions are empty but user is guest, inject guest permissions
+    if (Object.keys(permissions).length === 0 && userRole === 'FTGuest') {
+        return injectGuestPermissions();
+    } else if (Object.keys(permissions).length === 1 && permissions.isOwner === false && userRole === 'FTGuest') {
+        // Case where only isOwner=false is set
+        return injectGuestPermissions();
+    }
 
     return permissions;
 }

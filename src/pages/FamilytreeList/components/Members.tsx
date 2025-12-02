@@ -41,12 +41,16 @@ const Members: React.FC = () => {
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [deletingGuest, setDeletingGuest] = useState<FamilyMemberList | null>(null);
+    const [deletingUser, setDeletingUser] = useState<FamilyMemberList | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [selectedNodeForInvite, setSelectedNodeForInvite] = useState<FamilyNodeList | null>(null);
     const [inviteEmail, setInviteEmail] = useState("");
     const [isInviting, setIsInviting] = useState(false);
+    const [unlinkedNodeDetailModalOpen, setUnlinkedNodeDetailModalOpen] = useState(false);
+    const [unlinkedNodeDetailProfile, setUnlinkedNodeDetailProfile] = useState<UserProfile | null>(null);
+    const [unlinkedNodeDetailLoading, setUnlinkedNodeDetailLoading] = useState(false);
+    const [unlinkedNodeDetailError, setUnlinkedNodeDetailError] = useState<string | null>(null);
     const { errorPopup, showError, closeError } = useErrorPopup();
 
     const loadMembers = useCallback(async () => {
@@ -148,11 +152,6 @@ const Members: React.FC = () => {
                             name: "FTId",
                             operation: "EQUAL",
                             value: selectedFamilyTree.id
-                        },
-                        {
-                            name: "userId",
-                            operation: "EQUAL",
-                            value: null
                         },
                     ],
                     totalItems: 0,
@@ -267,30 +266,31 @@ const Members: React.FC = () => {
     const getMemberDisplayName = (member: FamilyMemberList) =>
         member.name || member.username || "Không rõ";
 
-    const handleDeleteGuest = (member: FamilyMemberList) => {
-        setDeletingGuest(member);
+    const handleDeleteUser = (member: FamilyMemberList) => {
+        setDeletingUser(member);
         setShowDeleteConfirm(true);
     };
 
-    const confirmDeleteGuest = async () => {
-        if (!deletingGuest || !selectedFamilyTree?.id) return;
+    const confirmDeleteUser = async () => {
+        if (!deletingUser || !selectedFamilyTree?.id) return;
 
         setIsDeleting(true);
         try {
-            await familyTreeService.deleteGuestFromFamilyTree(
+            await familyTreeService.deleteUserFromFamilyTree(
                 selectedFamilyTree.id,
-                deletingGuest.userId
+                deletingUser.userId
             );
-            toast.success('Xóa khách thành công!');
+            const roleLabel = deletingUser.ftRole === 'FTGuest' ? 'khách' : 'thành viên';
+            toast.success(`Xóa ${roleLabel} thành công!`);
             // Reload the members list
             loadMembers();
         } catch (error) {
-            console.error('Failed to delete guest:', error);
-            showError('Không thể xóa khách. Vui lòng thử lại.');
+            console.error('Failed to delete user:', error);
+            showError('Không thể xóa. Vui lòng thử lại.');
         } finally {
             setIsDeleting(false);
             setShowDeleteConfirm(false);
-            setDeletingGuest(null);
+            setDeletingUser(null);
         }
     };
 
@@ -329,6 +329,32 @@ const Members: React.FC = () => {
             console.error('Failed to send invite:', error);
         } finally {
             setIsInviting(false);
+        }
+    };
+
+    const closeUnlinkedNodeDetailModal = () => {
+        setUnlinkedNodeDetailModalOpen(false);
+        setUnlinkedNodeDetailProfile(null);
+        setUnlinkedNodeDetailError(null);
+        setUnlinkedNodeDetailLoading(false);
+    };
+
+    const handleViewUnlinkedNodeDetail = async (node: FamilyNodeList) => {
+        if (!node.userId) return;
+
+        setUnlinkedNodeDetailModalOpen(true);
+        setUnlinkedNodeDetailLoading(true);
+        setUnlinkedNodeDetailError(null);
+        setUnlinkedNodeDetailProfile(null);
+
+        try {
+            const res = await userService.getProfileByUserId(node.userId);
+            setUnlinkedNodeDetailProfile(res.data);
+        } catch (error) {
+            console.error("Failed to load member detail:", error);
+            setUnlinkedNodeDetailError("Không thể tải thông tin chi tiết. Vui lòng thử lại.");
+        } finally {
+            setUnlinkedNodeDetailLoading(false);
         }
     };
 
@@ -408,7 +434,7 @@ const Members: React.FC = () => {
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Tên đầy đủ</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Giới tính</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Ngày sinh</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Trạng thái</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Thao Tác</th>
                                     </>
                                 ) : (
@@ -450,16 +476,36 @@ const Members: React.FC = () => {
                                             <td className="px-6 py-4 text-sm text-gray-600">
                                                 {node.birthday ? new Date(node.birthday).toLocaleDateString('vi-VN') : 'Không rõ'}
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 font-mono">{node.id}</td>
                                             <td className="px-6 py-4">
-                                                {permissions.canAdd('MEMBER') && (
+                                                {node.userId ? (
+                                                    <span className="px-3 py-1 text-xs font-medium rounded-md border bg-green-100 text-green-800 border-green-200">
+                                                        Đã liên kết
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-3 py-1 text-xs font-medium rounded-md border bg-amber-100 text-amber-800 border-amber-200">
+                                                        Chưa liên kết
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {node.userId ? (
                                                     <button
-                                                        onClick={() => handleOpenInviteModal(node)}
-                                                        className="flex items-center gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                                                        onClick={() => handleViewUnlinkedNodeDetail(node)}
+                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
                                                     >
-                                                        <Mail className="w-4 h-4" />
-                                                        Mời
+                                                        <Eye className="w-4 h-4" />
+                                                        Xem chi tiết
                                                     </button>
+                                                ) : (
+                                                    permissions.canAdd('MEMBER') && (
+                                                        <button
+                                                            onClick={() => handleOpenInviteModal(node)}
+                                                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                                                        >
+                                                            <Mail className="w-4 h-4" />
+                                                            Mời
+                                                        </button>
+                                                    )
                                                 )}
                                             </td>
                                         </tr>
@@ -501,17 +547,29 @@ const Members: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             {viewMode === 'member' ? (
-                                                <button
-                                                    onClick={() => handleViewDetail(member)}
-                                                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors text-sm font-medium cursor-pointer"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                    Xem chi tiết
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => handleViewDetail(member)}
+                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors text-sm font-medium cursor-pointer"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                        Xem chi tiết
+                                                    </button>
+                                                    {/* Show remove button only for FTMember role */}
+                                                    {member.ftRole === 'FTMember' && permissions.canDelete('MEMBER') && (
+                                                        <button
+                                                            onClick={() => handleDeleteUser(member)}
+                                                            className="flex items-center gap-1 text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                            Xóa
+                                                        </button>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 permissions.canDelete('MEMBER') && (
                                                     <button
-                                                        onClick={() => handleDeleteGuest(member)}
+                                                        onClick={() => handleDeleteUser(member)}
                                                         className="flex items-center gap-1 text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -564,9 +622,11 @@ const Members: React.FC = () => {
                             <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-500 to-pink-600">
                                 <Trash2 size={28} className="text-white" />
                             </div>
-                            <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Xác nhận xóa khách</h3>
+                            <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">
+                                Xác nhận xóa {deletingUser?.ftRole === 'FTGuest' ? 'khách' : 'thành viên'}
+                            </h3>
                             <p className="text-gray-600 mb-2 text-center leading-relaxed">
-                                Bạn có chắc chắn muốn xóa khách <span className="font-semibold text-gray-800">{deletingGuest?.name || deletingGuest?.username}</span> khỏi gia phả không?
+                                Bạn có chắc chắn muốn xóa {deletingUser?.ftRole === 'FTGuest' ? 'khách' : 'thành viên'} <span className="font-semibold text-gray-800">{deletingUser?.name || deletingUser?.username}</span> khỏi gia phả không?
                             </p>
                             <p className="text-sm text-gray-500 mb-6 text-center">
                                 Hành động này không thể hoàn tác.
@@ -575,7 +635,7 @@ const Members: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         setShowDeleteConfirm(false);
-                                        setDeletingGuest(null);
+                                        setDeletingUser(null);
                                     }}
                                     disabled={isDeleting}
                                     className="px-6 py-3 font-semibold border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -583,7 +643,7 @@ const Members: React.FC = () => {
                                     Hủy
                                 </button>
                                 <button
-                                    onClick={confirmDeleteGuest}
+                                    onClick={confirmDeleteUser}
                                     disabled={isDeleting}
                                     className="px-6 py-3 font-semibold bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl hover:from-red-600 hover:to-pink-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
@@ -629,7 +689,7 @@ const Members: React.FC = () => {
             {showInviteModal && selectedNodeForInvite && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
                     <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border-2 border-gray-200 animate-scaleIn">
-                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-500 to-emerald-600">
+                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500">
                             <Mail size={28} className="text-white" />
                         </div>
                         <h3 className="text-2xl font-bold mb-3 text-center text-gray-800">Mời người dùng</h3>
@@ -649,7 +709,7 @@ const Members: React.FC = () => {
                                 value={inviteEmail}
                                 onChange={(e) => setInviteEmail(e.target.value)}
                                 placeholder="nguoidung@gmail.com"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                                 autoFocus
                             />
                         </div>
@@ -665,7 +725,7 @@ const Members: React.FC = () => {
                             <button
                                 onClick={handleSendInvite}
                                 disabled={isInviting || !inviteEmail}
-                                className="px-6 py-3 font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-6 py-3 font-semibold bg-gradient-to-r from-blue-400 to-cyan-500 text-white rounded-xl hover:from-blue-500 hover:to-cyan-600 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isInviting ? (
                                     <span className="flex items-center gap-2">
@@ -678,6 +738,13 @@ const Members: React.FC = () => {
                     </div>
                 </div>
             )}
+            <MemberDetailModal
+                open={unlinkedNodeDetailModalOpen}
+                loading={unlinkedNodeDetailLoading}
+                profile={unlinkedNodeDetailProfile}
+                error={unlinkedNodeDetailError}
+                onClose={closeUnlinkedNodeDetailModal}
+            />
             <ExceptionPopup
                 isOpen={errorPopup.isOpen}
                 message={errorPopup.message}

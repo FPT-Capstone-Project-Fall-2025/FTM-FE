@@ -223,8 +223,16 @@ const familyTreeService = {
     });
   },
 
-  deleteGuestFromFamilyTree(ftId: string, ftGuestId: string): Promise<ApiResponse<string>> {
-    return api.delete(`/ftmember/${ftId}/guest/${ftGuestId}`, {
+  deleteUserFromFamilyTree(ftId: string, ftUserId: string): Promise<ApiResponse<string>> {
+    return api.delete(`/ftmember/${ftId}/user/${ftUserId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      }
+    });
+  },
+
+  leaveFamilyTree(ftId: string, userId: string): Promise<ApiResponse<string>> {
+    return api.post(`/familytree/${ftId}/user/${userId}/out`, {
       headers: {
         'X-Ftid': ftId,
       }

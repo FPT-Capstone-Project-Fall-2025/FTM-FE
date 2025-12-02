@@ -4,6 +4,8 @@ import { toast } from 'react-toastify';
 import { useAppSelector } from '@/hooks/redux';
 import ExceptionPopup from '@/components/shared/ExceptionPopup';
 import { useException } from '@/hooks/useException';
+import { usePermissions } from '@/hooks/usePermissions';
+import NoPermission from '@/components/shared/NoPermission';
 import FundOverviewSection, {
   type OverviewContributor,
   type OverviewTransaction,
@@ -192,6 +194,10 @@ const FundManagement: React.FC = () => {
     state => state.familyTreeMetaData.selectedFamilyTree
   );
   const { user: authUser, token } = useAppSelector(state => state.auth);
+
+  // Permission management
+  const permissions = usePermissions();
+
 
 
 
@@ -576,6 +582,12 @@ const FundManagement: React.FC = () => {
 
   const handleCreateFund = useCallback(
     async (form: FundCreateForm) => {
+      // Permission check
+      if (!permissions.canAdd('FUND')) {
+        showException('Bạn không có quyền tạo quỹ mới');
+        return;
+      }
+
       if (!selectedTree?.id) {
         showException('Không xác định được gia tộc để tạo quỹ.');
         return;
@@ -604,7 +616,7 @@ const FundManagement: React.FC = () => {
         showException(message);
       }
     },
-    [createFund, refreshAll, selectedTree?.id]
+    [createFund, refreshAll, selectedTree?.id, permissions]
   );
 
   const handleOpenDeposit = useCallback(() => {
@@ -652,6 +664,12 @@ const FundManagement: React.FC = () => {
 
   const handleSubmitEditFund = useCallback(
     async (form: FundEditForm) => {
+      // Permission check
+      if (!permissions.canUpdate('FUND')) {
+        showException('Bạn không có quyền chỉnh sửa thông tin quỹ');
+        return;
+      }
+
       if (!activeFund) {
         showException('Vui lòng chọn quỹ để chỉnh sửa.');
         return;
@@ -683,7 +701,7 @@ const FundManagement: React.FC = () => {
         setEditFundSubmitting(false);
       }
     },
-    [activeFund, refreshFundDetails, refreshAll]
+    [activeFund, refreshFundDetails, refreshAll, permissions]
   );
 
   const handleCloseProof = useCallback(() => {
@@ -836,6 +854,12 @@ const FundManagement: React.FC = () => {
   const handleSubmitWithdrawal = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+
+      // Permission check
+      if (!permissions.canAdd('FUND')) {
+        showException('Bạn không có quyền tạo yêu cầu rút tiền');
+        return;
+      }
 
       if (!activeFund) {
         showException('Vui lòng chọn quỹ trước khi tạo yêu cầu.');
@@ -1379,6 +1403,12 @@ const FundManagement: React.FC = () => {
       expenseId: string,
       payload: { notes?: string; paymentProofImages: File[] }
     ) => {
+      // Permission check
+      if (!permissions.canUpdate('FUND')) {
+        showException('Bạn không có quyền phê duyệt chi tiêu');
+        throw new Error('No permission');
+      }
+
       if (!gpMemberId) {
         showException('Không xác định được người phê duyệt.');
         throw new Error('Missing approver');
@@ -1724,11 +1754,28 @@ const FundManagement: React.FC = () => {
     );
   }
 
+  // Permission checks
+  if (permissions.isLoading) {
+    return (
+      <div className="h-full overflow-y-auto bg-gray-50 p-6">
+        <LoadingState message="Đang tải quyền truy cập..." />
+      </div>
+    );
+  }
+
+  if (!permissions.canView('FUND')) {
+    return (
+      <div className="h-full overflow-y-auto bg-gray-50 p-6">
+        <NoPermission />
+      </div>
+    );
+  }
+
   const lastUpdated = formatDate(
     activeFund?.lastModifiedOn || activeFund?.createdOn
   );
   const hasAnyFund = funds.length > 0;
-  const canCreateFund = !hasAnyFund;
+  const canCreateFund = !hasAnyFund && permissions.canAdd('FUND');
 
   const currentFundPurpose =
     activeFund?.description?.trim() ||

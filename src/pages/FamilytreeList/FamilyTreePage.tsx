@@ -37,6 +37,8 @@ const FamilyTreePage: React.FC = () => {
   const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
   const auth = useAppSelector(state => state.auth);
   const [isOwner, setIsOwner] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   // Get initial tab from URL params or localStorage
   const getInitialTab = (): 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund' => {
@@ -73,6 +75,10 @@ const FamilyTreePage: React.FC = () => {
     const fetchAuths = async () => {
       if (!selectedTree || !auth.token) return;
 
+      // Wait for role to be loaded before fetching permissions
+      // This prevents race condition for guest users
+      if (isLoadingRole) return;
+
       try {
         dispatch(setLoading(true));
 
@@ -88,7 +94,7 @@ const FamilyTreePage: React.FC = () => {
           totalPages: 0
         });
 
-        const userPermissions = extractUserPermissions(response.data.data);
+        const userPermissions = extractUserPermissions(response.data.data, userRole);
 
         dispatch(setPermissions({
           ftId: selectedTree.id,
@@ -110,7 +116,7 @@ const FamilyTreePage: React.FC = () => {
         dispatch(clearPermissions(selectedTree.id));
       }
     };
-  }, [selectedTree, auth.token, dispatch]);
+  }, [selectedTree, auth.token, dispatch, userRole, isLoadingRole]);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -121,11 +127,6 @@ const FamilyTreePage: React.FC = () => {
           pageSize: 100,
           propertyFilters: [
             {
-              name: "FTRole",
-              operation: "EQUAL",
-              value: 'FTOwner'
-            },
-            {
               name: "FTId",
               operation: "EQUAL",
               value: selectedTree.id
@@ -135,18 +136,27 @@ const FamilyTreePage: React.FC = () => {
           totalItems: 0,
           totalPages: 0
         });
-        console.log('Owner check response:', response.data.data);
-        // User is owner if response data is not empty
-        const ownerStatus = response.data.data && response.data.data.length > 0;
-        setIsOwner(ownerStatus);
-        console.log('Is owner:', ownerStatus);
+        console.log('Role check response:', response.data.data);
+
+        if (response.data?.data && response.data.data.length > 0) {
+          const role = response.data.data[0]!.ftRole;
+          setUserRole(role);
+          setIsOwner(role === 'FTOwner');
+          console.log('User role:', role);
+        } else {
+          setUserRole(null);
+          setIsOwner(false);
+        }
       } catch (error) {
         console.error('Error fetching role:', error);
+        setUserRole(null);
         setIsOwner(false);
+      } finally {
+        setIsLoadingRole(false);
       }
     }
     fetchRole();
-  }, []);
+  }, [selectedTree, auth.token]);
 
   // Update URL and localStorage when tab changes
   const handleTabChange = (tabId: 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund') => {
@@ -206,6 +216,14 @@ const FamilyTreePage: React.FC = () => {
     }
   };
 
+  if (isLoadingRole) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full bg-gray-50 px-4 sm:px-6 lg:px-8 py-4 flex flex-col">
       {/* Top row with back button and minimize button */}
@@ -259,6 +277,10 @@ const FamilyTreePage: React.FC = () => {
             .filter(tab => {
               // Filter out permissions tab if user is not owner
               if (tab.id === 'permissions' && !isOwner) {
+                return false;
+              }
+              // Filter out fund tab if user is guest
+              if (tab.id === 'fund' && userRole === 'FTGuest') {
                 return false;
               }
               return true;
