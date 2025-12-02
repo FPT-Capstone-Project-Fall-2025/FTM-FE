@@ -21,7 +21,7 @@ interface PermissionState {
 
 const initialState: PermissionState = {
     permissions: {},
-    isLoading: false,
+    isLoading: true,
     error: null,
 };
 

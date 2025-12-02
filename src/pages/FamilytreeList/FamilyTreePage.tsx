@@ -38,6 +38,7 @@ const FamilyTreePage: React.FC = () => {
   const auth = useAppSelector(state => state.auth);
   const [isOwner, setIsOwner] = useState<boolean>(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   // Get initial tab from URL params or localStorage
   const getInitialTab = (): 'basic' | 'tree' | 'members' | 'invitations' | 'permissions' | 'honor-board' | 'fund' => {
@@ -73,6 +74,10 @@ const FamilyTreePage: React.FC = () => {
   useEffect(() => {
     const fetchAuths = async () => {
       if (!selectedTree || !auth.token) return;
+
+      // Wait for role to be loaded before fetching permissions
+      // This prevents race condition for guest users
+      if (isLoadingRole) return;
 
       try {
         dispatch(setLoading(true));
@@ -111,7 +116,7 @@ const FamilyTreePage: React.FC = () => {
         dispatch(clearPermissions(selectedTree.id));
       }
     };
-  }, [selectedTree, auth.token, dispatch, userRole]);
+  }, [selectedTree, auth.token, dispatch, userRole, isLoadingRole]);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -146,6 +151,8 @@ const FamilyTreePage: React.FC = () => {
         console.error('Error fetching role:', error);
         setUserRole(null);
         setIsOwner(false);
+      } finally {
+        setIsLoadingRole(false);
       }
     }
     fetchRole();
@@ -208,6 +215,14 @@ const FamilyTreePage: React.FC = () => {
         return <NotFoundPage />;
     }
   };
+
+  if (isLoadingRole) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-gray-50 px-4 sm:px-6 lg:px-8 py-4 flex flex-col">

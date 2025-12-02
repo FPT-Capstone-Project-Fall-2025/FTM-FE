@@ -239,7 +239,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                             <div
                                                 key={member.userId}
                                                 onClick={() => {
-                                                    setSelectedMemberId(member.id);
+                                                    setSelectedMemberId(member.userId);
                                                     setSearchTerm("");
                                                 }}
                                                 className={`p-3 rounded-md cursor-pointer flex items-center space-x-3 transition-colors ${selectedMemberId === member.userId

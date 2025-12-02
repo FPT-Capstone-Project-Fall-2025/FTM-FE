@@ -92,10 +92,10 @@ const FamilyTreeSelection: React.FC = () => {
     };
 
     const handleSaveNewTree = async () => {
-        if (!newTreeData.name
+        if (!newTreeData.name || !newTreeData.description
             // || !newTreeData.ownerName
         ) {
-            showError('Vui lòng nhập đầy đủ tên và chủ sở hữu.');
+            showError('Vui lòng nhập đầy đủ tên và mô tả.');
             return;
         }
         try {
@@ -385,7 +385,7 @@ const FamilyTreeSelection: React.FC = () => {
 
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2.5">
-                                            Mô tả / Ghi chú <span className="text-gray-400 font-normal">(Tùy chọn)</span>
+                                            Mô tả / Ghi chú <span className="text-red-500">*</span>
                                         </label>
                                         <textarea
                                             value={newTreeData.description}
