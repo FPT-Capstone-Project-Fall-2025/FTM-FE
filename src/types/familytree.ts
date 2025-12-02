@@ -62,6 +62,7 @@ export interface FamilytreeDataResponse {
 
 export interface FamilyNodeList {
   id: string;
+  userId: string;
   ftId: string;
   fullname: string;
   gender: number;

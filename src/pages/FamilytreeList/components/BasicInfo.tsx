@@ -6,13 +6,15 @@ import { usePermissions } from "@/hooks/usePermissions";
 import familyTreeService from "@/services/familyTreeService";
 import { removeFamilyTree, setSelectedFamilyTree } from "@/stores/slices/familyTreeMetaDataSlice";
 import type { FamilytreeUpdateProps } from "@/types/familytree";
-import { Edit2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { getUserIdFromToken } from "@/utils/jwtUtils";
+import { Edit2, LogOut } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 const BasicInfo: React.FC = () => {
 
+    const auth = useAppSelector(state => state.auth);
     const selectedTree = useAppSelector(state => state.familyTreeMetaData.selectedFamilyTree);
     const permissions = usePermissions();
     const [formData, setFormData] = useState<FamilytreeUpdateProps>({
@@ -27,11 +29,49 @@ const BasicInfo: React.FC = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [showImagePopup, setShowImagePopup] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [tempImage, setTempImage] = useState<string | null>(null);
     const [tempFile, setTempFile] = useState<File | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isLeaving, setIsLeaving] = useState(false);
+    const [userRole, setUserRole] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const { errorPopup, showError, closeError } = useErrorPopup();
+
+    // Fetch user's role in this family tree
+    useEffect(() => {
+        const fetchUserRole = async () => {
+            if (!selectedTree?.id || !auth.token) return;
+            const userId = getUserIdFromToken(auth.token);
+            if (!userId) return;
+            try {
+                const response = await familyTreeService.getFamilyTreeMembers(selectedTree.id, {
+                    pageIndex: 1,
+                    pageSize: 10,
+                    propertyFilters: [
+                        {
+                            name: "FTId",
+                            operation: "EQUAL",
+                            value: selectedTree.id
+                        },
+                        {
+                            name: "UserId",
+                            operation: "EQUAL",
+                            value: userId
+                        }
+                    ],
+                    totalItems: 0,
+                    totalPages: 0
+                });
+                if (response.data.data && response.data.data.length > 0) {
+                    setUserRole(response.data.data[0].ftRole);
+                }
+            } catch (error) {
+                console.error('Error fetching user role:', error);
+            }
+        };
+        fetchUserRole();
+    }, [selectedTree?.id, auth.token]);
 
     const hasChanges = () => {
         return (
@@ -184,6 +224,32 @@ const BasicInfo: React.FC = () => {
         }
     };
 
+    const handleLeave = async () => {
+        if (!selectedTree?.id || !auth.token) {
+            showError('Không tìm thấy thông tin để rời gia phả!');
+            return;
+        }
+        const userId = getUserIdFromToken(auth.token);
+        if (!userId) {
+            showError('Không tìm thấy thông tin người dùng!');
+            return;
+        }
+        setIsLeaving(true);
+        try {
+            await familyTreeService.leaveFamilyTree(selectedTree.id, userId);
+            toast.success('Bạn đã rời khỏi gia phả thành công!');
+            setShowLeaveConfirm(false);
+            navigate('/family-trees');
+            dispatch(removeFamilyTree(selectedTree.id));
+        } catch (error: any) {
+            console.error('Error leaving family tree:', error);
+            showError(error?.response?.data?.Message || 'Có lỗi xảy ra khi rời gia phả!');
+        } finally {
+            setIsLeaving(false);
+        }
+    };
+
+
     // Display priority: tempImage (new upload) > currentImage (saved)
     const displayImage = tempImage || currentImage;
 
@@ -279,6 +345,17 @@ const BasicInfo: React.FC = () => {
                         <div className="flex gap-3 justify-end pt-4">
                             {!isEditMode ? (
                                 <>
+                                    {/* Leave button for FTMember role only */}
+                                    {userRole === 'FTMember' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowLeaveConfirm(true)}
+                                            className="px-6 py-2 border border-orange-500 text-orange-500 rounded-lg font-medium hover:bg-orange-50 transition-colors flex items-center gap-2"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            Rời gia phả
+                                        </button>
+                                    )}
                                     {permissions.canDelete('MEMBER') && (
                                         <button
                                             type="button"
@@ -432,6 +509,50 @@ const BasicInfo: React.FC = () => {
                                         className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
                                     >
                                         Xóa
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+                {/* Leave Confirmation Popup */}
+                {
+                    showLeaveConfirm && (
+                        <div className="fixed inset-0 bg-black/50 bg-opacity-60 flex items-center justify-center z-50">
+                            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                                <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-orange-100 rounded-full">
+                                    <LogOut className="w-6 h-6 text-orange-600" />
+                                </div>
+                                <h2 className="text-xl font-semibold text-center mb-2">Xác nhận rời gia phả</h2>
+                                <p className="text-sm text-gray-600 text-center mb-6">
+                                    Bạn có chắc chắn muốn rời khỏi gia phả <span className="font-semibold">"{selectedTree?.name}"</span>?
+                                    <br />
+                                    Bạn sẽ không còn quyền truy cập vào gia phả này!
+                                </p>
+                                <div className="flex gap-3 justify-end">
+                                    <button
+                                        onClick={() => setShowLeaveConfirm(false)}
+                                        disabled={isLeaving}
+                                        className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        onClick={handleLeave}
+                                        disabled={isLeaving}
+                                        className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {isLeaving ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Đang rời...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <LogOut className="w-4 h-4" />
+                                                Rời gia phả
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>
