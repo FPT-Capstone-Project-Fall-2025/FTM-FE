@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { X, Edit, Save, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Edit, Save, XCircle, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import postService from '@/services/postService';
 import type { Post as PostType, Comment as CommentType, ReactionType } from '@/types/post';
 import CommentInput from './components/CommentInput';
@@ -67,11 +66,51 @@ const VideoWithThumbnail: React.FC<{
   );
 };
 
+// Helper function to check if URL is an image
+const isImageUrl = (url: string): boolean => {
+  if (!url) return false;
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tiff', '.tif'];
+  const urlLower = url.toLowerCase();
+  // Check if URL ends with image extension or contains it before query params
+  const urlWithoutQuery = urlLower.split('?')[0] || urlLower;
+  return imageExtensions.some(ext => urlWithoutQuery.endsWith(ext));
+};
+
 // Helper function to check if URL is a video
 const isVideoUrl = (url: string): boolean => {
-  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+  if (!url) return false;
+  // First check if it's an image - if so, it's definitely not a video
+  if (isImageUrl(url)) return false;
+  
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.flv', '.wmv'];
   const urlLower = url.toLowerCase();
-  return videoExtensions.some(ext => urlLower.includes(ext));
+  const urlWithoutQuery = urlLower.split('?')[0] || urlLower;
+  return videoExtensions.some(ext => urlWithoutQuery.endsWith(ext));
+};
+
+// Helper function to determine media type based on fileType and URL
+const getMediaType = (fileType: number | string | undefined, url: string): 'image' | 'video' => {
+  // Priority 1: Use fileType from API if available
+  // fileType: 0 = image, 1 = video
+  if (fileType !== undefined && fileType !== null) {
+    if (fileType === 1 || fileType === '1' || fileType === 'video') {
+      // Double-check: if fileType says video but URL is clearly an image, trust the URL
+      if (isImageUrl(url)) return 'image';
+      return 'video';
+    }
+    if (fileType === 0 || fileType === '0' || fileType === 'image') {
+      // Double-check: if fileType says image but URL is clearly a video, trust the URL
+      if (isVideoUrl(url)) return 'video';
+      return 'image';
+    }
+  }
+  
+  // Priority 2: Check URL extension
+  if (isImageUrl(url)) return 'image';
+  if (isVideoUrl(url)) return 'video';
+  
+  // Priority 3: Default to image if uncertain
+  return 'image';
 };
 
 interface PostDetailPageProps {
@@ -83,6 +122,7 @@ interface PostDetailPageProps {
   onLikePost: (id: string, type: 'post' | 'comment', postId?: string) => void;
   onCommentSubmit: (postId: string) => void;
   onEditPost?: (postId: string, newContent: string) => void;
+  onDeletePost?: (postId: string) => void;
   onUpdateComments?: (postId: string, comments: CommentType[]) => void;
   reactionTypes?: ReactionType[];
   showReactionPicker?: string | null;
@@ -95,6 +135,7 @@ interface PostDetailPageProps {
   getReactionSummaryText?: (post: PostType) => string;
   onReactionSummaryClick?: (postId: string) => void;
   userData?: { name: string; picture: string };
+  currentUserGPMemberId?: string;
   CommentItem: React.FC<{
     comment: CommentType;
     postId: string;
@@ -111,16 +152,17 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
   setCommentInputs,
   onCommentSubmit,
   onEditPost,
+  onDeletePost,
   onUpdateComments,
   reactionTypes = [],
   onReaction,
   getReactionSummaryText,
   onReactionSummaryClick,
   userData,
+  currentUserGPMemberId,
   CommentItem
 }) => {
   const { id: _groupId } = useParams<{ id: string }>();
-  const { user } = useAppSelector(state => state.auth);
   const [isEditingPost, setIsEditingPost] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [showComments, setShowComments] = useState(false);
@@ -311,8 +353,27 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
 
   if (!isOpen || !post) return null;
 
-  // Check if current user can edit this post
-  const canEditPost = user?.name === post.author.name;
+  // Check if current user can edit/delete this post (compare gpMemberId)
+  // Normalize both values to strings and trim whitespace for comparison
+  const normalizedCurrentUserGPMemberId = currentUserGPMemberId ? String(currentUserGPMemberId).trim() : '';
+  const normalizedPostGpMemberId = post.gpMemberId ? String(post.gpMemberId).trim() : '';
+  
+  // Debug log to help troubleshoot
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[PostDetailPage] canEditPost check:', {
+      currentUserGPMemberId: normalizedCurrentUserGPMemberId,
+      postGpMemberId: normalizedPostGpMemberId,
+      areEqual: normalizedCurrentUserGPMemberId === normalizedPostGpMemberId,
+      postId: post.id,
+      postTitle: post.title,
+    });
+  }
+  
+  const canEditPost = Boolean(
+    normalizedCurrentUserGPMemberId && 
+    normalizedPostGpMemberId && 
+    normalizedCurrentUserGPMemberId === normalizedPostGpMemberId
+  );
 
   const handleStartEdit = () => {
     setEditContent(post.content);
@@ -329,6 +390,15 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
   const handleCancelEdit = () => {
     setEditContent('');
     setIsEditingPost(false);
+  };
+
+  const handleDeletePost = () => {
+    if (onDeletePost && post.id) {
+      if (window.confirm('Bạn có chắc chắn muốn xóa bài viết này?')) {
+        onDeletePost(post.id);
+        onClose();
+      }
+    }
   };
 
   // Handle comment submission and refresh comments
@@ -360,11 +430,17 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
               {mediaList[currentMediaIndex] && (
                 <>
                   {(() => {
-                    const url = mediaList[currentMediaIndex].fileUrl;
-                    const byUrl = isVideoUrl(url);
-                    const byType = mediaList[currentMediaIndex].fileType === 1 || (mediaList[currentMediaIndex] as any).fileType === 'video';
-                    const isVideo = byUrl || byType;
-                    return isVideo;
+                    const item = mediaList[currentMediaIndex];
+                    // Always prioritize extension check - if URL clearly ends with .jpg/.png/etc, it's an image
+                    if (isImageUrl(item.fileUrl)) {
+                      return false; // Always image, never video
+                    }
+                    if (isVideoUrl(item.fileUrl)) {
+                      return true; // Always video
+                    }
+                    // If extension is unclear, check fileType
+                    const mediaType = getMediaType(item.fileType, item.fileUrl);
+                    return mediaType === 'video';
                   })() ? (
                     <VideoWithThumbnail
                       key={mediaList[currentMediaIndex].id}
@@ -554,13 +630,24 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
                 )}
               </div>
               {canEditPost && !isEditingPost && (
-                <button
-                  onClick={handleStartEdit}
-                  className="ml-3 text-gray-400 hover:text-gray-600 p-1"
-                  title="Chỉnh sửa bài viết"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
+                <div className="flex items-center space-x-2 ml-3">
+                  <button
+                    onClick={handleStartEdit}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                    title="Chỉnh sửa bài viết"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  {onDeletePost && (
+                    <button
+                      onClick={handleDeletePost}
+                      className="text-gray-400 hover:text-red-600 p-1"
+                      title="Xóa bài viết"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

@@ -188,6 +188,15 @@ const PostPage: React.FC = () => {
           const userReactionType = hasReacted ? currentUserReaction.reactionType : null;
           const userReactionId = hasReacted ? currentUserReaction.id : null;
 
+          // Debug log to check gpMemberId from API
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[PostPage] Post from API:', {
+              postId: apiPost.id,
+              gpMemberId: apiPost.gpMemberId,
+              authorName: apiPost.authorName || apiPost.author?.name,
+            });
+          }
+
           return {
             id: apiPost.id,
             title: apiPost.title,
@@ -217,6 +226,15 @@ const PostPage: React.FC = () => {
         });
 
         setPosts(transformedPosts);
+        
+        // Debug log after setting posts
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[PostPage] Posts loaded:', {
+            count: transformedPosts.length,
+            postsWithGpMemberId: transformedPosts.filter(p => p.gpMemberId).length,
+            currentGpMemberId: gpMemberId,
+          });
+        }
 
       } else {
         const errorMessage = result.message || result.errors || 'Failed to load posts';
@@ -252,11 +270,32 @@ const PostPage: React.FC = () => {
     loadPosts();
   }, [familyTreeId]);
 
+  // Re-check posts ownership when gpMemberId is loaded
+  useEffect(() => {
+    if (gpMemberId && posts.length > 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PostPage] gpMemberId loaded, re-checking posts ownership:', {
+          gpMemberId,
+          postsCount: posts.length,
+          ownPostsCount: posts.filter(p => isCurrentUserPost(p.gpMemberId)).length,
+        });
+      }
+      // Force re-render by updating posts (even if data is the same, React will re-render)
+      setPosts(prevPosts => [...prevPosts]);
+    }
+  }, [gpMemberId]);
+
   // Log GPMemberId when it's loaded for debugging
   useEffect(() => {
     if (gpMemberId) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PostPage] gpMemberId loaded:', gpMemberId);
+      }
     }
     if (gpMemberError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[PostPage] gpMemberError:', gpMemberError);
+      }
     }
   }, [gpMemberId, gpMemberError]);
 
@@ -1809,8 +1848,33 @@ const PostPage: React.FC = () => {
     return userData.name || user?.name || 'Username';
   };
 
-  const isCurrentUserPost = (postGpMemberId: string) => {
-    return gpMemberId === postGpMemberId;
+  const isCurrentUserPost = (postGpMemberId: string | null | undefined) => {
+    if (!gpMemberId || !postGpMemberId) {
+      // Debug log when values are missing
+      if (process.env.NODE_ENV === 'development' && postGpMemberId) {
+        console.log('[PostPage] isCurrentUserPost: missing gpMemberId', {
+          gpMemberId,
+          postGpMemberId,
+          gpMemberLoading,
+        });
+      }
+      return false;
+    }
+    // Normalize both values to strings and trim whitespace for comparison
+    const normalizedGpMemberId = String(gpMemberId).trim();
+    const normalizedPostGpMemberId = String(postGpMemberId).trim();
+    const isMatch = normalizedGpMemberId === normalizedPostGpMemberId;
+    
+    // Debug log to help troubleshoot
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[PostPage] isCurrentUserPost check:', {
+        gpMemberId: normalizedGpMemberId,
+        postGpMemberId: normalizedPostGpMemberId,
+        areEqual: isMatch,
+      });
+    }
+    
+    return isMatch;
   };
 
   // Simple wrapper for CommentItem to work with PostDetailPage
@@ -2192,6 +2256,8 @@ const PostPage: React.FC = () => {
                       key={post.id}
                       post={post}
                       currentUserGPMemberId={gpMemberId ?? ''}
+                      // Force re-render when gpMemberId changes
+                      data-gp-member-id={gpMemberId ?? ''}
                       userData={userData}
                       reactionTypes={reactionTypes}
 
@@ -2598,7 +2664,25 @@ const PostPage: React.FC = () => {
         {/* Post Action Modal (Edit or Report) */}
         {showReportPostModal && reportingPostId && (() => {
           const reportingPost = posts.find(p => p.id === reportingPostId);
-          const isOwnPost = reportingPost ? isCurrentUserPost(reportingPost.gpMemberId) : false;
+          // Normalize both values to strings and trim whitespace for comparison
+          const normalizedGpMemberId = gpMemberId ? String(gpMemberId).trim() : '';
+          const normalizedPostGpMemberId = reportingPost?.gpMemberId ? String(reportingPost.gpMemberId).trim() : '';
+          const isOwnPost = Boolean(
+            normalizedGpMemberId && 
+            normalizedPostGpMemberId && 
+            normalizedGpMemberId === normalizedPostGpMemberId
+          );
+          
+          // Debug log to help troubleshoot
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[PostPage] Report modal isOwnPost check:', {
+              gpMemberId: normalizedGpMemberId,
+              postGpMemberId: normalizedPostGpMemberId,
+              areEqual: normalizedGpMemberId === normalizedPostGpMemberId,
+              isOwnPost,
+              reportingPostId,
+            });
+          }
 
           return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2972,6 +3056,7 @@ const PostPage: React.FC = () => {
           onLikePost={handleLike}
           onCommentSubmit={handleCommentSubmit}
           onEditPost={handleModalEditPost}
+          onDeletePost={handleDeletePost}
           onUpdateComments={(postId, comments) => {
             // Update both posts and selectedPost with new comments
             setPosts(prev => prev.map(p =>
@@ -2991,6 +3076,7 @@ const PostPage: React.FC = () => {
           isHoveringReactionPicker={isHoveringReactionPicker}
           getReactionSummaryText={getReactionSummaryText}
           onReactionSummaryClick={handleReactionSummaryClick}
+          currentUserGPMemberId={gpMemberId ?? ''}
           CommentItem={SimpleCommentItem}
         />
 
