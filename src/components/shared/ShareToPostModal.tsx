@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Loader2, Globe, Lock, Send } from 'lucide-react';
+import { X, Loader2, Globe, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 import postService, { type CreatePostData } from '@/services/postService';
 import { embedSourceMetadata } from '@/utils/postMetadata';
@@ -192,18 +192,6 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
                             >
                                 <Globe className="w-4 h-4" />
                                 <span className="font-semibold">Công khai</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setStatus(0)}
-                                disabled={isSharing}
-                                className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 ${status === 0
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                                    } disabled:opacity-50`}
-                            >
-                                <Lock className="w-4 h-4" />
-                                <span className="font-semibold">Chỉ mình tôi</span>
                             </button>
                         </div>
                     </div>
