@@ -241,6 +241,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
 
     return {
       type: 'campaign' as const,
+      id: detail.campaign.id || '', // Campaign ID for navigation
       title: `🎯 [Chiến dịch] ${detail.campaign.campaignName}`,
       description: content,
       imageUrl: detail.campaign.imageUrl || null,

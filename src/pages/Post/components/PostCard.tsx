@@ -12,12 +12,15 @@ import {
   Send,
   User,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
 import type { Post, ReactionType, Comment } from '../../../types/post';
 import PostStats from './PostStats';
 import PostActions from './PostActions';
+import { extractSourceMetadata, removeMetadataFromDisplay } from '@/utils/postMetadata';
+import { useNavigate } from 'react-router-dom';
 
 // Video component with thumbnail generation
 const VideoWithThumbnail: React.FC<{
@@ -587,6 +590,28 @@ const PostCard: React.FC<PostCardProps> = ({
   const displayName = post.author.name;
   const displayAvatar = post.author.avatar || defaultPicture;
 
+  // Extract source metadata for navigation
+  const navigate = useNavigate();
+  const sourceMetadata = extractSourceMetadata(post.content);
+  const cleanContent = removeMetadataFromDisplay(post.content);
+
+  const handleNavigateToSource = () => {
+    if (!sourceMetadata) return;
+
+    if (sourceMetadata.type === 'event') {
+      // Navigate to events page with event ID in state
+      navigate('/events', { state: { eventId: sourceMetadata.id, familyTreeId: sourceMetadata.familyTreeId } });
+    } else if (sourceMetadata.type === 'campaign') {
+      // Navigate to family tree page with fund tab
+      const familyTreeId = sourceMetadata.familyTreeId;
+      if (familyTreeId) {
+        navigate(`/family-trees/${familyTreeId}?tab=fund`, {
+          state: { campaignId: sourceMetadata.id }
+        });
+      }
+    }
+  };
+
   return (
     <div key={post.id} className="bg-white shadow-sm rounded-lg border border-gray-200">
       {/* Post Header */}
@@ -888,7 +913,24 @@ const PostCard: React.FC<PostCardProps> = ({
             </div>
           </div>
         ) : (
-          <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
+          <>
+            <p className="text-gray-900 whitespace-pre-wrap">{cleanContent}</p>
+
+            {/* Navigation Link for Shared Events/Campaigns */}
+            {sourceMetadata && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleNavigateToSource}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors font-medium text-sm"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>
+                    {sourceMetadata.type === 'event' ? 'Xem chi tiết sự kiện' : 'Xem chi tiết chiến dịch'}
+                  </span>
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

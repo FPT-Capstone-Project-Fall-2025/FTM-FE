@@ -504,6 +504,20 @@ export function mapFamilyDataToFlow(response: FamilytreeDataResponse) {
       childrenByParentSet.get(parentKey)!.push(childId);
     });
 
+    // Identify polygamy situations in current generation
+    const polygamyParents = new Map<string, Set<string>>(); // parent -> all their partners
+    currentGenNodes.forEach(personId => {
+      const person = members[personId];
+      if (person?.partners && person.partners.length > 1) {
+        const validPartners = person.partners.filter(
+          p => members[p] && component.has(p) && currentGenNodes.includes(p)
+        );
+        if (validPartners.length > 1) {
+          polygamyParents.set(personId, new Set(validPartners));
+        }
+      }
+    });
+
     // Create sibling groups with their metadata
     const siblingGroups: Array<{
       parentKey: string;

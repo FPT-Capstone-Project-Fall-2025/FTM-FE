@@ -1,12 +1,13 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-export type FeatureCode = 'EVENT' | 'FUND' | 'MEMBER';
+export type FeatureCode = 'EVENT' | 'FUND' | 'MEMBER' | 'HONOR';
 export type PermissionMethod = 'VIEW' | 'ADD' | 'UPDATE' | 'DELETE';
 
 export interface FeaturePermissions {
     EVENT?: PermissionMethod[];
     FUND?: PermissionMethod[];
     MEMBER?: PermissionMethod[];
+    HONOR?: PermissionMethod[];
     isOwner?: boolean; // Whether the user is the owner of the family tree
 }
 

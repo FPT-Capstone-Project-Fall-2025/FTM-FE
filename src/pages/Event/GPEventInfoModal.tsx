@@ -250,6 +250,7 @@ const GPEventInfoModal = ({
 
     return {
       type: 'event' as const,
+      id: id || '', // Event ID for navigation
       title: `🎊 [Sự kiện] ${eventName}`,
       description: content,
       imageUrl: imageUrl || null,

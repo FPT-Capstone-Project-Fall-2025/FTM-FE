@@ -66,6 +66,17 @@ const ManagePermissions: React.FC = () => {
     { label: "Quyền Xóa", value: "DELETE" }
   ];
 
+  const featureCodeLabels: Record<string, string> = {
+    "MEMBER": "Thành viên",
+    "EVENT": "Sự kiện",
+    "FUND": "Quỹ",
+    "HONOR": "Bảng vàng"
+  };
+
+  const getFeatureCodeLabel = (featureCode: string): string => {
+    return featureCodeLabels[featureCode] || featureCode;
+  };
+
   const loadPermissions = async () => {
     setLoading(true);
     try {
@@ -128,6 +139,7 @@ const ManagePermissions: React.FC = () => {
       console.log("API call successful, response:", response.data);
 
       if (response.data) {
+        toast.success(response.message)
         const updatedMemberData = response.data;
         setAuthList(prevAuthList => {
           if (!prevAuthList) return prevAuthList;
@@ -240,6 +252,7 @@ const ManagePermissions: React.FC = () => {
           console.log("Calling updateFTAuth with:", update);
           return ftauthorizationService.updateFTAuth(update);
         }));
+        toast.success(responses[0]?.message);
         console.log("All updates completed successfully, responses:", responses);
 
         setAuthList(prevAuthList => {
@@ -506,7 +519,7 @@ const ManagePermissions: React.FC = () => {
                   Tên
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b border-r border-gray-200">
-                  Mô hình
+                  Tính năng
                 </th>
                 {methodsConfig.map(method => (
                   <th key={method.value} className="px-4 py-3 text-center text-sm font-semibold text-gray-700 border-b border-r border-gray-200">
@@ -540,7 +553,7 @@ const ManagePermissions: React.FC = () => {
                       </td>
                     )}
                     <td className="px-4 py-3 text-sm text-gray-600 border-b border-r border-gray-200">
-                      {feature.featureCode}
+                      {getFeatureCodeLabel(feature.featureCode)}
                     </td>
                     {methodsConfig.map((method) => {
                       const isChecked = feature.methodsList.includes(method.value);

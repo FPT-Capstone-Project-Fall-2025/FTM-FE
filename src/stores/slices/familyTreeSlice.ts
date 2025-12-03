@@ -5,8 +5,9 @@ import {
 } from '@reduxjs/toolkit';
 import { type Node, type Edge } from 'reactflow';
 import type { FamilyMember } from '@/types/familytree';
-import { mapFamilyDataToFlow } from '@/utils/familyTreeMapper';
+// import { mapFamilyDataToFlow } from '@/utils/familyTreeMapper';
 import familytreeService from '@/services/familyTreeService';
+import { mapFamilyDataToFlowDagre } from '@/utils/familyTreeMapperDagre';
 
 interface FamilyTreeState {
   nodes: Node[];
@@ -36,7 +37,7 @@ export const fetchFamilyTree = createAsyncThunk(
   async (treeId: string, { rejectWithValue }) => {
     try {
       const response = await familytreeService.getFamilyTreeData(treeId);
-      const { nodes, edges, members } = mapFamilyDataToFlow(response.data);
+      const { nodes, edges, members } = mapFamilyDataToFlowDagre(response.data);
       return {
         nodes,
         edges,
