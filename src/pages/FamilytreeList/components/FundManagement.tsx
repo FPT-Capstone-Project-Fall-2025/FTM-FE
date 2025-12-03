@@ -2336,7 +2336,7 @@ const FundManagement: React.FC = () => {
               >
                 Lịch sử giao dịch
               </button>
-              {memberRole === 'FTOwner' && (
+              {memberRole === 'FTOwner' || hasFundUpdatePermission && (
                 <button
                   type="button"
                   onClick={() => setCampaignTab('approvals')}
