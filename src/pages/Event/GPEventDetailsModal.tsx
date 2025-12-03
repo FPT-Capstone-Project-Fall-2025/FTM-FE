@@ -120,9 +120,8 @@ const convertRecurrenceToNumber = (recurrence: string): number => {
   const recurrenceMap: Record<string, number> = {
     'ONCE': 0,
     'DAILY': 1,
-    'WEEKLY': 2,
-    'MONTHLY': 3,
-    'YEARLY': 4,
+    'MONTHLY': 2,
+    'YEARLY': 3,
   };
   return recurrenceMap[recurrence] ?? 0;
 };
@@ -157,6 +156,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
     message: '',
     timestamp: new Date()
   });
+  const [recurrenceEndTimeError, setRecurrenceEndTimeError] = useState<string>('');
 
   const methods = useForm<EventFormData>({
     defaultValues: defaultValues || {
@@ -189,6 +189,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   // Watch startTime and endTime for validation and lunar display
   const startTime = watch('startTime');
+  const endTime = watch('endTime');
 
   const disablePastHours = (current: Dayjs | null) => {
     if (!current) return {};
@@ -629,6 +630,23 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         data.endTime = endDate.toISOString();
       }
 
+      // Validate recurrence end time is before event end time
+      if (data.recurrenceEndTime && data.endTime) {
+        const recurrenceEnd = dayjs(data.recurrenceEndTime);
+        const eventEnd = dayjs(data.endTime);
+
+        if (recurrenceEnd.isAfter(eventEnd, 'day') || recurrenceEnd.isSame(eventEnd, 'day')) {
+          setErrorPopup({
+            isOpen: true,
+            message: "Ngày kết thúc lặp lại phải trước ngày kết thúc sự kiện",
+            timestamp: new Date()
+          });
+          setRecurrenceEndTimeError('Ngày kết thúc lặp lại phải trước ngày kết thúc sự kiện');
+          setIsSubmit(false);
+          return;
+        }
+      }
+
       // Convert eventType and log for debugging
       const eventTypeNumber = convertEventTypeToNumber(data.eventType);
       console.log('📋 EventType conversion:', {
@@ -639,7 +657,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           'WEDDING': 1,
           'BIRTHDAY': 2,
           'HOLIDAY': 3,
-          'OTHER': 7
+          'OTHER': 4
         }[data.eventType?.toUpperCase() || '']
       });
 
@@ -772,6 +790,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   const handleCancel = () => {
     reset();
+    setRecurrenceEndTimeError('');
     setIsOpenModal(false);
   };
 
@@ -824,6 +843,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
   return (
     <Modal
+      className="z-[99999]"
       open={isOpenModal}
       onCancel={handleCancel}
       footer={null}
@@ -861,7 +881,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         {/* Target Member - Sự kiện cho ai */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Sự kiện cho <span className="text-red-500">*</span>
+            Thành viên tham gia <span className="text-red-500">*</span>
           </label>
 
           {/* Radio buttons */}
@@ -874,11 +894,10 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 onChange={() => {
                   setTargetMemberId('self');
                   setSelectedMembers([]);
-                  console.log('🎯 Selected: Sự kiện của tôi');
                 }}
                 className="w-4 h-4 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm font-medium text-gray-700">👤 Sự kiện của tôi</span>
+              <span className="text-sm font-medium text-gray-700">Chỉ mình tôi</span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -892,12 +911,12 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 }}
                 className="w-4 h-4 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm font-medium text-gray-700">👥 Sự kiện gia tộc</span>
+              <span className="text-sm font-medium text-gray-700">Thành viên gia tộc</span>
             </label>
           </div>
 
           <div className="mt-2 text-xs text-gray-500">
-            "Sự kiện của tôi" dành riêng cho bạn, "Sự kiện gia tộc" dành cho cả gia đình
+            "Chỉ mình tôi" dành riêng cho bạn, "Thành viên gia tộc" để thêm thành viên tham gia sự kiện
           </div>
         </div>
 
@@ -1187,7 +1206,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
 
         {/* Recurrence */}
-        <div>
+        <div className="hidden">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Lặp lại
           </label>
@@ -1213,7 +1232,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
         {/* Recurrence End Time (only show if recurrence is not ONCE) */}
         {showRecurrenceEndTime && (
-          <div>
+          <div className="hidden">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Ngày kết thúc lặp lại
             </label>
@@ -1221,22 +1240,52 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
               name="recurrenceEndTime"
               control={control}
               render={({ field }) => (
-                <DatePicker
-                  value={field.value ? dayjs(field.value) : null}
-                  onChange={(value) => {
-                    field.onChange(value ? value.toISOString() : null);
-                  }}
-                  format="DD-MM-YYYY"
-                  style={{ width: '100%' }}
-                  size="large"
-                  disabledDate={(current) => {
-                    if (!current) return false;
-                    // Disable dates before today
-                    return current.isBefore(dayjs(), 'day');
-                  }}
-                  getPopupContainer={(trigger) => trigger.parentElement || document.body}
-                  placeholder="Chọn ngày kết thúc lặp lại"
-                />
+                <div>
+                  <DatePicker
+                    value={field.value ? dayjs(field.value) : null}
+                    onChange={(value) => {
+                      field.onChange(value ? value.toISOString() : null);
+                      // Clear error when user changes the value
+                      if (recurrenceEndTimeError) {
+                        setRecurrenceEndTimeError('');
+                      }
+                    }}
+                    onBlur={() => {
+                      // Validate on blur
+                      if (field.value && endTime) {
+                        const recurrenceEnd = dayjs(field.value);
+                        const eventEnd = dayjs(endTime);
+
+                        if (recurrenceEnd.isAfter(eventEnd, 'day') || recurrenceEnd.isSame(eventEnd, 'day')) {
+                          setRecurrenceEndTimeError('Ngày kết thúc lặp lại phải trước ngày kết thúc sự kiện');
+                        } else {
+                          setRecurrenceEndTimeError('');
+                        }
+                      }
+                    }}
+                    format="DD-MM-YYYY"
+                    style={{ width: '100%' }}
+                    size="large"
+                    status={recurrenceEndTimeError ? 'error' : ''}
+                    disabledDate={(current) => {
+                      if (!current) return false;
+                      // Disable dates before today
+                      if (current.isBefore(dayjs(), 'day')) {
+                        return true;
+                      }
+                      // Disable dates on or after event end date
+                      if (endTime && (current.isAfter(dayjs(endTime), 'day') || current.isSame(dayjs(endTime), 'day'))) {
+                        return true;
+                      }
+                      return false;
+                    }}
+                    getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                    placeholder="Chọn ngày kết thúc lặp lại"
+                  />
+                  {recurrenceEndTimeError && (
+                    <p className="text-red-500 text-sm mt-1">{recurrenceEndTimeError}</p>
+                  )}
+                </div>
               )}
             />
           </div>
