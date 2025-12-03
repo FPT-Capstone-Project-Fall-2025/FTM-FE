@@ -67,11 +67,51 @@ const VideoWithThumbnail: React.FC<{
   );
 };
 
+// Helper function to check if URL is an image
+const isImageUrl = (url: string): boolean => {
+  if (!url) return false;
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tiff', '.tif'];
+  const urlLower = url.toLowerCase();
+  // Check if URL ends with image extension or contains it before query params
+  const urlWithoutQuery = urlLower.split('?')[0];
+  return imageExtensions.some(ext => urlWithoutQuery.endsWith(ext));
+};
+
 // Helper function to check if URL is a video
 const isVideoUrl = (url: string): boolean => {
-  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+  if (!url) return false;
+  // First check if it's an image - if so, it's definitely not a video
+  if (isImageUrl(url)) return false;
+  
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.flv', '.wmv'];
   const urlLower = url.toLowerCase();
-  return videoExtensions.some(ext => urlLower.includes(ext));
+  const urlWithoutQuery = urlLower.split('?')[0];
+  return videoExtensions.some(ext => urlWithoutQuery.endsWith(ext));
+};
+
+// Helper function to determine media type based on fileType and URL
+const getMediaType = (fileType: number | string | undefined, url: string): 'image' | 'video' => {
+  // Priority 1: Use fileType from API if available
+  // fileType: 0 = image, 1 = video
+  if (fileType !== undefined && fileType !== null) {
+    if (fileType === 1 || fileType === '1' || fileType === 'video') {
+      // Double-check: if fileType says video but URL is clearly an image, trust the URL
+      if (isImageUrl(url)) return 'image';
+      return 'video';
+    }
+    if (fileType === 0 || fileType === '0' || fileType === 'image') {
+      // Double-check: if fileType says image but URL is clearly a video, trust the URL
+      if (isVideoUrl(url)) return 'video';
+      return 'image';
+    }
+  }
+  
+  // Priority 2: Check URL extension
+  if (isImageUrl(url)) return 'image';
+  if (isVideoUrl(url)) return 'video';
+  
+  // Priority 3: Default to image if uncertain
+  return 'image';
 };
 
 interface PostDetailPageProps {
@@ -360,11 +400,17 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
               {mediaList[currentMediaIndex] && (
                 <>
                   {(() => {
-                    const url = mediaList[currentMediaIndex].fileUrl;
-                    const byUrl = isVideoUrl(url);
-                    const byType = mediaList[currentMediaIndex].fileType === 1 || (mediaList[currentMediaIndex] as any).fileType === 'video';
-                    const isVideo = byUrl || byType;
-                    return isVideo;
+                    const item = mediaList[currentMediaIndex];
+                    // Always prioritize extension check - if URL clearly ends with .jpg/.png/etc, it's an image
+                    if (isImageUrl(item.fileUrl)) {
+                      return false; // Always image, never video
+                    }
+                    if (isVideoUrl(item.fileUrl)) {
+                      return true; // Always video
+                    }
+                    // If extension is unclear, check fileType
+                    const mediaType = getMediaType(item.fileType, item.fileUrl);
+                    return mediaType === 'video';
                   })() ? (
                     <VideoWithThumbnail
                       key={mediaList[currentMediaIndex].id}
