@@ -88,7 +88,7 @@ const isImageUrl = (url: string): boolean => {
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tiff', '.tif'];
   const urlLower = url.toLowerCase();
   // Check if URL ends with image extension or contains it before query params
-  const urlWithoutQuery = urlLower.split('?')[0];
+  const urlWithoutQuery = urlLower.split('?')[0] || urlLower;
   return imageExtensions.some(ext => urlWithoutQuery.endsWith(ext));
 };
 
@@ -100,7 +100,7 @@ const isVideoUrl = (url: string): boolean => {
   
   const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.flv', '.wmv'];
   const urlLower = url.toLowerCase();
-  const urlWithoutQuery = urlLower.split('?')[0];
+  const urlWithoutQuery = urlLower.split('?')[0] || urlLower;
   return videoExtensions.some(ext => urlWithoutQuery.endsWith(ext));
 };
 
