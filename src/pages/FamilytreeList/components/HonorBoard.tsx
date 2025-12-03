@@ -285,7 +285,7 @@ const HonorBoard: React.FC = () => {
     );
   }
 
-  if (!permissions.canView('MEMBER')) {
+  if (!permissions.canView('HONOR')) {
     return <NoPermission />;
   }
 
@@ -352,7 +352,7 @@ const HonorBoard: React.FC = () => {
                   </h3>
 
                   {/* Add Button - Show only for active tab */}
-                  {permissions.canAdd('MEMBER') && (
+                  {permissions.canAdd('HONOR') && (
                     activeBoard === 'academic' ? (
                       <button
                         onClick={() => handleOpenModal()}
@@ -461,7 +461,7 @@ const HonorBoard: React.FC = () => {
 
                                             {/* Actions */}
                                             <div className="flex items-center gap-1">
-                                              {permissions.canUpdate('MEMBER') && (
+                                              {permissions.canUpdate('HONOR') && (
                                                 <button
                                                   onClick={(e) => {
                                                     e.stopPropagation();
@@ -473,7 +473,7 @@ const HonorBoard: React.FC = () => {
                                                   <Edit className="w-4 h-4" />
                                                 </button>
                                               )}
-                                              {permissions.canDelete('MEMBER') && (
+                                              {permissions.canDelete('HONOR') && (
                                                 <button
                                                   onClick={(e) => {
                                                     e.stopPropagation();

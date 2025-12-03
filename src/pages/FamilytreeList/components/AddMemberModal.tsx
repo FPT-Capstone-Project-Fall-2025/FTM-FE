@@ -17,7 +17,8 @@ interface AddMemberModalProps {
 const FEATURE_CODES = [
     { label: "Thành viên", value: "MEMBER" },
     { label: "Sự kiện", value: "EVENT" },
-    { label: "Quỹ", value: "FUND" }
+    { label: "Quỹ", value: "FUND" },
+    { label: "Bảng vàng", value: "HONOR" }
 ];
 
 const METHODS = [

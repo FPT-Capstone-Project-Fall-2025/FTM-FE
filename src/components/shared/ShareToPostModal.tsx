@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Loader2, Globe, Lock, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 import postService, { type CreatePostData } from '@/services/postService';
+import { embedSourceMetadata } from '@/utils/postMetadata';
 
 interface ShareToPostModalProps {
     isOpen: boolean;
@@ -10,6 +11,7 @@ interface ShareToPostModalProps {
     gpMemberId: string;
     shareableItem: {
         type: 'campaign' | 'event';
+        id: string; // Source ID (event ID or campaign ID)
         title: string;
         description?: string | null;
         imageUrl?: string | null;
@@ -48,10 +50,24 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
                 ? `${additionalMessage}\n\n${postContent}`
                 : postContent;
 
+            // Embed source metadata for navigation
+            const metadata: any = {
+                type: shareableItem.type,
+                id: shareableItem.id,
+                title: shareableItem.title
+            };
+
+            // Only include familyTreeId for events
+            if (shareableItem.type === 'event') {
+                metadata.familyTreeId = familyTreeId;
+            }
+
+            const contentWithMetadata = embedSourceMetadata(finalContent, metadata);
+
             const postData: CreatePostData = {
                 FTId: familyTreeId,
                 Title: postTitle,
-                Content: finalContent,
+                Content: contentWithMetadata,
                 FTMemberId: gpMemberId,
                 Status: status,
             };

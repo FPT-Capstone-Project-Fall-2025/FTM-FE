@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-export type FeatureCode = 'EVENT' | 'FUND' | 'MEMBER';
+export type FeatureCode = 'EVENT' | 'FUND' | 'MEMBER' | 'HONOR';
 export type PermissionMethod = 'VIEW' | 'ADD' | 'UPDATE' | 'DELETE';
 
 export interface FeaturePermissions {
