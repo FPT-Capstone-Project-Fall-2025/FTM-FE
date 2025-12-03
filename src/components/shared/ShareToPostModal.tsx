@@ -54,13 +54,9 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
             const metadata: any = {
                 type: shareableItem.type,
                 id: shareableItem.id,
+                familyTreeId: familyTreeId, // Include familyTreeId for both event and campaign
                 title: shareableItem.title
             };
-
-            // Only include familyTreeId for events
-            if (shareableItem.type === 'event') {
-                metadata.familyTreeId = familyTreeId;
-            }
 
             const contentWithMetadata = embedSourceMetadata(finalContent, metadata);
 

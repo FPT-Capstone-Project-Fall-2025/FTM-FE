@@ -7,6 +7,7 @@ export interface FeaturePermissions {
     EVENT?: PermissionMethod[];
     FUND?: PermissionMethod[];
     MEMBER?: PermissionMethod[];
+    HONOR?: PermissionMethod[];
     isOwner?: boolean; // Whether the user is the owner of the family tree
 }
 

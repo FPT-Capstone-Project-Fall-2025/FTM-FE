@@ -129,7 +129,7 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
         });
     });
 
-    // ========== CUSTOM FAMILY TREE LAYOUT ==========
+    // ========== IMPROVED FAMILY TREE LAYOUT ==========
     const NODE_WIDTH = 180;
     const NODE_HEIGHT = 100;
     const HORIZONTAL_SPACING = 60;
@@ -148,14 +148,12 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
             const { id, level } = queue.shift()!;
 
             if (levelAssignments.has(id)) {
-                // If already assigned, use the minimum level (closer to root)
                 levelAssignments.set(id, Math.min(levelAssignments.get(id)!, level));
                 continue;
             }
 
             levelAssignments.set(id, level);
 
-            // Add children to next level
             const children = childrenOf.get(id) || [];
             children.forEach(childId => {
                 if (component.has(childId)) {
@@ -163,7 +161,6 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
                 }
             });
 
-            // Add partner at same level
             const partnerId = partnerPairs.get(id);
             if (partnerId && !levelAssignments.has(partnerId)) {
                 queue.push({ id: partnerId, level });
@@ -183,137 +180,140 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
         levels.get(level)!.push(id);
     });
 
-    // Sort levels
     const sortedLevels = Array.from(levels.keys()).sort((a, b) => a - b);
 
-    // Position nodes level by level
-    sortedLevels.forEach(level => {
-        const nodesInLevel = levels.get(level)!;
-        const processedInLevel = new Set<string>();
+    // Calculate subtree width for each node (bottom-up)
+    const subtreeWidth = new Map<string, number>();
 
-        // Group partners together
-        const groups: string[][] = [];
-        nodesInLevel.forEach(id => {
-            if (processedInLevel.has(id)) return;
+    function calculateSubtreeWidth(nodeId: string): number {
+        if (subtreeWidth.has(nodeId)) {
+            return subtreeWidth.get(nodeId)!;
+        }
 
-            const partnerId = partnerPairs.get(id);
-            if (partnerId && nodesInLevel.includes(partnerId)) {
-                groups.push([id, partnerId]);
-                processedInLevel.add(id);
-                processedInLevel.add(partnerId);
-            } else {
-                groups.push([id]);
-                processedInLevel.add(id);
+        const partnerId = partnerPairs.get(nodeId);
+        const children = childrenOf.get(nodeId)?.filter(childId => {
+            if (!component.has(childId)) return false;
+            if (partnerId) {
+                return parentsOf.get(childId)?.has(partnerId);
             }
-        });
+            return true;
+        }) || [];
 
-        // Calculate total width needed for this level
-        const totalGroupWidth = groups.reduce((sum, group) => {
-            const groupWidth = group.length * NODE_WIDTH + (group.length - 1) * PARTNER_SPACING;
-            return sum + groupWidth;
-        }, 0);
-        const totalSpacing = (groups.length - 1) * HORIZONTAL_SPACING;
-        const totalWidth = totalGroupWidth + totalSpacing;
+        if (children.length === 0) {
+            // Leaf node or couple
+            const width = partnerId ? (2 * NODE_WIDTH + PARTNER_SPACING) : NODE_WIDTH;
+            subtreeWidth.set(nodeId, width);
+            if (partnerId) subtreeWidth.set(partnerId, width);
+            return width;
+        }
 
-        let currentX = -totalWidth / 2;
-        const y = level * (NODE_HEIGHT + VERTICAL_SPACING);
+        // Calculate total width needed for all children
+        const childrenWidths = children.map(childId => calculateSubtreeWidth(childId));
+        const totalChildrenWidth = childrenWidths.reduce((sum, w) => sum + w, 0);
+        const totalChildrenSpacing = (children.length - 1) * HORIZONTAL_SPACING;
+        const childrenRequiredWidth = totalChildrenWidth + totalChildrenSpacing;
 
-        groups.forEach(group => {
-            const groupWidth = group.length * NODE_WIDTH + (group.length - 1) * PARTNER_SPACING;
+        // Parent/couple width
+        const parentWidth = partnerId ? (2 * NODE_WIDTH + PARTNER_SPACING) : NODE_WIDTH;
 
-            group.forEach((id, index) => {
-                const x = currentX + index * (NODE_WIDTH + PARTNER_SPACING);
-                layoutNodes.set(id, {
-                    id,
-                    x,
-                    y,
-                    width: NODE_WIDTH,
-                    height: NODE_HEIGHT,
-                    level,
-                    partnerId: group.length === 2 ? group[1 - index] : undefined,
-                });
-            });
+        // Subtree width is the max of parent width and children width
+        const width = Math.max(parentWidth, childrenRequiredWidth);
+        subtreeWidth.set(nodeId, width);
+        if (partnerId) subtreeWidth.set(partnerId, width);
 
-            currentX += groupWidth + HORIZONTAL_SPACING;
+        return width;
+    }
+
+    // Calculate widths for all nodes (starting from leaves)
+    sortedLevels.slice().reverse().forEach(level => {
+        levels.get(level)!.forEach(nodeId => {
+            calculateSubtreeWidth(nodeId);
         });
     });
 
-    // Adjust X positions to center children under parents
-    function adjustChildrenPositions() {
-        sortedLevels.slice().reverse().forEach(level => {
-            const nodesInLevel = levels.get(level)!;
+    // Position nodes level by level (top-down)
+    function positionSubtree(nodeId: string, centerX: number, level: number) {
+        if (layoutNodes.has(nodeId)) return;
 
-            nodesInLevel.forEach(parentId => {
-                const parent = layoutNodes.get(parentId);
-                if (!parent) return;
+        const partnerId = partnerPairs.get(nodeId);
+        const y = level * (NODE_HEIGHT + VERTICAL_SPACING);
 
-                const partnerId = partnerPairs.get(parentId);
-                const partner = partnerId ? layoutNodes.get(partnerId) : null;
+        if (partnerId && !layoutNodes.has(partnerId)) {
+            // Position couple centered
+            const coupleWidth = 2 * NODE_WIDTH + PARTNER_SPACING;
+            const x1 = centerX - coupleWidth / 2;
+            const x2 = x1 + NODE_WIDTH + PARTNER_SPACING;
 
-                // Get children of this parent (or parent pair)
-                const children = childrenOf.get(parentId)?.filter(childId => {
-                    if (!component.has(childId)) return false;
-                    // If has partner, only include shared children
-                    if (partner) {
-                        return parentsOf.get(childId)?.has(partnerId);
-                    }
-                    return true;
-                }) || [];
-
-                if (children.length === 0) return;
-
-                // Calculate parent center
-                let parentCenter = parent.x + NODE_WIDTH / 2;
-                if (partner) {
-                    parentCenter = (parent.x + partner.x) / 2 + NODE_WIDTH / 2;
-                }
-
-                // Calculate children center
-                const childNodes = children.map(id => layoutNodes.get(id)!).filter(Boolean);
-                if (childNodes.length === 0) return;
-
-                const childrenMinX = Math.min(...childNodes.map(n => n.x));
-                const childrenMaxX = Math.max(...childNodes.map(n => n.x + NODE_WIDTH));
-                const childrenCenter = (childrenMinX + childrenMaxX) / 2;
-
-                // Shift children to center under parent
-                const offset = parentCenter - childrenCenter;
-                childNodes.forEach(childNode => {
-                    childNode.x += offset;
-                });
+            layoutNodes.set(nodeId, {
+                id: nodeId,
+                x: x1,
+                y,
+                width: NODE_WIDTH,
+                height: NODE_HEIGHT,
+                level,
+                partnerId,
             });
-        });
-    }
 
-    // Run adjustment multiple times for better results
-    for (let i = 0; i < 3; i++) {
-        adjustChildrenPositions();
-    }
-
-    // Resolve overlaps within each level
-    sortedLevels.forEach(level => {
-        const nodesInLevel = levels.get(level)!
-            .map(id => layoutNodes.get(id)!)
-            .filter(Boolean)
-            .sort((a, b) => a.x - b.x);
-
-        for (let i = 1; i < nodesInLevel.length; i++) {
-            const prev = nodesInLevel[i - 1];
-            const curr = nodesInLevel[i];
-
-            const prevRight = prev.x + NODE_WIDTH;
-            const minSpacing = prev.partnerId === curr.id || curr.partnerId === prev.id
-                ? PARTNER_SPACING
-                : HORIZONTAL_SPACING;
-
-            if (curr.x < prevRight + minSpacing) {
-                const shift = prevRight + minSpacing - curr.x;
-                // Shift current and all nodes to the right
-                for (let j = i; j < nodesInLevel.length; j++) {
-                    nodesInLevel[j].x += shift;
-                }
-            }
+            layoutNodes.set(partnerId, {
+                id: partnerId,
+                x: x2,
+                y,
+                width: NODE_WIDTH,
+                height: NODE_HEIGHT,
+                level,
+                partnerId: nodeId,
+            });
+        } else if (!partnerId) {
+            // Position single node centered
+            layoutNodes.set(nodeId, {
+                id: nodeId,
+                x: centerX - NODE_WIDTH / 2,
+                y,
+                width: NODE_WIDTH,
+                height: NODE_HEIGHT,
+                level,
+            });
         }
+
+        // Position children
+        const children = childrenOf.get(nodeId)?.filter(childId => {
+            if (!component.has(childId)) return false;
+            if (partnerId) {
+                return parentsOf.get(childId)?.has(partnerId);
+            }
+            return true;
+        }) || [];
+
+        if (children.length > 0) {
+            const childrenWidths = children.map(childId => subtreeWidth.get(childId) || NODE_WIDTH);
+            const totalChildrenWidth = childrenWidths.reduce((sum, w) => sum + w, 0);
+            const totalSpacing = (children.length - 1) * HORIZONTAL_SPACING;
+            const totalWidth = totalChildrenWidth + totalSpacing;
+
+            let currentX = centerX - totalWidth / 2;
+
+            children.forEach((childId, index) => {
+                const childWidth = childrenWidths[index];
+                const childCenterX = currentX + childWidth! / 2;
+                positionSubtree(childId, childCenterX, level + 1);
+                currentX += childWidth! + HORIZONTAL_SPACING;
+            });
+        }
+    }
+
+    // Start positioning from root
+    positionSubtree(root, 0, levelAssignments.get(root) || 0);
+
+    // Handle any disconnected nodes in the same component
+    sortedLevels.forEach(level => {
+        const nodesInLevel = levels.get(level)!;
+        nodesInLevel.forEach(nodeId => {
+            if (!layoutNodes.has(nodeId)) {
+                // Position unconnected nodes to the right
+                const maxX = Math.max(...Array.from(layoutNodes.values()).map(n => n.x + NODE_WIDTH));
+                positionSubtree(nodeId, maxX + HORIZONTAL_SPACING + NODE_WIDTH / 2, level);
+            }
+        });
     });
 
     // Create React Flow nodes

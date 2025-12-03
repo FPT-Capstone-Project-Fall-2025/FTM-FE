@@ -602,8 +602,13 @@ const PostCard: React.FC<PostCardProps> = ({
       // Navigate to events page with event ID in state
       navigate('/events', { state: { eventId: sourceMetadata.id, familyTreeId: sourceMetadata.familyTreeId } });
     } else if (sourceMetadata.type === 'campaign') {
-      // Navigate to campaign detail page
-      navigate(`/campaigns/${sourceMetadata.id}`);
+      // Navigate to family tree page with fund tab
+      const familyTreeId = sourceMetadata.familyTreeId;
+      if (familyTreeId) {
+        navigate(`/family-trees/${familyTreeId}?tab=fund`, {
+          state: { campaignId: sourceMetadata.id }
+        });
+      }
     }
   };
 
