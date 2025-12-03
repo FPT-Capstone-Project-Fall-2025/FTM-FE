@@ -564,10 +564,9 @@ const EventPage: React.FC = () => {
                           eventType: normalizeEventType(event.eventType),
                           recurrence: event.recurrenceType === 'NONE' || event.recurrenceType === 0 ? 'ONCE'
                             : event.recurrenceType === 1 ? 'DAILY'
-                              : event.recurrenceType === 2 ? 'WEEKLY'
-                                : event.recurrenceType === 3 ? 'MONTHLY'
-                                  : event.recurrenceType === 4 ? 'YEARLY'
-                                    : 'ONCE',
+                              : event.recurrenceType === 2 ? 'MONTHLY'
+                                : event.recurrenceType === 3 ? 'YEARLY'
+                                  : 'ONCE',
                           memberNames: event.eventMembers?.map((m: any) => m.memberName || m.name) || [],
                           gpNames: [],
                           gpIds: event.ftId ? [event.ftId] : [],

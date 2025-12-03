@@ -61,7 +61,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
 
   const fetchEventsAndForecasts = useCallback(async () => {
     if (!filterEvents.year || !filterEvents.month || !filterEvents.week) return;
-    
+
     try {
       let allEvents: FamilyEvent[] = [];
 
@@ -69,16 +69,16 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       // Use isoWeek for consistency with the week navigation
       const currentWeekStart = moment().year(year).month(month - 1).isoWeek(week).startOf('isoWeek');
       const currentWeekEnd = currentWeekStart.clone().endOf('isoWeek');
-      
+
       const startDate = currentWeekStart.toDate();
       const endDate = currentWeekEnd.toDate();
-      
+
       // Check if family groups are selected
       if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
         console.log('📅 WeekCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
-        
+
         console.log('📅 WeekCalendar - Date range:', startDate, 'to', endDate);
-        
+
         // Fetch events for each selected family group using getEventsByGp API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
@@ -86,7 +86,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
             const response = await eventService.getEventsByGp(ftId);
             // Handle nested data structure: response.data.data.data
             const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
-            
+
             // Filter events to only include those in the current week view
             const filteredEvents = events.filter((event: any) => {
               const eventStart = moment(event.startTime);
@@ -98,7 +98,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
                 (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
               );
             });
-            
+
             console.log(`📅 Events from ftId ${ftId}:`, filteredEvents.length, 'events (filtered from', events.length, 'total)');
             return filteredEvents;
           } catch (error) {
@@ -109,7 +109,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
 
         const eventArrays = await Promise.all(eventPromises);
         allEvents = eventArrays.flat() as any as FamilyEvent[];
-        
+
         console.log('📅 WeekCalendar - Total events from all groups:', allEvents.length);
       } else {
         // No family groups selected - show empty
@@ -123,68 +123,66 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
         let normalizedRecurrence = 'ONCE';
         if (event.recurrenceType) {
           if (typeof event.recurrenceType === 'string') {
-            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
-              ? 'ONCE' 
+            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE'
+              ? 'ONCE'
               : event.recurrenceType.toUpperCase();
           } else if (typeof event.recurrenceType === 'number') {
             normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
               : event.recurrenceType === 1 ? 'DAILY'
-              : event.recurrenceType === 2 ? 'WEEKLY'
-              : event.recurrenceType === 3 ? 'MONTHLY'
-              : event.recurrenceType === 4 ? 'YEARLY'
-              : 'ONCE';
+                : event.recurrenceType === 2 ? 'MONTHLY'
+                  : event.recurrenceType === 3 ? 'YEARLY'
+                    : 'ONCE';
           }
         }
         return { ...event, recurrence: normalizedRecurrence };
       });
-      
+
       // Generate recurring event instances for the week view
       const expandedEvents = processRecurringEvents(eventsWithRecurrence, startDate, endDate);
-      
+
       console.log('📅 WeekCalendar - Expanded events (with recurring):', expandedEvents.length);
-      
+
       const mappedEvents: CalendarEvent[] = expandedEvents
         .filter((event: any) => {
           // Normalize eventType to uppercase for comparison
           const normalizedEventType = normalizeEventType(event.eventType);
-          
+
           // Filter by event type
           if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
             if (!eventFilters.eventType.includes(normalizedEventType)) {
               return false;
             }
           }
-          
+
           return true;
         })
         .map((event: any) => {
           // Normalize eventType from API
           const normalizedEventType = normalizeEventType(event.eventType);
-          
+
           // Normalize recurrenceType from API
           let normalizedRecurrence = 'ONCE';
           if (event.recurrenceType) {
             if (typeof event.recurrenceType === 'string') {
-              normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
-                ? 'ONCE' 
+              normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE'
+                ? 'ONCE'
                 : event.recurrenceType.toUpperCase();
             } else if (typeof event.recurrenceType === 'number') {
               normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
                 : event.recurrenceType === 1 ? 'DAILY'
-                : event.recurrenceType === 2 ? 'WEEKLY'
-                : event.recurrenceType === 3 ? 'MONTHLY'
-                : event.recurrenceType === 4 ? 'YEARLY'
-                : 'ONCE';
+                  : event.recurrenceType === 2 ? 'MONTHLY'
+                    : event.recurrenceType === 3 ? 'YEARLY'
+                      : 'ONCE';
             }
           }
-          
+
           // Extract member names from eventMembers array
           const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
-          
+
           // Use start/end from recurring instances if available, otherwise parse from startTime/endTime
           const eventStartTime = event.start || event.startTime;
           const eventEndTime = event.end || event.endTime;
-          
+
           const start = moment(eventStartTime);
           const end = moment(eventEndTime);
           const durationDays = end.diff(start, "days", true);
@@ -242,13 +240,13 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
           return holidayDate.isSameOrAfter(startDate) && holidayDate.isSameOrBefore(endDate);
         })
         .map(holiday => formatHolidayForCalendar(holiday, year));
-      
+
       console.log('📅 WeekCalendar - Events after filtering:', mappedEvents.length, 'events');
       console.log('📅 WeekCalendar - Vietnamese holidays:', holidayEvents.length, 'holidays');
       console.log('📅 WeekCalendar - Sample event:', mappedEvents[0]);
       console.log('📅 WeekCalendar - All mapped events:', mappedEvents);
       console.log('📅 WeekCalendar - Setting events to state...');
-      
+
       // Combine user events and holidays
       const combinedEvents = [...mappedEvents, ...holidayEvents as any];
       setEvents(combinedEvents);
@@ -273,7 +271,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       .isoWeek(week)
       .startOf("isoWeek")
       .format("YYYY-MM-DD");
-      
+
     if (calendarRef.current) {
       const calendarApi = calendarRef.current.getApi();
       calendarApi.gotoDate(weekStartDate);
@@ -299,7 +297,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
   const renderEventContent = useCallback((arg: EventContentArg) => {
     const timeStart = arg.event.allDay ? null : moment(arg.event.start).format("HH:mm");
     const timeEnd = arg.event.allDay ? null : moment(arg.event.end).format("HH:mm");
-    
+
     return (
       <div className="custom-event">
         <EventTypeLabel
@@ -327,9 +325,9 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
         <div className="flex flex-col items-center p-2 gap-1">
           {weather && viewWeather && (
             <div className="flex items-center gap-1.5 mb-1">
-              <img 
-                src={weather.icon} 
-                alt="weather" 
+              <img
+                src={weather.icon}
+                alt="weather"
                 className="w-5 h-5"
               />
               <span className="text-xs text-gray-600 font-medium">
@@ -369,14 +367,14 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
   // Handle date click to create new event
   const handleDateClick = useCallback((arg: any) => {
     const clickedDate = moment(arg.date);
-    
+
     // Only allow creating events for future dates
     if (clickedDate.isBefore(moment(), 'day')) {
       return;
     }
-    
+
     console.log('📅 Date clicked:', clickedDate.format('YYYY-MM-DD HH:mm'));
-    
+
     // Open modal with clicked date/time for new event creation
     setEventSelected({
       id: '',

@@ -25,19 +25,16 @@ export enum EventTypeNumber {
 export enum RecurrenceType {
   ONCE = 'ONCE',
   DAILY = 'DAILY',
-  WEEKLY = 'WEEKLY',
   MONTHLY = 'MONTHLY',
   YEARLY = 'YEARLY',
 }
 
 // API Recurrence Type Numbers
 export enum RecurrenceTypeNumber {
-  NONE = 0,
   ONCE = 0,
   DAILY = 1,
-  WEEKLY = 2,
-  MONTHLY = 3,
-  YEARLY = 4,
+  MONTHLY = 2,
+  YEARLY = 3,
 }
 
 export enum ViewMode {
@@ -278,7 +275,7 @@ export interface ApiCreateEventPayload {
   startTime: string; // ISO 8601 format: "2025-10-26T16:45:31.088Z"
   endTime: string; // ISO 8601 format: "2025-10-26T16:45:31.088Z"
   location: string | null;
-  recurrenceType: number; // 0=none/once, 1=daily, 2=weekly, 3=monthly, 4=yearly
+  recurrenceType: number; // 0=none/once, 1=daily, 2=monthly, 3=yearly
   ftId: string; // family tree ID (UUID)
   description: string | null;
   imageUrl: string | null;
