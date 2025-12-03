@@ -24,9 +24,14 @@ const familyTreeService = {
   },
 
   updateFamilyTree(id: string, data: FamilytreeUpdateProps): Promise<ApiResponse<Familytree>> {
-    return api.put(`/familytree/${id}`, data, {
+    const formData = new FormData();
+    formData.append('Name', data.Name);
+    formData.append('OwnerId', data.OwnerId);
+    formData.append('Description', data.Description);
+    data.File && formData.append('File', data.File);
+    formData.append('GPModeCode', data.GPModeCode.toString());
+    return api.put(`/familytree/${id}`, formData, {
       headers: {
-        "Content-Type": "multipart/form-data",
         'X-Ftid': id,
       }
     });
