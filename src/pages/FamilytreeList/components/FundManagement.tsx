@@ -50,7 +50,6 @@ import {
 } from './Fund/FundWithdrawalSection';
 import FundWithdrawalModal from './Fund/FundWithdrawalModal';
 import FundPendingExpensesManagerSection  from './Fund/FundPendingExpensesManagerSection';
-import FundDonationHistorySection from './Fund/FundDonationHistorySection';
 import FundPendingDonationsSection from './Fund/FundPendingDonationsSection';
 import FundPendingDonationsManagerSection from './Fund/FundPendingDonationsManagerSection';
 import CampainPendingDonationsManagerSection from './Fund/CampainPendingDonationsManagerSection';
@@ -114,7 +113,7 @@ type FundTab =
 
 const FUND_TAB_ITEMS: Array<{ key: FundTab; label: string; requiresOwner?: boolean }> = [
   { key: 'overview', label: 'Tổng quan quỹ' },
-  { key: 'donations', label: 'Đóng góp & yêu cầu của tôi' },
+  { key: 'donations', label: 'Yêu cầu của tôi' },
   { key: 'history', label: 'Lịch sử giao dịch' },
   { key: 'approvals', label: 'Phê duyệt yêu cầu', requiresOwner: true },
 ];
@@ -766,7 +765,7 @@ const FundManagement: React.FC = () => {
             // Switch to donations tab to show pending donations section
             setFundTab('donations');
             setManagementScope('fund');
-            toast.success('Đã ghi nhận khoản đóng góp tiền mặt. Vui lòng upload ảnh xác minh tại tab "Đóng góp & yêu cầu của tôi".');
+            toast.success('Đã ghi nhận khoản đóng góp tiền mặt. Vui lòng upload ảnh xác minh tại tab "Yêu cầu của tôi".');
             // Scroll to pending donations section after a short delay
             setTimeout(() => {
               const pendingSection = document.getElementById('my-pending-donations-section');
@@ -2119,19 +2118,6 @@ const FundManagement: React.FC = () => {
 
       {managementScope === 'fund' && fundTab === 'donations' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            {fundDataLoading ? (
-              <LoadingState message="Đang tải lịch sử đóng góp quỹ..." />
-            ) : (
-              <FundDonationHistorySection
-                donations={donations}
-                formatCurrency={formatCurrency}
-                formatDate={formatDate}
-                getPaymentMethodLabel={getPaymentMethodLabel}
-                getDonationStatusKey={getDonationStatusKey}
-              />
-            )}
-          </div>
           <div id="my-pending-donations-section">
             <FundPendingDonationsSection
               pendingDonations={myPendingDonations}
