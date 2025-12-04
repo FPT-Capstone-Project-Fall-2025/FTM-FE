@@ -13,7 +13,6 @@ interface LayoutNode {
     width: number;
     height: number;
     level: number;
-    partnerId?: string | undefined;
 }
 
 export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
@@ -88,23 +87,38 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
         });
     }
 
-    // Identify partner pairs
-    const partnerPairs = new Map<string, string>();
-    const processedPairs = new Set<string>();
+    // NEW: Build spouse clusters (groups of interconnected spouses)
+    const spouseClusters = new Map<string, string[]>(); // nodeId -> all partners in cluster
+    const processedInCluster = new Set<string>();
 
     Object.entries(members).forEach(([memberId, member]) => {
-        if (!component.has(memberId)) return;
-        if (!member.partners || !Array.isArray(member.partners)) return;
+        if (!component.has(memberId) || processedInCluster.has(memberId)) return;
+        if (!member.partners || member.partners.length === 0) return;
 
-        member.partners.forEach(partnerId => {
-            if (!members[partnerId] || !component.has(partnerId)) return;
-            const pairKey = [memberId, partnerId].sort().join('-');
+        // BFS to find all interconnected spouses
+        const cluster: string[] = [memberId];
+        const queue = [memberId];
+        const visited = new Set<string>([memberId]);
 
-            if (!processedPairs.has(pairKey)) {
-                processedPairs.add(pairKey);
-                partnerPairs.set(memberId, partnerId);
-                partnerPairs.set(partnerId, memberId);
+        while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            const currentMember = members[currentId];
+
+            if (currentMember?.partners) {
+                currentMember.partners.forEach(partnerId => {
+                    if (component.has(partnerId) && !visited.has(partnerId)) {
+                        visited.add(partnerId);
+                        cluster.push(partnerId);
+                        queue.push(partnerId);
+                    }
+                });
             }
+        }
+
+        // Assign this cluster to all members in it
+        cluster.forEach(id => {
+            spouseClusters.set(id, cluster);
+            processedInCluster.add(id);
         });
     });
 
@@ -132,9 +146,9 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
     // ========== IMPROVED FAMILY TREE LAYOUT ==========
     const NODE_WIDTH = 180;
     const NODE_HEIGHT = 100;
-    const HORIZONTAL_SPACING = 60;
+    const HORIZONTAL_SPACING = 80;
     const VERTICAL_SPACING = 120;
-    const PARTNER_SPACING = 20;
+    const SPOUSE_SPACING = 30; // Space between spouses in a cluster
 
     const layoutNodes = new Map<string, LayoutNode>();
     const levels = new Map<number, string[]>();
@@ -161,10 +175,13 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
                 }
             });
 
-            const partnerId = partnerPairs.get(id);
-            if (partnerId && !levelAssignments.has(partnerId)) {
-                queue.push({ id: partnerId, level });
-            }
+            // Assign same level to all spouses in cluster
+            const cluster = spouseClusters.get(id) || [];
+            cluster.forEach(spouseId => {
+                if (spouseId !== id && !levelAssignments.has(spouseId)) {
+                    queue.push({ id: spouseId, level });
+                }
+            });
         }
 
         return levelAssignments;
@@ -182,44 +199,53 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
 
     const sortedLevels = Array.from(levels.keys()).sort((a, b) => a - b);
 
-    // Calculate subtree width for each node (bottom-up)
+    // Calculate subtree width for each node/cluster (bottom-up)
     const subtreeWidth = new Map<string, number>();
+
+    function getClusterWidth(nodeId: string): number {
+        const cluster = spouseClusters.get(nodeId) || [nodeId];
+        return cluster.length * NODE_WIDTH + (cluster.length - 1) * SPOUSE_SPACING;
+    }
 
     function calculateSubtreeWidth(nodeId: string): number {
         if (subtreeWidth.has(nodeId)) {
             return subtreeWidth.get(nodeId)!;
         }
 
-        const partnerId = partnerPairs.get(nodeId);
-        const children = childrenOf.get(nodeId)?.filter(childId => {
-            if (!component.has(childId)) return false;
-            if (partnerId) {
-                return parentsOf.get(childId)?.has(partnerId);
-            }
-            return true;
-        }) || [];
+        // Get all people in this spouse cluster
+        const cluster = spouseClusters.get(nodeId) || [nodeId];
 
-        if (children.length === 0) {
-            // Leaf node or couple
-            const width = partnerId ? (2 * NODE_WIDTH + PARTNER_SPACING) : NODE_WIDTH;
-            subtreeWidth.set(nodeId, width);
-            if (partnerId) subtreeWidth.set(partnerId, width);
+        // Get ALL children from anyone in this cluster
+        const allChildren = new Set<string>();
+        cluster.forEach(personId => {
+            const children = childrenOf.get(personId) || [];
+            children.forEach(childId => {
+                if (component.has(childId)) {
+                    allChildren.add(childId);
+                }
+            });
+        });
+
+        if (allChildren.size === 0) {
+            // Leaf cluster
+            const width = getClusterWidth(nodeId);
+            cluster.forEach(id => subtreeWidth.set(id, width));
             return width;
         }
 
         // Calculate total width needed for all children
-        const childrenWidths = children.map(childId => calculateSubtreeWidth(childId));
+        const childrenArray = Array.from(allChildren);
+        const childrenWidths = childrenArray.map(childId => calculateSubtreeWidth(childId));
         const totalChildrenWidth = childrenWidths.reduce((sum, w) => sum + w, 0);
-        const totalChildrenSpacing = (children.length - 1) * HORIZONTAL_SPACING;
+        const totalChildrenSpacing = (childrenArray.length - 1) * HORIZONTAL_SPACING;
         const childrenRequiredWidth = totalChildrenWidth + totalChildrenSpacing;
 
-        // Parent/couple width
-        const parentWidth = partnerId ? (2 * NODE_WIDTH + PARTNER_SPACING) : NODE_WIDTH;
+        // Cluster width
+        const clusterWidth = getClusterWidth(nodeId);
 
-        // Subtree width is the max of parent width and children width
-        const width = Math.max(parentWidth, childrenRequiredWidth);
-        subtreeWidth.set(nodeId, width);
-        if (partnerId) subtreeWidth.set(partnerId, width);
+        // Subtree width is the max of cluster width and children width
+        const width = Math.max(clusterWidth, childrenRequiredWidth);
+        cluster.forEach(id => subtreeWidth.set(id, width));
 
         return width;
     }
@@ -232,71 +258,102 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
     });
 
     // Position nodes level by level (top-down)
-    function positionSubtree(nodeId: string, centerX: number, level: number) {
-        if (layoutNodes.has(nodeId)) return;
+    const positionedClusters = new Set<string>(); // Track which clusters we've positioned
 
-        const partnerId = partnerPairs.get(nodeId);
+    function getClusterKey(nodeId: string): string {
+        const cluster = spouseClusters.get(nodeId) || [nodeId];
+        return cluster.sort().join('-');
+    }
+
+    function positionSubtree(nodeId: string, centerX: number, level: number) {
+        const clusterKey = getClusterKey(nodeId);
+        if (positionedClusters.has(clusterKey)) return;
+        positionedClusters.add(clusterKey);
+
+        const cluster = spouseClusters.get(nodeId) || [nodeId];
         const y = level * (NODE_HEIGHT + VERTICAL_SPACING);
 
-        if (partnerId && !layoutNodes.has(partnerId)) {
-            // Position couple centered
-            const coupleWidth = 2 * NODE_WIDTH + PARTNER_SPACING;
-            const x1 = centerX - coupleWidth / 2;
-            const x2 = x1 + NODE_WIDTH + PARTNER_SPACING;
+        // Position all spouses in the cluster horizontally
+        const clusterWidth = getClusterWidth(nodeId);
+        let currentX = centerX - clusterWidth / 2;
 
-            layoutNodes.set(nodeId, {
-                id: nodeId,
-                x: x1,
-                y,
-                width: NODE_WIDTH,
-                height: NODE_HEIGHT,
-                level,
-                partnerId,
+        // IMPROVED: For polygamy (2+ partners), put the person with multiple partners in the CENTER
+        let sortedCluster = [...cluster];
+
+        if (cluster.length >= 2) {
+            // Find the person with multiple partners (the "center" person)
+            let centerPerson: string | null = null;
+            let maxPartners = 0;
+
+            cluster.forEach(personId => {
+                const person = members[personId];
+                const partnerCount = person?.partners?.length || 0;
+                if (partnerCount > maxPartners) {
+                    maxPartners = partnerCount;
+                    centerPerson = personId;
+                }
             });
 
-            layoutNodes.set(partnerId, {
-                id: partnerId,
-                x: x2,
-                y,
-                width: NODE_WIDTH,
-                height: NODE_HEIGHT,
-                level,
-                partnerId: nodeId,
-            });
-        } else if (!partnerId) {
-            // Position single node centered
-            layoutNodes.set(nodeId, {
-                id: nodeId,
-                x: centerX - NODE_WIDTH / 2,
-                y,
-                width: NODE_WIDTH,
-                height: NODE_HEIGHT,
-                level,
-            });
+            if (centerPerson && maxPartners >= 2) {
+                // This is a polygamy case - arrange as: partner1, centerPerson, partner2, ...
+                const partners = cluster.filter(id => id !== centerPerson);
+
+                // For 3 people (1 center + 2 partners): partner1, center, partner2
+                if (cluster.length === 3) {
+                    sortedCluster = [partners[0]!, centerPerson, partners[1]!];
+                }
+                // For 4+ people: distribute partners on both sides
+                else if (cluster.length > 3) {
+                    const leftPartners = partners.slice(0, Math.floor(partners.length / 2));
+                    const rightPartners = partners.slice(Math.floor(partners.length / 2));
+                    sortedCluster = [...leftPartners, centerPerson, ...rightPartners];
+                }
+                // For 2 people (couple): keep original order
+                else {
+                    sortedCluster = cluster;
+                }
+            }
         }
 
-        // Position children
-        const children = childrenOf.get(nodeId)?.filter(childId => {
-            if (!component.has(childId)) return false;
-            if (partnerId) {
-                return parentsOf.get(childId)?.has(partnerId);
-            }
-            return true;
-        }) || [];
+        // Position each person in the cluster
+        sortedCluster.forEach((personId) => {
+            layoutNodes.set(personId, {
+                id: personId,
+                x: currentX,
+                y,
+                width: NODE_WIDTH,
+                height: NODE_HEIGHT,
+                level,
+            });
+            currentX += NODE_WIDTH + SPOUSE_SPACING;
+        });
 
-        if (children.length > 0) {
-            const childrenWidths = children.map(childId => subtreeWidth.get(childId) || NODE_WIDTH);
+        // Get ALL children from the entire cluster
+        const allChildren = new Set<string>();
+        cluster.forEach(personId => {
+            const children = childrenOf.get(personId) || [];
+            children.forEach(childId => {
+                if (component.has(childId)) {
+                    allChildren.add(childId);
+                }
+            });
+        });
+
+        // Position children
+        if (allChildren.size > 0) {
+            const childrenArray = Array.from(allChildren);
+            const childrenWidths = childrenArray.map(childId => subtreeWidth.get(childId) || NODE_WIDTH);
             const totalChildrenWidth = childrenWidths.reduce((sum, w) => sum + w, 0);
-            const totalSpacing = (children.length - 1) * HORIZONTAL_SPACING;
+            const totalSpacing = (childrenArray.length - 1) * HORIZONTAL_SPACING;
             const totalWidth = totalChildrenWidth + totalSpacing;
 
-            let currentX = centerX - totalWidth / 2;
+            let childX = centerX - totalWidth / 2;
 
-            children.forEach((childId, index) => {
-                const childWidth = childrenWidths[index];
-                const childCenterX = currentX + childWidth! / 2;
+            childrenArray.forEach((childId, index) => {
+                const childWidth = childrenWidths[index]!;
+                const childCenterX = childX + childWidth / 2;
                 positionSubtree(childId, childCenterX, level + 1);
-                currentX += childWidth! + HORIZONTAL_SPACING;
+                childX += childWidth + HORIZONTAL_SPACING;
             });
         }
     }
@@ -310,7 +367,10 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
         nodesInLevel.forEach(nodeId => {
             if (!layoutNodes.has(nodeId)) {
                 // Position unconnected nodes to the right
-                const maxX = Math.max(...Array.from(layoutNodes.values()).map(n => n.x + NODE_WIDTH));
+                const maxX = Math.max(
+                    ...Array.from(layoutNodes.values()).map(n => n.x + NODE_WIDTH),
+                    0
+                );
                 positionSubtree(nodeId, maxX + HORIZONTAL_SPACING + NODE_WIDTH / 2, level);
             }
         });
@@ -377,7 +437,7 @@ export function mapFamilyDataToFlowDagre(response: FamilytreeDataResponse) {
         });
     });
 
-    // Partner edges
+    // Partner edges - connect ALL partners in sequence
     Object.entries(members).forEach(([memberId, member]) => {
         if (!component.has(memberId)) return;
         if (!member.partners || !Array.isArray(member.partners)) return;
