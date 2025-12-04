@@ -372,20 +372,18 @@ const GPEventInfoModal = ({
 
             {/* Lặp lại */}
             {recurrence && (
-              <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg ">
                 <Repeat className="w-5 h-5 text-orange-500 flex-shrink-0" />
                 <span className="text-sm">
                   {recurrence === "ONCE"
                     ? "Không lặp lại"
                     : recurrence === "DAILY"
                       ? "Mỗi ngày"
-                      : recurrence === "WEEKLY"
-                        ? "Mỗi tuần"
-                        : recurrence === "MONTHLY"
-                          ? "Mỗi tháng"
-                          : recurrence === "YEARLY"
-                            ? "Mỗi năm"
-                            : "Khác"}
+                      : recurrence === "MONTHLY"
+                        ? "Mỗi tháng"
+                        : recurrence === "YEARLY"
+                          ? "Mỗi năm"
+                          : "Khác"}
                 </span>
               </div>
             )}

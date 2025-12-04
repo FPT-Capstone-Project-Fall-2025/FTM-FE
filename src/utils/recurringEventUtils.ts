@@ -16,10 +16,10 @@ export function generateRecurringEvents(
   const eventStart = moment(event.startTime);
   const eventEnd = moment(event.endTime);
   const eventDuration = eventEnd.diff(eventStart);
-  
+
   const viewStart = moment(startDate);
   const viewEnd = moment(endDate);
-  
+
   // If not recurring, return single instance
   if (!event.recurrence || event.recurrence === 'ONCE') {
     // Only include if within view range
@@ -28,24 +28,24 @@ export function generateRecurringEvents(
     }
     return [];
   }
-  
+
   // Determine recurrence end time
-  const recurrenceEndTime = event.recurrenceEndTime 
-    ? moment(event.recurrenceEndTime) 
+  const recurrenceEndTime = event.recurrenceEndTime
+    ? moment(event.recurrenceEndTime)
     : null;
-  
+
   let currentStart = eventStart.clone();
   let iterationCount = 0;
   const MAX_ITERATIONS = 1000; // Safety limit
-  
+
   while (iterationCount < MAX_ITERATIONS) {
     // Check if we've passed the recurrence end time (if set)
     if (recurrenceEndTime && currentStart.isAfter(recurrenceEndTime)) {
       break;
     }
-    
+
     const currentEnd = currentStart.clone().add(eventDuration, 'milliseconds');
-    
+
     // Check if this instance is within the view range
     if (currentStart.isSameOrBefore(viewEnd) && currentEnd.isSameOrAfter(viewStart)) {
       // Create instance with new dates
@@ -59,14 +59,11 @@ export function generateRecurringEvents(
         originalEventId: event.id, // Reference to original event
       });
     }
-    
+
     // Move to next recurrence
     switch (event.recurrence) {
       case 'DAILY':
         currentStart.add(1, 'day');
-        break;
-      case 'WEEKLY':
-        currentStart.add(1, 'week');
         break;
       case 'MONTHLY':
         currentStart.add(1, 'month');
@@ -78,15 +75,15 @@ export function generateRecurringEvents(
         // Unknown recurrence type, break loop
         break;
     }
-    
+
     iterationCount++;
-    
+
     // Stop if we're way past the view end
     if (currentStart.isAfter(viewEnd)) {
       break;
     }
   }
-  
+
   return instances;
 }
 
@@ -103,12 +100,12 @@ export function processRecurringEvents(
   endDate: Date
 ): any[] {
   const allInstances: any[] = [];
-  
+
   events.forEach(event => {
     const instances = generateRecurringEvents(event, startDate, endDate);
     allInstances.push(...instances);
   });
-  
+
   return allInstances;
 }
 

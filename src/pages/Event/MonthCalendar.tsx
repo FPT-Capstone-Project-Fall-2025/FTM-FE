@@ -156,10 +156,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
           } else if (typeof event.recurrenceType === 'number') {
             normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
               : event.recurrenceType === 1 ? 'DAILY'
-                : event.recurrenceType === 2 ? 'WEEKLY'
-                  : event.recurrenceType === 3 ? 'MONTHLY'
-                    : event.recurrenceType === 4 ? 'YEARLY'
-                      : 'ONCE';
+                : event.recurrenceType === 2 ? 'MONTHLY'
+                  : event.recurrenceType === 3 ? 'YEARLY'
+                    : 'ONCE';
           }
         }
         return { ...event, recurrence: normalizedRecurrence };
@@ -197,10 +196,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
             } else if (typeof event.recurrenceType === 'number') {
               normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
                 : event.recurrenceType === 1 ? 'DAILY'
-                  : event.recurrenceType === 2 ? 'WEEKLY'
-                    : event.recurrenceType === 3 ? 'MONTHLY'
-                      : event.recurrenceType === 4 ? 'YEARLY'
-                        : 'ONCE';
+                  : event.recurrenceType === 2 ? 'MONTHLY'
+                    : event.recurrenceType === 3 ? 'YEARLY'
+                      : 'ONCE';
             }
           }
 
@@ -489,7 +487,7 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
       {/* Hover Tooltip */}
       {hoveredDay && (
         <div
-          className="fixed z-[9999] pointer-events-none"
+          className="fixed z-[999] pointer-events-none"
           style={{
             left: `${tooltipPosition.x + 15}px`,
             top: `${tooltipPosition.y + 15}px`,

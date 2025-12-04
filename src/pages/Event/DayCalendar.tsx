@@ -54,7 +54,7 @@ const DayCalendar = ({
       setEvents([]);
       return;
     }
-    
+
     try {
       let allEvents: any[] = [];
 
@@ -62,16 +62,16 @@ const DayCalendar = ({
       const currentDay = moment(filters.date);
       const dayStart = currentDay.clone().startOf('day');
       const dayEnd = currentDay.clone().endOf('day');
-      
+
       const startDate = dayStart.toDate();
       const endDate = dayEnd.toDate();
-      
+
       console.log('📅 DayCalendar - Date range:', startDate, 'to', endDate);
 
       // Check if family groups are selected
       if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
         console.log('📅 DayCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
-        
+
         // Fetch events for each selected family group using getEventsByGp API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
@@ -79,7 +79,7 @@ const DayCalendar = ({
             const response = await eventService.getEventsByGp(ftId);
             // Handle nested data structure: response.data.data.data
             const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
-            
+
             // Filter events to only include those in the current day view
             const filteredEvents = events.filter((event: any) => {
               const eventStart = moment(event.startTime);
@@ -91,7 +91,7 @@ const DayCalendar = ({
                 (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
               );
             });
-            
+
             console.log(`📅 Events from ftId ${ftId}:`, filteredEvents.length, 'events (filtered from', events.length, 'total)');
             return filteredEvents;
           } catch (error) {
@@ -102,7 +102,7 @@ const DayCalendar = ({
 
         const eventArrays = await Promise.all(eventPromises);
         allEvents = eventArrays.flat();
-        
+
         console.log('📅 DayCalendar - Total events from all groups:', allEvents.length);
       } else {
         // No family groups selected - show empty
@@ -116,24 +116,23 @@ const DayCalendar = ({
         let normalizedRecurrence = 'ONCE';
         if (event.recurrenceType) {
           if (typeof event.recurrenceType === 'string') {
-            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
-              ? 'ONCE' 
+            normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE'
+              ? 'ONCE'
               : event.recurrenceType.toUpperCase();
           } else if (typeof event.recurrenceType === 'number') {
             normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
               : event.recurrenceType === 1 ? 'DAILY'
-              : event.recurrenceType === 2 ? 'WEEKLY'
-              : event.recurrenceType === 3 ? 'MONTHLY'
-              : event.recurrenceType === 4 ? 'YEARLY'
-              : 'ONCE';
+                : event.recurrenceType === 2 ? 'MONTHLY'
+                  : event.recurrenceType === 3 ? 'YEARLY'
+                    : 'ONCE';
           }
         }
         return { ...event, recurrence: normalizedRecurrence };
       });
-      
+
       // Generate recurring event instances for the day view
       const expandedEvents = processRecurringEvents(eventsWithRecurrence, startDate, endDate);
-      
+
       console.log('📅 DayCalendar - Expanded events (with recurring):', expandedEvents.length);
 
       // @ts-ignore - API response needs proper type definition
@@ -141,44 +140,43 @@ const DayCalendar = ({
         .filter((event: any) => {
           // Normalize eventType to uppercase for comparison
           const normalizedEventType = normalizeEventType(event.eventType);
-          
+
           // Filter by event type
           if (eventFilters?.eventType && Array.isArray(eventFilters.eventType) && eventFilters.eventType.length > 0) {
             if (!eventFilters.eventType.includes(normalizedEventType)) {
               return false;
             }
           }
-          
+
           return true;
         })
         .map((event: any) => {
           // Normalize eventType from API
           const normalizedEventType = normalizeEventType(event.eventType);
-          
+
           // Normalize recurrenceType from API
           let normalizedRecurrence = 'ONCE';
           if (event.recurrenceType) {
             if (typeof event.recurrenceType === 'string') {
-              normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE' 
-                ? 'ONCE' 
+              normalizedRecurrence = event.recurrenceType.toUpperCase() === 'NONE'
+                ? 'ONCE'
                 : event.recurrenceType.toUpperCase();
             } else if (typeof event.recurrenceType === 'number') {
               normalizedRecurrence = event.recurrenceType === 0 ? 'ONCE'
                 : event.recurrenceType === 1 ? 'DAILY'
-                : event.recurrenceType === 2 ? 'WEEKLY'
-                : event.recurrenceType === 3 ? 'MONTHLY'
-                : event.recurrenceType === 4 ? 'YEARLY'
-                : 'ONCE';
+                  : event.recurrenceType === 2 ? 'MONTHLY'
+                    : event.recurrenceType === 3 ? 'YEARLY'
+                      : 'ONCE';
             }
           }
-          
+
           // Extract member names from eventMembers array
           const memberNames = event.eventMembers?.map((m: any) => m.memberName || m.name) || [];
-          
+
           // Use start/end from recurring instances if available, otherwise parse from startTime/endTime
           const eventStartTime = event.start || event.startTime;
           const eventEndTime = event.end || event.endTime;
-          
+
           const start = moment(eventStartTime);
           const end = moment(eventEndTime);
           const durationDays = end.diff(start, "days", true);
@@ -306,14 +304,14 @@ const DayCalendar = ({
   // Handle date click to create new event
   const handleDateClick = useCallback((arg: any) => {
     const clickedDate = moment(arg.date);
-    
+
     // Only allow creating events for future dates
     if (clickedDate.isBefore(moment(), 'day')) {
       return;
     }
-    
+
     console.log('📅 Date/Time clicked:', clickedDate.format('YYYY-MM-DD HH:mm'));
-    
+
     // Open modal with clicked date/time for new event creation
     setEventSelected({
       id: '',
