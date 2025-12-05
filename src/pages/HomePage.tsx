@@ -197,8 +197,9 @@ const HomePage: React.FC = () => {
       case EventType.BIRTHDAY:
         return 'bg-yellow-100 text-yellow-800';
       case EventType.FUNERAL:
+      case EventType.MEMORIAL:
         return 'bg-gray-100 text-gray-800';
-      case EventType.HOLIDAY:
+      case EventType.OTHER:
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';

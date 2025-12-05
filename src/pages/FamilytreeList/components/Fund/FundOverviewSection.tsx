@@ -60,7 +60,6 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   uniqueContributorCount,
   pendingExpenseCount,
   currentFundPurpose,
-  lastUpdated,
   recentContributors,
   transactions,
   formatCurrency,

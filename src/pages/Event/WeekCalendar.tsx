@@ -7,6 +7,7 @@ import "moment/locale/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
+import { EventType } from "../../types/event";
 import { normalizeEventType } from "../../utils/eventUtils";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import { processRecurringEvents } from "../../utils/recurringEventUtils";
@@ -398,7 +399,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       endTime: clickedDate.clone().add(1, 'hour').toDate(),
       isAllDay: false,
       name: '',
-      eventType: 3, // EventType.BIRTHDAY (backend number 3)
+      eventType: EventType.BIRTHDAY, // EventType.BIRTHDAY (backend number 3)
       description: '',
       imageUrl: '',
       gpIds: [],
