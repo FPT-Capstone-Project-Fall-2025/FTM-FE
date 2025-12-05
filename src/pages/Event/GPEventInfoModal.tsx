@@ -121,7 +121,32 @@ const GPEventInfoModal = ({
 
     setIsDeleting(true);
     try {
-      const response = await eventService.deleteEventById(selectedFamilyTree.id, id);
+      // Extract original event ID by removing date suffix pattern _YYYY-MM-DD
+      // For recurring events, the ID might be like: 7af72ab8-e6df-4ebb-b73e-2239722d6268_2025-12-04
+      // We need to use the original ID: 7af72ab8-e6df-4ebb-b73e-2239722d6268
+      let eventIdToDelete = id;
+      
+      // Check if ID has date suffix pattern _YYYY-MM-DD
+      const dateSuffixPattern = /_\d{4}-\d{2}-\d{2}$/;
+      if (dateSuffixPattern.test(eventIdToDelete)) {
+        // Remove the date suffix to get original event ID
+        eventIdToDelete = eventIdToDelete.replace(dateSuffixPattern, '');
+        console.log('[GPEventInfoModal] Extracted original event ID:', eventIdToDelete, 'from:', id);
+      }
+      
+      // Also check for originalEventId in extendedProps if available
+      if (extendedProps?.originalEventId) {
+        eventIdToDelete = extendedProps.originalEventId;
+        console.log('[GPEventInfoModal] Using originalEventId from extendedProps:', eventIdToDelete);
+      }
+      
+      // Use eventFamilyTreeId (calculated from event's gpIds or URL param) for deletion
+      const ftIdForDelete = eventFamilyTreeId || selectedFamilyTree?.id;
+      if (!ftIdForDelete) {
+        throw new Error('Không tìm thấy ID gia tộc');
+      }
+      
+      const response = await eventService.deleteEventById(ftIdForDelete, eventIdToDelete);
 
       if (response?.data || response?.data?.data) {
         toast.success('Xóa sự kiện thành công!');
