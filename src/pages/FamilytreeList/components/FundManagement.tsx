@@ -714,13 +714,18 @@ const FundManagement: React.FC = () => {
         showException('Không xác định được quỹ để đóng góp.');
         return;
       }
-      if (!gpMemberId) {
+      // Use donorMemberId from form if available (depositing for relative), otherwise use current user's gpMemberId
+      // When "Nộp tiền hộ cho người thân" is ON, form.donorMemberId will contain the selected member's ID
+      const memberIdToUse = form.donorMemberId || gpMemberId;
+      const donorNameToUse = form.donorName || donorName;
+      
+      if (!memberIdToUse) {
         showException(
           'Không xác định được thành viên gia tộc để ghi nhận khoản đóng góp.'
         );
         return;
       }
-      if (!donorName) {
+      if (!donorNameToUse) {
         showException('Không xác định được tên người đóng góp.');
         return;
       }
@@ -734,9 +739,19 @@ const FundManagement: React.FC = () => {
         // Convert payment method: Cash -> 0, BankTransfer -> "BankTransfer"
         const paymentMethod = form.paymentMethod === 'Cash' ? 0 : form.paymentMethod;
 
+        // Log for debugging: show which member ID is being sent to API
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[FundDeposit] Submitting donation:', {
+            memberId: memberIdToUse,
+            donorName: donorNameToUse,
+            isDepositingForRelative: !!form.donorMemberId,
+            currentUserGPMemberId: gpMemberId,
+          });
+        }
+
         const payload: CreateFundDonationPayload = {
-          memberId: gpMemberId,
-          donorName: donorName,
+          memberId: memberIdToUse, // This will be the selected member's ID when depositing for relative
+          donorName: donorNameToUse,
           amount: form.amount,
           paymentMethod: paymentMethod,
         };
@@ -2373,67 +2388,15 @@ const FundManagement: React.FC = () => {
                 )}
               </>
             ) : campaignTab === 'my' ? (
-              <div className="space-y-4">
-                <div className="bg-white rounded-lg shadow p-4 overflow-x-auto">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-base font-bold text-gray-900">Lịch sử ủng hộ của tôi</h3>
-                  </div>
+              <div className="space-y-4 ">
+                <div className="bg-white rounded-lg shadow p-4 overflow-x-auto hidden">
                   {myCampaignPendingLoading ? (
                     <LoadingState message="Đang tải ủng hộ của bạn..." />
                   ) : myCampaignPending.length === 0 ? (
                     <EmptyState title="Chưa có ủng hộ" description="Bạn chưa có giao dịch ủng hộ nào." />
                   ) : (
                     <>
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-200 text-left text-gray-600">
-                            <th className="px-4 py-3 font-semibold">Số tiền</th>
-                            <th className="px-4 py-3 font-semibold">Chiến dịch</th>
-                            <th className="px-4 py-3 font-semibold">Người đóng góp</th>
-                            <th className="px-4 py-3 font-semibold">Phương thức</th>
-                            <th className="px-4 py-3 font-semibold">Ghi chú</th>
-                            <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                            <th className="px-4 py-3 font-semibold">Thời gian</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {myCampaignPending.map(row => {
-                            const method = row.proofImages.length > 0 ? 'Tiền mặt' : 'VietQR';
-                            const statusKey = String((row as any).status || '').toLowerCase();
-                            const statusLabel =
-                              statusKey === 'completed'
-                                ? 'Đã xác nhận'
-                                : statusKey === 'rejected'
-                                  ? 'Đã từ chối'
-                                  : 'Đang chờ';
-                            const statusClass =
-                              statusKey === 'completed'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : statusKey === 'rejected'
-                                  ? 'bg-red-100 text-red-600'
-                                  : 'bg-amber-100 text-amber-700';
-                            return (
-                              <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                <td className="px-4 py-3 font-bold text-emerald-600">
-                                  {formatCurrency(row.amount)}
-                                </td>
-                                <td className="px-4 py-3 text-gray-700">
-                                  {row.campaignName || '—'}
-                                </td>
-                                <td className="px-4 py-3 text-gray-700">{row.donorName || 'Ẩn danh'}</td>
-                                <td className="px-4 py-3 text-gray-700">{method}</td>
-                                <td className="px-4 py-3 text-gray-600">{row.message || '—'}</td>
-                                <td className="px-4 py-3">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusClass}`}>
-                                    {statusLabel}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-gray-600">{formatDate(row.createdAt)}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    
                       {myCampaignTotalPages > 1 && (
                         <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
                           <div className="text-sm text-gray-600">
@@ -2812,6 +2775,9 @@ const FundManagement: React.FC = () => {
         onClose={handleCloseDeposit}
         onSubmit={handleSubmitDeposit}
         submitting={depositSubmitting}
+        ftId={selectedTree?.id}
+        currentMemberId={gpMemberId ?? null}
+        currentMemberName={donorName || null}
       />
 
       <FundWithdrawalModal
