@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Wallet } from 'lucide-react';
+import { Select } from 'antd';
+import familyTreeService from '@/services/familyTreeService';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -22,6 +24,13 @@ export interface FundDepositForm {
   amount: number;
   paymentMethod: 'Cash' | 'BankTransfer';
   paymentNotes?: string;
+  donorMemberId?: string;
+  donorName?: string;
+}
+
+interface MemberOption {
+  id: string;
+  name: string;
 }
 
 interface FundDepositModalProps {
@@ -29,6 +38,9 @@ interface FundDepositModalProps {
   onClose: () => void;
   onSubmit: (form: FundDepositForm) => void | Promise<void>;
   submitting?: boolean;
+  ftId?: string | null;
+  currentMemberId?: string | null;
+  currentMemberName?: string | null;
 }
 
 const defaultForm: FundDepositForm = {
@@ -42,16 +54,87 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
   onClose,
   onSubmit,
   submitting = false,
+  ftId,
+  currentMemberId,
+  currentMemberName,
 }) => {
   const [form, setForm] = useState<FundDepositForm>(defaultForm);
   const [amountInput, setAmountInput] = useState('');
+  const [isDepositForRelative, setIsDepositForRelative] = useState(false);
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
+  // Fetch members from API when switch is ON
+  useEffect(() => {
+    if (isOpen && isDepositForRelative && ftId) {
+      const fetchMembers = async () => {
+        setMembersLoading(true);
+        try {
+          const res: any = await familyTreeService.getMemberTree(ftId);
+          const datalist = res?.data?.datalist || [];
+          const memberOptions: MemberOption[] = datalist
+            .map((item: any) => ({
+              id: item.value.id,
+              name: item.value.name,
+            }))
+            // Filter out current user from the list
+            .filter((member: MemberOption) => member.id !== currentMemberId);
+          setMembers(memberOptions);
+        } catch (error) {
+          console.error('Error fetching members:', error);
+          setMembers([]);
+        } finally {
+          setMembersLoading(false);
+        }
+      };
+      fetchMembers();
+    } else {
+      setMembers([]);
+    }
+  }, [isOpen, isDepositForRelative, ftId, currentMemberId]);
+
+  // Reset form and states when modal closes
   useEffect(() => {
     if (!isOpen) {
       setForm(defaultForm);
       setAmountInput('');
+      setIsDepositForRelative(false);
+      setSelectedMemberId(null);
+      setMembers([]);
     }
   }, [isOpen]);
+
+  // Auto-set current member when switch is OFF and modal is open
+  useEffect(() => {
+    if (isOpen && !isDepositForRelative) {
+      // Always set current member info when switch is OFF
+      if (currentMemberId && currentMemberName) {
+        setSelectedMemberId(currentMemberId);
+        setForm(prev => ({
+          ...prev,
+          donorMemberId: currentMemberId,
+          donorName: currentMemberName,
+        }));
+      }
+    } else if (isOpen && isDepositForRelative) {
+      // When switching to relative mode, clear the auto-set values
+      setSelectedMemberId(null);
+    }
+  }, [isOpen, isDepositForRelative, currentMemberId, currentMemberName]);
+
+  // Handle member selection change
+  const handleMemberChange = (value: string) => {
+    setSelectedMemberId(value);
+    const selectedMember = members.find(m => m.id === value);
+    if (selectedMember) {
+      setForm(prev => ({
+        ...prev,
+        donorMemberId: selectedMember.id,
+        donorName: selectedMember.name,
+      }));
+    }
+  };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -59,10 +142,28 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
     if (!Number.isFinite(amountValue) || amountValue <= 0) {
       return;
     }
+    
+    // Validation: If depositing for relative, must select a member
+    if (isDepositForRelative && !selectedMemberId) {
+      alert('Vui lòng chọn người đóng góp.');
+      return;
+    }
+    
     const payload: FundDepositForm = {
       amount: amountValue,
       paymentMethod: form.paymentMethod,
     };
+    
+    // When depositing for relative, use selected member's ID and name
+    if (isDepositForRelative && form.donorMemberId && form.donorName) {
+      payload.donorMemberId = form.donorMemberId;
+      payload.donorName = form.donorName;
+    } else if (!isDepositForRelative && form.donorMemberId && form.donorName) {
+      // When not depositing for relative, use current user's info
+      payload.donorMemberId = form.donorMemberId;
+      payload.donorName = form.donorName;
+    }
+    
     const note = form.paymentNotes?.trim();
     if (note) {
       payload.paymentNotes = note;
@@ -85,6 +186,7 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
               <p className="text-sm text-gray-500">Thông tin đóng góp sẽ được ghi nhận ngay sau khi xác nhận</p>
             </div>
           </div>
+
           <button
             onClick={onClose}
             className="text-sm font-semibold text-gray-500 hover:text-gray-700"
@@ -96,6 +198,57 @@ const FundDepositModal: React.FC<FundDepositModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            {/* Switch toggle for depositing on behalf of relative */}
+            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isDepositForRelative}
+                  onChange={(e) => setIsDepositForRelative(e.target.checked)}
+                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-semibold text-gray-700">
+                  Nộp tiền hộ cho người thân
+                </span>
+              </label>
+            </div>
+
+            {/* Donor selection */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Người đóng góp <span className="text-red-500">*</span>
+              </label>
+              {isDepositForRelative ? (
+                <Select
+                  size="large"
+                  style={{ width: '100%' }}
+                  placeholder="Chọn người đóng góp"
+                  getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                  showSearch
+                  loading={membersLoading}
+                  value={selectedMemberId}
+                  onChange={handleMemberChange}
+                  filterOption={(input, option) =>
+                    (option?.label?.toString() || '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={members
+                    .filter(member => member.id !== currentMemberId) // Double check: filter out current user
+                    .map(member => ({
+                      label: member.name,
+                      value: member.id,
+                    }))}
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={form.donorName || currentMemberName || ''}
+                  disabled
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                />
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
