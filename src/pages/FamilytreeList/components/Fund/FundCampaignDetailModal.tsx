@@ -115,7 +115,6 @@ const renderExpenses = (
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-red-600 font-semibold">{formatCurrency(expense.expenseAmount ?? 0)}</span>
-            <span className="text-gray-500 text-xs">{expense.category || 'Không có danh mục'}</span>
           </div>
           {expense.notes && <p className="text-xs text-gray-500 mt-2">{expense.notes}</p>}
         </div>

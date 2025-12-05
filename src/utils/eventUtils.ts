@@ -7,10 +7,10 @@ import heartHandshakeIcon from '@/assets/img/icon/heart-handshake.svg';
 import mapIcon from '@/assets/img/icon/Map.svg';
 import mapOtherIcon from '@/assets/img/icon/Map-Other.svg';
 import NonCategorizedIcon from '@/assets/img/icon/Non-categorized.svg';
-import celebrationIcon from '@/assets/img/icon/celebration.svg';
+// celebrationIcon removed - HOLIDAY event type no longer supported
 
 export const EVENT_TYPE_CONFIG: Partial<EventTypeConfigMap> = {
-  [EventType.FUNERAL]: {
+  [EventType.MEMORIAL]: {
     label: 'Ma chay, giỗ',
     icon: mapIcon,
     color: '#9B51E0',
@@ -21,38 +21,41 @@ export const EVENT_TYPE_CONFIG: Partial<EventTypeConfigMap> = {
     color: '#52c41a',
   },
   [EventType.BIRTHDAY]: {
-    label: 'Sinh nhật - Mừng thọ',
+    label: 'Sinh nhật',
     icon: NonCategorizedIcon,
     color: '#1677FF',
-  },
-  [EventType.HOLIDAY]: {
-    label: 'Ngày lễ',
-    icon: celebrationIcon,
-    color: '#fa8c16',
   },
   [EventType.OTHER]: {
     label: 'Khác',
     icon: mapOtherIcon,
     color: '#FAAD14',
   },
+  // Legacy support for FUNERAL (alias for MEMORIAL)
+  [EventType.FUNERAL]: {
+    label: 'Ma chay, giỗ',
+    icon: mapIcon,
+    color: '#9B51E0',
+  },
 };
 
 const SUPPORTED_EVENT_TYPES: EventType[] = [
-  EventType.FUNERAL,
+  EventType.MEMORIAL,
   EventType.WEDDING,
   EventType.BIRTHDAY,
-  EventType.HOLIDAY,
   EventType.OTHER,
 ];
 
 export const normalizeEventType = (eventType: number | string | null | undefined): EventType => {
   if (typeof eventType === 'string') {
     const upper = eventType.toUpperCase();
+    // Handle legacy FUNERAL as MEMORIAL
+    if (upper === 'FUNERAL') {
+      return EventType.MEMORIAL;
+    }
     if (SUPPORTED_EVENT_TYPES.includes(upper as EventType)) {
       return upper as EventType;
     }
     switch (upper) {
-      case EventType.MEMORIAL:
       case EventType.MEETING:
       case EventType.GATHERING:
         return EventType.OTHER;
@@ -61,19 +64,20 @@ export const normalizeEventType = (eventType: number | string | null | undefined
     }
   }
 
+  // Map backend numbers to frontend EventType enum
+  // Backend: Memorial=1, Wedding=2, Birthday=3, Other=4
   switch (eventType) {
-    case 0:
-      return EventType.FUNERAL;
     case 1:
-      return EventType.WEDDING;
+      return EventType.MEMORIAL;  // "Ma chay, giỗ"
     case 2:
-      return EventType.BIRTHDAY;
+      return EventType.WEDDING;   // "Cưới hỏi"
     case 3:
-      return EventType.HOLIDAY;
+      return EventType.BIRTHDAY;  // "Sinh nhật"
     case 4:
-    case 5:
-    case 6:
-    case 7:
+      return EventType.OTHER;     // "Khác"
+    // Legacy support for old mapping (0 = FUNERAL/MEMORIAL)
+    case 0:
+      return EventType.MEMORIAL;
     default:
       return EventType.OTHER;
   }
@@ -81,11 +85,12 @@ export const normalizeEventType = (eventType: number | string | null | undefined
 
 // Event Type Labels
 export const EVENT_TYPE_LABELS: Partial<Record<EventType, string>> = {
-  [EventType.FUNERAL]: 'Ma chay, giỗ',
+  [EventType.MEMORIAL]: 'Ma chay, giỗ',
   [EventType.WEDDING]: 'Cưới hỏi',
-  [EventType.BIRTHDAY]: 'Sinh nhật - Mừng thọ',
-  [EventType.HOLIDAY]: 'Ngày lễ',
+  [EventType.BIRTHDAY]: 'Sinh nhật',
   [EventType.OTHER]: 'Khác',
+  // Legacy support
+  [EventType.FUNERAL]: 'Ma chay, giỗ',
 };
 
 // Recurrence Type Labels
