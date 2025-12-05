@@ -60,7 +60,6 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   uniqueContributorCount,
   pendingExpenseCount,
   currentFundPurpose,
-  lastUpdated,
   recentContributors,
   transactions,
   formatCurrency,
@@ -153,7 +152,6 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
             <h3 className="text-4xl font-bold mb-1">
               {formatCurrency(computedBalance)}
             </h3>
-            <p className="text-blue-100 text-sm">Cập nhật: {lastUpdated}</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">

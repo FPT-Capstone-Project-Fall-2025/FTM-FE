@@ -2325,7 +2325,7 @@ const FundManagement: React.FC = () => {
                   : 'text-gray-600 hover:text-blue-600'
                   }`}
               >
-                Ủng hộ chiến dịch & yêu cầu của tôi
+                Yêu cầu của tôi
               </button>
               <button
                 type="button"

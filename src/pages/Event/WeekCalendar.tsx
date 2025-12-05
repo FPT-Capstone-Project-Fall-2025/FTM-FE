@@ -7,6 +7,7 @@ import "moment/locale/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
+import { EventType } from "../../types/event";
 import { normalizeEventType } from "../../utils/eventUtils";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import { processRecurringEvents } from "../../utils/recurringEventUtils";
@@ -248,7 +249,23 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       console.log('📅 WeekCalendar - Setting events to state...');
 
       // Combine user events and holidays
-      const combinedEvents = [...mappedEvents, ...holidayEvents as any];
+      // Deduplicate events to avoid duplicates in the same day
+      // Use a key based on: name + start date (day only) + end date (day only)
+      const seenEvents = new Map<string, CalendarEvent>();
+      
+      [...mappedEvents, ...holidayEvents as any].forEach(event => {
+        // Create a unique key based on name and dates (day only, ignore time)
+        const startDate = moment(event.start || event.startTime).format('YYYY-MM-DD');
+        const endDate = moment(event.end || event.endTime).format('YYYY-MM-DD');
+        const dedupeKey = `${event.name || event.title || ''}_${startDate}_${endDate}`;
+        
+        // Only add if we haven't seen this exact event (same name, same dates) before
+        if (!seenEvents.has(dedupeKey)) {
+          seenEvents.set(dedupeKey, event);
+        }
+      });
+      
+      const combinedEvents = Array.from(seenEvents.values());
       setEvents(combinedEvents);
       console.log('📅 WeekCalendar - Events set successfully');
 
@@ -382,7 +399,7 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       endTime: clickedDate.clone().add(1, 'hour').toDate(),
       isAllDay: false,
       name: '',
-      eventType: 'BIRTHDAY',
+      eventType: EventType.BIRTHDAY, // EventType.BIRTHDAY (backend number 3)
       description: '',
       imageUrl: '',
       gpIds: [],

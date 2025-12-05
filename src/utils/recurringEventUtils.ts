@@ -37,6 +37,7 @@ export function generateRecurringEvents(
   let currentStart = eventStart.clone();
   let iterationCount = 0;
   const MAX_ITERATIONS = 1000; // Safety limit
+  const processedDates = new Set<string>(); // Track processed dates to avoid duplicates
 
   while (iterationCount < MAX_ITERATIONS) {
     // Check if we've passed the recurrence end time (if set)
@@ -48,16 +49,24 @@ export function generateRecurringEvents(
 
     // Check if this instance is within the view range
     if (currentStart.isSameOrBefore(viewEnd) && currentEnd.isSameOrAfter(viewStart)) {
-      // Create instance with new dates
-      instances.push({
-        ...event,
-        id: `${event.id}_${currentStart.format('YYYY-MM-DD')}`, // Unique ID for each instance
-        start: currentStart.format('YYYY-MM-DDTHH:mm:ss'),
-        end: currentEnd.format('YYYY-MM-DDTHH:mm:ss'),
-        startTime: currentStart.toISOString(),
-        endTime: currentEnd.toISOString(),
-        originalEventId: event.id, // Reference to original event
-      });
+      // Create a unique key for this date to avoid duplicates
+      const dateKey = currentStart.format('YYYY-MM-DD');
+      
+      // Only add if we haven't processed this date yet
+      if (!processedDates.has(dateKey)) {
+        processedDates.add(dateKey);
+        
+        // Create instance with new dates
+        instances.push({
+          ...event,
+          id: `${event.id}_${dateKey}`, // Unique ID for each instance
+          start: currentStart.format('YYYY-MM-DDTHH:mm:ss'),
+          end: currentEnd.format('YYYY-MM-DDTHH:mm:ss'),
+          startTime: currentStart.toISOString(),
+          endTime: currentEnd.toISOString(),
+          originalEventId: event.id, // Reference to original event
+        });
+      }
     }
 
     // Move to next recurrence

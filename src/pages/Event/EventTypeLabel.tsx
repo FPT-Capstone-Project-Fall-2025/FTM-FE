@@ -3,22 +3,21 @@ import heartHandshakeIcon from '@/assets/img/icon/heart-handshake.svg';
 import mapIcon from '@/assets/img/icon/Map.svg';
 import mapOtherIcon from '@/assets/img/icon/Map-Other.svg';
 import NonCategorizedIcon from '@/assets/img/icon/Non-categorized.svg';
-import celebrationIcon from '@/assets/img/icon/celebration.svg';
+// celebrationIcon removed - HOLIDAY event type no longer supported
 
 // Re-export EventType for convenience
 export type { EventType };
 
-// Helper object to access enum values as strings
+// Helper object to access enum values
 export const EVENT_TYPE = {
-  FUNERAL: EventType.FUNERAL,
-  WEDDING: EventType.WEDDING,
-  BIRTHDAY: EventType.BIRTHDAY,
-  HOLIDAY: EventType.HOLIDAY,
-  OTHER: EventType.OTHER,
+  MEMORIAL: EventType.MEMORIAL,  // "Ma chay, giỗ" - backend number 1
+  WEDDING: EventType.WEDDING,    // "Cưới hỏi" - backend number 2
+  BIRTHDAY: EventType.BIRTHDAY,  // "Sinh nhật" - backend number 3
+  OTHER: EventType.OTHER,        // "Khác" - backend number 4
 } as const;
 
 export const EVENT_TYPE_CONFIG: Partial<Record<EventType, { label: string; icon: string; color: string }>> = {
-  [EventType.FUNERAL]: {
+  [EventType.MEMORIAL]: {
     label: "Ma chay, giỗ",
     icon: mapIcon,
     color: "#9B51E0",
@@ -29,19 +28,20 @@ export const EVENT_TYPE_CONFIG: Partial<Record<EventType, { label: string; icon:
     color: "#52c41a",
   },
   [EventType.BIRTHDAY]: {
-    label: "Sinh nhật - Mừng thọ",
+    label: "Sinh nhật",
     icon: NonCategorizedIcon,
     color: "#1677FF",
-  },
-  [EventType.HOLIDAY]: {
-    label: "Ngày lễ",
-    icon: celebrationIcon,
-    color: "#fa8c16",
   },
   [EventType.OTHER]: {
     label: "Khác",
     icon: mapOtherIcon,
     color: "#FAAD14",
+  },
+  // Legacy support for FUNERAL (alias for MEMORIAL)
+  [EventType.FUNERAL]: {
+    label: "Ma chay, giỗ",
+    icon: mapIcon,
+    color: "#9B51E0",
   },
 };
 

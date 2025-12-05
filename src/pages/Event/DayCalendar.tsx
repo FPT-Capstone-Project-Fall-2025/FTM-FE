@@ -228,7 +228,25 @@ const DayCalendar = ({
 
       console.log('📅 DayCalendar - Events after filtering:', mappedEvents.length, 'events');
       console.log('📅 DayCalendar - Sample event:', mappedEvents[0]);
-      setEvents(mappedEvents);
+      
+      // Deduplicate events to avoid duplicates in the same day
+      // Use a key based on: name + start date (day only) + end date (day only)
+      const seenEvents = new Map<string, any>();
+      
+      mappedEvents.forEach(event => {
+        // Create a unique key based on name and dates (day only, ignore time)
+        const startDate = moment(event.start || event.startTime).format('YYYY-MM-DD');
+        const endDate = moment(event.end || event.endTime).format('YYYY-MM-DD');
+        const dedupeKey = `${event.name || event.title || ''}_${startDate}_${endDate}`;
+        
+        // Only add if we haven't seen this exact event (same name, same dates) before
+        if (!seenEvents.has(dedupeKey)) {
+          seenEvents.set(dedupeKey, event);
+        }
+      });
+      
+      const deduplicatedEvents = Array.from(seenEvents.values());
+      setEvents(deduplicatedEvents);
 
       // Process weather data (only available from old API)
       // TODO: Integrate weather API separately if needed
@@ -319,7 +337,7 @@ const DayCalendar = ({
       endTime: clickedDate.clone().add(1, 'hour').toDate(),
       isAllDay: false,
       name: '',
-      eventType: 'BIRTHDAY',
+      eventType: 3, // EventType.BIRTHDAY (backend number 3)
       description: '',
       imageUrl: '',
       gpIds: [],

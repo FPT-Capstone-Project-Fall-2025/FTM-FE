@@ -90,19 +90,34 @@ interface GPEventDetailsModalProps {
 }
 
 // Helper function to convert event type string to number
-const convertEventTypeToNumber = (eventType: string): number => {
-  // Normalize to uppercase to handle case variations
+// Helper function to convert event type (string or number) to number
+// Maps to backend: Memorial=1, Wedding=2, Birthday=3, Other=4
+const convertEventTypeToNumber = (eventType: string | number): number => {
+  // If already a number, validate and return it
+  if (typeof eventType === 'number') {
+    // Validate it's in backend range (1-4)
+    if (eventType >= 1 && eventType <= 4) {
+      return eventType;
+    }
+    // Legacy support: map old numbers to new ones
+    if (eventType === 0) return 1; // FUNERAL -> MEMORIAL
+    return 4; // Default to OTHER
+  }
+
+  // If string, normalize to uppercase and convert
   const normalizedType = (eventType || '').toUpperCase().trim();
 
+  // Map frontend EventType strings to backend numbers
   const typeMap: Record<string, number> = {
-    'FUNERAL': 0,
-    'WEDDING': 1,
-    'BIRTHDAY': 2,
-    'HOLIDAY': 3,
-    'OTHER': 7,
+    'MEMORIAL': 1,   // "Ma chay, giỗ" - backend Memorial = 1
+    'WEDDING': 2,    // "Cưới hỏi" - backend Wedding = 2
+    'BIRTHDAY': 3,   // "Sinh nhật" - backend Birthday = 3
+    'OTHER': 4,      // "Khác" - backend Other = 4
+    // Legacy support
+    'FUNERAL': 1,    // Legacy FUNERAL maps to MEMORIAL (1)
   };
 
-  const result = typeMap[normalizedType] ?? 7;
+  const result = typeMap[normalizedType] ?? 4;
 
   // Debug logging
   console.log('🔍 convertEventTypeToNumber:', {
@@ -157,6 +172,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
     timestamp: new Date()
   });
   const [recurrenceEndTimeError, setRecurrenceEndTimeError] = useState<string>('');
+  const [recurrenceValidationError, setRecurrenceValidationError] = useState<string>('');
 
   const methods = useForm<EventFormData>({
     defaultValues: defaultValues || {
@@ -234,6 +250,32 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       };
     }
     const start = dayjs(startTime);
+    
+    // For DAILY recurrence, only disable times before or equal to startTime on the same day
+    if (recurrenceValue === 'DAILY') {
+      if (current.isSame(start, 'day')) {
+        // Same day: disable hours before startTime, and minutes if same hour
+        const disabledHours = Array.from({ length: start.hour() }, (_, i) => i);
+        const disabledMinutes =
+          current.hour() === start.hour()
+            ? Array.from({ length: start.minute() + 1 }, (_, i) => i) // +1 to ensure startTime.minute() is also disabled
+            : [];
+        return {
+          disabledHours: () => disabledHours,
+          disabledMinutes: () => disabledMinutes,
+          disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+        };
+      }
+      // Different day should not happen for DAILY (disabledDate handles this)
+      // But if it does, allow all times
+      return {
+        disabledHours: () => [],
+        disabledMinutes: () => [],
+        disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+      };
+    }
+    
+    // For other recurrence types, use original logic
     if (current.isBefore(start, 'day')) {
       return {
         disabledHours: () => Array.from({ length: 24 }, (_, i) => i),
@@ -630,18 +672,64 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         data.endTime = endDate.toISOString();
       }
 
-      // Validate recurrence end time is before event end time
-      if (data.recurrenceEndTime && data.endTime) {
+      // Validate recurrence end time is greater than or equal to startTime
+      if (data.recurrenceEndTime && data.startTime) {
         const recurrenceEnd = dayjs(data.recurrenceEndTime);
-        const eventEnd = dayjs(data.endTime);
+        const eventStart = dayjs(data.startTime);
 
-        if (recurrenceEnd.isAfter(eventEnd, 'day') || recurrenceEnd.isSame(eventEnd, 'day')) {
+        if (recurrenceEnd.isBefore(eventStart, 'day')) {
           setErrorPopup({
             isOpen: true,
-            message: "Ngày kết thúc lặp lại phải trước ngày kết thúc sự kiện",
+            message: "Ngày kết thúc lặp lại phải lớn hơn hoặc bằng ngày bắt đầu sự kiện",
             timestamp: new Date()
           });
-          setRecurrenceEndTimeError('Ngày kết thúc lặp lại phải trước ngày kết thúc sự kiện');
+          setRecurrenceEndTimeError('Ngày kết thúc lặp lại phải lớn hơn hoặc bằng ngày bắt đầu sự kiện');
+          setIsSubmit(false);
+          return;
+        }
+      }
+
+      // Validate startTime and endTime based on recurrence type
+      if (data.recurrence && data.startTime && data.endTime) {
+        const start = dayjs(data.startTime);
+        const end = dayjs(data.endTime);
+        let errorMessage = '';
+
+        switch (data.recurrence) {
+          case 'DAILY':
+            // Lặp lại hàng ngày: startTime và endTime phải trong cùng một ngày VÀ startTime < endTime
+            const isSameDay = start.year() === end.year() && 
+                            start.month() === end.month() && 
+                            start.date() === end.date();
+            if (!isSameDay) {
+              errorMessage = "Lặp lại hàng ngày: Bắt đầu vào và Kết thúc vào phải trong cùng một ngày";
+            } else if (!start.isBefore(end)) {
+              errorMessage = "Lặp lại hàng ngày: Bắt đầu vào phải nhỏ hơn Kết thúc vào";
+            }
+            break;
+          case 'MONTHLY':
+            // Lặp lại hàng tháng: startTime và endTime phải trong cùng một tháng
+            if (!start.isSame(end, 'month')) {
+              errorMessage = "Lặp lại hàng tháng: Ngày bắt đầu và ngày kết thúc phải trong cùng một tháng";
+            }
+            break;
+          case 'YEARLY':
+            // Lặp lại hàng năm: startTime và endTime phải trong cùng một năm
+            if (!start.isSame(end, 'year')) {
+              errorMessage = "Lặp lại hàng năm: Ngày bắt đầu và ngày kết thúc phải trong cùng một năm";
+            }
+            break;
+          default:
+            // ONCE: không cần validation đặc biệt
+            break;
+        }
+
+        if (errorMessage) {
+          setErrorPopup({
+            isOpen: true,
+            message: errorMessage,
+            timestamp: new Date()
+          });
           setIsSubmit(false);
           return;
         }
@@ -850,7 +938,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       width={700}
       closeIcon={<X className="w-5 h-5" />}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         {/* Family Tree Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1087,10 +1175,82 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             onChange={(checked) => setIsLunar(checked)}
           />
         </div>
+        {/* Recurrence */}  
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Lặp lại
+          </label>
+          <Controller
+            name="recurrence"
+            control={control}
+            render={({ field }) => (
+              <Select
+                {...field}
+                size="large"
+                style={{ width: '100%' }}
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                options={[
+                  { label: 'Một lần', value: 'ONCE' },
+                  { label: 'Hàng ngày', value: 'DAILY' },
+                  { label: 'Hàng tháng', value: 'MONTHLY' },
+                  { label: 'Hàng năm', value: 'YEARLY' },
+                ]}
+                onChange={(value) => {
+                  field.onChange(value);
+                  // Clear recurrence validation error when recurrence type changes
+                  if (recurrenceValidationError) {
+                    setRecurrenceValidationError('');
+                  }
+                  
+                  // Auto-adjust endTime based on recurrence type if startTime exists
+                  if (startTime && endTime) {
+                    const start = dayjs(startTime);
+                    const end = dayjs(endTime);
+                    let newEndTime = end;
+                    
+                    switch (value) {
+                      case 'DAILY':
+                        // Set endTime to same day as startTime, but ensure endTime > startTime
+                        // If current endTime is before or equal to startTime, set it to 1 hour after startTime
+                        if (end.isBefore(start) || end.isSame(start)) {
+                          newEndTime = start.add(1, 'hour');
+                        } else {
+                          // Keep the time but ensure same day
+                          newEndTime = start.hour(end.hour()).minute(end.minute()).second(end.second());
+                          // If still same or before, add 1 hour
+                          if (!newEndTime.isAfter(start)) {
+                            newEndTime = start.add(1, 'hour');
+                          }
+                        }
+                        break;
+                      case 'MONTHLY':
+                        // Ensure endTime is in the same month as startTime
+                        if (!start.isSame(end, 'month')) {
+                          newEndTime = start.month(end.month()).date(Math.min(end.date(), start.daysInMonth()));
+                        }
+                        break;
+                      case 'YEARLY':
+                        // Ensure endTime is in the same year as startTime
+                        if (!start.isSame(end, 'year')) {
+                          newEndTime = start.year(end.year());
+                        }
+                        break;
+                    }
+                    
+                    // Only update if endTime needs to change
+                    if (!newEndTime.isSame(end)) {
+                      setValue('endTime', newEndTime.toISOString(), { shouldValidate: false });
+                    }
+                  }
+                }}
+              />
+            )}
+          />
+        </div>
         {/* Start Date Time */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Ngày bắt đầu <span className="text-red-500">*</span>
+            Bắt đầu vào <span className="text-red-500">*</span>
           </label>
           <Controller
             name="startTime"
@@ -1113,6 +1273,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                       const endDate = new Date(startDate);
                       endDate.setHours(23, 59, 59, 999);
                       setValue('endTime', endDate.toISOString(), { shouldValidate: false });
+                    }
+                    
+                    // Clear recurrence validation error when startTime changes
+                    if (recurrenceValidationError) {
+                      setRecurrenceValidationError('');
                     }
                   }}
                   format="DD/MM/YYYY HH:mm"
@@ -1143,12 +1308,14 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           />
           {errors.startTime && <p className="text-red-500 text-sm mt-1">{errors.startTime.message}</p>}
         </div>
+        
+        
 
         {/* End Date Time - Hidden when All Day is selected */}
         {!isAllDay && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ngày kết thúc <span className="text-red-500">*</span>
+              Kết thúc vào <span className="text-red-500">*</span>
             </label>
             <Controller
               name="endTime"
@@ -1160,9 +1327,50 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                     onChange={(value) => {
                       if (!value) {
                         field.onChange(null);
+                        setRecurrenceValidationError('');
                         return;
                       }
                       field.onChange(value.toISOString());
+                      
+                      // Clear error when user selects a value - validation will be done in onOk
+                      // This allows user to select date/time without being blocked
+                      setRecurrenceValidationError('');
+                    }}
+                    onOk={(value) => {
+                      // Validate when OK is clicked and clear error if valid
+                      if (recurrenceValue && recurrenceValue !== 'ONCE' && startTime && value) {
+                        const start = dayjs(startTime);
+                        const end = dayjs(value);
+                        let error = '';
+
+                        switch (recurrenceValue) {
+                          case 'DAILY':
+                            // Check cùng ngày và startTime < endTime
+                            const isSameDay = start.year() === end.year() && 
+                                            start.month() === end.month() && 
+                                            start.date() === end.date();
+                            if (!isSameDay) {
+                              error = "Lặp lại hàng ngày: Bắt đầu vào và Kết thúc vào phải trong cùng một ngày";
+                            } else if (start.isSame(end) || !start.isBefore(end)) {
+                              error = "Lặp lại hàng ngày: Bắt đầu vào phải nhỏ hơn Kết thúc vào";
+                            }
+                            break;
+                          case 'MONTHLY':
+                            if (!start.isSame(end, 'month')) {
+                              error = "Lặp lại hàng tháng: Ngày bắt đầu và ngày kết thúc phải trong cùng một tháng";
+                            }
+                            break;
+                          case 'YEARLY':
+                            if (!start.isSame(end, 'year')) {
+                              error = "Lặp lại hàng năm: Ngày bắt đầu và ngày kết thúc phải trong cùng một năm";
+                            }
+                            break;
+                        }
+                        setRecurrenceValidationError(error);
+                      } else {
+                        // Clear error if recurrence is ONCE or not set
+                        setRecurrenceValidationError('');
+                      }
                     }}
                     format="DD/MM/YYYY HH:mm"
                     showTime={{ format: 'HH:mm' }}
@@ -1172,11 +1380,91 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                       if (!startTime) {
                         return current.isBefore(dayjs().startOf('day'));
                       }
+                      
+                      // Apply recurrence-based date restrictions
+                      if (recurrenceValue && startTime) {
+                        const start = dayjs(startTime);
+                        
+                        switch (recurrenceValue) {
+                          case 'DAILY':
+                            // Only allow the same day as startTime - disable all other days
+                            // Compare year, month, and day explicitly
+                            const isSameDay = current.year() === start.year() && 
+                                            current.month() === start.month() && 
+                                            current.date() === start.date();
+                            if (!isSameDay) {
+                              return true; // Disable dates that are NOT the same day
+                            }
+                            // Allow the same day - no need to disable
+                            return false;
+                          case 'MONTHLY':
+                            // Only allow dates in the same month as startTime
+                            const isSameMonth = current.year() === start.year() && 
+                                              current.month() === start.month();
+                            if (!isSameMonth) {
+                              return true; // Disable dates outside the month
+                            }
+                            // Within the same month, still check default validation (can't be before startTime)
+                            return disableEndDate(current);
+                          case 'YEARLY':
+                            // Only allow dates in the same year as startTime
+                            const isSameYear = current.year() === start.year();
+                            if (!isSameYear) {
+                              return true; // Disable dates outside the year
+                            }
+                            // Within the same year, still check default validation (can't be before startTime)
+                            return disableEndDate(current);
+                          default:
+                            // ONCE: use default validation
+                            return disableEndDate(current);
+                        }
+                      }
+                      
                       return disableEndDate(current);
                     }}
                     disabledTime={disableEndHours}
-                    className={`w-full ${errors.endTime ? 'border-red-500' : ''}`}
+                    className={`w-full ${errors.endTime || recurrenceValidationError ? 'border-red-500' : ''}`}
+                    // Don't set status="error" to avoid disabling OK button in DatePicker
+                    // Error will be shown via error message below
                     getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                    onOpenChange={(open) => {
+                      // Clear error when DatePicker opens to allow user to select
+                      if (open) {
+                        setRecurrenceValidationError('');
+                      }
+                      // When DatePicker closes, re-validate if needed
+                      if (!open && recurrenceValue && recurrenceValue !== 'ONCE' && startTime && field.value) {
+                        const start = dayjs(startTime);
+                        const end = dayjs(field.value);
+                        let error = '';
+
+                        switch (recurrenceValue) {
+                          case 'DAILY':
+                            // Check cùng ngày và startTime < endTime
+                            const isSameDay = start.year() === end.year() && 
+                                            start.month() === end.month() && 
+                                            start.date() === end.date();
+                            if (!isSameDay) {
+                              error = "Lặp lại hàng ngày: Bắt đầu vào và Kết thúc vào phải trong cùng một ngày";
+                            } else if (start.isSame(end) || !start.isBefore(end)) {
+                              error = "Lặp lại hàng ngày: Bắt đầu vào phải nhỏ hơn Kết thúc vào";
+                            }
+                            // Nếu cùng ngày và startTime < endTime thì error = '' (không có lỗi)
+                            break;
+                          case 'MONTHLY':
+                            if (!start.isSame(end, 'month')) {
+                              error = "Lặp lại hàng tháng: Ngày bắt đầu và ngày kết thúc phải trong cùng một tháng";
+                            }
+                            break;
+                          case 'YEARLY':
+                            if (!start.isSame(end, 'year')) {
+                              error = "Lặp lại hàng năm: Ngày bắt đầu và ngày kết thúc phải trong cùng một năm";
+                            }
+                            break;
+                        }
+                        setRecurrenceValidationError(error);
+                      }
+                    }}
                   />
                   {isLunar && field.value && (
                     <div className="text-xs text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-md border border-blue-200">
@@ -1190,10 +1478,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                     </div>
                   )}
                 </div>
-              )}
-            />
-            {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime.message}</p>}
-          </div>
+            )}
+          />
+          {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime.message}</p>}
+          {recurrenceValidationError && <p className="text-red-500 text-sm mt-1">{recurrenceValidationError}</p>}
+        </div>
         )}
 
         {/* Helper text for All Day events */}
@@ -1204,35 +1493,9 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         )}
 
 
-
-        {/* Recurrence */}
-        <div className="hidden">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lặp lại
-          </label>
-          <Controller
-            name="recurrence"
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                size="large"
-                style={{ width: '100%' }}
-                getPopupContainer={(trigger) => trigger.parentElement || document.body}
-                options={[
-                  { label: 'Một lần', value: 'ONCE' },
-                  { label: 'Hàng ngày', value: 'DAILY' },
-                  { label: 'Hàng tháng', value: 'MONTHLY' },
-                  { label: 'Hàng năm', value: 'YEARLY' },
-                ]}
-              />
-            )}
-          />
-        </div>
-
         {/* Recurrence End Time (only show if recurrence is not ONCE) */}
         {showRecurrenceEndTime && (
-          <div className="hidden">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Ngày kết thúc lặp lại
             </label>
@@ -1251,13 +1514,13 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                       }
                     }}
                     onBlur={() => {
-                      // Validate on blur
-                      if (field.value && endTime) {
+                      // Validate on blur: recurrenceEndTime must be >= startTime
+                      if (field.value && startTime) {
                         const recurrenceEnd = dayjs(field.value);
-                        const eventEnd = dayjs(endTime);
+                        const eventStart = dayjs(startTime);
 
-                        if (recurrenceEnd.isAfter(eventEnd, 'day') || recurrenceEnd.isSame(eventEnd, 'day')) {
-                          setRecurrenceEndTimeError('Ngày kết thúc lặp lại phải trước ngày kết thúc sự kiện');
+                        if (recurrenceEnd.isBefore(eventStart, 'day')) {
+                          setRecurrenceEndTimeError('Ngày kết thúc lặp lại phải lớn hơn hoặc bằng ngày bắt đầu sự kiện');
                         } else {
                           setRecurrenceEndTimeError('');
                         }
@@ -1269,12 +1532,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                     status={recurrenceEndTimeError ? 'error' : ''}
                     disabledDate={(current) => {
                       if (!current) return false;
-                      // Disable dates before today
-                      if (current.isBefore(dayjs(), 'day')) {
-                        return true;
-                      }
-                      // Disable dates on or after event end date
-                      if (endTime && (current.isAfter(dayjs(endTime), 'day') || current.isSame(dayjs(endTime), 'day'))) {
+                      // Disable dates before startTime - ngày kết thúc lặp lại phải >= ngày bắt đầu
+                      if (startTime && current.isBefore(dayjs(startTime), 'day')) {
                         return true;
                       }
                       return false;

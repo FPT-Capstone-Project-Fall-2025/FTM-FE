@@ -1,25 +1,21 @@
-// Event Types and Enums
+// Event Types and Enums (frontend representation)
 export enum EventType {
-  FUNERAL = 'FUNERAL',
-  WEDDING = 'WEDDING',
-  BIRTHDAY = 'BIRTHDAY',
-  HOLIDAY = 'HOLIDAY',
-  OTHER = 'OTHER',
+  MEMORIAL = 'MEMORIAL',  // "Ma chay, giỗ" - maps to backend number 1
+  WEDDING = 'WEDDING',    // "Cưới hỏi" - maps to backend number 2
+  BIRTHDAY = 'BIRTHDAY',  // "Sinh nhật" - maps to backend number 3
+  OTHER = 'OTHER',        // "Khác" - maps to backend number 4
+  // Legacy types (for backward compatibility)
+  FUNERAL = 'FUNERAL',    // Alias for MEMORIAL
   MEETING = 'MEETING',
-  MEMORIAL = 'MEMORIAL',
   GATHERING = 'GATHERING',
 }
 
-// API Event Type Numbers
+// API Event Type Numbers (matches backend definition)
 export enum EventTypeNumber {
-  FUNERAL = 0,
-  WEDDING = 1,
-  BIRTHDAY = 2,
-  HOLIDAY = 3,
-  MEMORIAL = 4,
-  MEETING = 5,
-  GATHERING = 6,
-  OTHER = 7,
+  MEMORIAL = 1,  // "Ma chay, giỗ"
+  WEDDING = 2,   // "Cưới hỏi"
+  BIRTHDAY = 3,  // "Sinh nhật"
+  OTHER = 4,     // "Khác"
 }
 
 export enum RecurrenceType {
@@ -271,7 +267,7 @@ export interface DeleteEventPayload {
 // API Create Event Payload (matches backend API)
 export interface ApiCreateEventPayload {
   name: string;
-  eventType: number; // 0-7 (FUNERAL=0, WEDDING=1, BIRTHDAY=2, HOLIDAY=3, MEMORIAL=4, MEETING=5, GATHERING=6, OTHER=7)
+  eventType: number; // 1-4 (MEMORIAL=1 "Ma chay, giỗ", WEDDING=2 "Cưới hỏi", BIRTHDAY=3 "Sinh nhật", OTHER=4 "Khác")
   startTime: string; // ISO 8601 format: "2025-10-26T16:45:31.088Z"
   endTime: string; // ISO 8601 format: "2025-10-26T16:45:31.088Z"
   location: string | null;

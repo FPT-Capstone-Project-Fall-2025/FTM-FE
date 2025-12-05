@@ -623,19 +623,18 @@ const EventPage: React.FC = () => {
                         </div>
                         <div className="ml-4">
                           <span className={`px-3 py-1 rounded-full text-xs font-medium ${typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'WEDDING' ? 'bg-pink-100 text-pink-700' :
-                            event.eventType === 1 ? 'bg-pink-100 text-pink-700' :
+                            event.eventType === 2 ? 'bg-pink-100 text-pink-700' :  // Backend Wedding = 2
                               typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'BIRTHDAY' ? 'bg-blue-100 text-blue-700' :
-                                event.eventType === 2 ? 'bg-blue-100 text-blue-700' :
-                                  typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'FUNERAL' ? 'bg-gray-100 text-gray-700' :
-                                    event.eventType === 0 ? 'bg-gray-100 text-gray-700' :
-                                      'bg-purple-100 text-purple-700'
+                                event.eventType === 3 ? 'bg-blue-100 text-blue-700' :  // Backend Birthday = 3
+                                  typeof event.eventType === 'string' && (event.eventType.toUpperCase() === 'MEMORIAL' || event.eventType.toUpperCase() === 'FUNERAL') ? 'bg-gray-100 text-gray-700' :
+                                    event.eventType === 1 ? 'bg-gray-100 text-gray-700' :  // Backend Memorial = 1
+                                      'bg-purple-100 text-purple-700'  // Other = 4
                             }`}>
-                            {typeof event.eventType === 'string' ? event.eventType :
-                              event.eventType === 0 ? 'Giỗ' :
-                                event.eventType === 1 ? 'Cưới' :
-                                  event.eventType === 2 ? 'Sinh nhật - Mừng thọ' :
-                                    event.eventType === 3 ? 'Lễ' :
-                                      'Khác'}
+                            {typeof event.eventType === 'string' ? (event.eventType.toUpperCase() === 'MEMORIAL' || event.eventType.toUpperCase() === 'FUNERAL' ? 'Ma chay, giỗ' : event.eventType) :
+                              event.eventType === 1 ? 'Ma chay, giỗ' :  // Backend Memorial = 1
+                                event.eventType === 2 ? 'Cưới hỏi' :  // Backend Wedding = 2
+                                  event.eventType === 3 ? 'Sinh nhật' :  // Backend Birthday = 3
+                                    'Khác'}  // Backend Other = 4
                           </span>
                         </div>
                       </div>
