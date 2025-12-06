@@ -226,7 +226,7 @@ const PostPage: React.FC = () => {
         });
 
         setPosts(transformedPosts);
-        
+
         // Debug log after setting posts
         if (process.env.NODE_ENV === 'development') {
           console.log('[PostPage] Posts loaded:', {
@@ -1864,7 +1864,7 @@ const PostPage: React.FC = () => {
     const normalizedGpMemberId = String(gpMemberId).trim();
     const normalizedPostGpMemberId = String(postGpMemberId).trim();
     const isMatch = normalizedGpMemberId === normalizedPostGpMemberId;
-    
+
     // Debug log to help troubleshoot
     if (process.env.NODE_ENV === 'development') {
       console.log('[PostPage] isCurrentUserPost check:', {
@@ -1873,7 +1873,7 @@ const PostPage: React.FC = () => {
         areEqual: isMatch,
       });
     }
-    
+
     return isMatch;
   };
 
@@ -2091,17 +2091,6 @@ const PostPage: React.FC = () => {
                           <span className="text-blue-600 text-sm">📍</span>
                         </div>
                         <span className="text-sm font-medium">Sự kiện</span>
-                      </button>
-
-                      <button
-                        // onClick={() => setShowCreatePostModal(true)}
-                        disabled={gpMemberLoading || !!gpMemberError || !gpMemberId}
-                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 rounded-lg transition-colors text-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
-                          <span className="text-yellow-600 text-sm">🪙</span>
-                        </div>
-                        <span className="text-sm font-medium">Gây quỹ</span>
                       </button>
                     </div>
                   </div>
@@ -2668,11 +2657,11 @@ const PostPage: React.FC = () => {
           const normalizedGpMemberId = gpMemberId ? String(gpMemberId).trim() : '';
           const normalizedPostGpMemberId = reportingPost?.gpMemberId ? String(reportingPost.gpMemberId).trim() : '';
           const isOwnPost = Boolean(
-            normalizedGpMemberId && 
-            normalizedPostGpMemberId && 
+            normalizedGpMemberId &&
+            normalizedPostGpMemberId &&
             normalizedGpMemberId === normalizedPostGpMemberId
           );
-          
+
           // Debug log to help troubleshoot
           if (process.env.NODE_ENV === 'development') {
             console.log('[PostPage] Report modal isOwnPost check:', {
