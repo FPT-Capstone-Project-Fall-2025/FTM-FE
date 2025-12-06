@@ -189,9 +189,9 @@ const HonorBoard: React.FC = () => {
         }
 
         if (activeBoard === 'academic') {
-          await honorBoardService.updateAcademicHonor(editingHonor.id, updateData);
+          await honorBoardService.updateAcademicHonor(selectedTree.id, editingHonor.id, updateData);
         } else {
-          await honorBoardService.updateCareerHonor(editingHonor.id, updateData);
+          await honorBoardService.updateCareerHonor(selectedTree.id, editingHonor.id, updateData);
         }
 
         toast.success('Cập nhật danh hiệu thành công!');
@@ -238,13 +238,13 @@ const HonorBoard: React.FC = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (!honorToDelete) return;
+    if (!honorToDelete || !selectedTree?.id) return;
 
     try {
       if (activeBoard === 'academic') {
-        await honorBoardService.deleteAcademicHonor(honorToDelete);
+        await honorBoardService.deleteAcademicHonor(selectedTree.id, honorToDelete);
       } else {
-        await honorBoardService.deleteCareerHonor(honorToDelete);
+        await honorBoardService.deleteCareerHonor(selectedTree.id, honorToDelete);
       }
 
       toast.success('Xóa danh hiệu thành công!');

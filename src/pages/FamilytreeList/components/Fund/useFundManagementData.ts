@@ -254,7 +254,8 @@ export const useFundManagementData = (
     setMyPendingLoading(true);
     try {
       const list = await fundService.fetchMyPendingDonations(selectedTree?.id || '', requesterId);
-      setMyPendingDonations(list);
+      const filterdList = list.filter(item => item.status === 'Pending');
+      setMyPendingDonations(filterdList);
     } catch (err) {
       console.error('Failed to load my pending donations', err);
       setError(prev => prev ?? 'Không thể tải danh sách yêu cầu nạp đang chờ.');

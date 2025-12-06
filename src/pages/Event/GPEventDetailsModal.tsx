@@ -262,8 +262,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             : [];
         return {
           disabledHours: () => disabledHours,
-          disabledMinutes: () => disabledMinutes,
-          disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+          disabledMinutes: () => disabledMinutes
         };
       }
       // Different day should not happen for DAILY (disabledDate handles this)

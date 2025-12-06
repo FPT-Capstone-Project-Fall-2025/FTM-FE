@@ -166,6 +166,11 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                 }
             }
 
+            // Always include gender field regardless of whether it changed
+            if (editedMember.gender !== undefined && editedMember.gender !== null) {
+                fieldDiff.gender = editedMember.gender;
+            }
+
             // ---------- 2. Detect file/media changes ----------
             const originalFiles = member.ftMemberFiles || [];
             const editedFiles = editedMember.ftMemberFiles || [];

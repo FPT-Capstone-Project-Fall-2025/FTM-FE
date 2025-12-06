@@ -197,9 +197,6 @@ const FundManagement: React.FC = () => {
   // Permission management
   const permissions = usePermissions();
 
-
-
-
   const currentUserId = useMemo(
     () => authUser?.userId || (token ? getUserIdFromToken(token) : null),
     [authUser?.userId, token]
@@ -2242,7 +2239,7 @@ const FundManagement: React.FC = () => {
                   await refreshFundDetails();
                   await refreshAll();
                   // Switch to overview tab
-                  setFundTab('overview');
+                  // setFundTab('overview');
                   setManagementScope('fund');
                 } catch (error: any) {
                   console.error('Confirm donation failed:', error);
