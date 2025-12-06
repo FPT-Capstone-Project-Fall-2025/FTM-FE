@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2, Globe, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 import postService, { type CreatePostData } from '@/services/postService';
 import { embedSourceMetadata } from '@/utils/postMetadata';
+import { generateCampaignCard, generateEventCard } from '@/utils/PostCardGenerator';
 
 interface ShareToPostModalProps {
     isOpen: boolean;
@@ -29,12 +30,84 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
     onShareSuccess
 }) => {
     const [postTitle] = useState<string>(shareableItem.title);
-    const [postContent, setPostContent] = useState<string>(shareableItem.description || '');
+    const [postContent, setPostContent] = useState<string>(
+        shareableItem.type === 'campaign'
+            ? `💙 Hãy cùng chung tay ủng hộ!\n\n#ChiếnDịchGayQuỹ #GiaTộc`
+            : `🎉 Đừng bỏ lỡ sự kiện này!\n\n#SựKiệnGiaTộc #GắnKếtYêuThương`
+    );
     const [additionalMessage, setAdditionalMessage] = useState<string>('');
     const [status, setStatus] = useState<number>(1); // 1 = Public, 0 = Private
     const [isSharing, setIsSharing] = useState<boolean>(false);
+    const [generatedImage, setGeneratedImage] = useState<File | null>(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+    const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
 
     if (!isOpen) return null;
+
+    // Generate image card when modal opens or shareableItem changes
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const generateImage = async () => {
+            setIsGeneratingImage(true);
+            try {
+                let blob: Blob;
+
+                if (shareableItem.type === 'campaign') {
+                    // Extract campaign data
+                    const details = shareableItem.details;
+                    blob = await generateCampaignCard({
+                        name: shareableItem.title.replace('🎯 [Chiến dịch] ', ''),
+                        description: details.campaignDescription || '',
+                        raised: `${(details.currentBalance || 0).toLocaleString('vi-VN')}đ`,
+                        goal: `${(details.fundGoal || 0).toLocaleString('vi-VN')}đ`,
+                        progress: details.progress || 0,
+                        donors: details.totalDonations || 0,
+                        daysLeft: details.daysRemaining,
+                        imageUrl: shareableItem.imageUrl || undefined
+                    });
+                } else {
+                    // Extract event data
+                    const details = shareableItem.details;
+                    blob = await generateEventCard({
+                        name: shareableItem.title.replace('🎊 [Sự kiện] ', ''),
+                        description: details.description || '',
+                        date: details.startTime ? new Date(details.startTime).toLocaleDateString('vi-VN') : '',
+                        time: details.startTime && details.endTime
+                            ? `${new Date(details.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(details.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+                            : undefined,
+                        location: details.address || details.locationName || undefined,
+                        participants: details.members?.length || undefined,
+                        isLunar: details.isLunar || false,
+                        imageUrl: shareableItem.imageUrl || undefined
+                    });
+                }
+
+                // Convert blob to File
+                const file = new File([blob], `${shareableItem.type}-card.png`, { type: 'image/png' });
+                setGeneratedImage(file);
+
+                // Create preview URL
+                const previewUrl = URL.createObjectURL(blob);
+                setImagePreviewUrl(previewUrl);
+            } catch (error) {
+                console.error('Error generating image:', error);
+                toast.error('Không thể tạo hình ảnh xem trước');
+            } finally {
+                setIsGeneratingImage(false);
+            }
+        };
+
+        generateImage();
+
+        // Cleanup preview URL on unmount
+        return () => {
+            if (imagePreviewUrl) {
+                URL.revokeObjectURL(imagePreviewUrl);
+            }
+        };
+    }, [isOpen, shareableItem]);
+
 
     const handleShare = async () => {
         if (!postContent.trim() && !additionalMessage.trim()) {
@@ -68,9 +141,11 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
                 Status: status,
             };
 
-            // If there's an image URL, we would need to fetch and convert it to a File
-            // For now, we'll just post the text content
-            // TODO: Handle image attachment if needed
+            // Attach generated image card if available
+            if (generatedImage) {
+                postData.Files = [generatedImage];
+                postData.Captions = ['']; // Empty caption since content is in post text
+            }
 
             const response = await postService.createPost(postData);
 
@@ -144,19 +219,23 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
                         {/* Title */}
                         <h4 className="text-lg font-bold text-gray-900 mb-2">{postTitle}</h4>
 
-                        {/* Image Preview */}
-                        {shareableItem.imageUrl && (
-                            <div className="mb-3 rounded-lg overflow-hidden">
+                        {/* Generated Image Card Preview */}
+                        {isGeneratingImage ? (
+                            <div className="mb-3 rounded-lg bg-gray-100 h-64 flex items-center justify-center">
+                                <div className="text-center">
+                                    <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-2" />
+                                    <p className="text-sm text-gray-600">Đang tạo hình ảnh...</p>
+                                </div>
+                            </div>
+                        ) : imagePreviewUrl ? (
+                            <div className="mb-3 rounded-lg overflow-hidden shadow-lg">
                                 <img
-                                    src={shareableItem.imageUrl}
-                                    alt="Preview"
-                                    className="w-full h-48 object-cover"
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                    }}
+                                    src={imagePreviewUrl}
+                                    alt="Generated Card Preview"
+                                    className="w-full h-auto"
                                 />
                             </div>
-                        )}
+                        ) : null}
 
                         {/* Content Preview */}
                         <div className="text-sm text-gray-700 whitespace-pre-wrap">

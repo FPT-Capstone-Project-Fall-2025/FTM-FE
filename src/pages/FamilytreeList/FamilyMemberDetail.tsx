@@ -166,6 +166,11 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                 }
             }
 
+            // Always include gender field regardless of whether it changed
+            if (editedMember.gender !== undefined && editedMember.gender !== null) {
+                fieldDiff.gender = editedMember.gender;
+            }
+
             // ---------- 2. Detect file/media changes ----------
             const originalFiles = member.ftMemberFiles || [];
             const editedFiles = editedMember.ftMemberFiles || [];
@@ -474,7 +479,6 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                     <div>
                                         <h1 className="text-2xl font-bold">{data.fullname}</h1>
                                         <p className="text-white/90">{data.ftRole === 'FTMember' ? 'Thành viên' : data.ftRole}</p>
-                                        <p className="text-sm text-white/80">ID: {data.id}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">

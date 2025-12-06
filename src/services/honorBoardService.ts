@@ -55,12 +55,20 @@ const honorBoardService = {
     totalItems: number;
     data: HonorData[];
   }>> {
-    return api.get(`/careerhonor?familyTreeId=${familyTreeId}&pageIndex=${pageIndex}&pageSize=${pageSize}`);
+    return api.get(`/careerhonor?familyTreeId=${familyTreeId}&pageIndex=${pageIndex}&pageSize=${pageSize}`, {
+      headers: {
+        'X-Ftid': familyTreeId,
+      },
+    });
   },
 
   // Get a specific career honor by ID
-  getCareerHonorById(honorId: string): Promise<ApiResponse<HonorData>> {
-    return api.get(`/careerhonor/${honorId}`);
+  getCareerHonorById(ftId: string, honorId: string): Promise<ApiResponse<HonorData>> {
+    return api.get(`/careerhonor/${honorId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
   // Create a new career honor
@@ -81,12 +89,13 @@ const honorBoardService = {
     return api.post('/careerhonor', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        'X-Ftid': data.FamilyTreeId,
       },
     });
   },
 
   // Update a career honor
-  updateCareerHonor(honorId: string, data: UpdateHonorData): Promise<ApiResponse<HonorData>> {
+  updateCareerHonor(ftId: string, honorId: string, data: UpdateHonorData): Promise<ApiResponse<HonorData>> {
     const formData = new FormData();
     
     if (data.AchievementTitle !== undefined) formData.append('AchievementTitle', data.AchievementTitle);
@@ -100,13 +109,18 @@ const honorBoardService = {
     return api.put(`/careerhonor/${honorId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        'X-Ftid': ftId,
       },
     });
   },
 
   // Delete a career honor
-  deleteCareerHonor(honorId: string): Promise<ApiResponse<boolean>> {
-    return api.delete(`/careerhonor/${honorId}`);
+  deleteCareerHonor(ftId: string, honorId: string): Promise<ApiResponse<boolean>> {
+    return api.delete(`/careerhonor/${honorId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
   // ==================== ACADEMIC HONOR BOARD ====================
@@ -119,12 +133,20 @@ const honorBoardService = {
     totalItems: number;
     data: HonorData[];
   }>> {
-    return api.get(`/academichonor?familyTreeId=${familyTreeId}&pageIndex=${pageIndex}&pageSize=${pageSize}`);
+    return api.get(`/academichonor?familyTreeId=${familyTreeId}&pageIndex=${pageIndex}&pageSize=${pageSize}`, {
+      headers: {
+        'X-Ftid': familyTreeId,
+      },
+    });
   },
 
   // Get a specific academic honor by ID
-  getAcademicHonorById(honorId: string): Promise<ApiResponse<HonorData>> {
-    return api.get(`/academichonor/${honorId}`);
+  getAcademicHonorById(ftId: string, honorId: string): Promise<ApiResponse<HonorData>> {
+    return api.get(`/academichonor/${honorId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 
   // Create a new academic honor
@@ -146,12 +168,13 @@ const honorBoardService = {
     return api.post('/academichonor', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        'X-Ftid': data.FamilyTreeId,
       },
     });
   },
 
   // Update an academic honor
-  updateAcademicHonor(honorId: string, data: UpdateHonorData): Promise<ApiResponse<HonorData>> {
+  updateAcademicHonor(ftId: string, honorId: string, data: UpdateHonorData): Promise<ApiResponse<HonorData>> {
     const formData = new FormData();
     
     if (data.AchievementTitle !== undefined) formData.append('AchievementTitle', data.AchievementTitle);
@@ -166,13 +189,18 @@ const honorBoardService = {
     return api.put(`/academichonor/${honorId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        'X-Ftid': ftId,
       },
     });
   },
 
   // Delete an academic honor
-  deleteAcademicHonor(honorId: string): Promise<ApiResponse<boolean>> {
-    return api.delete(`/academichonor/${honorId}`);
+  deleteAcademicHonor(ftId: string, honorId: string): Promise<ApiResponse<boolean>> {
+    return api.delete(`/academichonor/${honorId}`, {
+      headers: {
+        'X-Ftid': ftId,
+      },
+    });
   },
 };
 
