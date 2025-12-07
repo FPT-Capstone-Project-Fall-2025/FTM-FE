@@ -244,8 +244,13 @@ export const useFundManagementData = (
     }
   }, [familyTreeId]);
 
+  // API only works with userId from auth token, not currentMemberId
+  const requesterId = useMemo(
+    () => currentUserId,
+    [currentUserId]
+  );
+
   const refreshMyPendingDonations = useCallback(async () => {
-    const requesterId = currentMemberId ?? currentUserId;
     if (!requesterId) {
       setMyPendingDonations([]);
       return;
@@ -262,7 +267,7 @@ export const useFundManagementData = (
     } finally {
       setMyPendingLoading(false);
     }
-  }, [currentMemberId, currentUserId]);
+  }, [requesterId]);
 
   const refreshPendingDonations = useCallback(async () => {
     setPendingDonationsLoading(true);
@@ -737,12 +742,12 @@ export const useFundManagementData = (
   }, [campaignPagination.pageSize, familyTreeId, refreshCampaigns]);
 
   useEffect(() => {
-    if (currentMemberId || currentUserId) {
+    if (requesterId) {
       void refreshMyPendingDonations();
     } else {
       setMyPendingDonations([]);
     }
-  }, [currentMemberId, currentUserId, refreshMyPendingDonations]);
+  }, [requesterId, refreshMyPendingDonations]);
 
   useEffect(() => {
     void refreshPendingDonations();
