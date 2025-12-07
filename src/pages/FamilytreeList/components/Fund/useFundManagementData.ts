@@ -123,7 +123,7 @@ export interface UseFundManagementDataReturn {
 export const useFundManagementData = (
   options: UseFundManagementDataOptions
 ): UseFundManagementDataReturn => {
-  const { familyTreeId, currentUserId, currentMemberId } = options;
+  const { familyTreeId, currentUserId } = options;
 
   const [loading, setLoading] = useState(false);
   const [fundDataLoading, setFundDataLoading] = useState(false);
