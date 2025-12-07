@@ -105,13 +105,15 @@ const renderExpenses = (
     );
   }
 
+  console.log(expenses);
+
   return (
     <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
       {expenses.map(expense => (
         <div key={expense.id} className="p-3 border border-gray-100 rounded-lg bg-gray-50">
           <div className="flex items-center justify-between mb-1">
             <p className="font-semibold text-gray-900">{expense.expenseTitle || 'Chi tiêu'}</p>
-            <span className="text-xs text-gray-500">{formatDate(expense.expenseDate)}</span>
+            <span className="text-xs text-gray-500">{formatDate(expense.createdOn)}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-red-600 font-semibold">{formatCurrency(expense.expenseAmount ?? 0)}</span>
