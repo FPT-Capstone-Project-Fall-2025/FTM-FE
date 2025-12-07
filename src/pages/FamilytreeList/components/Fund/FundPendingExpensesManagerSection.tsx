@@ -83,14 +83,6 @@ const FundPendingExpensesManagerSection: React.FC<FundPendingExpensesManagerSect
                     <span className="text-gray-500">Người nhận:</span>{' '}
                     <span className="font-medium text-gray-900">{expense.recipient || '—'}</span>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Sự kiện:</span>{' '}
-                    <span className="font-medium text-gray-900">{expense.expenseEvent || 'Không có'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Ngày dự kiến:</span>{' '}
-                    <span className="font-medium text-gray-900">{formatDate(expense.plannedDate)}</span>
-                  </div>
                 </div>
 
                 {/* Receipt Images Section */}
