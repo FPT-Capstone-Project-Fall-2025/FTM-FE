@@ -183,11 +183,11 @@ export const useEvents = () => {
   /**
    * Get event by ID
    */
-  const getEventById = useCallback(async (eventId: string) => {
+  const getEventById = useCallback(async (ftId: string, eventId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const event = await eventService.getEventById(eventId);
+      const event = await eventService.getEventById(ftId, eventId);
       return event;
     } catch (err: any) {
       setError(err.message || 'Failed to fetch event');
@@ -259,7 +259,7 @@ export const useEventStatistics = () => {
 /**
  * Custom hook for single event management
  */
-export const useEvent = (eventId?: string) => {
+export const useEvent = (ftId: string, eventId?: string) => {
   const [event, setEvent] = useState<FamilyEvent | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -268,7 +268,7 @@ export const useEvent = (eventId?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await eventService.getEventById(id);
+      const data = await eventService.getEventById(ftId, id);
       setEvent(data);
       return data;
     } catch (err: any) {

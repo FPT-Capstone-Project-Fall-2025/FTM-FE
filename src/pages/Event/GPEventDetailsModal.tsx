@@ -1615,6 +1615,49 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           />
         </div>
 
+        {/* Image Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Hình ảnh
+          </label>
+          <Controller
+            name="imageUrl"
+            control={control}
+            render={({ field }) => (
+              <>
+                <input type="hidden" {...field} value={field.value || ''} />
+                <Upload
+                  listType="picture-card"
+                  fileList={fileList}
+                  onChange={(info) => handleUploadChange(info, field.onChange)}
+                  beforeUpload={(file) => {
+                    console.log('Before upload:', file.name, 'size:', file.size, 'bytes');
+                    return false; // Prevent auto upload
+                  }}
+                  onRemove={() => {
+                    setFileList([]);
+                    setPreviewImage(null);
+                    field.onChange(null);
+                    console.log('Image removed from form');
+                    return true;
+                  }}
+                  accept="image/*"
+                  maxCount={1}
+                >
+                  {fileList.length === 0 && uploadButton}
+                </Upload>
+                {previewImage && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-gray-500">Xem trước:</p>
+                    <img src={previewImage} alt="Preview" className="w-32 h-32 object-cover rounded border" />
+                  </div>
+                )}
+              </>
+            )}
+          />
+        </div>
+
+
         {/* Action Buttons */}
         <div className="flex justify-end gap-3 pt-4 border-t">
           <button
