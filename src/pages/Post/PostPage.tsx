@@ -1240,9 +1240,9 @@ const PostPage: React.FC = () => {
           post.id === postId ? {
             ...post,
             title: response.data.title,
-            content: response.data.content,
-            // Handle multiple possible URL fields for attachments
-            images: response.data.attachments?.map((file: any) => file.fileUrl || file.url) || [],
+            content: response.data.content || editContent,
+            // Handle multiple possible URL fields for attachments - preserve existing if API doesn't return them
+            images: response.data.attachments?.map((file: any) => file.fileUrl || file.url) || post.images || [],
             isEdited: true,
             editedAt: 'Vừa xong'
           } : post
@@ -1253,9 +1253,9 @@ const PostPage: React.FC = () => {
           setSelectedPost(prev => prev ? {
             ...prev,
             title: response.data.title,
-            content: response.data.content,
-            // Handle multiple possible URL fields for attachments
-            images: response.data.attachments?.map((file: any) => file.fileUrl || file.url) || [],
+            content: response.data.content || editContent,
+            // Handle multiple possible URL fields for attachments - preserve existing if API doesn't return them
+            images: response.data.attachments?.map((file: any) => file.fileUrl || file.url) || prev.images || [],
             isEdited: true,
             editedAt: 'Vừa xong'
           } : null);
