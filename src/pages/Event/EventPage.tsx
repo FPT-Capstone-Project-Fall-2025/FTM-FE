@@ -262,13 +262,20 @@ const EventPage: React.FC = () => {
     if (state?.eventId && state?.familyTreeId) {
       const { eventId, familyTreeId } = state;
 
+      console.log('📍 Navigation detected - eventId:', eventId, 'familyTreeId:', familyTreeId);
+
       // Fetch event data and open modal
       const fetchEventAndOpen = async () => {
         try {
+          console.log('📍 Fetching event data...');
           const eventServiceModule = await import('../../services/eventService');
           const eventService = eventServiceModule.default;
 
-          const eventData = await eventService.getEventById(eventId) as any;
+          const baseEventId = eventId.includes('_') ? eventId.split('_')[0] : eventId;
+          console.log('📍 Using baseEventId:', baseEventId);
+
+          const eventData = await eventService.getEventById(familyTreeId, baseEventId) as any;
+          console.log('📍 Event data received:', eventData);
 
           if (eventData) {
             // Map the event data to FamilyEvent format
@@ -278,6 +285,7 @@ const EventPage: React.FC = () => {
               gpIds: eventData.gpIds || (eventData.ftId ? [eventData.ftId] : [familyTreeId]),
             };
 
+            console.log('📍 Setting event and opening modal');
             setEventSelected(mappedEvent);
             setIsOpenGPEventInfoModal(true);
 
