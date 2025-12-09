@@ -1231,6 +1231,11 @@ const PostPage: React.FC = () => {
         updateData.RemoveImageIds = imagesToRemove;
       }
 
+      const keptImages = existingImages.filter(img => !imagesToRemove.includes(img.id));
+      if (keptImages.length > 0) {
+        updateData.ExistingFileUrls = keptImages.map(img => img.url);
+      }
+
       const response = await postService.updatePostWithFiles(postId, updateData);
 
       const success = response.success || response.status || (response.statusCode === 200);
