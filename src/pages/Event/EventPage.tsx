@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DatePicker, Radio } from 'antd';
 import { Search, Calendar, ChevronLeft, ChevronRight, CornerDownLeft } from 'lucide-react';
 import moment from 'moment';
@@ -33,6 +34,9 @@ moment.updateLocale('vi', { week: { dow: 1, doy: 1 } });
 
 const EventPage: React.FC = () => {
   const now = new Date();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // State Management
   const [viewMode, setViewMode] = useState<ViewMode>('month' as ViewMode);
   const [currentDate, setCurrentDate] = useState<Date>(now);
@@ -250,6 +254,56 @@ const EventPage: React.FC = () => {
         return momentDate.format('MMMM YYYY');
     }
   }, [currentDate, viewMode]);
+
+  // Handle navigation from posts - auto-open event detail if eventId in state
+  useEffect(() => {
+    const state = location.state as { eventId?: string; familyTreeId?: string } | null;
+
+    if (state?.eventId && state?.familyTreeId) {
+      const { eventId, familyTreeId } = state;
+
+      // Fetch event data and open modal
+      const fetchEventAndOpen = async () => {
+        try {
+          const eventServiceModule = await import('../../services/eventService');
+          const eventService = eventServiceModule.default;
+
+          const eventData = await eventService.getEventById(eventId) as any;
+
+          if (eventData) {
+            // Map the event data to FamilyEvent format
+            const mappedEvent: FamilyEvent = {
+              ...eventData,
+              eventType: normalizeEventType(eventData.eventType),
+              gpIds: eventData.gpIds || (eventData.ftId ? [eventData.ftId] : [familyTreeId]),
+            };
+
+            setEventSelected(mappedEvent);
+            setIsOpenGPEventInfoModal(true);
+
+            // Update filters to include this family tree
+            setEventFilters(prev => {
+              const currentGps = prev?.eventGp || [];
+              if (!currentGps.includes(familyTreeId)) {
+                return {
+                  ...prev,
+                  eventGp: [...currentGps, familyTreeId]
+                };
+              }
+              return prev;
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching event from navigation:', error);
+        }
+      };
+
+      void fetchEventAndOpen();
+
+      // Clear state to prevent re-triggering on subsequent renders
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   // Render Calendar based on view mode
   const renderCalendar = () => {

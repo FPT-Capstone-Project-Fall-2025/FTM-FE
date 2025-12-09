@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { RefreshCw, ChevronLeft, ChevronRight, PlusCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAppSelector } from '@/hooks/redux';
@@ -49,7 +50,7 @@ import {
   type WithdrawalFormState,
 } from './Fund/FundWithdrawalSection';
 import FundWithdrawalModal from './Fund/FundWithdrawalModal';
-import FundPendingExpensesManagerSection  from './Fund/FundPendingExpensesManagerSection';
+import FundPendingExpensesManagerSection from './Fund/FundPendingExpensesManagerSection';
 import FundPendingDonationsSection from './Fund/FundPendingDonationsSection';
 import FundPendingDonationsManagerSection from './Fund/FundPendingDonationsManagerSection';
 import CampainPendingDonationsManagerSection from './Fund/CampainPendingDonationsManagerSection';
@@ -189,6 +190,10 @@ const BANK_LOGOS: Record<string, string> = {
 };
 
 const FundManagement: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
   const selectedTree = useAppSelector(
     state => state.familyTreeMetaData.selectedFamilyTree
   );
@@ -395,6 +400,41 @@ const FundManagement: React.FC = () => {
       }
     }
   }, [isWithdrawalModalOpen, withdrawalForm.date, withdrawalForm.recipient, gpMember, authUser?.name]);
+
+  // Handle navigation from posts - auto-open campaign detail if campaignId in state
+  useEffect(() => {
+    const state = location.state as { campaignId?: string } | null;
+    const tab = searchParams.get('tab');
+
+    // Handle tab parameter to switch to fund management
+    if (tab === 'fund') {
+      setManagementScope('fund');
+    }
+
+    // Auto-open campaign detail if navigated from post
+    if (state?.campaignId) {
+      const campaignId = state.campaignId;
+
+      // Load and open campaign detail
+      const openCampaignDetail = async () => {
+        try {
+          const detail = await loadCampaignDetail(campaignId);
+          if (detail) {
+            setManagementScope('campaign');
+            setIsCampaignDetailOpen(true);
+          }
+        } catch (error) {
+          console.error('Error loading campaign from navigation:', error);
+          showException('Không thể tải thông tin chiến dịch');
+        }
+      };
+
+      void openCampaignDetail();
+
+      // Clear state to prevent re-triggering on subsequent renders
+      navigate(location.pathname + location.search, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, location.search, searchParams, navigate, loadCampaignDetail, showException]);
 
   const formatCurrency = useCallback((value?: number | null) => {
     if (value === null || value === undefined) {
@@ -715,7 +755,7 @@ const FundManagement: React.FC = () => {
       // When "Nộp tiền hộ cho người thân" is ON, form.donorMemberId will contain the selected member's ID
       const memberIdToUse = form.donorMemberId || gpMemberId;
       const donorNameToUse = form.donorName || donorName;
-      
+
       if (!memberIdToUse) {
         showException(
           'Không xác định được thành viên gia tộc để ghi nhận khoản đóng góp.'
@@ -2393,7 +2433,7 @@ const FundManagement: React.FC = () => {
                     <EmptyState title="Chưa có ủng hộ" description="Bạn chưa có giao dịch ủng hộ nào." />
                   ) : (
                     <>
-                    
+
                       {myCampaignTotalPages > 1 && (
                         <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
                           <div className="text-sm text-gray-600">
