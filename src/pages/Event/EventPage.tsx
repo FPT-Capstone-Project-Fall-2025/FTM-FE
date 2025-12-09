@@ -264,49 +264,52 @@ const EventPage: React.FC = () => {
 
       console.log('📍 Navigation detected - eventId:', eventId, 'familyTreeId:', familyTreeId);
 
-      // Fetch event data and open modal
-      const fetchEventAndOpen = async () => {
+      const fetchAndFindEvent = async () => {
         try {
-          console.log('📍 Fetching event data...');
           const eventServiceModule = await import('../../services/eventService');
           const eventService = eventServiceModule.default;
-
+          console.log('📍 Fetching all events for family tree:', familyTreeId);
+          // Fetch all events for this family tree (same API the calendar uses)
+          const response = await eventService.getEventsByGp(familyTreeId);
+          const allEvents = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+          console.log('📍 Total events loaded:', allEvents.length);
+          // Strip date suffix from target event ID if present (for recurring events)
           const baseEventId = eventId.includes('_') ? eventId.split('_')[0] : eventId;
-          console.log('📍 Using baseEventId:', baseEventId);
-
-          const eventData = await eventService.getEventById(familyTreeId, baseEventId) as any;
-          console.log('📍 Event data received:', eventData);
-
-          if (eventData) {
-            // Map the event data to FamilyEvent format
+          // Search for the event by ID (comparing base IDs)
+          const targetEvent = allEvents.find((event: any) => {
+            const eventBaseId = event.id?.includes('_') ? event.id.split('_')[0] : event.id;
+            return eventBaseId === baseEventId || event.id === eventId;
+          });
+          if (targetEvent) {
+            console.log('📍 Found event:', targetEvent.name);
+            // Map to FamilyEvent format  
             const mappedEvent: FamilyEvent = {
-              ...eventData,
-              eventType: normalizeEventType(eventData.eventType),
-              gpIds: eventData.gpIds || (eventData.ftId ? [eventData.ftId] : [familyTreeId]),
+              ...targetEvent,
+              eventType: normalizeEventType(targetEvent.eventType),
+              gpIds: targetEvent.gpIds || (targetEvent.ftId ? [targetEvent.ftId] : [familyTreeId]),
             };
-
-            console.log('📍 Setting event and opening modal');
+            console.log('📍 Opening modal with complete event data');
             setEventSelected(mappedEvent);
             setIsOpenGPEventInfoModal(true);
-
-            // Update filters to include this family tree
-            setEventFilters(prev => {
-              const currentGps = prev?.eventGp || [];
-              if (!currentGps.includes(familyTreeId)) {
-                return {
-                  ...prev,
-                  eventGp: [...currentGps, familyTreeId]
-                };
-              }
-              return prev;
-            });
+          } else {
+            console.error('📍 Event not found in family tree events');
           }
+          // Update filters to include this family tree
+          setEventFilters(prev => {
+            const currentGps = prev?.eventGp || [];
+            if (!currentGps.includes(familyTreeId)) {
+              return {
+                ...prev,
+                eventGp: [...currentGps, familyTreeId]
+              };
+            }
+            return prev;
+          });
         } catch (error) {
-          console.error('Error fetching event from navigation:', error);
+          console.error('📍 Error fetching events:', error);
         }
       };
-
-      void fetchEventAndOpen();
+      void fetchAndFindEvent();
 
       // Clear state to prevent re-triggering on subsequent renders
       navigate(location.pathname, { replace: true, state: {} });
