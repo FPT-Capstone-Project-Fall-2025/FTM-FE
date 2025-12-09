@@ -420,6 +420,7 @@ const FundManagement: React.FC = () => {
         try {
           const detail = await loadCampaignDetail(campaignId);
           if (detail) {
+            setCampaignDetail(detail);
             setManagementScope('campaign');
             setIsCampaignDetailOpen(true);
           }
