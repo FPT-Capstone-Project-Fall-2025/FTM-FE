@@ -22,7 +22,7 @@ const ENDPOINTS = {
   CREATE_EVENT: '/api/calendar/event',
   UPDATE_EVENT: '/api/calendar/event',
   DELETE_EVENT: '/api/calendar/event',
-  GET_EVENT_DETAILS: '/api/calendar/event',
+  GET_EVENT_DETAILS: '/ftfamilyevent/event',
   GET_EVENT_STATISTICS: '/api/calendar/statistics',
 };
 
@@ -120,9 +120,14 @@ class EventService {
   /**
    * Get event details by ID
    */
-  async getEventById(eventId: string): Promise<FamilyEvent> {
+  async getEventById(ftId: string, eventId: string): Promise<FamilyEvent> {
     const response = await apiService.get<FamilyEvent>(
-      `${ENDPOINTS.GET_EVENT_DETAILS}/${eventId}`
+      `${ENDPOINTS.GET_EVENT_DETAILS}/${eventId}`,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
     );
     return response;
   }

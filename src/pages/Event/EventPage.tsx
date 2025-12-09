@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DatePicker, Radio } from 'antd';
 import { Search, Calendar, ChevronLeft, ChevronRight, CornerDownLeft } from 'lucide-react';
 import moment from 'moment';
@@ -33,6 +34,9 @@ moment.updateLocale('vi', { week: { dow: 1, doy: 1 } });
 
 const EventPage: React.FC = () => {
   const now = new Date();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // State Management
   const [viewMode, setViewMode] = useState<ViewMode>('month' as ViewMode);
   const [currentDate, setCurrentDate] = useState<Date>(now);
@@ -250,6 +254,67 @@ const EventPage: React.FC = () => {
         return momentDate.format('MMMM YYYY');
     }
   }, [currentDate, viewMode]);
+
+  // Handle navigation from posts - auto-open event detail if eventId in state
+  useEffect(() => {
+    const state = location.state as { eventId?: string; familyTreeId?: string } | null;
+
+    if (state?.eventId && state?.familyTreeId) {
+      const { eventId, familyTreeId } = state;
+
+      console.log('📍 Navigation detected - eventId:', eventId, 'familyTreeId:', familyTreeId);
+
+      const fetchAndFindEvent = async () => {
+        try {
+          const eventServiceModule = await import('../../services/eventService');
+          const eventService = eventServiceModule.default;
+          console.log('📍 Fetching all events for family tree:', familyTreeId);
+          // Fetch all events for this family tree (same API the calendar uses)
+          const response = await eventService.getEventsByGp(familyTreeId);
+          const allEvents = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+          console.log('📍 Total events loaded:', allEvents.length);
+          // Strip date suffix from target event ID if present (for recurring events)
+          const baseEventId = eventId.includes('_') ? eventId.split('_')[0] : eventId;
+          // Search for the event by ID (comparing base IDs)
+          const targetEvent = allEvents.find((event: any) => {
+            const eventBaseId = event.id?.includes('_') ? event.id.split('_')[0] : event.id;
+            return eventBaseId === baseEventId || event.id === eventId;
+          });
+          if (targetEvent) {
+            console.log('📍 Found event:', targetEvent.name);
+            // Map to FamilyEvent format  
+            const mappedEvent: FamilyEvent = {
+              ...targetEvent,
+              eventType: normalizeEventType(targetEvent.eventType),
+              gpIds: targetEvent.gpIds || (targetEvent.ftId ? [targetEvent.ftId] : [familyTreeId]),
+            };
+            console.log('📍 Opening modal with complete event data');
+            setEventSelected(mappedEvent);
+            setIsOpenGPEventInfoModal(true);
+          } else {
+            console.error('📍 Event not found in family tree events');
+          }
+          // Update filters to include this family tree
+          setEventFilters(prev => {
+            const currentGps = prev?.eventGp || [];
+            if (!currentGps.includes(familyTreeId)) {
+              return {
+                ...prev,
+                eventGp: [...currentGps, familyTreeId]
+              };
+            }
+            return prev;
+          });
+        } catch (error) {
+          console.error('📍 Error fetching events:', error);
+        }
+      };
+      void fetchAndFindEvent();
+
+      // Clear state to prevent re-triggering on subsequent renders
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   // Render Calendar based on view mode
   const renderCalendar = () => {

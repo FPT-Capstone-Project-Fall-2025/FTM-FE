@@ -250,7 +250,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       };
     }
     const start = dayjs(startTime);
-    
+
     // For DAILY recurrence, only disable times before or equal to startTime on the same day
     if (recurrenceValue === 'DAILY') {
       if (current.isSame(start, 'day')) {
@@ -273,7 +273,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
       };
     }
-    
+
     // For other recurrence types, use original logic
     if (current.isBefore(start, 'day')) {
       return {
@@ -697,9 +697,9 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         switch (data.recurrence) {
           case 'DAILY':
             // Lặp lại hàng ngày: startTime và endTime phải trong cùng một ngày VÀ startTime < endTime
-            const isSameDay = start.year() === end.year() && 
-                            start.month() === end.month() && 
-                            start.date() === end.date();
+            const isSameDay = start.year() === end.year() &&
+              start.month() === end.month() &&
+              start.date() === end.date();
             if (!isSameDay) {
               errorMessage = "Lặp lại hàng ngày: Bắt đầu vào và Kết thúc vào phải trong cùng một ngày";
             } else if (!start.isBefore(end)) {
@@ -1174,7 +1174,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             onChange={(checked) => setIsLunar(checked)}
           />
         </div>
-        {/* Recurrence */}  
+        {/* Recurrence */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Lặp lại
@@ -1200,13 +1200,13 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   if (recurrenceValidationError) {
                     setRecurrenceValidationError('');
                   }
-                  
+
                   // Auto-adjust endTime based on recurrence type if startTime exists
                   if (startTime && endTime) {
                     const start = dayjs(startTime);
                     const end = dayjs(endTime);
                     let newEndTime = end;
-                    
+
                     switch (value) {
                       case 'DAILY':
                         // Set endTime to same day as startTime, but ensure endTime > startTime
@@ -1235,7 +1235,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                         }
                         break;
                     }
-                    
+
                     // Only update if endTime needs to change
                     if (!newEndTime.isSame(end)) {
                       setValue('endTime', newEndTime.toISOString(), { shouldValidate: false });
@@ -1273,7 +1273,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                       endDate.setHours(23, 59, 59, 999);
                       setValue('endTime', endDate.toISOString(), { shouldValidate: false });
                     }
-                    
+
                     // Clear recurrence validation error when startTime changes
                     if (recurrenceValidationError) {
                       setRecurrenceValidationError('');
@@ -1307,8 +1307,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           />
           {errors.startTime && <p className="text-red-500 text-sm mt-1">{errors.startTime.message}</p>}
         </div>
-        
-        
+
+
 
         {/* End Date Time - Hidden when All Day is selected */}
         {!isAllDay && (
@@ -1330,7 +1330,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                         return;
                       }
                       field.onChange(value.toISOString());
-                      
+
                       // Clear error when user selects a value - validation will be done in onOk
                       // This allows user to select date/time without being blocked
                       setRecurrenceValidationError('');
@@ -1345,9 +1345,9 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                         switch (recurrenceValue) {
                           case 'DAILY':
                             // Check cùng ngày và startTime < endTime
-                            const isSameDay = start.year() === end.year() && 
-                                            start.month() === end.month() && 
-                                            start.date() === end.date();
+                            const isSameDay = start.year() === end.year() &&
+                              start.month() === end.month() &&
+                              start.date() === end.date();
                             if (!isSameDay) {
                               error = "Lặp lại hàng ngày: Bắt đầu vào và Kết thúc vào phải trong cùng một ngày";
                             } else if (start.isSame(end) || !start.isBefore(end)) {
@@ -1379,18 +1379,18 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                       if (!startTime) {
                         return current.isBefore(dayjs().startOf('day'));
                       }
-                      
+
                       // Apply recurrence-based date restrictions
                       if (recurrenceValue && startTime) {
                         const start = dayjs(startTime);
-                        
+
                         switch (recurrenceValue) {
                           case 'DAILY':
                             // Only allow the same day as startTime - disable all other days
                             // Compare year, month, and day explicitly
-                            const isSameDay = current.year() === start.year() && 
-                                            current.month() === start.month() && 
-                                            current.date() === start.date();
+                            const isSameDay = current.year() === start.year() &&
+                              current.month() === start.month() &&
+                              current.date() === start.date();
                             if (!isSameDay) {
                               return true; // Disable dates that are NOT the same day
                             }
@@ -1398,8 +1398,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                             return false;
                           case 'MONTHLY':
                             // Only allow dates in the same month as startTime
-                            const isSameMonth = current.year() === start.year() && 
-                                              current.month() === start.month();
+                            const isSameMonth = current.year() === start.year() &&
+                              current.month() === start.month();
                             if (!isSameMonth) {
                               return true; // Disable dates outside the month
                             }
@@ -1418,7 +1418,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                             return disableEndDate(current);
                         }
                       }
-                      
+
                       return disableEndDate(current);
                     }}
                     disabledTime={disableEndHours}
@@ -1440,9 +1440,9 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                         switch (recurrenceValue) {
                           case 'DAILY':
                             // Check cùng ngày và startTime < endTime
-                            const isSameDay = start.year() === end.year() && 
-                                            start.month() === end.month() && 
-                                            start.date() === end.date();
+                            const isSameDay = start.year() === end.year() &&
+                              start.month() === end.month() &&
+                              start.date() === end.date();
                             if (!isSameDay) {
                               error = "Lặp lại hàng ngày: Bắt đầu vào và Kết thúc vào phải trong cùng một ngày";
                             } else if (start.isSame(end) || !start.isBefore(end)) {
@@ -1477,11 +1477,11 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                     </div>
                   )}
                 </div>
-            )}
-          />
-          {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime.message}</p>}
-          {recurrenceValidationError && <p className="text-red-500 text-sm mt-1">{recurrenceValidationError}</p>}
-        </div>
+              )}
+            />
+            {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime.message}</p>}
+            {recurrenceValidationError && <p className="text-red-500 text-sm mt-1">{recurrenceValidationError}</p>}
+          </div>
         )}
 
         {/* Helper text for All Day events */}

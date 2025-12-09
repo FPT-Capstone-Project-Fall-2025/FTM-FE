@@ -82,7 +82,7 @@ const postService = {
   // Create a new post
   createPost(data: CreatePostData): Promise<ApiResponse<PostData>> {
     const formData = new FormData();
-    
+
     // Add basic post data
     console.log('[postService.createPost] Identifiers', {
       FTId: data.FTId,
@@ -93,24 +93,24 @@ const postService = {
     formData.append('Content', data.Content);
     formData.append('FTMemberId', data.FTMemberId);
     formData.append('Status', data.Status.toString());
-    
+
     // Handle files, captions, and file types together
     if (data.Files && data.Files.length > 0) {
       console.log('Processing files:', data.Files.length);
       console.log('Captions provided:', data.Captions?.length || 0);
-      
+
       // Add files, captions, and file types in sync
       data.Files.forEach((file, index) => {
         // Add file
         formData.append('Files', file);
-        
+
         // Add caption (empty string if not provided)
         const caption = data.Captions && data.Captions[index] !== undefined ? data.Captions[index] : '';
         formData.append('Captions', caption);
-        
+
         // Skip FileTypes to avoid validation errors - let API auto-detect
         // API can determine file type from the actual file
-        
+
         console.log(`File ${index}: ${file.name}, Caption: "${caption}"`);
       });
     }
@@ -120,7 +120,7 @@ const postService = {
     for (let pair of formData.entries()) {
       console.log(pair[0] + ': ' + pair[1]);
     }
-    
+
     // Log detailed FormData structure  
     console.log('Detailed FormData analysis:');
     const formDataEntries = Array.from(formData.entries());
@@ -154,9 +154,10 @@ const postService = {
     Captions?: string[];
     FileTypes?: string[];
     RemoveImageIds?: string[]; // IDs of images to remove
+    ExistingFileUrls?: string[];
   }): Promise<ApiResponse<PostData>> {
     const formData = new FormData();
-    
+
     // Add basic post data - Always include these fields even if empty
     formData.append('Title', data.Title || '');
     formData.append('Content', data.Content || '');
@@ -169,30 +170,37 @@ const postService = {
     }
     if (data.FTId) formData.append('FTId', data.FTId);
     if (data.FTMemberId) formData.append('FTMemberId', data.FTMemberId);
-    
+
     // Handle files, captions, and file types if provided
     if (data.Files && data.Files.length > 0) {
       console.log('Processing files for update:', data.Files.length);
-      
+
       data.Files.forEach((file, index) => {
         formData.append('Files', file);
-        
+
         const caption = data.Captions && data.Captions[index] !== undefined ? data.Captions[index] : '';
         formData.append('Captions', caption);
-        
+
         // Skip FileTypes for update to avoid validation errors
         // Let API auto-detect file types from the actual file
-        
+
         console.log(`Update File ${index}: ${file.name}, Caption: "${caption}"`);
       });
     }
-    
+
     // Handle image removal
     if (data.RemoveImageIds && data.RemoveImageIds.length > 0) {
       data.RemoveImageIds.forEach(imageId => {
         formData.append('RemoveImageIds', imageId);
       });
       console.log('Images to remove:', data.RemoveImageIds);
+    }
+
+    if (data.ExistingFileUrls && data.ExistingFileUrls.length > 0) {
+      data.ExistingFileUrls.forEach(url => {
+        formData.append('ExistingFileUrls', url);
+      });
+      console.log('Existing images to keep:', data.ExistingFileUrls);
     }
 
     // Log the form data for debugging
@@ -239,7 +247,7 @@ const postService = {
     };
 
     console.log('Adding comment with payload:', payload);
-    
+
     return api.post('/post/comments', payload, {
       headers: {
         'Content-Type': 'application/json',
@@ -248,7 +256,7 @@ const postService = {
   },
 
   // Get replies for a specific comment (removed - now handled by addComment with parentCommentId)
-  
+
   // Add a reply to a comment (removed - now handled by addComment with parentCommentId)
 
   // Edit a comment or reply
@@ -259,7 +267,7 @@ const postService = {
     };
 
     console.log('Editing comment with payload:', payload);
-    
+
     return api.put(`/post/comments/${commentId}`, payload, {
       headers: {
         'Content-Type': 'application/json',
