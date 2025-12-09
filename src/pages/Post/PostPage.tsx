@@ -1241,8 +1241,10 @@ const PostPage: React.FC = () => {
             ...post,
             title: response.data.title,
             content: response.data.content || editContent,
-            // Handle multiple possible URL fields for attachments - preserve existing if API doesn't return them
-            images: response.data.attachments?.map((file: any) => file.fileUrl || file.url) || post.images || [],
+            // Handle multiple possible URL fields for attachments - preserve existing if API returns empty or undefined
+            images: (response.data.attachments && response.data.attachments.length > 0)
+              ? response.data.attachments.map((file: any) => file.fileUrl || file.url)
+              : (post.images || []),
             isEdited: true,
             editedAt: 'Vừa xong'
           } : post
@@ -1254,8 +1256,10 @@ const PostPage: React.FC = () => {
             ...prev,
             title: response.data.title,
             content: response.data.content || editContent,
-            // Handle multiple possible URL fields for attachments - preserve existing if API doesn't return them
-            images: response.data.attachments?.map((file: any) => file.fileUrl || file.url) || prev.images || [],
+            // Handle multiple possible URL fields for attachments - preserve existing if API returns empty or undefined
+            images: (response.data.attachments && response.data.attachments.length > 0)
+              ? response.data.attachments.map((file: any) => file.fileUrl || file.url)
+              : (prev.images || []),
             isEdited: true,
             editedAt: 'Vừa xong'
           } : null);
