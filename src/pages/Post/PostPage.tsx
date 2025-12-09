@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
@@ -55,6 +55,17 @@ const PostPage: React.FC = () => {
     loading: gpMemberLoading,
     error: gpMemberError
   } = useGPMember(currentFamilyTreeId, currentUserId || null);
+
+  // Debug: Log useGPMember parameters
+  useEffect(() => {
+    console.log('[PostPage] useGPMember params:', {
+      currentFamilyTreeId,
+      currentUserId,
+      gpMemberId,
+      gpMemberLoading,
+      gpMemberError
+    });
+  }, [currentFamilyTreeId, currentUserId, gpMemberId, gpMemberLoading, gpMemberError]);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
@@ -200,7 +211,7 @@ const PostPage: React.FC = () => {
           return {
             id: apiPost.id,
             title: apiPost.title,
-            gpMemberId: apiPost.gpMemberId,
+            gpMemberId: apiPost.gpMemberId || apiPost.ftMemberId,
             status: Number(apiPost.status ?? 1),
             author: {
               name: apiPost.authorName || apiPost.author?.name || apiPost.createdBy || 'Unknown User',
@@ -1738,7 +1749,7 @@ const PostPage: React.FC = () => {
     }
 
     // Confirm deletion
-    const confirmMessage = `Bạn có chắc chắn muốn xóa bài viết này?\n\nNội dung: "${postToDelete.content.substring(0, 50)}${postToDelete.content.length > 50 ? '...' : ''}"\n\nHành động này không thể hoàn tác.`;
+    const confirmMessage = `Bạn có chắc chắn muốn xóa bài viết này?\nHành động này không thể hoàn tác.`;
 
     showConfirm(
       'Xóa bài viết',
@@ -1848,7 +1859,7 @@ const PostPage: React.FC = () => {
     return userData.name || user?.name || 'Username';
   };
 
-  const isCurrentUserPost = (postGpMemberId: string | null | undefined) => {
+  const isCurrentUserPost = useCallback((postGpMemberId: string | null | undefined) => {
     if (!gpMemberId || !postGpMemberId) {
       // Debug log when values are missing
       if (process.env.NODE_ENV === 'development' && postGpMemberId) {
@@ -1875,7 +1886,7 @@ const PostPage: React.FC = () => {
     }
 
     return isMatch;
-  };
+  }, [gpMemberId, gpMemberLoading]);
 
   // Simple wrapper for CommentItem to work with PostDetailPage
   const SimpleCommentItem: React.FC<{
@@ -3004,7 +3015,7 @@ const PostPage: React.FC = () => {
 
         {/* Confirm Dialog */}
         {showConfirmDialog && confirmDialogData && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
               {/* Header */}
               <div className="px-6 py-4 border-b border-gray-200">
