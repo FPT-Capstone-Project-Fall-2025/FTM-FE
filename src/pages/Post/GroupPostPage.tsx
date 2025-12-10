@@ -134,7 +134,7 @@ const GroupPostPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Error Display */}
         {error && (
@@ -149,35 +149,67 @@ const GroupPostPage: React.FC = () => {
           </div>
         )}
 
-        {/* Header Section */}
+        {/* Hero Section - Clear Instructions */}
         <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl flex items-center justify-center shadow-lg">
-                    <TrendingUp className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Gia tộc</h1>
-                    <p className="text-slate-600 text-sm mt-0.5">
-                      Khám phá và kết nối với {familyTrees.length} dòng họ
-                    </p>
-                  </div>
-                </div>
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl shadow-lg p-8 md:p-12 text-white">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur rounded-full text-sm font-medium mb-4">
+                <TrendingUp className="w-4 h-4" />
+                <span>Bước 1: Chọn gia tộc</span>
               </div>
 
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">
+                Chọn gia tộc để xem bài viết
+              </h1>
+
+              <p className="text-blue-100 text-lg mb-6 leading-relaxed">
+                Chọn một trong {familyTrees.length} gia tộc bên dưới để xem và tương tác với các bài viết, sự kiện và thông tin của gia tộc đó.
+              </p>
+
               {/* Search Bar */}
-              <div className="relative w-full md:w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <div className="relative max-w-md">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-300" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm kiếm theo tên gia tộc..."
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent transition-all text-slate-900 placeholder:text-slate-400"
+                  placeholder="Tìm kiếm gia tộc..."
+                  className="w-full pl-12 pr-4 py-3.5 bg-white/10 backdrop-blur border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/20 transition-all text-white placeholder:text-blue-200"
                 />
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex items-start gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm mb-1">Xem bài viết gia tộc</h3>
+              <p className="text-slate-600 text-xs leading-relaxed">Đọc và tương tác với các bài viết từ thành viên gia tộc</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex items-start gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm mb-1">Theo dõi hoạt động</h3>
+              <p className="text-slate-600 text-xs leading-relaxed">Cập nhật thông tin và sự kiện mới nhất của gia tộc</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-5 flex items-start gap-3">
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Crown className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm mb-1">Kết nối dòng họ</h3>
+              <p className="text-slate-600 text-xs leading-relaxed">Tham gia vào cộng đồng và kết nối với thành viên</p>
             </div>
           </div>
         </div>
@@ -197,53 +229,55 @@ const GroupPostPage: React.FC = () => {
             {filteredFamilyTrees.map((familyTree) => (
               <div
                 key={familyTree.id}
-                className="group flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 overflow-hidden cursor-pointer"
+                className="group flex flex-col bg-white rounded-2xl shadow-sm border-2 border-slate-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer"
                 onClick={() => handleViewGroup(familyTree.id)}
               >
-                {/* Card Header */}
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-14 h-14 bg-gradient-to-br from-slate-800 to-slate-700 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
-                        <span className="text-white text-xl font-bold">
-                          {familyTree.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
-                          {familyTree.name}
-                        </h3>
-                        <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-0.5">
-                          <Users className="w-4 h-4" />
-                          <span>{formatMemberCount(familyTree.memberCount)} thành viên</span>
-                        </div>
+                {/* Card Header with Accent */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 border-b border-slate-100">
+                  <div className="flex items-start gap-3">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                      <span className="text-white text-2xl font-bold">
+                        {familyTree.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors mb-1">
+                        {familyTree.name}
+                      </h3>
+                      <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                        <Users className="w-4 h-4" />
+                        <span className="font-medium">{formatMemberCount(familyTree.memberCount)} thành viên</span>
                       </div>
                     </div>
                   </div>
+                </div>
 
+                {/* Card Content */}
+                <div className="p-6 flex-1">
                   <p className="text-slate-600 text-sm leading-relaxed line-clamp-3 mb-4">
                     {familyTree.description}
                   </p>
 
                   {/* Metadata */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 pt-4 border-t border-slate-100">
                     <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <Crown className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Chủ tộc: {familyTree.owner}</span>
+                      <Crown className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Chủ tộc: <span className="font-medium text-slate-700">{familyTree.owner}</span></span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Tạo: {formatDate(familyTree.createdAt)}</span>
+                      <span>Thành lập: {formatDate(familyTree.createdAt)}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Card Footer */}
-                <div className="mt-auto border-t border-slate-100 p-6 bg-slate-50/50">
-                  <button className="w-full flex items-center justify-between px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all group/btn">
-                    <span className="font-medium text-sm">Xem chi tiết</span>
-                    <ChevronRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                {/* Call to Action Footer */}
+                <div className="mt-auto p-6 pt-4 bg-gradient-to-t from-slate-50 to-white border-t border-slate-100">
+                  <button className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl transition-all group-hover:shadow-lg font-medium">
+                    <span>Xem bài viết gia tộc</span>
+                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </button>
+                  <p className="text-center text-xs text-slate-500 mt-2">Nhấn để truy cập vào bảng tin</p>
                 </div>
               </div>
             ))}
