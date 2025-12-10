@@ -53,6 +53,7 @@ export interface MyPendingDonation {
   status?: string | number | null;
   payOSOrderCode?: string | number | null;
   proofImages?: string[] | null;
+  hasProofImages?: boolean;
 }
 
 export interface FundDonationStats {
