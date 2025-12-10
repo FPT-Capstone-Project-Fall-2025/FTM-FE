@@ -2565,17 +2565,35 @@ const FundManagement: React.FC = () => {
                                           <span className="text-xs text-gray-500">{formatDate(item.createdAt)}</span>
                                         </div>
                                         {item.message && <p className="text-xs text-gray-600 mt-1">{item.message}</p>}
-                                        {item.proofImages.length > 0 ? (
-                                          <div className="flex gap-2 mt-2 flex-wrap">
-                                            {item.proofImages.map((url, idx) => (
-                                              <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
-                                                Xác minh {idx + 1}
-                                              </a>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <p className="text-xs text-gray-500 mt-2">Chưa có ảnh xác minh thanh toán</p>
-                                        )}
+                                        <div className="mt-2 space-y-2">
+                                          {/* Proof Image Status Badge */}
+                                          {item.proofImages.length > 0 ? (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-50 border border-green-200">
+                                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                              </svg>
+                                              <span className="text-xs font-semibold text-green-700">Đã có hình ảnh chứng từ</span>
+                                            </div>
+                                          ) : (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 border border-red-200">
+                                              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                              </svg>
+                                              <span className="text-xs font-semibold text-red-700">Thiếu hình ảnh chứng từ</span>
+                                            </div>
+                                          )}
+
+                                          {/* Proof Image Links */}
+                                          {item.proofImages.length > 0 && (
+                                            <div className="flex gap-2 flex-wrap">
+                                              {item.proofImages.map((url, idx) => (
+                                                <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:text-blue-800 underline">
+                                                  Xem ảnh {idx + 1}
+                                                </a>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <label className="px-3 py-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
@@ -2848,18 +2866,16 @@ const FundManagement: React.FC = () => {
         onCheckStatus={async () => {
           await refreshFundDetails();
           await refreshMyPendingDonations();
-          // If donation requires manual confirmation, switch to donations tab
-          if (depositResponse?.requiresManualConfirmation) {
-            setFundTab('donations');
-            setManagementScope('fund');
-            setIsDepositQRModalOpen(false);
-            setTimeout(() => {
-              const pendingSection = document.getElementById('my-pending-donations-section');
-              if (pendingSection) {
-                pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }, 300);
-          }
+          // Navigate to "Yêu cầu của tôi" (donations) tab
+          setFundTab('donations');
+          setManagementScope('fund');
+          setIsDepositQRModalOpen(false);
+          setTimeout(() => {
+            const pendingSection = document.getElementById('my-pending-donations-section');
+            if (pendingSection) {
+              pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 300);
         }}
       />
 
