@@ -36,6 +36,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import NoPermission from '@/components/shared/NoPermission';
 import { useErrorPopup } from '@/hooks/useErrorPopup';
 import ExceptionPopup from '@/components/shared/ExceptionPopup';
+import FamilyTreeTutorial from '@/components/shared/FamilyTreeTutorial';
+import TutorialFloatingButton from '@/components/shared/TutorialFloatingButton';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -90,6 +92,7 @@ const FamilyTreeContent = () => {
   const [edges, setLocalEdges, onEdgesChange] = useEdgesState(reduxEdges);
   const permissions = usePermissions();
   const { errorPopup, showError, closeError } = useErrorPopup();
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {
@@ -429,6 +432,12 @@ const FamilyTreeContent = () => {
               onCancel={handleDeleteNodeCancel}
               isDeleting={isDeletingNode}
             />
+          )}
+
+          {/* Tutorial Components */}
+          <TutorialFloatingButton onOpenTutorial={() => setShowTutorial(true)} />
+          {showTutorial && (
+            <FamilyTreeTutorial onClose={() => setShowTutorial(false)} />
           )}
         </div>
       </div>
