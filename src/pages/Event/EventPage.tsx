@@ -17,6 +17,8 @@ import DayCalendar from './DayCalendar';
 import InfiniteYearCalendar from './InfiniteYearCalendar';
 import GPEventInfoModal from './GPEventInfoModal';
 import GPEventDetailsModal from './GPEventDetailsModal';
+import EventTutorial from './EventTutorial';
+import TutorialFloatingButton from '@/components/shared/TutorialFloatingButton';
 // import MyEventsContent from './MyEventsContent'; // Removed - not used
 
 // Types
@@ -56,6 +58,7 @@ const EventPage: React.FC = () => {
   const [eventSelected, setEventSelected] = useState<FamilyEvent | null>(null);
   const [isSearchResultsOpen, setIsSearchResultsOpen] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<FamilyEvent[]>([]);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Date Navigation Handlers
   const handleNext = useCallback(() => {
@@ -710,6 +713,12 @@ const EventPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tutorial Components */}
+      <TutorialFloatingButton onOpenTutorial={() => setShowTutorial(true)} />
+      {showTutorial && (
+        <EventTutorial onClose={() => setShowTutorial(false)} />
       )}
     </div>
   );

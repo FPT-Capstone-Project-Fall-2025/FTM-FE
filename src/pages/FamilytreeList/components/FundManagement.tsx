@@ -60,6 +60,8 @@ import type {
   CampaignDetail,
   FundWithdrawalInput,
 } from './Fund/useFundManagementData';
+import FundManagementTutorial from './Fund/FundManagementTutorial';
+import TutorialFloatingButton from '@/components/shared/TutorialFloatingButton';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -367,6 +369,7 @@ const FundManagement: React.FC = () => {
     proofImages: string[];
   }>>([]);
   const { isOpen: isExceptionOpen, message: exceptionMessage, timestamp: exceptionTimestamp, showException, hideException } = useException();
+  const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -2955,7 +2958,13 @@ const FundManagement: React.FC = () => {
         timestamp={exceptionTimestamp}
         onClose={hideException}
       />
-    </div >
+
+      {/* Tutorial Components */}
+      <TutorialFloatingButton onOpenTutorial={() => setShowTutorial(true)} />
+      {showTutorial && (
+        <FundManagementTutorial onClose={() => setShowTutorial(false)} />
+      )}
+    </div>
   );
 };
 
