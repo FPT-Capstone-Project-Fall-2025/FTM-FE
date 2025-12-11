@@ -33,6 +33,49 @@ import FundCreateModal, {
   type BankInfo,
   type FundCreateForm,
 } from './Fund/FundCreateModal';
+import bankList from '@/assets/fund/bank/json/bank.json';
+// Bank logos (keyed by bankCode from bank.json)
+import VCB from '@/assets/fund/bank/images/VCB.png';
+import CTG from '@/assets/fund/bank/images/CTG.png';
+import TCB from '@/assets/fund/bank/images/TCB.png';
+import BIDV from '@/assets/fund/bank/images/BIDV.png';
+import VARB from '@/assets/fund/bank/images/VARB.png';
+import NVB from '@/assets/fund/bank/images/NVB.png';
+import STB from '@/assets/fund/bank/images/STB.png';
+import ACB from '@/assets/fund/bank/images/ACB.png';
+import MB from '@/assets/fund/bank/images/MB.png';
+import TPB from '@/assets/fund/bank/images/TPB.png';
+import SVB from '@/assets/fund/bank/images/SVB.png';
+import VIB from '@/assets/fund/bank/images/VIB.png';
+import VPB from '@/assets/fund/bank/images/VPB.png';
+import SHB from '@/assets/fund/bank/images/SHB.png';
+import EIB from '@/assets/fund/bank/images/EIB.png';
+import BVB from '@/assets/fund/bank/images/BVB.png';
+import VCCB from '@/assets/fund/bank/images/VCCB.png';
+import SCB from '@/assets/fund/bank/images/SCB.png';
+import VRB from '@/assets/fund/bank/images/VRB.png';
+import ABB from '@/assets/fund/bank/images/ABB.png';
+import PVCB from '@/assets/fund/bank/images/PVCB.png';
+import NAB from '@/assets/fund/bank/images/NAB.png';
+import HDB from '@/assets/fund/bank/images/HDB.png';
+import VB from '@/assets/fund/bank/images/VB.png';
+import CFC from '@/assets/fund/bank/images/CFC.png';
+import PBVN from '@/assets/fund/bank/images/PBVN.png';
+import PGB from '@/assets/fund/bank/images/PGB.png';
+import IVB from '@/assets/fund/bank/images/IVB.png';
+import GPB from '@/assets/fund/bank/images/GPB.png';
+import NASB from '@/assets/fund/bank/images/NASB.png';
+import VAB from '@/assets/fund/bank/images/VAB.png';
+import SGB from '@/assets/fund/bank/images/SGB.png';
+import MSB from '@/assets/fund/bank/images/MSB.png';
+import LPB from '@/assets/fund/bank/images/LPB.png';
+import KLB from '@/assets/fund/bank/images/KLB.png';
+import WOO from '@/assets/fund/bank/images/WOO.png';
+import UOB from '@/assets/fund/bank/images/UOB.png';
+import OCB from '@/assets/fund/bank/images/OCB.png';
+import Seab from '@/assets/fund/bank/images/Seab.png';
+import KebHana from '@/assets/fund/bank/images/KebHana.png';
+import Mirae from '@/assets/fund/bank/images/Mirae.png';
 import FundEditModal, {
   type FundEditForm,
 } from './Fund/FundEditModal';
@@ -149,46 +192,51 @@ const getDateValue = (value?: string | null): number => {
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 };
 
-const DEFAULT_BANKS: BankInfo[] = [
-  {
-    bankCode: '970436',
-    bankName: 'Vietcombank',
-    fullName: 'Ngân hàng TMCP Ngoại Thương Việt Nam',
-  },
-  {
-    bankCode: '970418',
-    bankName: 'Techcombank',
-    fullName: 'Ngân hàng TMCP Kỹ Thương Việt Nam',
-  },
-  {
-    bankCode: '970415',
-    bankName: 'BIDV',
-    fullName: 'Ngân hàng TMCP Đầu tư và Phát triển Việt Nam',
-  },
-  {
-    bankCode: '970407',
-    bankName: 'VietinBank',
-    fullName: 'Ngân hàng TMCP Công Thương Việt Nam',
-  },
-  {
-    bankCode: '970422',
-    bankName: 'MB Bank',
-    fullName: 'Ngân hàng TMCP Quân Đội',
-  },
-  {
-    bankCode: '970432',
-    bankName: 'Agribank',
-    fullName: 'Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam',
-  },
-];
+// Bank list and logos from bundled assets
+const BANKS: BankInfo[] = (bankList as BankInfo[]) ?? [];
 
 const BANK_LOGOS: Record<string, string> = {
-  '970436': 'https://logo.clearbit.com/vietcombank.com.vn',
-  '970418': 'https://logo.clearbit.com/techcombank.com.vn',
-  '970415': 'https://logo.clearbit.com/bidv.com.vn',
-  '970407': 'https://logo.clearbit.com/vietinbank.vn',
-  '970422': 'https://logo.clearbit.com/mbbank.com.vn',
-  '970432': 'https://logo.clearbit.com/agribank.com.vn',
+  VCB,
+  CTG,
+  TCB,
+  BIDV,
+  VARB,
+  NVB,
+  STB,
+  ACB,
+  MB,
+  TPB,
+  SVB,
+  VIB,
+  VPB,
+  SHB,
+  EIB,
+  BVB,
+  VCCB,
+  SCB,
+  VRB,
+  ABB,
+  PVCB,
+  NAB,
+  HDB,
+  VB,
+  CFC,
+  PBVN,
+  PGB,
+  IVB,
+  GPB,
+  NASB,
+  VAB,
+  SGB,
+  MSB,
+  LPB,
+  KLB,
+  WOO,
+  UOB,
+  OCB,
+  Seab,
+  KebHana,
+  Mirae,
 };
 
 const FundManagement: React.FC = () => {
@@ -271,7 +319,7 @@ const FundManagement: React.FC = () => {
   const itemsPerPage = 3;
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const [banks] = useState<BankInfo[]>(DEFAULT_BANKS);
+  const [banks] = useState<BankInfo[]>(BANKS);
   const [bankLogos] = useState<Record<string, string>>(BANK_LOGOS);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isDepositQRModalOpen, setIsDepositQRModalOpen] = useState(false);

@@ -498,7 +498,7 @@ const HonorBoard: React.FC = () => {
                                             {honor.photoUrl && (
                                               <img
                                                 src={honor.photoUrl}
-                                                alt="Giấy chứng nhận"
+                                                alt="Hình ảnh"
                                                 className="w-24 h-16 object-cover rounded border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex-shrink-0"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
@@ -969,10 +969,10 @@ const HonorBoard: React.FC = () => {
 
                   {selectedHonor.photoUrl && (
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <h5 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Giấy chứng nhận</h5>
+                      <h5 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Hình ảnh</h5>
                       <img
                         src={selectedHonor.photoUrl}
-                        alt="Giấy chứng nhận"
+                        alt="Hình ảnh"
                         className="w-full rounded-lg border border-gray-200 shadow-md hover:shadow-xl transition-shadow cursor-pointer"
                         onClick={() => selectedHonor.photoUrl && window.open(selectedHonor.photoUrl, '_blank')}
                       />

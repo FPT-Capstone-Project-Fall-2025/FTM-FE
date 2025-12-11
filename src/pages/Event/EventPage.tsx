@@ -28,7 +28,8 @@ import type {
   FamilyEvent,
   CalendarSelectInfo,
 } from '@/types/event';
-import { normalizeEventType } from '@/utils/eventUtils';
+import { EventType } from '@/types/event';
+import { normalizeEventType, getEventTypeLabel } from '@/utils/eventUtils';
 
 // Configure moment
 moment.locale('vi');
@@ -690,20 +691,23 @@ const EventPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="ml-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'WEDDING' ? 'bg-pink-100 text-pink-700' :
-                            event.eventType === 2 ? 'bg-pink-100 text-pink-700' :  // Backend Wedding = 2
-                              typeof event.eventType === 'string' && event.eventType.toUpperCase() === 'BIRTHDAY' ? 'bg-blue-100 text-blue-700' :
-                                event.eventType === 3 ? 'bg-blue-100 text-blue-700' :  // Backend Birthday = 3
-                                  typeof event.eventType === 'string' && (event.eventType.toUpperCase() === 'MEMORIAL' || event.eventType.toUpperCase() === 'FUNERAL') ? 'bg-gray-100 text-gray-700' :
-                                    event.eventType === 1 ? 'bg-gray-100 text-gray-700' :  // Backend Memorial = 1
-                                      'bg-purple-100 text-purple-700'  // Other = 4
-                            }`}>
-                            {typeof event.eventType === 'string' ? (event.eventType.toUpperCase() === 'MEMORIAL' || event.eventType.toUpperCase() === 'FUNERAL' ? 'Ma chay, giỗ' : event.eventType) :
-                              event.eventType === 1 ? 'Ma chay, giỗ' :  // Backend Memorial = 1
-                                event.eventType === 2 ? 'Cưới hỏi' :  // Backend Wedding = 2
-                                  event.eventType === 3 ? 'Sinh nhật' :  // Backend Birthday = 3
-                                    'Khác'}  // Backend Other = 4
-                          </span>
+                          {(() => {
+                            const normalizedType = normalizeEventType(event.eventType);
+                            const badgeClass =
+                              normalizedType === EventType.WEDDING
+                                ? 'bg-pink-100 text-pink-700'
+                                : normalizedType === EventType.BIRTHDAY
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : normalizedType === EventType.MEMORIAL
+                                    ? 'bg-gray-100 text-gray-700'
+                                    : 'bg-purple-100 text-purple-700';
+
+                            return (
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${badgeClass}`}>
+                                {getEventTypeLabel(normalizedType)}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
