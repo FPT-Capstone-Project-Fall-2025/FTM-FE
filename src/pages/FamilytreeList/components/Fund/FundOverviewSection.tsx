@@ -34,6 +34,7 @@ interface FundOverviewSectionProps {
   totalExpense: number;
   uniqueContributorCount: number;
   pendingExpenseCount: number;
+  pendingDonationCount: number;
   currentFundPurpose: string;
   lastUpdated: string;
   recentContributors: OverviewContributor[];
@@ -59,6 +60,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   totalExpense: _totalExpense,
   uniqueContributorCount,
   pendingExpenseCount,
+  pendingDonationCount,
   currentFundPurpose,
   recentContributors,
   transactions,
@@ -215,9 +217,8 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
             <Clock className="w-5 h-5 text-amber-500" />
           </div>
           <h4 className="text-2xl font-bold text-amber-600">
-            {pendingExpenseCount}
+            {pendingExpenseCount + pendingDonationCount}
           </h4>
-          <p className="text-gray-700 leading-relaxed">{currentFundPurpose}</p>
         </div>
       </div>
 

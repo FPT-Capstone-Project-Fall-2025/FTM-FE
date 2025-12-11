@@ -2198,6 +2198,7 @@ const FundManagement: React.FC = () => {
                 totalExpense={totalExpense}
                 uniqueContributorCount={uniqueContributorCount}
                 pendingExpenseCount={pendingExpenses.length}
+                pendingDonationCount={pendingDonations.length}
                 currentFundPurpose={currentFundPurpose}
                 lastUpdated={lastUpdated}
                 recentContributors={recentContributors}
