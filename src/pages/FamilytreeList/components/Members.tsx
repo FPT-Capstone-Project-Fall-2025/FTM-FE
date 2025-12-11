@@ -407,7 +407,7 @@ const Members: React.FC = () => {
                                 }`}
                         >
                             <Users className="w-4 h-4" />
-                            Chưa liên kết
+                            Danh sách node
                         </button>
                     </div>
 

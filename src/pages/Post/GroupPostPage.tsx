@@ -153,10 +153,6 @@ const GroupPostPage: React.FC = () => {
         <div className="mb-8">
           <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl shadow-lg p-8 md:p-12 text-white">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur rounded-full text-sm font-medium mb-4">
-                <TrendingUp className="w-4 h-4" />
-                <span>Bước 1: Chọn gia tộc</span>
-              </div>
 
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
                 Chọn gia tộc để xem bài viết

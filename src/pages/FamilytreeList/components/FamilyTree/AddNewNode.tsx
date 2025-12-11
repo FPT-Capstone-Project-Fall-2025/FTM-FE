@@ -1,7 +1,5 @@
-import dataService from "@/services/dataService";
 import familyTreeService from "@/services/familyTreeService";
 import { CategoryCode, type AddingNodeProps, type FamilyMember, type FamilyNode } from "@/types/familytree";
-import type { Province, Ward } from "@/types/user";
 import { X, Users, User, Baby } from "lucide-react";
 import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import DatePicker from "react-datepicker";
@@ -110,13 +108,6 @@ const allRelationships: Relationship[] = [
   },
 ];
 
-// Sample options for select fields
-const selectOptions = {
-  EthnicId: ["Kinh", "Tày", "Thái"],
-  ReligionId: ["Phật giáo", "Thiên chúa giáo", "Không"],
-  IdentificationType: ["CMND", "CCCD", "Passport"],
-};
-
 const AddNewNode = ({
   ftId,
   parentMember = null,
@@ -133,12 +124,6 @@ const AddNewNode = ({
   const [partnerMembers] = useState<FamilyNode[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
-  const [selectedBurialProvinceId, setSelectedBurialProvinceId] = useState<string>('');
-  const [wards, setWards] = useState<Ward[]>([]);
-  const [burialWards, setBurialWards] = useState<Ward[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<AddingNodeProps>>({
     ftId: ftId,
@@ -323,48 +308,9 @@ const AddNewNode = ({
     }
   };
 
-  const loadDefaultData = async () => {
-    setIsLoadingLocation(true);
-    try {
-      const provincesResponse = await dataService.getProvinces();
-      setProvinces(provincesResponse.data);
-    } catch (error) {
-      console.error('Error loading location data:', error);
-    } finally {
-      setIsLoadingLocation(false);
-    }
-  };
-
   useEffect(() => {
-    loadDefaultData();
     fetchPartnerMembers();
   }, []);
-
-  useEffect(() => {
-    if (!selectedProvinceId) return;
-    const loadWardData = async () => {
-      try {
-        const response = await dataService.getWards(selectedProvinceId);
-        setWards(response.data);
-      } catch (error) {
-        console.error('Error loading wards data:', error);
-      }
-    };
-    loadWardData();
-  }, [selectedProvinceId]);
-
-  useEffect(() => {
-    if (!selectedBurialProvinceId) return;
-    const loadWardData = async () => {
-      try {
-        const response = await dataService.getWards(selectedBurialProvinceId);
-        setBurialWards(response.data);
-      } catch (error) {
-        console.error('Error loading wards data:', error);
-      }
-    };
-    loadWardData();
-  }, [selectedBurialProvinceId]);
 
   const handleRelationshipSelect = useCallback((type: string) => {
     setSelectedType(type);
@@ -471,42 +417,6 @@ const AddNewNode = ({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const provinceId = e.target.value;
-    setSelectedProvinceId(provinceId);
-    setFormData((prev) => ({
-      ...prev,
-      provinceId: provinceId || undefined,
-      wardId: undefined, // Reset ward when province changes
-    }));
-  };
-
-  const handleBurialProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const provinceId = e.target.value;
-    setSelectedBurialProvinceId(provinceId);
-    setFormData((prev) => ({
-      ...prev,
-      burialProvinceId: provinceId || undefined,
-      burialWardId: undefined, // Reset ward when province changes
-    }));
-  };
-
-  const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const wardId = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      wardId: wardId || undefined,
-    }));
-  };
-
-  const handleBurialWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const wardId = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      burialWardId: wardId || undefined,
-    }));
-  };
-
   const openFileSelector = () => fileInputRef.current?.click();
 
   const handleSave = async () => {
@@ -556,10 +466,6 @@ const AddNewNode = ({
     setSelectedPartnerId(null);
     setShowExtendedForm(false);
     setPreviewImage(null);
-    setSelectedProvinceId("");
-    setSelectedBurialProvinceId("");
-    setWards([]);
-    setBurialWards([]);
     setFormData({
       ftId,
       rootId: parentMember?.id || "",
@@ -785,297 +691,8 @@ const AddNewNode = ({
                 }}
                 className="underline"
               >
-                {/* {showExtendedForm ? "Thu gọn" : "Chỉnh sửa khác ( liễu sử, sự kiện...)"} */}
               </a>
             </div>
-
-            {showExtendedForm && (
-              <div className="space-y-4 mt-4 border-t pt-4">
-                {/* Extended Fields */}
-                {formData.isDeath && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">
-                        Mô tả qua đời
-                      </label>
-                      <input
-                        type="text"
-                        name="deathDescription"
-                        value={formData.deathDescription || ""}
-                        onChange={handleFormChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">
-                        Ngày mất
-                      </label>
-                      <DatePicker
-                        selected={formData.deathDate ? new Date(formData.deathDate) : null}
-                        onChange={(date: Date | null) => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            deathDate: date ? date.toISOString().split('T')[0] : undefined,
-                          }));
-                        }}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="dd/mm/yyyy"
-                        maxDate={new Date()}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                        wrapperClassName="w-full"
-                        showYearDropdown
-                        scrollableYearDropdown
-                        yearDropdownItemNumber={100}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-800 mb-2">
-                        Địa chỉ chôn cất
-                      </label>
-                      <input
-                        type="text"
-                        name="burialAddress"
-                        value={formData.burialAddress || ""}
-                        onChange={handleFormChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                      />
-                    </div>
-                    {/* Province */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Tỉnh/Thành phố chôn cất
-                      </label>
-                      <select
-                        name="burialProvinceId"
-                        value={selectedBurialProvinceId || ""}
-                        onChange={handleBurialProvinceChange}
-                        disabled={isLoadingLocation}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
-                      >
-                        <option value="">Chọn tỉnh/thành phố</option>
-                        {provinces.map(province => (
-                          <option key={province.id} value={province.id}>
-                            {province.nameWithType}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {/* Ward */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Quận/Huyện chôn cất
-                      </label>
-                      <select
-                        name="burialWardId"
-                        value={formData.burialWardId || ""}
-                        onChange={handleBurialWardChange}
-                        disabled={isLoadingLocation || !selectedBurialProvinceId}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
-                      >
-                        <option value="">
-                          {!selectedBurialProvinceId
-                            ? 'Chọn tỉnh/thành phố trước'
-                            : 'Chọn quận/huyện'}
-                        </option>
-                        {burialWards.map(ward => (
-                          <option key={ward.code} value={ward.id}>
-                            {ward.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                {/* Identification */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Loại giấy tờ
-                    </label>
-                    <select
-                      name="identificationType"
-                      value={formData.identificationType || ""}
-                      onChange={handleFormChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    >
-                      <option value="">Chọn loại</option>
-                      {selectOptions.IdentificationType.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Số giấy tờ
-                    </label>
-                    <input
-                      type="number"
-                      name="identificationNumber"
-                      value={formData.identificationNumber || ""}
-                      onChange={handleFormChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Ethnic & Religion */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Dân tộc
-                    </label>
-                    <select
-                      name="ethnicId"
-                      value={formData.ethnicId || ""}
-                      onChange={handleFormChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    >
-                      <option value="">Chọn dân tộc</option>
-                      {selectOptions.EthnicId.map((option, index) => (
-                        <option key={option} value={index + 1}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Tôn giáo
-                    </label>
-                    <select
-                      name="religionId"
-                      value={formData.religionId || ""}
-                      onChange={handleFormChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    >
-                      <option value="">Chọn tôn giáo</option>
-                      {selectOptions.ReligionId.map((option, index) => (
-                        <option key={option} value={index + 1}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Address */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Địa chỉ
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={formData.address || ""}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Province */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Tỉnh/Thành phố
-                    </label>
-                    <select
-                      name="provinceId"
-                      value={selectedProvinceId || ""}
-                      onChange={handleProvinceChange}
-                      disabled={isLoadingLocation}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
-                    >
-                      <option value="">Chọn tỉnh/thành phố</option>
-                      {provinces.map(province => (
-                        <option key={province.id} value={province.id}>
-                          {province.nameWithType}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Ward */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Quận/Huyện
-                    </label>
-                    <select
-                      name="wardId"
-                      value={formData.wardId || ""}
-                      onChange={handleWardChange}
-                      disabled={isLoadingLocation || !selectedProvinceId}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
-                    >
-                      <option value="">
-                        {!selectedProvinceId
-                          ? 'Chọn tỉnh/thành phố trước'
-                          : 'Chọn quận/huyện'}
-                      </option>
-                      {wards.map(ward => (
-                        <option key={ward.code} value={ward.id}>
-                          {ward.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Contact */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email || ""}
-                    onChange={handleFormChange}
-                    placeholder="SampleEmail123@Example.com"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Số điện thoại
-                  </label>
-                  <input
-                    type="tel"
-                    name="phoneNumber"
-                    value={formData.phoneNumber || ""}
-                    onChange={handleFormChange}
-                    placeholder="012345678"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                  />
-                </div>
-
-                {/* Content & Story */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Nội dung
-                  </label>
-                  <textarea
-                    name="content"
-                    value={formData.content || ""}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Mô tả câu chuyện
-                  </label>
-                  <textarea
-                    name="storyDescription"
-                    value={formData.storyDescription || ""}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    rows={3}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Footer */}
