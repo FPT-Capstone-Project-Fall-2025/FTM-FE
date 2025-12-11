@@ -503,13 +503,13 @@ export const fundService = {
     };
   },
 
-  async fetchPendingFundExpenses(treeId: string): Promise<FundExpense[]> {
+  async fetchPendingFundExpenses(treeId: string, fundId?: string): Promise<FundExpense[]> {
     const result = await api.get<ApiResponse<any>>(`/fund-expenses/pending`, {
-      // Backend expects fundId + pagination; treeId is passed via header
-      // Callers currently don't pass fundId, so API will return all pending for this family tree
+      // Backend now expects fundId as query param
       headers: {
         'X-Ftid': treeId,
       },
+      params: fundId ? { fundId } : undefined,
     });
 
     const payload = unwrap<any>(result);
@@ -745,11 +745,13 @@ export const fundService = {
     return unwrap<FundDonationStats | null>(result) ?? null;
   },
 
-  async fetchPendingDonations(ftId: string): Promise<MyPendingDonation[]> {
+  async fetchPendingDonations(ftId: string, fundId?: string): Promise<MyPendingDonation[]> {
+    // Updated endpoint requires fundId as query param
     const result = await api.get<ApiResponse<any>>(`/donations/pending`, {
       headers: {
         'X-Ftid': ftId,
       },
+      params: fundId ? { fundId } : undefined,
     });
 
     const payload = unwrap<any>(result);
@@ -900,9 +902,9 @@ export const fundService = {
     return data;
   },
 
-  async fetchMyPendingDonations(ftId: string, userId: string): Promise<MyPendingDonation[]> {
+  async fetchMyPendingDonations(ftId: string, userId: string, fundId?: string): Promise<MyPendingDonation[]> {
     const result = await api.get<ApiResponse<MyPendingDonation[]>>(`/donations/my-pending`, {
-      params: { userId },
+      params: fundId ? { userId, fundId } : { userId },
       headers: {
         'X-Ftid': ftId,
       },
