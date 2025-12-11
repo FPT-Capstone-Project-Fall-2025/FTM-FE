@@ -45,10 +45,10 @@ const NotificationPage: React.FC = () => {
   const handleRespond = async (relatedId: string, accepted: boolean) => {
     try {
       const response = await notificationService.invitationResponse(relatedId, accepted);
-      
+
       // Delete the notification from Redux state after successful response
       dispatch(deleteNotification(relatedId));
-      
+
       // Show success message
       if (accepted) {
         toast.success(response.message || 'Đã chấp nhận lời mời');
@@ -58,19 +58,6 @@ const NotificationPage: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi xử lý lời mời');
-    }
-  };
-
-  const getTypeColor = (type?: string) => {
-    switch (type) {
-      case 'success':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'warning':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'error':
-        return 'bg-red-100 text-red-800 border-red-200';
-      default:
-        return 'bg-blue-100 text-blue-800 border-blue-200';
     }
   };
 
@@ -216,9 +203,6 @@ const NotificationPage: React.FC = () => {
                           )}
 
                         </div>
-                        <span className={`px-3 py-1 text-xs font-medium rounded-lg border ${getTypeColor(notification.type)} whitespace-nowrap flex-shrink-0`}>
-                          {notification.type}
-                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs text-gray-500">

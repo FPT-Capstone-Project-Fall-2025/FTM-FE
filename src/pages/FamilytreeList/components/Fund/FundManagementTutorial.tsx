@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     X, ChevronLeft, ChevronRight,
-    PiggyBank, Flag, TrendingUp, HandCoins,
+    PiggyBank, Flag, HandCoins,
     History, BookOpen, AlertCircle
 } from 'lucide-react';
 
