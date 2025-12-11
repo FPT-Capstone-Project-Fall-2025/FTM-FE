@@ -251,14 +251,14 @@ export const useFundManagementData = (
   );
 
   const refreshMyPendingDonations = useCallback(async () => {
-    if (!requesterId) {
+    if (!requesterId || !selectedTree?.id || !activeFund?.id) {
       setMyPendingDonations([]);
       return;
     }
 
     setMyPendingLoading(true);
     try {
-      const list = await fundService.fetchMyPendingDonations(selectedTree?.id || '', requesterId);
+      const list = await fundService.fetchMyPendingDonations(selectedTree.id, requesterId, activeFund.id);
       const filterdList = list.filter(item => item.status === 'Pending');
       setMyPendingDonations(filterdList);
     } catch (err) {
@@ -267,12 +267,17 @@ export const useFundManagementData = (
     } finally {
       setMyPendingLoading(false);
     }
-  }, [requesterId]);
+  }, [requesterId, selectedTree?.id, activeFund?.id]);
 
   const refreshPendingDonations = useCallback(async () => {
+    if (!selectedTree?.id || !activeFund?.id) {
+      setPendingDonations([]);
+      return;
+    }
+
     setPendingDonationsLoading(true);
     try {
-      const list = await fundService.fetchPendingDonations(selectedTree?.id || '');
+      const list = await fundService.fetchPendingDonations(selectedTree.id, activeFund.id);
       setPendingDonations(list);
     } catch (err) {
       console.error('Failed to load pending donations', err);
@@ -280,7 +285,7 @@ export const useFundManagementData = (
     } finally {
       setPendingDonationsLoading(false);
     }
-  }, []);
+  }, [selectedTree?.id, activeFund?.id]);
 
   const uploadDonationProof = useCallback(
     async (donationId: string, files: File[]): Promise<void> => {
@@ -500,14 +505,14 @@ export const useFundManagementData = (
   );
 
   const refreshPendingExpenses = useCallback(async () => {
-    if (!familyTreeId) {
+    if (!familyTreeId || !activeFund?.id) {
       setPendingExpenses([]);
       return;
     }
 
     setPendingExpensesLoading(true);
     try {
-      const expenses = await fundService.fetchPendingFundExpenses(selectedTree?.id || '');
+      const expenses = await fundService.fetchPendingFundExpenses(selectedTree?.id || '', activeFund.id);
       setPendingExpenses(Array.isArray(expenses) ? expenses : []);
     } catch (err) {
       console.error('Failed to fetch pending expenses', err);
@@ -515,7 +520,7 @@ export const useFundManagementData = (
     } finally {
       setPendingExpensesLoading(false);
     }
-  }, [familyTreeId]);
+  }, [familyTreeId, activeFund?.id]);
 
   const approveExpense = useCallback(
     async (expenseId: string, notes?: string, approverId?: string, paymentProofImages?: File[]) => {
