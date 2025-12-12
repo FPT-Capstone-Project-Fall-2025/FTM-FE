@@ -8,7 +8,7 @@ const AuthLayout: React.FC = () => {
     const { isAuthenticated } = useAppSelector(state => state.auth)
 
     if (isAuthenticated) {
-        return <Navigate to="/dashboard" replace />
+        return <Navigate to="/home" replace />
     }
 
     return (
@@ -16,7 +16,7 @@ const AuthLayout: React.FC = () => {
             {/* Left Section - Family Photos */}
             <div className="lg:flex lg:w-1/2 justify-center items-center">
                 <div className="w-full max-w-xl">
-                    <img src={heroImg} alt="Khám phá cây gia phả của gia đình bạn"/>
+                    <img src={heroImg} alt="Khám phá cây gia phả của gia đình bạn" />
                 </div>
             </div>
 
