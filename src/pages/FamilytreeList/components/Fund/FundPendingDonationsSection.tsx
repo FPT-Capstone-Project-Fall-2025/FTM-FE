@@ -180,19 +180,6 @@ const FundPendingDonationsSection: React.FC<FundPendingDonationsSectionProps> = 
             <h3 className="text-lg font-semibold text-gray-900">Yêu cầu nạp của tôi</h3>
             <p className="text-sm text-gray-500">Các khoản nạp chưa được quản trị viên xác nhận</p>
           </div>
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-3 py-1 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : 'text-gray-600'}`}
-              />
-              Làm mới
-            </button>
-          )}
         </div>
 
         {loading ? (
