@@ -48,7 +48,7 @@ interface FamilyTreeSummary {
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { token } = useAppSelector(state => state.auth);
-  
+
   const [loading, setLoading] = useState(true);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [recentPosts, setRecentPosts] = useState<RecentPost[]>([]);
@@ -71,25 +71,25 @@ const HomePage: React.FC = () => {
   const fetchHomeData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch family trees
       const treesResponse = await familyTreeService.getMyFamilytrees();
       const trees = treesResponse?.data?.data || [];
       setFamilyTrees(trees.slice(0, 4)); // Limit to 4 for display
-      
+
       // Calculate total members
       const totalMembers = trees.reduce((sum: number, tree: any) => sum + (tree.memberCount || 0), 0);
-      
+
       // Fetch upcoming events from all family trees
       const now = moment();
-      
+
       const allEvents: UpcomingEvent[] = [];
-      
+
       for (const tree of trees.slice(0, 5)) { // Limit to 5 trees to avoid too many API calls
         try {
           const response = await eventService.getUpcomingEventsByFtId(tree.id, 30);
           const events = (response?.data as any)?.data || response?.data || [];
-          
+
           // Filter events that are in the future
           const upcomingEventsFromTree = events
             .filter((event: any) => event && event.startTime && moment(event.startTime).isAfter(now))
@@ -103,29 +103,29 @@ const HomePage: React.FC = () => {
               location: event.location || event.locationName || '',
               ftId: tree.id,
             }));
-          
+
           allEvents.push(...upcomingEventsFromTree);
         } catch (error) {
           console.error(`Error fetching events for tree ${tree.id}:`, error);
         }
       }
-      
+
       // Sort by startTime and limit to 8
       const sortedEvents = allEvents
         .filter((event) => event && event.startTime)
         .sort((a, b) => moment(a.startTime).diff(moment(b.startTime)))
         .slice(0, 8);
-      
+
       setUpcomingEvents(sortedEvents);
-      
+
       // Fetch recent posts from all family trees
       const allPosts: RecentPost[] = [];
-      
+
       for (const tree of trees.slice(0, 5)) { // Limit to 5 trees
         try {
           const response = await postService.getPostsByFamilyTree(tree.id);
           const posts = (response?.data as any)?.data || response?.data || [];
-          
+
           const mappedPosts = posts
             .filter((post: any) => post && post.id && post.createdOn)
             .map((post: any) => ({
@@ -140,21 +140,21 @@ const HomePage: React.FC = () => {
               attachments: (post.attachments || []).filter((att: any) => att && att.type && att.url),
               gpId: tree.id,
             }));
-          
+
           allPosts.push(...mappedPosts);
         } catch (error) {
           console.error(`Error fetching posts for tree ${tree.id}:`, error);
         }
       }
-      
+
       // Sort by createdOn (newest first) and limit to 8
       const sortedPosts = allPosts
         .filter((post) => post && post.createdOn)
         .sort((a, b) => moment(b.createdOn).diff(moment(a.createdOn)))
         .slice(0, 8);
-      
+
       setRecentPosts(sortedPosts);
-      
+
       // Update stats
       setStats({
         totalFamilyTrees: trees.length,
@@ -162,7 +162,7 @@ const HomePage: React.FC = () => {
         upcomingEventsCount: sortedEvents.length,
         recentPostsCount: sortedPosts.length,
       });
-      
+
     } catch (error) {
       console.error('Error fetching home data:', error);
       toast.error('Không thể tải dữ liệu trang chủ');
@@ -189,7 +189,7 @@ const HomePage: React.FC = () => {
   const getEventTypeColor = (type: string | number | null | undefined) => {
     // Normalize event type (handles both string and number from API)
     const normalizedType = normalizeEventType(type);
-    
+
     // Convert hex color to Tailwind classes
     switch (normalizedType) {
       case EventType.WEDDING:
@@ -238,7 +238,7 @@ const HomePage: React.FC = () => {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
             <div className="flex items-center justify-between">
               <div>
@@ -249,24 +249,12 @@ const HomePage: React.FC = () => {
                 <LayoutGrid className="w-6 h-6 text-blue-600" />
               </div>
             </div>
-            <Link 
-              to="/family-trees" 
+            <Link
+              to="/family-trees"
               className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
             >
               Xem tất cả <ChevronRight className="w-4 h-4" />
             </Link>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Thành viên</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalMembers}</p>
-              </div>
-              <div className="p-3 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl">
-                <Users className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-300">
@@ -279,8 +267,8 @@ const HomePage: React.FC = () => {
                 <Calendar className="w-6 h-6 text-orange-600" />
               </div>
             </div>
-            <Link 
-              to="/events" 
+            <Link
+              to="/events"
               className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
             >
               Xem tất cả <ChevronRight className="w-4 h-4" />
@@ -299,8 +287,8 @@ const HomePage: React.FC = () => {
             </div>
           </div>
         </div>
-   {/* Family Trees Summary */}
-   {familyTrees.length > 0 && (
+        {/* Family Trees Summary */}
+        {familyTrees.length > 0 && (
           <div className="mb-8">
             <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
@@ -484,7 +472,7 @@ const HomePage: React.FC = () => {
           </div>
         </div>
 
-     
+
       </div>
     </div>
   );
