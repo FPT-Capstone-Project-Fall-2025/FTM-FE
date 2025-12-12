@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Loader2, RefreshCw, Clock, AlertTriangle, Upload, Image, X, XCircle } from 'lucide-react';
+import { Loader2, Clock, AlertTriangle, Upload, Image, X, XCircle } from 'lucide-react';
 import type { MyPendingDonation } from '@/types/fund';
 import { EmptyState } from './FundLoadingEmpty';
 
