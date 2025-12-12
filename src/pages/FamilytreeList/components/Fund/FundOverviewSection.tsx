@@ -61,7 +61,6 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   uniqueContributorCount,
   pendingExpenseCount,
   pendingDonationCount,
-  currentFundPurpose,
   recentContributors,
   transactions,
   formatCurrency,
@@ -81,7 +80,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
   const getStatusLabel = (status: string | null | undefined): string => {
     if (!status) return '—';
     const normalized = String(status).trim().toLowerCase();
-    
+
     // Map common status values to Vietnamese
     const statusMap: Record<string, string> = {
       // English statuses
@@ -96,7 +95,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
       'đã phê duyệt': 'Đã phê duyệt',
       'đã từ chối': 'Đã từ chối',
     };
-    
+
     return statusMap[normalized] || status;
   };
 
@@ -133,23 +132,23 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-          {isOwner && onEdit && (
-                <button
-                  onClick={onEdit}
-                  className="mb-2 flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-lg transition-colors"
-                  type="button"
-                  title="Chỉnh sửa thông tin Quỹ"
-                >
-                  <Edit className="w-4 h-4" />
-                  Chỉnh sửa thông tin Quỹ
-                </button>
-              )}
+            {isOwner && onEdit && (
+              <button
+                onClick={onEdit}
+                className="mb-2 flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-lg transition-colors"
+                type="button"
+                title="Chỉnh sửa thông tin Quỹ"
+              >
+                <Edit className="w-4 h-4" />
+                Chỉnh sửa thông tin Quỹ
+              </button>
+            )}
             <div className="flex items-center justify-between mb-2">
-              
+
               <p className="text-blue-100 text-sm font-medium">
                 Số dư hiện tại
               </p>
-              
+
             </div>
             <h3 className="text-4xl font-bold mb-1">
               {formatCurrency(computedBalance)}
