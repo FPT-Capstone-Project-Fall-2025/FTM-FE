@@ -57,7 +57,7 @@ const FundManagementTutorial: React.FC<FundManagementTutorialProps> = ({ onClose
                             <BookOpen className="w-8 h-8 text-green-700" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-green-800">Quỹ Thường Niên</h3>
+                            <h3 className="text-lg font-bold text-green-800">Quỹ gia tộc</h3>
                             <p className="text-sm text-green-600">Hoạt động xuyên suốt</p>
                         </div>
                     </div>
@@ -135,7 +135,7 @@ const FundManagementTutorial: React.FC<FundManagementTutorialProps> = ({ onClose
                 'Bấm nút "Nộp quỹ" hoặc "Quyên góp" trong từng chiến dịch',
                 'Hỗ trợ chuyển khoản ngân hàng (có mã QR) hoặc tiền mặt',
                 'Có thể nộp thay cho thành viên khác trong gia đình',
-                'Vui lòng tải lên ảnh minh chứng nếu chuyển khoản'
+                'Vui lòng tải lên ảnh minh chứng để được phê duyệt'
             ],
             visual: (
                 <div className="flex flex-col gap-4">
@@ -146,12 +146,7 @@ const FundManagementTutorial: React.FC<FundManagementTutorialProps> = ({ onClose
                             </div>
                             <span className="text-xs font-medium text-center">Chuyển khoản</span>
                         </div>
-                        <div className="flex flex-col items-center gap-2 p-3 bg-purple-50 rounded-xl border border-purple-100 w-24">
-                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><path d="M7 7h10" /><path d="M7 12h10" /><path d="M7 17h10" /></svg>
-                            </div>
-                            <span className="text-xs font-medium text-center">Quét QR</span>
-                        </div>
+
                         <div className="flex flex-col items-center gap-2 p-3 bg-green-50 rounded-xl border border-green-100 w-24">
                             <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="12" x="2" y="6" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01" /><path d="M18 12h.01" /></svg>
