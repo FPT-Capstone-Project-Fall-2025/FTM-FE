@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { X, Edit, Save, XCircle, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { X, Edit, Save, XCircle, ChevronLeft, ChevronRight, Trash2, ExternalLink } from 'lucide-react';
 import postService from '@/services/postService';
 import type { Post as PostType, Comment as CommentType, ReactionType } from '@/types/post';
 import CommentInput from './components/CommentInput';
@@ -9,6 +9,7 @@ import CommentArea from './components/CommentArea';
 import PostActions from './components/PostActions';
 import PostStats from './components/PostStats';
 import familyTreeMemberService, { getAvatarFromGPMember, getDisplayNameFromGPMember } from '@/services/familyTreeMemberService';
+import { extractSourceMetadata, removeMetadataFromDisplay } from '@/utils/postMetadata';
 
 // Video component with thumbnail generation
 const VideoWithThumbnail: React.FC<{
@@ -31,7 +32,7 @@ const VideoWithThumbnail: React.FC<{
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 360;
         const ctx = canvas.getContext('2d');
-        
+
         if (ctx && video.videoWidth > 0) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const posterUrl = canvas.toDataURL('image/jpeg', 0.7);
@@ -41,7 +42,7 @@ const VideoWithThumbnail: React.FC<{
     };
 
     video.addEventListener('loadeddata', generatePoster);
-    
+
     if (video.readyState >= 2) {
       generatePoster();
     }
@@ -81,7 +82,7 @@ const isVideoUrl = (url: string): boolean => {
   if (!url) return false;
   // First check if it's an image - if so, it's definitely not a video
   if (isImageUrl(url)) return false;
-  
+
   const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.flv', '.wmv'];
   const urlLower = url.toLowerCase();
   const urlWithoutQuery = urlLower.split('?')[0] || urlLower;
@@ -104,11 +105,11 @@ const getMediaType = (fileType: number | string | undefined, url: string): 'imag
       return 'image';
     }
   }
-  
+
   // Priority 2: Check URL extension
   if (isImageUrl(url)) return 'image';
   if (isVideoUrl(url)) return 'video';
-  
+
   // Priority 3: Default to image if uncertain
   return 'image';
 };
@@ -163,20 +164,21 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
   CommentItem
 }) => {
   const { id: _groupId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [isEditingPost, setIsEditingPost] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [showComments, setShowComments] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [commentRefreshTrigger, setCommentRefreshTrigger] = useState(0);
-  
+
   // ALWAYS use local state for modal to prevent hover sync with main feed
   // Modal should have completely independent hover behavior
   const localTooltipShowTime = useRef<{ [postId: string]: number }>({});
   const localIsHoveringReactionPicker = useRef<{ [postId: string]: boolean }>({});
   const [localHoveredPost, setLocalHoveredPost] = useState<string | null>(null);
   const [localShowReactionPicker, setLocalShowReactionPicker] = useState<string | null>(null);
-  
+
   // Modal uses its own local state for hover/tooltips (independent from main feed)
   const effectiveTooltipShowTime = localTooltipShowTime;
   const effectiveIsHoveringReactionPicker = localIsHoveringReactionPicker;
@@ -198,7 +200,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     if (diffInMinutes < 60) return `${diffInMinutes} phút trước`;
     if (diffInHours < 24) return `${diffInHours} giờ trước`;
     if (diffInDays < 7) return `${diffInDays} ngày trước`;
-    
+
     return date.toLocaleDateString('vi-VN');
   };
 
@@ -208,13 +210,13 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
    */
   const extractAvatarFromFtMemberFiles = (ftMemberFiles: any[]): string | null => {
     if (!ftMemberFiles || ftMemberFiles.length === 0) return null;
-    
-    const avatarFile = ftMemberFiles.find(file => 
-      file.title && 
-      file.title.includes('Avatar') && 
+
+    const avatarFile = ftMemberFiles.find(file =>
+      file.title &&
+      file.title.includes('Avatar') &&
       file.isActive
     );
-    
+
     return avatarFile?.filePath || null;
   };
 
@@ -225,7 +227,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     // Priority 3: Default picture
     const avatarFromGPMember = extractAvatarFromFtMemberFiles(apiComment.ftMemberFiles);
     const avatar = avatarFromGPMember || apiComment.authorPicture || defaultPicture;
-    
+
     console.log('🔍 [PostDetailPage Comment] Avatar extraction:', {
       commentId: apiComment.id,
       authorName: apiComment.authorName,
@@ -234,11 +236,11 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
       avatarFromGPMember,
       authorPicture: apiComment.authorPicture,
       finalAvatar: avatar,
-      source: avatarFromGPMember ? 'GPMember (ftMemberFiles)' : 
-              apiComment.authorPicture ? 'authorPicture (may be global)' : 
-              'defaultPicture'
+      source: avatarFromGPMember ? 'GPMember (ftMemberFiles)' :
+        apiComment.authorPicture ? 'authorPicture (may be global)' :
+          'defaultPicture'
     });
-    
+
     const comment: CommentType = {
       id: apiComment.id || `comment-${Date.now()}-${Math.random()}`,
       gpMemberId: apiComment.gpMemberId,
@@ -253,7 +255,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
       isLiked: apiComment.isLiked || false,
       replies: apiComment.childComments ? apiComment.childComments.map(transformApiComment) : []
     };
-    
+
     return comment;
   };
 
@@ -274,30 +276,30 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
       if (isOpen && post?.id) {
         setShowComments(true);
         setLoadingComments(true);
-        
+
         try {
           const result = await postService.getComments(post.id);
-          
+
           console.log('Comments API response:', result);
-          
+
           // Handle both API response formats
           const success = result.success || result.status || (result.statusCode === 200);
           const responseData = result.data as any;
-          
+
           // Handle paginated response or direct array
-          const data = Array.isArray(responseData) 
-            ? responseData 
+          const data = Array.isArray(responseData)
+            ? responseData
             : (responseData?.data || []);
-          
+
           if (success && data) {
             // Transform API comments to Comment interface
             const transformedComments = data.map(transformApiComment);
-            
+
             // Update comments via callback
             if (onUpdateComments) {
               onUpdateComments(post.id, transformedComments);
             }
-            
+
             console.log('Loaded comments:', transformedComments);
           }
         } catch (error) {
@@ -323,7 +325,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     if (post && isOpen) {
       // Reset media index when post changes
       setCurrentMediaIndex(0);
-      
+
       // Reset edit state when post changes
       if (isEditingPost && editContent !== post.content) {
         setIsEditingPost(false);
@@ -351,13 +353,34 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
     return () => { cancelled = true; };
   }, [post?.gpMemberId, familyTreeId]);
 
+  // Extract source metadata for navigation
+  const sourceMetadata = post ? extractSourceMetadata(post.content) : null;
+  const cleanContent = post ? removeMetadataFromDisplay(post.content) : '';
+
+  const handleNavigateToSource = () => {
+    if (!sourceMetadata) return;
+
+    if (sourceMetadata.type === 'event') {
+      // Navigate to events page with event ID in state
+      navigate('/events', { state: { eventId: sourceMetadata.id, familyTreeId: sourceMetadata.familyTreeId } });
+    } else if (sourceMetadata.type === 'campaign') {
+      // Navigate to family tree page with fund tab
+      const familyTreeId = sourceMetadata.familyTreeId;
+      if (familyTreeId) {
+        navigate(`/family-trees/${familyTreeId}?tab=fund`, {
+          state: { campaignId: sourceMetadata.id }
+        });
+      }
+    }
+  };
+
   if (!isOpen || !post) return null;
 
   // Check if current user can edit/delete this post (compare gpMemberId)
   // Normalize both values to strings and trim whitespace for comparison
   const normalizedCurrentUserGPMemberId = currentUserGPMemberId ? String(currentUserGPMemberId).trim() : '';
   const normalizedPostGpMemberId = post.gpMemberId ? String(post.gpMemberId).trim() : '';
-  
+
   // Debug log to help troubleshoot
   if (process.env.NODE_ENV === 'development') {
     console.log('[PostDetailPage] canEditPost check:', {
@@ -368,10 +391,10 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
       postTitle: post.title,
     });
   }
-  
+
   const canEditPost = Boolean(
-    normalizedCurrentUserGPMemberId && 
-    normalizedPostGpMemberId && 
+    normalizedCurrentUserGPMemberId &&
+    normalizedPostGpMemberId &&
     normalizedCurrentUserGPMemberId === normalizedPostGpMemberId
   );
 
@@ -455,7 +478,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
                       className="max-w-full max-h-full object-contain"
                     />
                   )}
-                  
+
                   {/* Caption */}
                   {mediaList[currentMediaIndex].caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white text-sm p-3">
@@ -510,11 +533,10 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
                           e.stopPropagation();
                           setCurrentMediaIndex(index);
                         }}
-                        className={`transition-all ${
-                          index === currentMediaIndex 
-                            ? 'w-8 h-2.5 bg-white rounded-full' 
+                        className={`transition-all ${index === currentMediaIndex
+                            ? 'w-8 h-2.5 bg-white rounded-full'
                             : 'w-2.5 h-2.5 bg-white bg-opacity-50 hover:bg-opacity-75 rounded-full'
-                        }`}
+                          }`}
                         aria-label={`Go to media ${index + 1}`}
                       />
                     ))}
@@ -626,7 +648,24 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
+                  <>
+                    <p className="text-gray-900 whitespace-pre-wrap">{cleanContent}</p>
+
+                    {/* Navigation Link for Shared Events/Campaigns */}
+                    {sourceMetadata && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <button
+                          onClick={handleNavigateToSource}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors font-medium text-sm"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>
+                            {sourceMetadata.type === 'event' ? 'Xem chi tiết sự kiện' : 'Xem chi tiết chiến dịch'}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               {canEditPost && !isEditingPost && (
@@ -652,7 +691,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
             </div>
           </div>
 
-          
+
 
           {/* Post Stats - with reaction tooltip */}
           {reactionTypes.length > 0 && getReactionSummaryText && onReactionSummaryClick ? (
@@ -667,15 +706,15 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
               onReactionSummaryClick={onReactionSummaryClick}
             />
           ) : (
-          <div className="px-4 py-3 border-b border-gray-200">
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <div className="flex items-center space-x-1">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center space-x-1">
                   <span>{post.totalReactions || post.likes || 0} lượt thích</span>
-              </div>
-              <div>
+                </div>
+                <div>
                   {(post.totalComments || post.comments.length) > 0 && (
                     <span>{post.totalComments || post.comments.length} bình luận</span>
-                )}
+                  )}
                 </div>
               </div>
             </div>
@@ -698,7 +737,7 @@ const PostDetailPage: React.FC<PostDetailPageProps> = ({
           <div className="flex-1 overflow-y-auto">
             <CommentArea
               comments={post.comments}
-                        postId={post.id}
+              postId={post.id}
               showComments={showComments}
               loadingComments={loadingComments}
               CommentItem={CommentItem}

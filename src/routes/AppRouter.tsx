@@ -20,6 +20,7 @@ import EventPage from '@/pages/Event/EventPage'
 import SettingPage from '@/pages/Settings/SettingPage'
 import NotificationPage from '@/pages/Notification/NotificationPage'
 import CampaignDetailPage from '@/pages/Campaign/CampaignDetailPage'
+import AcceptInvitation from '@/components/shared/AcceptInvitation'
 // PostDetailPage is used as a modal in PostPage, not a standalone route
 // import PostDetailPage from '@/pages/Post/PostDetailPage'
 
@@ -50,6 +51,10 @@ const router = createBrowserRouter([
         element: <ResetPassword />,
       },
     ],
+  },
+  {
+    path: 'accept-invitation',
+    element: <AcceptInvitation />,
   },
   {
     path: '/campaigns/:campaignId',
@@ -132,17 +137,6 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
-  // PostDetailPage is used as a modal, not a standalone route
-  // {
-  //   path: '/post/:id',
-  //   element: (
-  //     <ProtectedRoute>
-  //       <MainLayout>
-  //         <PostDetailPage />
-  //       </MainLayout>
-  //     </ProtectedRoute>
-  //   ),
-  // },
   {
     path: '/settings',
     element: (
@@ -171,15 +165,6 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
-  // Example router for requiredPermission route
-  // {
-  //   path: '/create',
-  //   element: (
-  //     <ProtectedRoute requiredPermissions={[PERMISSIONS.CREATE_CONTENT]}>
-  //       {/* Components here */}
-  //     </ProtectedRoute>
-  //   ),
-  // },
   {
     path: '/unauthorized',
     element: <UnauthorizedPage />,

@@ -173,7 +173,6 @@ const Biography: React.FC = () => {
                 {/* Bio Description Section */}
                 <div className="mb-8 p-6 bg-white/80 backdrop-blur-sm rounded-xl shadow-md border border-blue-100">
                     <h3 className="text-lg font-bold mb-3 text-gray-800 flex items-center gap-2">
-                        <Sparkles size={20} className="text-blue-500" />
                         Tiểu sử
                     </h3>
                     <textarea

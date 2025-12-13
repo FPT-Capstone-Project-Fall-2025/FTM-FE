@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Globe, Send } from 'lucide-react';
+import { X, Loader2, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 import postService, { type CreatePostData } from '@/services/postService';
 import { embedSourceMetadata } from '@/utils/postMetadata';
@@ -36,7 +36,6 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
             : `🎉 Đừng bỏ lỡ sự kiện này!\n\n#SựKiệnGiaTộc #GắnKếtYêuThương`
     );
     const [additionalMessage, setAdditionalMessage] = useState<string>('');
-    const [status, setStatus] = useState<number>(1); // 1 = Public, 0 = Private
     const [isSharing, setIsSharing] = useState<boolean>(false);
     const [generatedImage, setGeneratedImage] = useState<File | null>(null);
     const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -138,7 +137,7 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
                 Title: postTitle,
                 Content: contentWithMetadata,
                 FTMemberId: gpMemberId,
-                Status: status,
+                Status: 1,
             };
 
             // Attach generated image card if available
@@ -251,27 +250,6 @@ const ShareToPostModal: React.FC<ShareToPostModalProps> = ({
                                 rows={10}
                                 placeholder="Nội dung bài viết..."
                             />
-                        </div>
-                    </div>
-
-                    {/* Privacy Settings */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            Quyền riêng tư
-                        </label>
-                        <div className="flex gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setStatus(1)}
-                                disabled={isSharing}
-                                className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 ${status === 1
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                                    } disabled:opacity-50`}
-                            >
-                                <Globe className="w-4 h-4" />
-                                <span className="font-semibold">Công khai</span>
-                            </button>
                         </div>
                     </div>
 

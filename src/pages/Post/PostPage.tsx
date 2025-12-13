@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/redux';
 import defaultPicture from '@/assets/dashboard/default-avatar.png';
-import { MessageCircle, Image, X, ThumbsUp, Search, Edit, Trash2, Users, User, Share, Globe, Lock } from 'lucide-react';
+import { MessageCircle, Image, X, ThumbsUp, Search, Edit, Trash2, Users, User, Share } from 'lucide-react';
 import PostDetailPage from './PostDetailPage';
 import PostCard, { CommentItem } from './components/PostCard';
 import GPEventDetailsModal from '../Event/GPEventDetailsModal';
@@ -93,7 +93,6 @@ const PostPage: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deletingPostIds, setDeletingPostIds] = useState<Set<string>>(new Set());
-  const [createStatus, setCreateStatus] = useState<number>(1); // 1 = Công khai, 0 = Chỉ mình tôi
 
   // Comment editing states
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -839,10 +838,10 @@ const PostPage: React.FC = () => {
       // Prepare data according to API structure
       const postData: CreatePostData = {
         FTId: currentFamilyTreeId,
-        Title: postTitle.trim() || '',  // Allow empty title
-        Content: postContent.trim() || '', // Ensure Content is never undefined
+        Title: postTitle.trim() || '',
+        Content: postContent.trim() || '',
         FTMemberId: gpMemberId,
-        Status: createStatus,
+        Status: 1,
         Files: selectedImages.length > 0 ? selectedImages : undefined,
         Captions: selectedImages.length > 0 ? fileCaptions : undefined,
       };
@@ -2844,7 +2843,7 @@ const PostPage: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    <button
+                    {/* <button
                       onClick={() => setCreateStatus(prev => prev === 1 ? 0 : 1)}
                       className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
                       type="button"
@@ -2860,7 +2859,7 @@ const PostPage: React.FC = () => {
                           <span className="text-sm text-gray-700">Chỉ mình tôi</span>
                         </>
                       )}
-                    </button>
+                    </button> */}
                   </div>
                 </div>
 
