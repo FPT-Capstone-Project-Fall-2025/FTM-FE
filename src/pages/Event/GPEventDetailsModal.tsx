@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Input, Select, Upload, Checkbox, Switch, DatePicker } from "antd";
+import { Modal, Input, Select, Upload, Checkbox, Switch, DatePicker, Skeleton } from "antd";
 import dayjs, { Dayjs } from "dayjs";
 import type { UploadFile } from "antd/es/upload/interface";
 import type { UploadChangeParam } from "antd/es/upload";
@@ -19,6 +19,7 @@ import { toast } from 'react-toastify';
 import { normalizeEventType } from "../../utils/eventUtils";
 import { getLunarCanChi } from "./utils/convertSolar2Lunar";
 import ExceptionPopup from '@/components/shared/ExceptionPopup';
+import type { ApiCreateEventPayload } from '@/types/event';
 
 // Types
 interface EventFormData {
@@ -164,6 +165,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   const [selectedFamilyTreeId, setSelectedFamilyTreeId] = useState<string>("");
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<MemberOption[]>([]);
+  const [membersLoading, setMembersLoading] = useState<boolean>(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [currentUserGPMemberId, setCurrentUserGPMemberId] = useState<string>("");
   const [errorPopup, setErrorPopup] = useState<{ isOpen: boolean; message: string; timestamp: Date }>({
@@ -361,26 +363,46 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         setFamilyTrees(treeOptions);
 
         // Auto-select the first family tree if available or use URL param
-        if (familyTreeId) {
-          setSelectedFamilyTreeId(familyTreeId);
-        } else if (treeOptions && treeOptions.length > 0) {
-          setSelectedFamilyTreeId(treeOptions[0]?.id || "");
+        // But only if we're not in edit mode (edit mode will set it from eventSelected)
+        if (isOpenModal && eventSelected && (eventSelected as any).id) {
+          // Edit mode: ensure the event's family tree is set correctly
+          const event = eventSelected as any;
+          if (event.ftId) {
+            // Check if the family tree exists in the loaded trees
+            const treeExists = treeOptions.some(tree => tree.id === event.ftId);
+            if (treeExists) {
+              setSelectedFamilyTreeId(event.ftId);
+            } else {
+              console.warn('⚠️ Event family tree not found in loaded trees:', event.ftId);
+              // Still set it, the Select will show the ID if name is not available
+              setSelectedFamilyTreeId(event.ftId);
+            }
+          }
+        } else {
+          // Create mode: auto-select the first family tree if available or use URL param
+          if (familyTreeId) {
+            setSelectedFamilyTreeId(familyTreeId);
+          } else if (treeOptions && treeOptions.length > 0) {
+            setSelectedFamilyTreeId(treeOptions[0]?.id || "");
+          }
         }
       } catch (error) {
         console.error("Error fetching family trees:", error);
       }
     };
     fetchFamilyTrees();
-  }, [familyTreeId]);
+  }, [familyTreeId, isOpenModal, eventSelected]);
 
   // Fetch members when family tree is selected
   useEffect(() => {
     if (!selectedFamilyTreeId) {
       setMembers([]);
+      setMembersLoading(false);
       return;
     }
 
     const fetchMembers = async () => {
+      setMembersLoading(true);
       try {
         console.log('📋 Fetching members for family tree:', selectedFamilyTreeId);
 
@@ -404,10 +426,59 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       } catch (error) {
         console.error("Error fetching members:", error);
         setMembers([]);
+      } finally {
+        setMembersLoading(false);
       }
     };
     fetchMembers();
   }, [selectedFamilyTreeId]);
+
+  // Update selectedMembers with full member data when members are loaded (for edit mode)
+  useEffect(() => {
+    // Only update if we're in edit mode and have both selectedMembers and members loaded
+    if (isOpenModal && eventSelected && (eventSelected as any).id && selectedMembers.length > 0 && members.length > 0) {
+      // Map selectedMembers IDs to full member data from members array
+      const updatedSelectedMembers: MemberOption[] = selectedMembers.map(selectedMember => {
+        // Find the full member data from the members array
+        const fullMember = members.find(m => m.id === selectedMember.id);
+        if (fullMember) {
+          // Use the full member data (with correct fullname from API)
+          return fullMember;
+        }
+        // If not found, keep the original (might be from eventMembers)
+        return selectedMember;
+      });
+      
+      // Only update if there are changes (to avoid infinite loops)
+      const hasChanges = updatedSelectedMembers.some((updated, index) => 
+        updated.fullname !== selectedMembers[index]?.fullname
+      );
+      
+      if (hasChanges) {
+        console.log('🔄 Updating selectedMembers with full member data:', updatedSelectedMembers);
+        setSelectedMembers(updatedSelectedMembers);
+      }
+    }
+  }, [members, isOpenModal, eventSelected, selectedMembers]);
+
+  // Ensure family tree is set correctly when both event and familyTrees are loaded (for edit mode)
+  useEffect(() => {
+    if (isOpenModal && eventSelected && (eventSelected as any).id && familyTrees.length > 0) {
+      const event = eventSelected as any;
+      if (event.ftId && selectedFamilyTreeId !== event.ftId) {
+        // Check if the family tree exists in the loaded trees
+        const treeExists = familyTrees.some(tree => tree.id === event.ftId);
+        if (treeExists) {
+          console.log('✅ Setting family tree from event:', event.ftId);
+          setSelectedFamilyTreeId(event.ftId);
+        } else {
+          console.warn('⚠️ Event family tree not found in loaded trees:', event.ftId);
+          // Still set it, the Select will show the ID if name is not available
+          setSelectedFamilyTreeId(event.ftId);
+        }
+      }
+    }
+  }, [isOpenModal, eventSelected, familyTrees, selectedFamilyTreeId]);
 
   // Initialize targetMemberId to '' (group event) when members are loaded (if not set)
   useEffect(() => {
@@ -786,34 +857,58 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       // Call the appropriate API
       let response;
       if (isEditMode) {
-        // For edit mode, use the FormData API to support file upload
         if (imageFile) {
+          // For edit mode with file, use the FormData API to support file upload
           setIsUploadingImage(true);
           toast.info("Đang cập nhật sự kiện với ảnh...", { autoClose: 2000 });
+
+          response = await eventService.updateEventWithFiles((eventSelected as any).id, {
+            name: data.name,
+            eventType: eventTypeNumber,
+            startTime: data.startTime,
+            endTime: data.endTime || data.startTime,
+            location: data.location || null,
+            locationName: data.locationName || null,
+            recurrenceType: convertRecurrenceToNumber(data.recurrence),
+            ftId: ftId,
+            description: data.description || null,
+            file: imageFile, // Pass file directly
+            referenceEventId: null,
+            address: data.address || null,
+            isAllDay: isAllDay,
+            recurrenceEndTime: data.recurrenceEndTime || null,
+            isLunar: isLunar,
+            targetMemberId: actualTargetMemberId || null,
+            isPublic: isPublic,
+            memberIds: selectedMembers.map(m => m.id),
+          });
+
+          setIsUploadingImage(false);
+        } else {
+          // For edit mode without file, use updateEventById with JSON payload
+          const updatePayload: ApiCreateEventPayload = {
+            name: data.name,
+            eventType: eventTypeNumber,
+            startTime: data.startTime,
+            endTime: data.endTime || data.startTime,
+            location: data.location || null,
+            locationName: data.locationName || null,
+            recurrenceType: convertRecurrenceToNumber(data.recurrence),
+            ftId: ftId,
+            description: data.description || null,
+            imageUrl: data.imageUrl || null,
+            referenceEventId: null,
+            address: data.address || null,
+            isAllDay: isAllDay,
+            recurrenceEndTime: data.recurrenceEndTime || null,
+            isLunar: isLunar,
+            targetMemberId: actualTargetMemberId || null,
+            isPublic: isPublic,
+            memberIds: selectedMembers.map(m => m.id),
+          };
+
+          response = await eventService.updateEventById((eventSelected as any).id, updatePayload, ftId);
         }
-
-        response = await eventService.updateEventWithFiles((eventSelected as any).id, {
-          name: data.name,
-          eventType: eventTypeNumber,
-          startTime: data.startTime,
-          endTime: data.endTime || data.startTime,
-          location: data.location || null,
-          locationName: data.locationName || null,
-          recurrenceType: convertRecurrenceToNumber(data.recurrence),
-          ftId: ftId,
-          description: data.description || null,
-          file: imageFile, // Pass file directly
-          referenceEventId: null,
-          address: data.address || null,
-          isAllDay: isAllDay,
-          recurrenceEndTime: data.recurrenceEndTime || null,
-          isLunar: isLunar,
-          targetMemberId: actualTargetMemberId || null,
-          isPublic: isPublic,
-          memberIds: selectedMembers.map(m => m.id),
-        });
-
-        setIsUploadingImage(false);
       } else {
         // For create mode, use FormData API to support file upload
         if (imageFile) {
@@ -847,19 +942,42 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
 
       console.log('API Response:', response);
 
-      if (response.data && response.data.id) {
+      // Check response structure based on actual API response format:
+      // { statusCode: 200, message: "...", status: true, data: { id, ... }, errors: null, hasError: false }
+      const responseStatus = (response as any)?.status;
+      const responseStatusCode = (response as any)?.statusCode;
+      const responseData = (response as any)?.data;
+      const eventId = responseData?.id;
+      
+      // Check if update was successful: status === true OR statusCode === 200 AND has eventId
+      const isSuccess = (responseStatus === true || responseStatusCode === 200) && eventId;
+
+      if (isSuccess) {
         const successMessage = isEditMode ? "Cập nhật sự kiện thành công!" : "Tạo sự kiện thành công!";
         toast.success(successMessage);
 
         setIsOpenModal(false);
+        
+        // Call handleCreatedEvent to refresh the UI (this triggers reload in EventPage)
+        // This will cause all calendar views to re-fetch events and display updated data
         if (handleCreatedEvent) {
           handleCreatedEvent();
         }
+        
+        // Reset form after successful submission
         reset();
+        
+        // Clear selected members and other state
+        setSelectedMembers([]);
+        setFileList([]);
+        setPreviewImage(null);
+        setRecurrenceEndTimeError('');
+        setRecurrenceValidationError('');
       } else {
+        const errorMessage = (response as any)?.message || `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sự kiện. Vui lòng thử lại.`;
         setErrorPopup({
           isOpen: true,
-          message: response.message || `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sự kiện`,
+          message: errorMessage,
           timestamp: new Date()
         });
       }
@@ -1015,7 +1133,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                 <label className="block text-sm font-medium text-gray-700">
                   Tag thành viên tham gia (tùy chọn)
                 </label>
-                {members.length > 0 && (
+                {!membersLoading && members.length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1028,63 +1146,75 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   </button>
                 )}
               </div>
-              <Select
-                mode="multiple"
-                value={selectedMembers.map(m => m.id)}
-                onChange={(values) => {
-                  const selected = members.filter(m => values.includes(m.id));
-                  setSelectedMembers(selected);
-                }}
-                size="large"
-                style={{ width: '100%' }}
-                placeholder="@Nhập tên thành viên để tag..."
-                getPopupContainer={(trigger) => trigger.parentElement || document.body}
-                showSearch
-                filterOption={(input, option) =>
-                  (option?.label?.toString() || '').toLowerCase().includes(input.toLowerCase())
-                }
-                options={members.map(member => ({
-                  label: member.fullname,
-                  value: member.id,
-                }))}
-                disabled={!selectedFamilyTreeId}
-                maxTagCount="responsive"
-              />
-              <div className="mt-1 flex items-center justify-between">
-                <div className="text-xs text-gray-500">
-                  Tag thêm thành viên khác tham gia/được thông báo về sự kiện này
-                </div>
-                {selectedMembers.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMembers([]);
-                      console.log('🗑️ Cleared all selected members');
+              {membersLoading ? (
+                <Skeleton.Input active size="large" style={{ width: '100%', height: 40 }} />
+              ) : (
+                <>
+                  <Select
+                    mode="multiple"
+                    value={selectedMembers.filter(m => members.some(mm => mm.id === m.id)).map(m => m.id)}
+                    onChange={(values) => {
+                      const selected = members.filter(m => values.includes(m.id));
+                      setSelectedMembers(selected);
                     }}
-                    className="text-xs text-red-600 hover:text-red-700 font-medium hover:underline"
-                  >
-                    Xóa tất cả
-                  </button>
-                )}
-              </div>
-              {selectedMembers.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {selectedMembers.map(member => (
-                    <span
-                      key={member.id}
-                      className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
-                    >
-                      @{member.fullname}
+                    size="large"
+                    style={{ width: '100%' }}
+                    placeholder="@Nhập tên thành viên để tag..."
+                    getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                    showSearch
+                    filterOption={(input, option) =>
+                      (option?.label?.toString() || '').toLowerCase().includes(input.toLowerCase())
+                    }
+                    options={members.map(member => ({
+                      label: member.fullname,
+                      value: member.id,
+                    }))}
+                    disabled={!selectedFamilyTreeId || membersLoading}
+                    maxTagCount="responsive"
+                    notFoundContent={membersLoading ? <Skeleton active paragraph={{ rows: 2 }} /> : null}
+                  />
+                  <div className="mt-1 flex items-center justify-between">
+                    <div className="text-xs text-gray-500">
+                      Tag thêm thành viên khác tham gia/được thông báo về sự kiện này
+                    </div>
+                    {selectedMembers.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))}
-                        className="ml-1 text-blue-500 hover:text-blue-700"
+                        onClick={() => {
+                          setSelectedMembers([]);
+                          console.log('🗑️ Cleared all selected members');
+                        }}
+                        className="text-xs text-red-600 hover:text-red-700 font-medium hover:underline"
                       >
-                        <X className="w-3 h-3" />
+                        Xóa tất cả
                       </button>
-                    </span>
-                  ))}
-                </div>
+                    )}
+                  </div>
+                  {selectedMembers.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {selectedMembers
+                        .filter(member => members.some(m => m.id === member.id))
+                        .map(member => {
+                          const fullMember = members.find(m => m.id === member.id);
+                          return fullMember ? (
+                            <span
+                              key={member.id}
+                              className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
+                            >
+                              @{fullMember.fullname}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))}
+                                className="ml-1 text-blue-500 hover:text-blue-700"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ) : null;
+                        })}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

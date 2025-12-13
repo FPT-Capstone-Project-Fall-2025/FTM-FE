@@ -232,13 +232,13 @@ class EventService {
   /**
    * Update an existing event (using the actual backend API)
    */
-  async updateEventById(eventId: string, payload: ApiCreateEventPayload): Promise<ApiResponse<ApiEventResponse>> {
+  async updateEventById(eventId: string, payload: ApiCreateEventPayload, ftId: string): Promise<ApiResponse<ApiEventResponse>> {
     const response = await apiService.put<ApiResponse<ApiEventResponse>>(
       `/ftfamilyevent/${eventId}`,
       payload,
       {
         headers: {
-          'Content-Type': 'application/json',
+          'X-Ftid': ftId,
         },
       }
     );
@@ -428,6 +428,7 @@ class EventService {
       {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'X-Ftid': data.ftId,
         },
       }
     );
