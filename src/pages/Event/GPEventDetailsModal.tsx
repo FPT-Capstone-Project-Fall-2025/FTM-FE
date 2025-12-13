@@ -1766,7 +1766,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         </div>
 
         {/* Image Upload */}
-        <div>
+        <div className="hidden">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Hình ảnh
           </label>
