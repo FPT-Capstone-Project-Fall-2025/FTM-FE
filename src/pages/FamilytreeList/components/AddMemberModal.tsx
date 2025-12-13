@@ -83,11 +83,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
             const allMembers = (res.data as any)?.data || [];
 
             setMembers(allMembers);
-            if (allMembers.length > 0) {
-                setSelectedMemberId(allMembers[0].id);
-            } else {
-                setSelectedMemberId("");
-            }
+            // Remove auto-selection
+            setSelectedMemberId("");
         } catch (err) {
             console.error("Failed to fetch members:", err);
             setError("Không thể tải danh sách thành viên");
@@ -125,7 +122,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
         setSubmitting(true);
         try {
-            const selectedMember = members.find(m => m.userId === selectedMemberId);
+            const selectedMember = members.find(m => m.id === selectedMemberId);
             // Always include VIEW permission along with selected methods
             const methodsWithView = [...selectedMethods];
             if (!methodsWithView.includes('VIEW')) {
@@ -238,12 +235,12 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                     ) : (
                                         filteredMembers.map(member => (
                                             <div
-                                                key={member.userId}
+                                                key={member.id}
                                                 onClick={() => {
-                                                    setSelectedMemberId(member.userId);
+                                                    setSelectedMemberId(member.id);
                                                     setSearchTerm("");
                                                 }}
-                                                className={`p-3 rounded-md cursor-pointer flex items-center space-x-3 transition-colors ${selectedMemberId === member.userId
+                                                className={`p-3 rounded-md cursor-pointer flex items-center space-x-3 transition-colors ${selectedMemberId === member.id
                                                     ? 'bg-blue-200 border-l-4 border-blue-600'
                                                     : 'hover:bg-blue-100'
                                                     }`}
