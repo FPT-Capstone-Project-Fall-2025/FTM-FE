@@ -13,7 +13,7 @@ import userService from '@/services/userService';
 import { useGPMember } from '@/hooks/useGPMember';
 import { toast } from 'react-toastify';
 import type { Post, Comment } from '../../types/post';
-import NoPermission from '@/components/shared/NoPermission';
+import NoPermissionNode from '@/components/shared/NoPermissionNode';
 
 const PostPage: React.FC = () => {
   const { user, token, isAuthenticated } = useAppSelector(state => state.auth);
@@ -1927,7 +1927,7 @@ const PostPage: React.FC = () => {
 
   return (
     gpMemberError === "Không thể lấy thông tin thành viên gia tộc" ? (
-      <NoPermission />
+      <NoPermissionNode />
     ) : (
       <div className="h-full overflow-y-auto bg-gray-50">
         <div className="h-full">
