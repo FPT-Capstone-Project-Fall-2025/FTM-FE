@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Modal, Input, Select, Upload, Checkbox, Switch, DatePicker, Skeleton } from "antd";
 import dayjs, { Dayjs } from "dayjs";
 import type { UploadFile } from "antd/es/upload/interface";
@@ -175,6 +175,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   });
   const [recurrenceEndTimeError, setRecurrenceEndTimeError] = useState<string>('');
   const [recurrenceValidationError, setRecurrenceValidationError] = useState<string>('');
+
+  // Track previous event ID to prevent unnecessary form resets
+  const prevEventId = useRef<string | null>(null);
+
+  // Reset prevEventId when modal closes
+  useEffect(() => {
+    if (!isOpenModal) {
+      prevEventId.current = null;
+    }
+  }, [isOpenModal]);
 
   const methods = useForm<EventFormData>({
     defaultValues: defaultValues || {
@@ -448,12 +458,12 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         // If not found, keep the original (might be from eventMembers)
         return selectedMember;
       });
-      
+
       // Only update if there are changes (to avoid infinite loops)
-      const hasChanges = updatedSelectedMembers.some((updated, index) => 
+      const hasChanges = updatedSelectedMembers.some((updated, index) =>
         updated.fullname !== selectedMembers[index]?.fullname
       );
-      
+
       if (hasChanges) {
         console.log('🔄 Updating selectedMembers with full member data:', updatedSelectedMembers);
         setSelectedMembers(updatedSelectedMembers);
@@ -558,6 +568,15 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   // Populate form when editing an existing event
   useEffect(() => {
     if (isOpenModal && eventSelected && (eventSelected as any).id && (eventSelected as any).id !== '') {
+      const eventId = (eventSelected as any).id;
+
+      // If we're already editing this event, don't reset the form
+      // This prevents form reset when parent component updates eventSelected reference
+      if (prevEventId.current === eventId) {
+        return;
+      }
+      prevEventId.current = eventId;
+
       // This is edit mode - populate form with existing data
       const event = eventSelected as any;
 
@@ -722,6 +741,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       console.log('📋 Form data:', data);
       console.log('📋 EventType from form:', data.eventType);
       console.log('📋 ImageUrl from form:', data.imageUrl ? `${data.imageUrl.substring(0, 50)}...` : 'null');
+      console.log('📋 Full Form Data for Debug:', JSON.stringify(data, null, 2));
 
       // Validate start time is before end time (skip if isAllDay, as endTime is auto-set)
       if (!isAllDay && !isBefore(new Date(data.startTime), new Date(data.endTime))) {
@@ -948,7 +968,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       const responseStatusCode = (response as any)?.statusCode;
       const responseData = (response as any)?.data;
       const eventId = responseData?.id;
-      
+
       // Check if update was successful: status === true OR statusCode === 200 AND has eventId
       const isSuccess = (responseStatus === true || responseStatusCode === 200) && eventId;
 
@@ -957,16 +977,16 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         toast.success(successMessage);
 
         setIsOpenModal(false);
-        
+
         // Call handleCreatedEvent to refresh the UI (this triggers reload in EventPage)
         // This will cause all calendar views to re-fetch events and display updated data
         if (handleCreatedEvent) {
           handleCreatedEvent();
         }
-        
+
         // Reset form after successful submission
         reset();
-        
+
         // Clear selected members and other state
         setSelectedMembers([]);
         setFileList([]);
