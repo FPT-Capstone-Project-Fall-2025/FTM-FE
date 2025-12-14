@@ -142,6 +142,25 @@ const convertRecurrenceToNumber = (recurrence: string): number => {
   return recurrenceMap[recurrence] ?? 0;
 };
 
+// Helper function to convert recurrence number to string
+const convertNumberToRecurrence = (value: number | string): string => {
+  // If it's already a string and valid, return it
+  if (typeof value === 'string' && ['ONCE', 'DAILY', 'MONTHLY', 'YEARLY'].includes(value)) {
+    return value;
+  }
+
+  const numValue = typeof value === 'string' ? parseInt(value, 10) : value;
+
+  const map: Record<number, string> = {
+    0: 'ONCE',
+    1: 'DAILY',
+    2: 'MONTHLY',
+    3: 'YEARLY',
+  };
+
+  return map[numValue] || 'ONCE';
+};
+
 const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
   isOpenModal,
   setIsOpenModal,
@@ -603,7 +622,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         endTime: formatDateTime(event.endTime),
         location: event.location || null,
         locationName: event.locationName || null,
-        recurrence: event.recurrenceType || 'ONCE',
+        recurrence: convertNumberToRecurrence(event.recurrenceType || event.recurrence || 'ONCE'),
         description: event.description || null,
         imageUrl: event.imageUrl || null,
         recurrenceEndTime: event.recurrenceEndTime || null,
@@ -702,7 +721,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         endTime: endTimeValue,
         location: event?.location || null,
         locationName: event?.locationName || null,
-        recurrence: event?.recurrenceType || event?.recurrence || 'ONCE',
+        recurrence: convertNumberToRecurrence(event?.recurrenceType || event?.recurrence || 'ONCE'),
         description: event?.description || null,
         imageUrl: event?.imageUrl || null,
         recurrenceEndTime: event?.recurrenceEndTime || null,
@@ -877,12 +896,18 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       // Call the appropriate API
       let response;
       if (isEditMode) {
+        // Sanitize Event ID (remove date suffix if present)
+        const rawEventId = (eventSelected as any).id;
+        const cleanEventId = rawEventId && rawEventId.includes('_') ? rawEventId.split('_')[0] : rawEventId;
+
+        console.log('🔄 Updating Event - Raw ID:', rawEventId, 'Clean ID:', cleanEventId);
+
         if (imageFile) {
           // For edit mode with file, use the FormData API to support file upload
           setIsUploadingImage(true);
           toast.info("Đang cập nhật sự kiện với ảnh...", { autoClose: 2000 });
 
-          response = await eventService.updateEventWithFiles((eventSelected as any).id, {
+          response = await eventService.updateEventWithFiles(cleanEventId, {
             name: data.name,
             eventType: eventTypeNumber,
             startTime: data.startTime,
@@ -927,7 +952,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             memberIds: selectedMembers.map(m => m.id),
           };
 
-          response = await eventService.updateEventById((eventSelected as any).id, updatePayload, ftId);
+          response = await eventService.updateEventById(cleanEventId, updatePayload, ftId);
         }
       } else {
         // For create mode, use FormData API to support file upload
