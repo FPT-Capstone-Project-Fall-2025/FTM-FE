@@ -1129,7 +1129,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         </div>
 
         {/* Target Member - Sự kiện cho ai */}
-        <div>
+        <div className="hidden">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Thành viên tham gia <span className="text-red-500">*</span>
           </label>
