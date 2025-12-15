@@ -23,6 +23,36 @@ const familyTreeService = {
     });
   },
 
+  getMyMemberId(ftId: string, userId: string): Promise<ApiResponse<PaginationResponse<FamilyNodeList[]>>> {
+    const paginationData = {
+      pageIndex: 1,
+      pageSize: 10,
+      propertyFilters: [
+        {
+          name: "FTId",
+          operation: "EQUAL",
+          value: ftId
+        },
+        {
+          name: "userId",
+          operation: "EQUAL",
+          value: userId
+        },
+      ],
+      totalItems: 0,
+      totalPages: 0,
+    };
+    return api.get('/ftmember/list', {
+      params: {
+        ...paginationData,
+        propertyFilters: JSON.stringify(paginationData.propertyFilters)
+      },
+      headers: {
+        'X-Ftid': ftId
+      }
+    });
+  },
+
   updateFamilyTree(id: string, data: FamilytreeUpdateProps): Promise<ApiResponse<Familytree>> {
     const formData = new FormData();
     formData.append('Name', data.Name);

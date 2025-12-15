@@ -19,7 +19,6 @@ import GPEventInfoModal from './GPEventInfoModal';
 import GPEventDetailsModal from './GPEventDetailsModal';
 import EventTutorial from './EventTutorial';
 import TutorialFloatingButton from '@/components/shared/TutorialFloatingButton';
-// import MyEventsContent from './MyEventsContent'; // Removed - not used
 
 // Types
 import type {
@@ -30,6 +29,8 @@ import type {
 } from '@/types/event';
 import { EventType } from '@/types/event';
 import { normalizeEventType, getEventTypeLabel } from '@/utils/eventUtils';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
+import { useAppSelector } from '@/hooks/redux';
 
 // Configure moment
 moment.locale('vi');
@@ -39,6 +40,7 @@ const EventPage: React.FC = () => {
   const now = new Date();
   const navigate = useNavigate();
   const location = useLocation();
+  const auth = useAppSelector(state => state.auth);
 
   // State Management
   const [viewMode, setViewMode] = useState<ViewMode>('month' as ViewMode);
@@ -168,12 +170,14 @@ const EventPage: React.FC = () => {
       // Import eventService
       const eventServiceModule = await import('../../services/eventService');
       const eventService = eventServiceModule.default;
+      const userId = getUserIdFromToken(auth.token || "");
 
       // Search in all family groups
-      if (eventFilters?.eventGp && eventFilters.eventGp.length > 0) {
+      if (eventFilters?.eventGp && eventFilters.eventGp.length > 0 && userId) {
         const searchPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            const response = await eventService.getEventsByGp(ftId);
+            const response = await eventService.getEventsByMember(ftId, userId);
+            console.log('response', response);
             const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
 
             // Filter events by search term
@@ -262,8 +266,10 @@ const EventPage: React.FC = () => {
   // Handle navigation from posts - auto-open event detail if eventId in state
   useEffect(() => {
     const state = location.state as { eventId?: string; familyTreeId?: string } | null;
+    const userId = getUserIdFromToken(auth.token || "");
 
-    if (state?.eventId && state?.familyTreeId) {
+
+    if (state?.eventId && state?.familyTreeId && userId) {
       const { eventId, familyTreeId } = state;
 
       console.log('📍 Navigation detected - eventId:', eventId, 'familyTreeId:', familyTreeId);
@@ -274,7 +280,7 @@ const EventPage: React.FC = () => {
           const eventService = eventServiceModule.default;
           console.log('📍 Fetching all events for family tree:', familyTreeId);
           // Fetch all events for this family tree (same API the calendar uses)
-          const response = await eventService.getEventsByGp(familyTreeId);
+          const response = await eventService.getEventsByMember(familyTreeId, userId);
           const allEvents = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
           console.log('📍 Total events loaded:', allEvents.length);
           // Strip date suffix from target event ID if present (for recurring events)

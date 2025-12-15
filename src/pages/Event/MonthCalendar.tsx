@@ -14,6 +14,8 @@ import { getHolidaysForYear, formatHolidayForCalendar } from "../../utils/vietna
 import { vietnameseCalendarLocale, commonVietnameseCalendarConfig, formatVietnameseDateTime } from "../../utils/vietnameseCalendarConfig";
 import type { EventClickArg, EventContentArg, DayCellContentArg } from '@fullcalendar/core';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import { useAppSelector } from "../../hooks/redux";
+import { getUserIdFromToken } from "../../utils/jwtUtils";
 import './Calendar.css';
 
 // Add lunar stub to moment
@@ -64,6 +66,9 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
   const [hoveredDay, setHoveredDay] = useState<{ date: string; x: number; y: number } | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
+  const { token, user } = useAppSelector(state => state.auth);
+  const currentUserId = getUserIdFromToken(token || '') || user?.userId;
+
   // Combine filters
   const combinedFilters = useMemo(() => ({ ...eventFilters, year, month }), [eventFilters, year, month]);
 
@@ -107,14 +112,13 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
       const endDate = lastDayOfWeek.toDate();
 
       // Check if family groups are selected
-      if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
+      if (currentUserId && eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
 
-        // Fetch events for each selected family group using getEventsByGp API
+        // Fetch events for each selected family group using getEventsByMember API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            // Use getEventsByGp API to fetch all events from the group
-            const response = await eventService.getEventsByGp(ftId);
-            // Handle nested data structure: response.data.data.data
+            // Use getEventsByMember(ftId, userId) to fetch events for this member in this specific group
+            const response = await eventService.getEventsByMember(ftId, currentUserId);
             const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
 
             // Filter events to only include those in the current month view
@@ -252,19 +256,19 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
       // Deduplicate events to avoid duplicates in the same day
       // Use a key based on: name + start date (day only) + end date (day only)
       const seenEvents = new Map<string, CalendarEvent>();
-      
+
       [...apiEvents, ...holidayEvents as any].forEach(event => {
         // Create a unique key based on name and dates (day only, ignore time)
         const startDate = moment(event.start || event.startTime).format('YYYY-MM-DD');
         const endDate = moment(event.end || event.endTime).format('YYYY-MM-DD');
         const dedupeKey = `${event.name || event.title || ''}_${startDate}_${endDate}`;
-        
+
         // Only add if we haven't seen this exact event (same name, same dates) before
         if (!seenEvents.has(dedupeKey)) {
           seenEvents.set(dedupeKey, event);
         }
       });
-      
+
       const combinedEvents = Array.from(seenEvents.values());
       setEvents(combinedEvents);
 

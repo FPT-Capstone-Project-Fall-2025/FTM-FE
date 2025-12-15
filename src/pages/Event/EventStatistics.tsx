@@ -4,6 +4,8 @@ import familyTreeService from "../../services/familyTreeService";
 import moment from "moment";
 import "moment/locale/vi";
 import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { getUserIdFromToken } from "@/utils/jwtUtils";
+import { useAppSelector } from "@/hooks/redux";
 
 moment.locale("vi");
 
@@ -39,6 +41,7 @@ const EventStatistics: React.FC = () => {
   const [segmentOrder, setSegmentOrder] = useState<string[]>(["days", "weeks", "months"]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [countdown, setCountdown] = useState({ days: 0, weeks: 0, months: 0 });
+  const auth = useAppSelector(state => state.auth);
 
   // Calculate countdown for an event
   const calculateCountdown = useCallback((eventStartTime: string) => {
@@ -61,6 +64,8 @@ const EventStatistics: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const userId = getUserIdFromToken(auth.token || "");
+    if (!userId) return;
     const fetchUpcomingEvents = async () => {
       try {
         // 1. First, get all family trees for the user
@@ -75,12 +80,18 @@ const EventStatistics: React.FC = () => {
         }
 
         // 2. Fetch events from all family trees
-        const eventPromises = familyTrees.data.map((ft: any) =>
-          eventService.getEventsByGp(ft.id).catch((err: any) => {
-            console.error(`Error fetching events for ftId ${ft.id}:`, err);
+        const eventPromises = familyTrees.data.map(async (ft: any) => {
+          try {
+            const response = await familyTreeService.getMyMemberId(ft.id, userId);
+            const memberId = response.data.data[0]?.id;
+            if (memberId) {
+              return eventService.getEventsByMember(ft.id, memberId)
+            }
+          } catch (error) {
+            console.error(`Error fetching events for ftId ${ft.id}:`, error);
             return { data: { data: [] } };
-          })
-        );
+          }
+        });
 
         const eventResponses = await Promise.all(eventPromises);
 
