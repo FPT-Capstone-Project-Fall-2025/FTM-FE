@@ -6,6 +6,7 @@ import moment from "moment";
 import "moment/locale/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
+import familyTreeService from "../../services/familyTreeService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { EventType } from "../../types/event";
 import { normalizeEventType } from "../../utils/eventUtils";
@@ -14,6 +15,8 @@ import { processRecurringEvents } from "../../utils/recurringEventUtils";
 import { getHolidaysForYear, formatHolidayForCalendar } from "../../utils/vietnameseHolidays";
 import { vietnameseCalendarLocale, commonVietnameseCalendarConfig } from "../../utils/vietnameseCalendarConfig";
 import type { EventClickArg, EventContentArg, DayHeaderContentArg } from '@fullcalendar/core';
+import { useAppSelector } from "../../hooks/redux";
+import { getUserIdFromToken } from "../../utils/jwtUtils";
 import './Calendar.css';
 
 // Add lunar stub to moment
@@ -60,6 +63,9 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
   const [weatherData, setWeatherData] = useState<Record<string, WeatherInfo>>({});
   const [filterEvents, setFilterEvents] = useState<EventFilters & { year?: number; month?: number; week?: number }>({});
 
+  const { token, user } = useAppSelector(state => state.auth);
+  const currentUserId = getUserIdFromToken(token || '') || user?.userId;
+
   const fetchEventsAndForecasts = useCallback(async () => {
     if (!filterEvents.year || !filterEvents.month || !filterEvents.week) return;
 
@@ -75,33 +81,38 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       const endDate = currentWeekEnd.toDate();
 
       // Check if family groups are selected
-      if (eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
+      if (currentUserId && eventFilters?.eventGp && Array.isArray(eventFilters.eventGp) && eventFilters.eventGp.length > 0) {
         console.log('📅 WeekCalendar - Fetching events for selected family groups:', eventFilters.eventGp);
-
         console.log('📅 WeekCalendar - Date range:', startDate, 'to', endDate);
 
-        // Fetch events for each selected family group using getEventsByGp API
+        // Fetch events for each selected family group using getEventsByMember API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            // Use getEventsByGp API to fetch all events from the group
-            const response = await eventService.getEventsByGp(ftId);
-            // Handle nested data structure: response.data.data.data
-            const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+            // First, get the memberId of the current user in this family tree
+            const memberResponse = await familyTreeService.getMyMemberId(ftId, currentUserId);
+            const memberList = (memberResponse.data as any)?.data?.data || (memberResponse.data as any)?.data || [];
+            const memberId = memberList[0]?.id;
 
-            // Filter events to only include those in the current week view
-            const filteredEvents = events.filter((event: any) => {
-              const eventStart = moment(event.startTime);
-              const eventEnd = moment(event.endTime);
-              // Include event if it starts or ends within the visible date range
-              return (
-                (eventStart.isSameOrAfter(startDate) && eventStart.isSameOrBefore(endDate)) ||
-                (eventEnd.isSameOrAfter(startDate) && eventEnd.isSameOrBefore(endDate)) ||
-                (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
-              );
-            });
+            if (memberId) {
+              // Use getEventsByMember(ftId, memberId) to fetch events for this member in this specific group
+              const response = await eventService.getEventsByMember(ftId, memberId);
+              const events = (response as any)?.data?.data || (response as any)?.data || [];
 
-            console.log(`📅 Events from ftId ${ftId}:`, filteredEvents.length, 'events (filtered from', events.length, 'total)');
-            return filteredEvents;
+              // Filter events to only include those in the current week view
+              const filteredEvents = events.filter((event: any) => {
+                const eventStart = moment(event.startTime);
+                const eventEnd = moment(event.endTime);
+                // Include event if it starts or ends within the visible date range
+                return (
+                  (eventStart.isSameOrAfter(startDate) && eventStart.isSameOrBefore(endDate)) ||
+                  (eventEnd.isSameOrAfter(startDate) && eventEnd.isSameOrBefore(endDate)) ||
+                  (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
+                );
+              });
+
+              return filteredEvents;
+            }
+            return [];
           } catch (error) {
             console.error(`Error fetching events for ftId ${ftId}:`, error);
             return [];
@@ -252,19 +263,19 @@ const WeekCalendar: React.FC<WeekCalendarProps> = ({
       // Deduplicate events to avoid duplicates in the same day
       // Use a key based on: name + start date (day only) + end date (day only)
       const seenEvents = new Map<string, CalendarEvent>();
-      
+
       [...mappedEvents, ...holidayEvents as any].forEach(event => {
         // Create a unique key based on name and dates (day only, ignore time)
         const startDate = moment(event.start || event.startTime).format('YYYY-MM-DD');
         const endDate = moment(event.end || event.endTime).format('YYYY-MM-DD');
         const dedupeKey = `${event.name || event.title || ''}_${startDate}_${endDate}`;
-        
+
         // Only add if we haven't seen this exact event (same name, same dates) before
         if (!seenEvents.has(dedupeKey)) {
           seenEvents.set(dedupeKey, event);
         }
       });
-      
+
       const combinedEvents = Array.from(seenEvents.values());
       setEvents(combinedEvents);
       console.log('📅 WeekCalendar - Events set successfully');

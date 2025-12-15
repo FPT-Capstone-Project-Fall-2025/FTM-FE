@@ -19,7 +19,6 @@ import GPEventInfoModal from './GPEventInfoModal';
 import GPEventDetailsModal from './GPEventDetailsModal';
 import EventTutorial from './EventTutorial';
 import TutorialFloatingButton from '@/components/shared/TutorialFloatingButton';
-// import MyEventsContent from './MyEventsContent'; // Removed - not used
 
 // Types
 import type {
@@ -30,6 +29,8 @@ import type {
 } from '@/types/event';
 import { EventType } from '@/types/event';
 import { normalizeEventType, getEventTypeLabel } from '@/utils/eventUtils';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
+import { useAppSelector } from '@/hooks/redux';
 
 // Configure moment
 moment.locale('vi');
@@ -39,6 +40,7 @@ const EventPage: React.FC = () => {
   const now = new Date();
   const navigate = useNavigate();
   const location = useLocation();
+  const auth = useAppSelector(state => state.auth);
 
   // State Management
   const [viewMode, setViewMode] = useState<ViewMode>('month' as ViewMode);
@@ -168,24 +170,36 @@ const EventPage: React.FC = () => {
       // Import eventService
       const eventServiceModule = await import('../../services/eventService');
       const eventService = eventServiceModule.default;
+      const userId = getUserIdFromToken(auth.token || "");
 
       // Search in all family groups
-      if (eventFilters?.eventGp && eventFilters.eventGp.length > 0) {
+      if (eventFilters?.eventGp && eventFilters.eventGp.length > 0 && userId) {
         const searchPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            const response = await eventService.getEventsByGp(ftId);
-            const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+            // First, get the memberId of the current user in this family tree
+            const familyTreeServiceModule = await import('../../services/familyTreeService');
+            const familyTreeService = familyTreeServiceModule.default;
 
-            // Filter events by search term
-            return events.filter((event: any) => {
-              const searchLower = search.toLowerCase();
-              return (
-                event.name?.toLowerCase().includes(searchLower) ||
-                event.description?.toLowerCase().includes(searchLower) ||
-                event.location?.toLowerCase().includes(searchLower) ||
-                event.address?.toLowerCase().includes(searchLower)
-              );
-            });
+            const memberResponse = await familyTreeService.getMyMemberId(ftId, userId);
+            const memberList = (memberResponse.data as any)?.data?.data || (memberResponse.data as any)?.data || [];
+            const memberId = memberList[0]?.id;
+
+            if (memberId) {
+              const response = await eventService.getEventsByMember(ftId, memberId);
+              const events = (response as any)?.data?.data || (response as any)?.data || [];
+
+              // Filter events by search term
+              return events.filter((event: any) => {
+                const searchLower = search.toLowerCase();
+                return (
+                  (event.name && event.name.toLowerCase().includes(searchLower)) ||
+                  (event.description && event.description.toLowerCase().includes(searchLower)) ||
+                  (event.location && event.location.toLowerCase().includes(searchLower)) ||
+                  (event.address && event.address.toLowerCase().includes(searchLower))
+                );
+              });
+            }
+            return [];
           } catch (error) {
             console.error(`Error searching events in group ${ftId}:`, error);
             return [];
@@ -262,8 +276,10 @@ const EventPage: React.FC = () => {
   // Handle navigation from posts - auto-open event detail if eventId in state
   useEffect(() => {
     const state = location.state as { eventId?: string; familyTreeId?: string } | null;
+    const userId = getUserIdFromToken(auth.token || "");
 
-    if (state?.eventId && state?.familyTreeId) {
+
+    if (state?.eventId && state?.familyTreeId && userId) {
       const { eventId, familyTreeId } = state;
 
       console.log('📍 Navigation detected - eventId:', eventId, 'familyTreeId:', familyTreeId);
@@ -272,10 +288,24 @@ const EventPage: React.FC = () => {
         try {
           const eventServiceModule = await import('../../services/eventService');
           const eventService = eventServiceModule.default;
+          const familyTreeServiceModule = await import('../../services/familyTreeService');
+          const familyTreeService = familyTreeServiceModule.default;
+
           console.log('📍 Fetching all events for family tree:', familyTreeId);
+
+          // First, get the memberId
+          const memberResponse = await familyTreeService.getMyMemberId(familyTreeId, userId);
+          const memberList = (memberResponse.data as any)?.data?.data || (memberResponse.data as any)?.data || [];
+          const memberId = memberList[0]?.id;
+
+          if (!memberId) {
+            console.error('📍 Member ID not found for navigation');
+            return;
+          }
+
           // Fetch all events for this family tree (same API the calendar uses)
-          const response = await eventService.getEventsByGp(familyTreeId);
-          const allEvents = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+          const response = await eventService.getEventsByMember(familyTreeId, memberId);
+          const allEvents = (response as any)?.data?.data || (response as any)?.data || [];
           console.log('📍 Total events loaded:', allEvents.length);
           // Strip date suffix from target event ID if present (for recurring events)
           const baseEventId = eventId.includes('_') ? eventId.split('_')[0] : eventId;

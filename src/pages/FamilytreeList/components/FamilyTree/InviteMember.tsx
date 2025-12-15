@@ -46,7 +46,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                 onClose();
             }
         } catch (error: any) {
-            const errorMessage = error?.response?.data?.message || 'Gửi lời mời thất bại. Vui lòng thử lại.';
+            const errorMessage = error?.response?.data?.Message || 'Gửi lời mời thất bại. Vui lòng thử lại.';
             showError(errorMessage);
             console.error('Failed to send invite:', error);
         } finally {

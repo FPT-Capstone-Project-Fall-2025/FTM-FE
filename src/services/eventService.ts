@@ -161,9 +161,14 @@ class EventService {
   /**
    * Get events by member ID
    */
-  async getEventsByMember(memberId: string): Promise<ApiResponse<ApiEventResponse[]>> {
+  async getEventsByMember(ftId: string, memberId: string): Promise<ApiResponse<ApiEventResponse[]>> {
     const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
-      `/ftfamilyevent/by-member/${memberId}`
+      `/ftfamilyevent/by-member/${memberId}`,
+      {
+        headers: {
+          'X-Ftid': ftId,
+        },
+      }
     );
     return response;
   }
