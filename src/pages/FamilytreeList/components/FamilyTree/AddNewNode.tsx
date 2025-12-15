@@ -358,7 +358,7 @@ const AddNewNode = ({
     } else if (name === "gender") {
       setFormData((prev) => ({
         ...prev,
-        gender: value === "1" ? 1 : 0,
+        gender: value === "" ? (undefined as any) : (value === "1" ? 1 : 0),
       }));
     } else if (name === "identificationNumber") {
       setFormData((prev) => ({
@@ -705,10 +705,11 @@ const AddNewNode = ({
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving}
-              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold ${!isSaving
+              disabled={isSaving || !formData.fullname?.trim() || formData.gender === undefined}
+              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold ${!isSaving && formData.fullname?.trim() && formData.gender !== undefined
                 ? 'hover:bg-blue-700 transition-colors'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
             >
               {isSaving ? 'Đang lưu...' : 'Lưu'}
             </button>

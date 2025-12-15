@@ -387,7 +387,7 @@ const Members: React.FC = () => {
                                 }`}
                         >
                             <Users className="w-4 h-4" />
-                            Thành viên
+                            Tài khoản liên kết
                         </button>
                         <button
                             onClick={() => setViewMode('guest')}
@@ -407,7 +407,7 @@ const Members: React.FC = () => {
                                 }`}
                         >
                             <Users className="w-4 h-4" />
-                            Danh sách node
+                            Thành viên phả hệ
                         </button>
                     </div>
 
