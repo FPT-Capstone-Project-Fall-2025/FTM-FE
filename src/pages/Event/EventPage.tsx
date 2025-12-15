@@ -181,11 +181,12 @@ const EventPage: React.FC = () => {
             const familyTreeService = familyTreeServiceModule.default;
 
             const memberResponse = await familyTreeService.getMyMemberId(ftId, userId);
-            const memberId = memberResponse.data.data[0]?.id;
+            const memberList = (memberResponse.data as any)?.data?.data || (memberResponse.data as any)?.data || [];
+            const memberId = memberList[0]?.id;
 
             if (memberId) {
               const response = await eventService.getEventsByMember(ftId, memberId);
-              const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+              const events = (response as any)?.data?.data || (response as any)?.data || [];
 
               // Filter events by search term
               return events.filter((event: any) => {
@@ -294,7 +295,8 @@ const EventPage: React.FC = () => {
 
           // First, get the memberId
           const memberResponse = await familyTreeService.getMyMemberId(familyTreeId, userId);
-          const memberId = memberResponse.data.data[0]?.id;
+          const memberList = (memberResponse.data as any)?.data?.data || (memberResponse.data as any)?.data || [];
+          const memberId = memberList[0]?.id;
 
           if (!memberId) {
             console.error('📍 Member ID not found for navigation');
@@ -303,7 +305,7 @@ const EventPage: React.FC = () => {
 
           // Fetch all events for this family tree (same API the calendar uses)
           const response = await eventService.getEventsByMember(familyTreeId, memberId);
-          const allEvents = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+          const allEvents = (response as any)?.data?.data || (response as any)?.data || [];
           console.log('📍 Total events loaded:', allEvents.length);
           // Strip date suffix from target event ID if present (for recurring events)
           const baseEventId = eventId.includes('_') ? eventId.split('_')[0] : eventId;

@@ -98,11 +98,13 @@ const EventStatistics: React.FC = () => {
         // 3. Combine all events from all family trees
         const allEventsFromAPI: any[] = [];
         eventResponses.forEach((response: any) => {
-          const eventsData = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+          const eventsData = (response as any)?.data?.data || (response as any)?.data || [];
           if (Array.isArray(eventsData)) {
             allEventsFromAPI.push(...eventsData);
           }
         });
+
+        console.log(eventResponses);
 
         if (allEventsFromAPI.length === 0) {
           setEvents([]);

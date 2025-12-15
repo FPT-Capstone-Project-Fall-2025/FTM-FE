@@ -120,12 +120,13 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
           try {
             // First, get the memberId of the current user in this family tree
             const memberResponse = await familyTreeService.getMyMemberId(ftId, currentUserId);
-            const memberId = memberResponse.data.data[0]?.id;
+            const memberList = (memberResponse.data as any)?.data?.data || (memberResponse.data as any)?.data || [];
+            const memberId = memberList[0]?.id;
 
             if (memberId) {
               // Use getEventsByMember(ftId, memberId) to fetch events for this member in this specific group
               const response = await eventService.getEventsByMember(ftId, memberId);
-              const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+              const events = (response as any)?.data?.data || (response as any)?.data || [];
 
               // Filter events to only include those in the current month view
               const filteredEvents = events.filter((event: any) => {
