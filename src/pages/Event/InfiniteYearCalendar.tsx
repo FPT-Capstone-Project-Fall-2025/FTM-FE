@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import moment from "moment";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
+import familyTreeService from "../../services/familyTreeService";
 import type { EventFilters, FamilyEvent } from "@/types/event";
 import { addLunarToMoment } from "../../utils/lunarUtils";
 import { normalizeEventType } from "../../utils/eventUtils";
@@ -66,9 +67,16 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
         // Fetch events for each selected family group using getEventsByMember API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            // Use getEventsByMember(ftId, userId) to fetch events for this member in this specific group
-            const response = await eventService.getEventsByMember(ftId, currentUserId);
-            return (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+            // First, get the memberId of the current user in this family tree
+            const memberResponse = await familyTreeService.getMyMemberId(ftId, currentUserId);
+            const memberId = memberResponse.data.data[0]?.id;
+
+            if (memberId) {
+              // Use getEventsByMember(ftId, userId) to fetch events for this member in this specific group
+              const response = await eventService.getEventsByMember(ftId, memberId);
+              return (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+            }
+            return [];
           } catch (error) {
             console.error(`Error fetching events for ftId ${ftId}:`, error);
             return [];

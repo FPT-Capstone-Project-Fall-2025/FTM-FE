@@ -6,6 +6,7 @@ import moment from "moment";
 import "moment/locale/vi";
 import EventTypeLabel from "./EventTypeLabel";
 import eventService from "../../services/eventService";
+import familyTreeService from "../../services/familyTreeService";
 import type { EventFilters, FamilyEvent, CalendarEvent } from "../../types/event";
 import { normalizeEventType } from "../../utils/eventUtils";
 import { addLunarToMoment } from "../../utils/lunarUtils";
@@ -117,23 +118,30 @@ const MonthCalendar: React.FC<MonthCalendarProps> = ({
         // Fetch events for each selected family group using getEventsByMember API
         const eventPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            // Use getEventsByMember(ftId, userId) to fetch events for this member in this specific group
-            const response = await eventService.getEventsByMember(ftId, currentUserId);
-            const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+            // First, get the memberId of the current user in this family tree
+            const memberResponse = await familyTreeService.getMyMemberId(ftId, currentUserId);
+            const memberId = memberResponse.data.data[0]?.id;
 
-            // Filter events to only include those in the current month view
-            const filteredEvents = events.filter((event: any) => {
-              const eventStart = moment(event.startTime);
-              const eventEnd = moment(event.endTime);
-              // Include event if it starts or ends within the visible date range
-              return (
-                (eventStart.isSameOrAfter(startDate) && eventStart.isSameOrBefore(endDate)) ||
-                (eventEnd.isSameOrAfter(startDate) && eventEnd.isSameOrBefore(endDate)) ||
-                (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
-              );
-            });
+            if (memberId) {
+              // Use getEventsByMember(ftId, memberId) to fetch events for this member in this specific group
+              const response = await eventService.getEventsByMember(ftId, memberId);
+              const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
 
-            return filteredEvents;
+              // Filter events to only include those in the current month view
+              const filteredEvents = events.filter((event: any) => {
+                const eventStart = moment(event.startTime);
+                const eventEnd = moment(event.endTime);
+                // Include event if it starts or ends within the visible date range
+                return (
+                  (eventStart.isSameOrAfter(startDate) && eventStart.isSameOrBefore(endDate)) ||
+                  (eventEnd.isSameOrAfter(startDate) && eventEnd.isSameOrBefore(endDate)) ||
+                  (eventStart.isBefore(startDate) && eventEnd.isAfter(endDate))
+                );
+              });
+
+              return filteredEvents;
+            }
+            return [];
           } catch (error) {
             console.error(`Error fetching events for ftId ${ftId}:`, error);
             return [];

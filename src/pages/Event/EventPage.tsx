@@ -176,20 +176,29 @@ const EventPage: React.FC = () => {
       if (eventFilters?.eventGp && eventFilters.eventGp.length > 0 && userId) {
         const searchPromises = eventFilters.eventGp.map(async (ftId: string) => {
           try {
-            const response = await eventService.getEventsByMember(ftId, userId);
-            console.log('response', response);
-            const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+            // First, get the memberId of the current user in this family tree
+            const familyTreeServiceModule = await import('../../services/familyTreeService');
+            const familyTreeService = familyTreeServiceModule.default;
 
-            // Filter events by search term
-            return events.filter((event: any) => {
-              const searchLower = search.toLowerCase();
-              return (
-                event.name?.toLowerCase().includes(searchLower) ||
-                event.description?.toLowerCase().includes(searchLower) ||
-                event.location?.toLowerCase().includes(searchLower) ||
-                event.address?.toLowerCase().includes(searchLower)
-              );
-            });
+            const memberResponse = await familyTreeService.getMyMemberId(ftId, userId);
+            const memberId = memberResponse.data.data[0]?.id;
+
+            if (memberId) {
+              const response = await eventService.getEventsByMember(ftId, memberId);
+              const events = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
+
+              // Filter events by search term
+              return events.filter((event: any) => {
+                const searchLower = search.toLowerCase();
+                return (
+                  (event.name && event.name.toLowerCase().includes(searchLower)) ||
+                  (event.description && event.description.toLowerCase().includes(searchLower)) ||
+                  (event.location && event.location.toLowerCase().includes(searchLower)) ||
+                  (event.address && event.address.toLowerCase().includes(searchLower))
+                );
+              });
+            }
+            return [];
           } catch (error) {
             console.error(`Error searching events in group ${ftId}:`, error);
             return [];
@@ -278,9 +287,22 @@ const EventPage: React.FC = () => {
         try {
           const eventServiceModule = await import('../../services/eventService');
           const eventService = eventServiceModule.default;
+          const familyTreeServiceModule = await import('../../services/familyTreeService');
+          const familyTreeService = familyTreeServiceModule.default;
+
           console.log('📍 Fetching all events for family tree:', familyTreeId);
+
+          // First, get the memberId
+          const memberResponse = await familyTreeService.getMyMemberId(familyTreeId, userId);
+          const memberId = memberResponse.data.data[0]?.id;
+
+          if (!memberId) {
+            console.error('📍 Member ID not found for navigation');
+            return;
+          }
+
           // Fetch all events for this family tree (same API the calendar uses)
-          const response = await eventService.getEventsByMember(familyTreeId, userId);
+          const response = await eventService.getEventsByMember(familyTreeId, memberId);
           const allEvents = (response?.data as any)?.data?.data || (response?.data as any)?.data || [];
           console.log('📍 Total events loaded:', allEvents.length);
           // Strip date suffix from target event ID if present (for recurring events)
