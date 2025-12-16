@@ -18,6 +18,12 @@ export interface Fund {
   bankName?: string | null;
   isActive?: boolean;
   fundManagers?: string | null;
+  bankInfo?: {
+    bankAccountNumber?: string | null;
+    bankName?: string | null;
+    bankCode?: string | null;
+    accountHolderName?: string | null;
+  } | null;
 }
 
 export interface FundDonation {

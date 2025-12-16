@@ -9,7 +9,6 @@ import {
     Shield,
     MousePointerClick,
     ArrowRight,
-    ChevronRight,
     Sparkles,
     Heart,
     HandCoins,
@@ -20,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 const HomePage = () => {
     const [scrollY, setScrollY] = useState(0);
     const [activeFeature, setActiveFeature] = useState(0);
+    const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -41,35 +41,40 @@ const HomePage = () => {
             title: "Quản lý Tài Khoản",
             description: "Quản lý thông tin các thành viên trong gia tộc một cách dễ dàng và an toàn. Thay thế cách truyền thống ghi chép trên sổ sách, giờ đây mọi thứ đều số hóa.",
             color: "from-blue-500 to-cyan-500",
-            bgColor: "bg-blue-50"
+            bgColor: "bg-blue-50",
+            videoUrl: "" // TODO: Add video URL for Account Management
         },
         {
             icon: <TreePine className="w-8 h-8" />,
             title: "Cây Gia Phả Trực Quan",
             description: "Tạo và xem cây gia phả dưới dạng biểu đồ trực quan. Mời thành viên tham gia, kéo thả để sắp xếp - mọi thứ chỉ bằng vài cú click chuột.",
             color: "from-green-500 to-emerald-500",
-            bgColor: "bg-green-50"
+            bgColor: "bg-green-50",
+            videoUrl: "" // TODO: Add video URL for Family Tree Graph
         },
         {
             icon: <Wallet className="w-8 h-8" />,
             title: "Quỹ Gia Tộc",
             description: "Quản lý quỹ chung để mọi thành viên cùng đóng góp. Minh bạch trong từng giao dịch, dễ dàng theo dõi thu chi.",
             color: "from-purple-500 to-pink-500",
-            bgColor: "bg-purple-50"
+            bgColor: "bg-purple-50",
+            videoUrl: "" // TODO: Add video URL for Fund Management
         },
         {
             icon: <TrendingUp className="w-8 h-8" />,
             title: "Chiến Dịch Gây Quỹ",
             description: "Tạo các chiến dịch gây quỹ cho những dịp đặc biệt. Mọi giao dịch đều được ghi nhận minh bạch và công khai.",
             color: "from-orange-500 to-red-500",
-            bgColor: "bg-orange-50"
+            bgColor: "bg-orange-50",
+            videoUrl: "" // TODO: Add video URL for Fundraising
         },
         {
             icon: <Calendar className="w-8 h-8" />,
             title: "Quản lý Sự Kiện",
             description: "Tạo và quản lý các sự kiện quan trọng. Tự động nhắc nhở thành viên tham gia vào những dịp đặc biệt trong gia tộc.",
             color: "from-indigo-500 to-blue-500",
-            bgColor: "bg-indigo-50"
+            bgColor: "bg-indigo-50",
+            videoUrl: "" // TODO: Add video URL for Events
         }
     ];
 
@@ -95,20 +100,20 @@ const HomePage = () => {
                 {/* Family Photos Background */}
                 <div className="absolute inset-0 z-9 overflow-hidden">
                     {/* Animated family photos */}
-                    <div className="absolute inset-0 grid grid-cols-4 gap-4 p-4 opacity-50">
+                    <div className="absolute inset-0 grid grid-cols-4 gap-4 p-4 opacity-40">
                         {[
-                            'https://images.unsplash.com/photo-1511895426328-dc8714191300?w=400',
-                            'https://images.unsplash.com/photo-1609220136736-443140cffec6?w=400',
-                            'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?w=400',
-                            'https://images.unsplash.com/photo-1571844307880-751c6d86f3f3?w=400',
+                            'https://plus.unsplash.com/premium_photo-1682093917482-44f9b685076e?w=400',
+                            'https://plus.unsplash.com/premium_photo-1682094069738-19a65f3145b9?w=400',
+                            'https://images.unsplash.com/photo-1756084368956-881944636883?w=400',
+                            'https://images.unsplash.com/photo-1710657292319-9743e73f9d95?w=400',
                             'https://images.unsplash.com/photo-1475503572774-15a45e5d60b9?w=400',
                             'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400',
-                            'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400',
+                            'https://plus.unsplash.com/premium_photo-1670689707689-4c3e8c24034c?w=400',
                             'https://images.unsplash.com/photo-1657664058220-a1bfc04e2e14?w=400',
                             'https://images.unsplash.com/photo-1593134257782-e89567b7718a?w=400',
                             'https://images.unsplash.com/photo-1609220136736-443140cffec6?w=400',
                             'https://images.unsplash.com/photo-1476703993599-0035a21b17a9?w=400',
-                            'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'
+                            'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=400',
                         ].map((url, index) => (
                             <div
                                 key={index}
@@ -142,6 +147,9 @@ const HomePage = () => {
                             style={{ animationDelay: '4s' }}
                         />
                     </div>
+
+                    {/* Overlay for better text readability and harmony */}
+                    <div className="absolute inset-0 bg-white/60 z-10" />
                 </div>
 
                 <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
@@ -225,9 +233,13 @@ const HomePage = () => {
                         {features.map((feature, index) => (
                             <div
                                 key={index}
-                                className={`group relative p-8 bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 cursor-pointer overflow-hidden ${activeFeature === index ? 'ring-2 ring-blue-500 scale-105' : ''
+                                className={`group relative p-8 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-500 overflow-hidden ${activeFeature === index ? 'ring-2 ring-blue-500 scale-105' : ''
                                     }`}
-                                onMouseEnter={() => setActiveFeature(index)}
+                                onMouseEnter={() => {
+                                    setActiveFeature(index);
+                                    setHoveredFeature(index);
+                                }}
+                                onMouseLeave={() => setHoveredFeature(null)}
                             >
                                 {/* Gradient Background on Hover */}
                                 <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500`} />
@@ -243,20 +255,37 @@ const HomePage = () => {
                                         {feature.title}
                                     </h3>
 
-                                    <p className="text-gray-600 leading-relaxed mb-4">
+                                    <p className="text-gray-600 leading-relaxed">
                                         {feature.description}
                                     </p>
-
-                                    <div className="flex items-center text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                        <span className="text-sm">Khám phá</span>
-                                        <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                                    </div>
                                 </div>
 
                                 {/* Corner Decoration */}
                                 <div className="absolute top-0 right-0 w-20 h-20 transform translate-x-10 -translate-y-10">
                                     <div className={`w-full h-full bg-gradient-to-br ${feature.color} opacity-10 rounded-full`} />
                                 </div>
+
+                                {/* Video Preview Overlay */}
+                                {hoveredFeature === index && feature.videoUrl && (
+                                    <div className="absolute inset-0 z-20 bg-white rounded-2xl overflow-hidden animate-fadeIn">
+                                        <div className="relative w-full h-full">
+                                            <video
+                                                src={feature.videoUrl}
+                                                autoPlay
+                                                muted
+                                                loop
+                                                playsInline
+                                                className="w-full h-full object-cover"
+                                            />
+                                            {/* Gradient Overlay for text visibility if needed */}
+                                            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+                                                <p className="text-white text-sm font-medium">
+                                                    Xem trước tính năng
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

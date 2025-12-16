@@ -56,6 +56,7 @@ const GPEventInfoModal = ({
     onEventUpdated,
     extendedProps,
     isAllDay,
+    ftName,
   } = defaultValues;
 
 
@@ -427,12 +428,13 @@ const GPEventInfoModal = ({
             )}
 
             {/* Gia phả */}
-            {gpNamesJoin && (
+            {/* Gia tộc */}
+            {(ftName || gpNamesJoin) && (
               <div className="flex items-start gap-3 bg-gray-50 px-3 py-2 rounded-lg col-span-1 md:col-span-2">
                 <Users className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <div className="text-xs text-gray-500 mb-1">Gia phả:</div>
-                  <span className="text-sm">{gpNamesJoin}</span>
+                  <div className="text-xs text-gray-500 mb-1">Gia tộc:</div>
+                  <span className="text-sm">{ftName || gpNamesJoin}</span>
                 </div>
               </div>
             )}
