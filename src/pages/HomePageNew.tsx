@@ -97,18 +97,18 @@ const HomePage = () => {
                     {/* Animated family photos */}
                     <div className="absolute inset-0 grid grid-cols-4 gap-4 p-4 opacity-50">
                         {[
-                            'https://images.unsplash.com/photo-1511895426328-dc8714191300?w=400',
-                            'https://images.unsplash.com/photo-1609220136736-443140cffec6?w=400',
-                            'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?w=400',
-                            'https://images.unsplash.com/photo-1571844307880-751c6d86f3f3?w=400',
+                            'https://plus.unsplash.com/premium_photo-1682093917482-44f9b685076e?w=400',
+                            'https://plus.unsplash.com/premium_photo-1682094069738-19a65f3145b9?w=400',
+                            'https://images.unsplash.com/photo-1756084368956-881944636883?w=400',
+                            'https://images.unsplash.com/photo-1710657292319-9743e73f9d95?w=400',
                             'https://images.unsplash.com/photo-1475503572774-15a45e5d60b9?w=400',
                             'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400',
-                            'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400',
+                            'https://plus.unsplash.com/premium_photo-1670689707689-4c3e8c24034c?w=400',
                             'https://images.unsplash.com/photo-1657664058220-a1bfc04e2e14?w=400',
                             'https://images.unsplash.com/photo-1593134257782-e89567b7718a?w=400',
                             'https://images.unsplash.com/photo-1609220136736-443140cffec6?w=400',
                             'https://images.unsplash.com/photo-1476703993599-0035a21b17a9?w=400',
-                            'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400'
+                            'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=400',
                         ].map((url, index) => (
                             <div
                                 key={index}

@@ -1681,7 +1681,14 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   <DatePicker
                     value={field.value ? dayjs(field.value) : null}
                     onChange={(value) => {
-                      field.onChange(value ? value.toISOString() : null);
+                      if (value) {
+                        // Set to end of day (23:59:59.999) to ensure the last day is included
+                        const endOfDay = value.hour(23).minute(59).second(59).millisecond(999);
+                        field.onChange(endOfDay.toISOString());
+                      } else {
+                        field.onChange(null);
+                      }
+
                       // Clear error when user changes the value
                       if (recurrenceEndTimeError) {
                         setRecurrenceEndTimeError('');

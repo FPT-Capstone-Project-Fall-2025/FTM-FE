@@ -202,16 +202,18 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
         ? fund.fundManagers.split(',').map((id: string) => id.trim()).filter(Boolean)
         : [];
       setSelectedMemberIds(managerIds);
-      
+
       setForm({
         fundName: fund.fundName || '',
         description: fund.description || '',
-        bankAccountNumber: fund.bankAccountNumber || '',
-        accountHolderName: fund.accountHolderName || '',
-        bankCode: fund.bankCode || '',
-        bankName: fund.bankName || '',
+        bankAccountNumber: fund.bankInfo?.bankAccountNumber || fund.bankAccountNumber || '',
+        accountHolderName: fund.bankInfo?.accountHolderName || fund.accountHolderName || '',
+        bankCode: fund.bankInfo?.bankCode || fund.bankCode || '',
+        bankName: fund.bankInfo?.bankName || fund.bankName || '',
         fundManagers: managerIds.join(','), // Store as comma-separated IDs
       });
+
+      // Ensure bank search is cleared or set to current bank name for better UX
       setBankSearch('');
       setMemberSearch('');
       setErrors({});
@@ -253,13 +255,13 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
       const newIds = prev.includes(memberId)
         ? prev.filter(id => id !== memberId)
         : [...prev, memberId];
-      
+
       // Update form with comma-separated IDs
       setForm(prev => ({
         ...prev,
         fundManagers: newIds.join(','),
       }));
-      
+
       return newIds;
     });
   };
@@ -290,6 +292,16 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
   };
 
   const handleInputChange = (field: keyof FundEditForm, value: string) => {
+    // Restrict bankAccountNumber to numbers only
+    if (field === 'bankAccountNumber') {
+      const numericValue = value.replace(/[^0-9]/g, '');
+      if (numericValue !== value) {
+        // If value contained non-numbers, update with cleaned value
+        setForm(prev => ({ ...prev, [field]: numericValue }));
+        return;
+      }
+    }
+
     setForm(prev => ({ ...prev, [field]: value }));
     setErrors(prev => {
       if (!prev[field]) return prev;
@@ -307,7 +319,7 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
       const logo = bankLogoMap[originalBankCode.toUpperCase()];
       if (logo) return logo;
     }
-    
+
     // Fallback to bankLogos prop (for backward compatibility)
     const key = code.toUpperCase();
     return bankLogos[key] || null;
@@ -327,6 +339,11 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
     if (!form.bankCode.trim() || !form.bankName.trim()) {
       nextErrors.bankCode = 'Vui lòng chọn ngân hàng.';
       nextErrors.bankName = 'Vui lòng chọn ngân hàng.';
+    }
+
+    // Additional validation for bank account length if needed (e.g., at least 6 digits)
+    if (form.bankAccountNumber.trim().length < 6) {
+      nextErrors.bankAccountNumber = 'Số tài khoản không hợp lệ (tối thiểu 6 số).';
     }
 
     setErrors(nextErrors);
@@ -353,7 +370,7 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest('[data-member-dropdown]')) {
@@ -401,9 +418,8 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
                 type="text"
                 value={form.fundName}
                 onChange={e => handleInputChange('fundName', e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
-                  errors.fundName ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${errors.fundName ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Ví dụ: Quỹ gia tộc Nguyễn"
                 required
               />
@@ -425,7 +441,7 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Người quản lý quỹ
               </label>
-              
+
               {/* Selected members display */}
               {selectedMembers.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -490,15 +506,13 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
                               key={member.id}
                               type="button"
                               onClick={() => handleMemberToggle(member.id)}
-                              className={`w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                                isSelected ? 'bg-blue-50' : ''
-                              }`}
+                              className={`w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors flex items-center gap-2 ${isSelected ? 'bg-blue-50' : ''
+                                }`}
                             >
-                              <div className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
-                                isSelected
-                                  ? 'border-blue-600 bg-blue-600'
-                                  : 'border-gray-300'
-                              }`}>
+                              <div className={`w-4 h-4 border-2 rounded flex items-center justify-center ${isSelected
+                                ? 'border-blue-600 bg-blue-600'
+                                : 'border-gray-300'
+                                }`}>
                                 {isSelected && (
                                   <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -525,11 +539,10 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
                   type="text"
                   value={form.bankAccountNumber}
                   onChange={e => handleInputChange('bankAccountNumber', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
-                    errors.bankAccountNumber
-                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                      : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${errors.bankAccountNumber
+                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                    : 'border-gray-300'
+                    }`}
                   placeholder="Nhập số tài khoản"
                   required
                 />
@@ -544,11 +557,10 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
                   type="text"
                   value={form.accountHolderName}
                   onChange={e => handleInputChange('accountHolderName', e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
-                    errors.accountHolderName
-                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                      : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${errors.accountHolderName
+                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                    : 'border-gray-300'
+                    }`}
                   placeholder="Tên chủ tài khoản"
                   required
                 />
@@ -588,9 +600,8 @@ const FundEditModal: React.FC<FundEditModalProps> = ({
                         key={bank.bankCode}
                         type="button"
                         onClick={() => handleBankSelect(bank)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
-                          isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300'
-                        }`}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300'
+                          }`}
                       >
                         <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
                           {logo ? (
