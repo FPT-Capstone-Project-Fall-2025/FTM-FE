@@ -38,6 +38,7 @@ import { useErrorPopup } from '@/hooks/useErrorPopup';
 import ExceptionPopup from '@/components/shared/ExceptionPopup';
 import FamilyTreeTutorial from '@/components/shared/FamilyTreeTutorial';
 import TutorialFloatingButton from '@/components/shared/TutorialFloatingButton';
+import { getUserIdFromToken } from '@/utils/jwtUtils';
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
@@ -91,6 +92,8 @@ const FamilyTreeContent = () => {
   const permissions = usePermissions();
   const { errorPopup, showError, closeError } = useErrorPopup();
   const [showTutorial, setShowTutorial] = useState(false);
+  const auth = useAppSelector(state => state.auth);
+  const currentUserId = getUserIdFromToken(auth.token || "");
 
   // CRITICAL: Sync when Redux state changes (for persistence rehydration)
   useEffect(() => {
@@ -223,6 +226,7 @@ const FamilyTreeContent = () => {
       ...node,
       data: {
         ...node.data,
+        isCurrentUser: node.data.userId === currentUserId,
         onMemberClick: handleMemberClick,
         onAdd: permissions.canAdd('MEMBER') ? () => {
           const member = members[node.id];

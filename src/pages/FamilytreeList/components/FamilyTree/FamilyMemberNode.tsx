@@ -4,6 +4,7 @@ import { User, Plus, Trash2, HeartCrack } from "lucide-react";
 import { Handle, Position, type NodeProps } from "reactflow";
 
 interface FamilyMemberNodeData extends FamilyMember {
+  isCurrentUser?: boolean;
   onMemberClick?: (member: FamilyMember) => void;
   onAdd?: () => void;
   onDelete?: () => void;
@@ -17,6 +18,7 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
   const isDeleted = data.statusCode === 4001;
   const isDivorced = data.isDivorced;
   const isDeceased = data.isDeath;
+  const isCurrentUser = data.isCurrentUser;
 
   const bgColor = isDeceased
     ? 'bg-gray-100'
@@ -37,7 +39,6 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
     ? 'ring-4 ring-yellow-400 ring-opacity-75 shadow-2xl scale-110 animate-pulse'
     : '';
 
-  // Deleted styles: strikethrough, opacity, grayscale
   const deletedStyles = isDeleted
     ? 'opacity-90 grayscale'
     : '';
@@ -81,6 +82,11 @@ const FamilyMemberNode = ({ data, id }: NodeProps<FamilyMemberNodeData>) => {
       {isDivorced && !isDeleted && (
         <span className="absolute -top-2 right-3 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full shadow">
           ĐÃ LY HÔN
+        </span>
+      )}
+      {isCurrentUser && !isDeleted && (
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-1/4 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white whitespace-nowrap">
+          ⭐ BẠN ⭐
         </span>
       )}
 
