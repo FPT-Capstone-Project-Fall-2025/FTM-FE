@@ -600,7 +600,11 @@ const FundManagement: React.FC = () => {
       return [];
     }
 
+    console.log(donations);
+
+
     return donations
+      .filter(donation => donation.status === 'Completed')
       .slice()
       .sort(
         (a, b) =>

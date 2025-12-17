@@ -289,7 +289,7 @@ const FundOverviewSection: React.FC<FundOverviewSectionProps> = ({
           />
         ) : (
           <div className="space-y-3">
-            {transactions.map(transaction => (
+            {transactions.filter(transaction => transaction.status !== "pending").map(transaction => (
               <div
                 key={transaction.id}
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"

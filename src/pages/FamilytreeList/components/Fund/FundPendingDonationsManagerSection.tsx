@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, RefreshCw, Clock, CheckCircle, XCircle, AlertTriangle, Image } from 'lucide-react';
+import { Loader2, RefreshCw, Clock, CheckCircle, XCircle, Image } from 'lucide-react';
 import type { MyPendingDonation } from '@/types/fund';
 import { EmptyState } from './FundLoadingEmpty';
 
@@ -107,7 +107,7 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
     }
     return [];
   };
-  
+
   const proofImagesArray = normalizeProofImages(selectedDonation?.proofImages);
   const hasProofImages = proofImagesArray.length > 0;
 
@@ -147,96 +147,96 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
             />
           ) : (
             <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)] pr-2">
-            {pendingDonations.map(item => (
-              <div
-                key={item.id}
-                className="border border-amber-200 bg-amber-50 rounded-lg p-5 hover:shadow-md transition-shadow"
-              >
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-amber-700 font-semibold uppercase tracking-wide">
-                          {item.fundName || 'Quỹ chưa xác định'}
-                        </p>
-                        <h4 className="text-2xl font-bold text-gray-900 mt-1">
-                          {formatCurrency(item.donationMoney)}
-                        </h4>
-                      </div>
-                      {item.payOSOrderCode && (
-                        <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
-                          Mã đơn: {item.payOSOrderCode}
+              {pendingDonations.map(item => (
+                <div
+                  key={item.id}
+                  className="border border-amber-200 bg-amber-50 rounded-lg p-5 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm text-amber-700 font-semibold uppercase tracking-wide">
+                            {item.fundName || 'Quỹ chưa xác định'}
+                          </p>
+                          <h4 className="text-2xl font-bold text-gray-900 mt-1">
+                            {formatCurrency(item.donationMoney)}
+                          </h4>
                         </div>
-                      )}
+                        {item.payOSOrderCode && (
+                          <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+                            Mã đơn: {item.payOSOrderCode}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-600">Người đóng góp:</span>
+                          <span className="font-semibold text-gray-900 ml-2">
+                            {item.donorName || 'Ẩn danh'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Phương thức:</span>
+                          <span className="font-semibold text-gray-900 ml-2">
+                            {getPaymentMethodLabel(item.paymentMethod)}
+                          </span>
+                        </div>
+                        {item.paymentNotes && (
+                          <div className="md:col-span-2">
+                            <span className="text-gray-600">Ghi chú:</span>
+                            <span className="text-gray-900 ml-2">{item.paymentNotes}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Clock className="w-4 h-4" />
+                          <span>{formatDate(item.createdDate)}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-gray-600">Người đóng góp:</span>
-                        <span className="font-semibold text-gray-900 ml-2">
-                          {item.donorName || 'Ẩn danh'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Phương thức:</span>
-                        <span className="font-semibold text-gray-900 ml-2">
-                          {getPaymentMethodLabel(item.paymentMethod)}
-                        </span>
-                      </div>
-                      {item.paymentNotes && (
-                        <div className="md:col-span-2">
-                          <span className="text-gray-600">Ghi chú:</span>
-                          <span className="text-gray-900 ml-2">{item.paymentNotes}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Clock className="w-4 h-4" />
-                        <span>{formatDate(item.createdDate)}</span>
-                      </div>
+                    <div className="flex flex-col gap-2 lg:min-w-[200px]">
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmClick(item)}
+                        disabled={confirming || confirmingId === item.id || rejectingId === item.id}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {confirmingId === item.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Đang xác nhận...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            Xác nhận
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectClick(item)}
+                        disabled={confirming || confirmingId === item.id || rejecting || rejectingId === item.id}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {rejectingId === item.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Đang từ chối...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-4 h-4" />
+                            Từ chối
+                          </>
+                        )}
+                      </button>
                     </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 lg:min-w-[200px]">
-                    <button
-                      type="button"
-                      onClick={() => handleConfirmClick(item)}
-                      disabled={confirming || confirmingId === item.id || rejectingId === item.id}
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {confirmingId === item.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Đang xác nhận...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4" />
-                          Xác nhận
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRejectClick(item)}
-                      disabled={confirming || confirmingId === item.id || rejecting || rejectingId === item.id}
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {rejectingId === item.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Đang từ chối...
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="w-4 h-4" />
-                          Từ chối
-                        </>
-                      )}
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
             </div>
           )}
         </div>
@@ -324,15 +324,6 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
                   </p>
                 </div>
               )}
-              {!hasProofImages && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <p className="text-sm text-yellow-800">
-                    <AlertTriangle className="w-4 h-4 inline mr-1" />
-                    Chưa có ảnh chứng từ. Người dùng cần upload ảnh chứng từ trước khi bạn có thể xác nhận.
-                  </p>
-                </div>
-              )}
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Ghi chú xác nhận (tùy chọn)
@@ -360,7 +351,7 @@ const FundPendingDonationsManagerSection: React.FC<FundPendingDonationsManagerSe
               <button
                 type="button"
                 onClick={handleConfirmSubmit}
-                disabled={confirmingId === selectedDonation.id || !hasProofImages}
+                disabled={confirmingId === selectedDonation.id}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 title={!hasProofImages ? 'Người dùng cần upload ảnh chứng từ trước khi bạn có thể xác nhận' : ''}
               >
