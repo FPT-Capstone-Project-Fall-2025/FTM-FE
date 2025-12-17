@@ -213,23 +213,6 @@ const FundPendingDonationsSection: React.FC<FundPendingDonationsSectionProps> = 
                   <p className="text-sm text-gray-600">
                     Ghi chú: {item.paymentNotes?.trim() || 'Không có'}
                   </p>
-                  <div className="mt-2">
-                    {item.hasProofImages ? (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-50 border border-green-200">
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-xs font-semibold text-green-700">Đã có hình ảnh chứng từ</span>
-                      </div>
-                    ) : (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 border border-red-200">
-                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <span className="text-xs font-semibold text-red-700">Thiếu hình ảnh chứng từ</span>
-                      </div>
-                    )}
-                  </div>
                 </div>
                 <div className="text-sm text-gray-600 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-gray-400" />

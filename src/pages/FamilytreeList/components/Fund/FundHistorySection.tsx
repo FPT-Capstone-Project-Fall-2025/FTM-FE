@@ -53,7 +53,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
   const defaultExpenseStatus: ExpenseStatusFilter = 'Approved';
   const [donationStatusFilter, setDonationStatusFilter] = useState<DonationStatusFilter>(defaultDonationStatus);
   const [expenseStatusFilter, setExpenseStatusFilter] = useState<ExpenseStatusFilter>(defaultExpenseStatus);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const selectedFamilytree = useAppSelector((state) => state.familyTreeMetaData.selectedFamilyTree);
 
   // Fetch donations - fetch when fundId changes, not dependent on activeTab
@@ -586,7 +586,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
             : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
         >
-          Đóng góp ({donationsTotalCount})
+          Đóng góp
         </button>
         <button
           type="button"
@@ -599,7 +599,7 @@ const FundHistorySection: React.FC<FundHistorySectionProps> = ({
             : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
         >
-          Chi tiêu ({expensesTotalCount})
+          Chi tiêu
         </button>
       </div>
 
