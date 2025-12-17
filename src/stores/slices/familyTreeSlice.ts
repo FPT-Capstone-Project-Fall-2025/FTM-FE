@@ -5,7 +5,6 @@ import {
 } from '@reduxjs/toolkit';
 import { type Node, type Edge } from 'reactflow';
 import type { FamilyMember } from '@/types/familytree';
-// import { mapFamilyDataToFlow } from '@/utils/familyTreeMapper';
 import familytreeService from '@/services/familyTreeService';
 import { mapFamilyDataToFlowDagre } from '@/utils/familyTreeMapperDagre';
 

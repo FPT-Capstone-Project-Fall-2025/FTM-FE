@@ -1,4 +1,3 @@
-// components/SearchBar.tsx
 import { useState, useCallback, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
 import { useAppSelector } from '@/hooks/redux';
@@ -15,6 +14,8 @@ const SearchBar = ({ onSelectMember }: SearchBarProps) => {
     const [selectedIndex, setSelectedIndex] = useState(-1);
 
     const members = useAppSelector(state => state.familyTree.members);
+    console.log(members);
+
 
     // Search logic
     const handleSearch = useCallback((value: string) => {
@@ -126,14 +127,23 @@ const SearchBar = ({ onSelectMember }: SearchBarProps) => {
                                 }`}
                         >
                             <div className={`w-10 h-10 rounded-full ${member.gender === 1 ? 'bg-pink-300' : 'bg-blue-300'
-                                } flex items-center justify-center flex-shrink-0`}>
-                                <span className="text-white font-semibold">
-                                    {member.name.charAt(0)}
-                                </span>
+                                } flex items-center justify-center flex-shrink-0 overflow-hidden`}>
+                                {member.avatar ? (
+                                    <img
+                                        src={member.avatar}
+                                        alt={member.name}
+                                        className="w-full h-full object-cover"
+                                        crossOrigin="anonymous"
+                                    />
+                                ) : (
+                                    <span className="text-white font-semibold">
+                                        {member.name.charAt(0)}
+                                    </span>
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="font-medium text-gray-900">{member.name}</div>
-                                <div className="text-sm text-gray-500">Sinh: {member.birthday}</div>
+                                <div className="text-sm text-gray-500">Sinh: {new Date(member.birthday || "").toLocaleDateString('en-GB')}</div>
                             </div>
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${member.gender === 1 ? 'bg-pink-400' : 'bg-blue-400'
                                 }`} />
