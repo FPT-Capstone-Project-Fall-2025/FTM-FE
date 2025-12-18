@@ -600,13 +600,14 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                     {
                                                         label: 'Vai trò trong gia đình',
                                                         field: 'ftRole' as const,
+                                                        readOnly: true,
                                                     },
-                                                ].map(({ label, field, type, options }) => (
+                                                ].map(({ label, field, type, options, readOnly }) => (
                                                     <div key={field}>
                                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                                             {label}
                                                         </label>
-                                                        {isEditing ? (
+                                                        {isEditing && !readOnly ? (
                                                             type === 'select' ? (
                                                                 <select
                                                                     value={data[field] ?? ''}
