@@ -220,7 +220,7 @@ const AddNewNode = ({
               <div className="text-base font-bold text-white mb-1">
                 {parentMember.name}
               </div>
-              <div className="text-xs text-white font-medium opacity-90">{new Date(parentMember.birthday || "").toLocaleDateString('en-GB')}</div>
+              <div className="text-xs text-white font-medium opacity-90">{parentMember.birthday ? new Date(parentMember.birthday || "").toLocaleDateString('en-GB') : ""}</div>
             </div>
           ),
         },
