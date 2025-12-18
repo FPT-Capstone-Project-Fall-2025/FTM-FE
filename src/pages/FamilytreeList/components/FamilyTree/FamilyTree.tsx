@@ -228,14 +228,14 @@ const FamilyTreeContent = () => {
         ...node.data,
         isCurrentUser: node.data.userId === currentUserId,
         onMemberClick: handleMemberClick,
-        onAdd: permissions.canAdd('MEMBER') ? () => {
+        onAdd: permissions.canAdd('MEMBER') && !node.data.isPartner ? () => {
           const member = members[node.id];
           if (member) {
             setSelectedParent(member);
             setIsAddingNewNode(true);
           }
         } : undefined,
-        onDelete: permissions.canDelete('MEMBER') ? () => {
+        onDelete: permissions.canDelete('MEMBER') && !node.data.isPartner ? () => {
           const member = members[node.id];
           if (member) {
             setMemberToDelete(member);

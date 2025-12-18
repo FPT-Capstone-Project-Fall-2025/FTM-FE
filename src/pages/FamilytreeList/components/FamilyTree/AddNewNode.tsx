@@ -220,7 +220,7 @@ const AddNewNode = ({
               <div className="text-base font-bold text-white mb-1">
                 {parentMember.name}
               </div>
-              <div className="text-xs text-white font-medium opacity-90">{parentMember.birthday}</div>
+              <div className="text-xs text-white font-medium opacity-90">{parentMember.birthday ? new Date(parentMember.birthday || "").toLocaleDateString('en-GB') : ""}</div>
             </div>
           ),
         },
@@ -599,7 +599,7 @@ const AddNewNode = ({
             {/* Họ tên */}
             <div>
               <label className="block text-sm font-semibold text-gray-800 mb-2">
-                Họ tên
+                Họ tên <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -615,7 +615,7 @@ const AddNewNode = ({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">
-                  Giới tính
+                  Giới tính <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="gender"

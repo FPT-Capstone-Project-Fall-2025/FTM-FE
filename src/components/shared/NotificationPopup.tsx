@@ -73,13 +73,10 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const handleRespond = async (relatedId: string, accepted: boolean) => {
+    dispatch(deleteNotification(relatedId));
     try {
       const response = await notificationService.invitationResponse(relatedId, accepted);
 
-      // Delete the notification from Redux state after successful response
-      dispatch(deleteNotification(relatedId));
-
-      // Show success message
       if (accepted) {
         toast.success(response.message || 'Đã chấp nhận lời mời');
       } else {
