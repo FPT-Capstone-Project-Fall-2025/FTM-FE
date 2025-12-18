@@ -235,7 +235,7 @@ const FamilyTreeContent = () => {
             setIsAddingNewNode(true);
           }
         } : undefined,
-        onDelete: permissions.canDelete('MEMBER') && !node.data.isPartner ? () => {
+        onDelete: permissions.canDelete('MEMBER') ? () => {
           const member = members[node.id];
           if (member) {
             setMemberToDelete(member);
