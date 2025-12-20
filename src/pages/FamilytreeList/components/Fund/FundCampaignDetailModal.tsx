@@ -329,7 +329,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
                   <Users className="w-4 h-4 text-purple-500" />
                   Số người đóng góp
                 </p>
-                <p className="text-2xl font-bold text-gray-900">{totalDonations}</p>
+                <p className="text-2xl font-bold text-gray-900">{summary?.totalDonors}</p>
                 {typeof stats?.daysRemaining === 'number' && (
                   <p className="text-sm text-gray-500">
                     {stats.daysRemaining > 0 ? `${stats.daysRemaining} ngày còn lại` : 'Đã kết thúc'}
