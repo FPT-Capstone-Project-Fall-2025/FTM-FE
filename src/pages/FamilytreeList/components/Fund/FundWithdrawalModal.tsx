@@ -60,10 +60,10 @@ const FundWithdrawalModal: React.FC<FundWithdrawalModalProps> = ({
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
           <div>
             <h3 className="text-lg font-bold text-gray-900">
-              Tạo yêu cầu rút tiền
+              Tạo yêu cầu hoàn ứng chi phí
             </h3>
             <p className="text-sm text-gray-500">
-              Điền thông tin để tạo yêu cầu rút tiền từ quỹ
+              Điền thông tin để tạo yêu cầu hoàn ứng chi phí từ quỹ
             </p>
           </div>
           <button

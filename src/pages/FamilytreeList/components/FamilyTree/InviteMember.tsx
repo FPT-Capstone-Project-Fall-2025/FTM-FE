@@ -69,7 +69,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                     <div className="flex justify-between items-start mb-6">
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900">
-                                Mời thành viên tham gia cây gia phả
+                                Mời thành viên tham gia cây gia tộc
                             </h2>
                         </div>
                         <button
@@ -100,7 +100,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                                 <div className="ml-3 flex-1">
                                     <div className="font-semibold text-gray-900 text-base">Thành viên khách</div>
                                     <div className="text-gray-500 text-sm mt-1">
-                                        Không có kết nối cây gia phả và không thể chỉnh sửa thông tin gia phả
+                                        Không có kết nối cây gia tộc và không thể chỉnh sửa thông tin gia tộc
                                     </div>
                                 </div>
                             </label>
@@ -118,9 +118,9 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                                     className="mt-1 w-5 h-5 text-blue-500 flex-shrink-0"
                                 />
                                 <div className="ml-3 flex-1">
-                                    <div className="font-semibold text-gray-900 text-base">Thành viên gia phả</div>
+                                    <div className="font-semibold text-gray-900 text-base">Thành viên gia tộc</div>
                                     <div className="text-gray-500 text-sm mt-1 mb-1">
-                                        Kết nối với thông tin có sẵn trên cây gia phả của
+                                        Kết nối với thông tin có sẵn trên cây gia tộc của
                                     </div>
                                     {inviteType === 'family' && (
                                         <MemberDropdown
