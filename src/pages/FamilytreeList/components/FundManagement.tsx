@@ -962,12 +962,6 @@ const FundManagement: React.FC = () => {
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
-      // Permission check
-      if (!permissions.canAdd('FUND')) {
-        showException('Bạn không có quyền tạo yêu cầu rút tiền');
-        return;
-      }
-
       if (!activeFund) {
         showException('Vui lòng chọn quỹ trước khi tạo yêu cầu.');
         return;
