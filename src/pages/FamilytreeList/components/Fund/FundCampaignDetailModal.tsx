@@ -485,7 +485,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
                       className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
                       type="button"
                     >
-                      Tạo yêu cầu rút tiền
+                      Hoàn ứng chi phí
                     </button>
                   )}
                 </>
