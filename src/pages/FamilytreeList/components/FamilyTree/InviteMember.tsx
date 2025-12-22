@@ -69,7 +69,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                     <div className="flex justify-between items-start mb-6">
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900">
-                                Mời thành viên tham gia cây gia tộc
+                                Mời thành viên tham gia gia tộc
                             </h2>
                         </div>
                         <button
@@ -100,7 +100,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                                 <div className="ml-3 flex-1">
                                     <div className="font-semibold text-gray-900 text-base">Thành viên khách</div>
                                     <div className="text-gray-500 text-sm mt-1">
-                                        Không có kết nối cây gia tộc và không thể chỉnh sửa thông tin gia tộc
+                                        Không có kết nối với gia tộc và không thể chỉnh sửa thông tin gia tộc
                                     </div>
                                 </div>
                             </label>
@@ -120,7 +120,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                                 <div className="ml-3 flex-1">
                                     <div className="font-semibold text-gray-900 text-base">Thành viên gia tộc</div>
                                     <div className="text-gray-500 text-sm mt-1 mb-1">
-                                        Kết nối với thông tin có sẵn trên cây gia tộc của
+                                        Kết nối với thông tin có sẵn trên gia tộc của bạn
                                     </div>
                                     {inviteType === 'family' && (
                                         <MemberDropdown
@@ -137,7 +137,7 @@ const FamilyTreeInviteModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
                     {/* Email Input Section */}
                     <div className="mb-6">
                         <h3 className="text-base font-semibold text-gray-900 mb-3">
-                            Gửi lời mời tham gia cây gia phả tới:
+                            Gửi lời mời tham gia gia tộc tới:
                         </h3>
                         <div className="flex gap-4">
                             <input

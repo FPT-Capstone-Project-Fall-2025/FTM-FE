@@ -249,15 +249,22 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       };
     }
     if (current.isSame(now, 'day')) {
+      // Disable hours before current hour (not including current hour)
       const disabledHours = Array.from({ length: now.hour() }, (_, i) => i);
+
+      // For current hour, disable minutes before current minute (not including current minute)
+      // This allows selecting the current minute and any future minute
       const disabledMinutes =
         current.hour() === now.hour()
           ? Array.from({ length: now.minute() }, (_, i) => i)
-          : [];
+          : current.hour() < now.hour()
+            ? Array.from({ length: 60 }, (_, i) => i) // Disable all minutes for past hours
+            : []; // Allow all minutes for future hours
+
       return {
         disabledHours: () => disabledHours,
         disabledMinutes: () => disabledMinutes,
-        disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+        disabledSeconds: () => [], // Don't disable seconds - let user select any second
       };
     }
     return {
@@ -293,7 +300,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             : [];
         return {
           disabledHours: () => disabledHours,
-          disabledMinutes: () => disabledMinutes
+          disabledMinutes: () => disabledMinutes,
+          disabledSeconds: () => [], // Don't disable seconds
         };
       }
       // Different day should not happen for DAILY (disabledDate handles this)
@@ -301,7 +309,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       return {
         disabledHours: () => [],
         disabledMinutes: () => [],
-        disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+        disabledSeconds: () => [],
       };
     }
 
@@ -318,11 +326,13 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       const disabledMinutes =
         current.hour() === start.hour()
           ? Array.from({ length: start.minute() }, (_, i) => i)
-          : [];
+          : current.hour() < start.hour()
+            ? Array.from({ length: 60 }, (_, i) => i) // Disable all minutes for past hours
+            : []; // Allow all minutes for future hours
       return {
         disabledHours: () => disabledHours,
         disabledMinutes: () => disabledMinutes,
-        disabledSeconds: () => Array.from({ length: 60 }, (_, i) => i),
+        disabledSeconds: () => [], // Don't disable seconds - let user select any second
       };
     }
     return {
@@ -688,12 +698,18 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
       // Auto-fill start and end times if not provided
       const now = new Date();
       const defaultStartTime = new Date(now);
-      defaultStartTime.setDate(now.getDate() + 1); // Tomorrow
-      defaultStartTime.setHours(9, 0, 0, 0); // 9:00 AM
 
-      const defaultEndTime = new Date(now);
-      defaultEndTime.setDate(now.getDate() + 2); // Day after tomorrow
-      defaultEndTime.setHours(17, 0, 0, 0); // 5:00 PM
+      // If it's before 11 PM, use today with next hour
+      // Otherwise use tomorrow at 9 AM
+      if (now.getHours() < 23) {
+        defaultStartTime.setHours(now.getHours() + 1, 0, 0, 0);
+      } else {
+        defaultStartTime.setDate(now.getDate() + 1);
+        defaultStartTime.setHours(9, 0, 0, 0);
+      }
+
+      const defaultEndTime = new Date(defaultStartTime);
+      defaultEndTime.setHours(defaultStartTime.getHours() + 2, 0, 0, 0);
 
       const startTimeValue = event?.startTime
         ? formatDateTime(event.startTime)
@@ -858,6 +874,50 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         }[data.eventType?.toUpperCase() || '']
       });
 
+      // Helper to convert datetime-local string to ISO 8601 with timezone
+      // datetime-local format: "2025-12-23T04:00" (no timezone)
+      // ISO 8601 with timezone: "2025-12-23T04:00:00+07:00"
+      const toISOStringWithTimezone = (datetimeLocal: string): string => {
+        if (!datetimeLocal) return '';
+
+        // Parse the datetime-local string as a local date
+        const date = new Date(datetimeLocal);
+
+        // Get timezone offset in minutes
+        const timezoneOffset = date.getTimezoneOffset();
+        const offsetHours = Math.floor(Math.abs(timezoneOffset) / 60);
+        const offsetMinutes = Math.abs(timezoneOffset) % 60;
+        const offsetSign = timezoneOffset <= 0 ? '+' : '-';
+
+        // Format: YYYY-MM-DDTHH:mm:ss±HH:mm
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+      };
+
+      // Convert datetime-local strings to ISO 8601 with timezone
+      const startTimeISO = toISOStringWithTimezone(data.startTime);
+      const endTimeISO = toISOStringWithTimezone(data.endTime || data.startTime);
+      const recurrenceEndTimeISO = data.recurrenceEndTime ? toISOStringWithTimezone(data.recurrenceEndTime) : null;
+
+      console.log('📋 Full Form Data for Debug:', JSON.stringify({
+        ...data,
+        isAllDay,
+        isPublic,
+      }, null, 2));
+
+      console.log('🕐 Converted Times:', {
+        originalStart: data.startTime,
+        convertedStart: startTimeISO,
+        originalEnd: data.endTime,
+        convertedEnd: endTimeISO,
+      });
+
       // Get the ftId (Family Tree ID)
       // Priority: selectedFamilyTreeId -> eventSelected.ftId -> URL params -> fallback
       const isEditMode = eventSelected && (eventSelected as any).id;
@@ -910,8 +970,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           response = await eventService.updateEventWithFiles(cleanEventId, {
             name: data.name,
             eventType: eventTypeNumber,
-            startTime: data.startTime,
-            endTime: data.endTime || data.startTime,
+            startTime: startTimeISO,
+            endTime: endTimeISO,
             location: data.location || null,
             locationName: data.locationName || null,
             recurrenceType: convertRecurrenceToNumber(data.recurrence),
@@ -921,7 +981,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             referenceEventId: null,
             address: data.address || null,
             isAllDay: isAllDay,
-            recurrenceEndTime: data.recurrenceEndTime || null,
+            recurrenceEndTime: recurrenceEndTimeISO,
             isLunar: isLunar,
             targetMemberId: actualTargetMemberId || null,
             isPublic: isPublic,
@@ -934,8 +994,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           const updatePayload: ApiCreateEventPayload = {
             name: data.name,
             eventType: eventTypeNumber,
-            startTime: data.startTime,
-            endTime: data.endTime || data.startTime,
+            startTime: startTimeISO,
+            endTime: endTimeISO,
             location: data.location || null,
             locationName: data.locationName || null,
             recurrenceType: convertRecurrenceToNumber(data.recurrence),
@@ -945,7 +1005,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             referenceEventId: null,
             address: data.address || null,
             isAllDay: isAllDay,
-            recurrenceEndTime: data.recurrenceEndTime || null,
+            recurrenceEndTime: recurrenceEndTimeISO,
             isLunar: isLunar,
             targetMemberId: actualTargetMemberId || null,
             isPublic: isPublic,
@@ -964,8 +1024,8 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
         response = await eventService.createEventWithFiles({
           name: data.name,
           eventType: eventTypeNumber,
-          startTime: data.startTime,
-          endTime: data.endTime || data.startTime,
+          startTime: startTimeISO,
+          endTime: endTimeISO,
           location: data.location || null,
           locationName: data.locationName || null,
           recurrenceType: convertRecurrenceToNumber(data.recurrence),
@@ -975,7 +1035,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
           referenceEventId: null,
           address: data.address || null,
           isAllDay: isAllDay,
-          recurrenceEndTime: data.recurrenceEndTime || null,
+          recurrenceEndTime: recurrenceEndTimeISO,
           isLunar: isLunar,
           targetMemberId: actualTargetMemberId || null,
           isPublic: isPublic,
@@ -1237,26 +1297,48 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   </div>
                   {selectedMembers.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {selectedMembers
-                        .filter(member => members.some(m => m.id === member.id))
-                        .map(member => {
-                          const fullMember = members.find(m => m.id === member.id);
-                          return fullMember ? (
-                            <span
-                              key={member.id}
-                              className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
-                            >
-                              @{fullMember.fullname}
-                              <button
-                                type="button"
-                                onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))}
-                                className="ml-1 text-blue-500 hover:text-blue-700"
+                      {/* Check if all members are selected */}
+                      {selectedMembers.length === members.length ? (
+                        // Show single "everyone" tag when all members are selected
+                        <span
+                          className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 rounded-md text-sm font-medium border border-purple-200"
+                        >
+                          <span className="mr-1">👥</span>
+                          @mọi người ({members.length} thành viên)
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedMembers([]);
+                              console.log('🗑️ Cleared all selected members via everyone tag');
+                            }}
+                            className="ml-2 text-purple-600 hover:text-purple-800 transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      ) : (
+                        // Show individual member tags for partial selection
+                        selectedMembers
+                          .filter(member => members.some(m => m.id === member.id))
+                          .map(member => {
+                            const fullMember = members.find(m => m.id === member.id);
+                            return fullMember ? (
+                              <span
+                                key={member.id}
+                                className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
                               >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </span>
-                          ) : null;
-                        })}
+                                @{fullMember.fullname}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))}
+                                  className="ml-1 text-blue-500 hover:text-blue-700"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ) : null;
+                          })
+                      )}
                     </div>
                   )}
                 </>
@@ -1460,7 +1542,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
                   disabledDate={(current) => {
                     if (!current) return false;
                     // Only disable dates before today, allow today and future dates
-                    return current.isBefore(dayjs(), 'day');
+                    return current.isBefore(dayjs().startOf('day'));
                   }}
                   disabledTime={disablePastHours}
                   className={`w-full ${errors.startTime ? 'border-red-500' : ''}`}
@@ -1481,6 +1563,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             )}
           />
           {errors.startTime && <p className="text-red-500 text-sm mt-1">{errors.startTime.message}</p>}
+          <p className="text-xs text-gray-500 mt-1">Chỉ có thể chọn thời gian hiện tại hoặc tương lai</p>
         </div>
 
 
@@ -1656,6 +1739,7 @@ const GPEventDetailsModal: React.FC<GPEventDetailsModalProps> = ({
             />
             {errors.endTime && <p className="text-red-500 text-sm mt-1">{errors.endTime.message}</p>}
             {recurrenceValidationError && <p className="text-red-500 text-sm mt-1">{recurrenceValidationError}</p>}
+            <p className="text-xs text-gray-500 mt-1">Thời gian kết thúc phải sau thời gian bắt đầu</p>
           </div>
         )}
 

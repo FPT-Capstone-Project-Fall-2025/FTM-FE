@@ -45,8 +45,9 @@ const EventStatistics: React.FC = () => {
 
   // Calculate countdown for an event
   const calculateCountdown = useCallback((eventStartTime: string) => {
-    const now = moment();
-    const eventDate = moment(eventStartTime);
+    // Use startOf('day') to ensure we're counting full days from today
+    const now = moment().startOf('day');
+    const eventDate = moment(eventStartTime).startOf('day');
 
     if (eventDate.isBefore(now)) {
       return { days: 0, weeks: 0, months: 0 };
@@ -95,16 +96,22 @@ const EventStatistics: React.FC = () => {
 
         const eventResponses = await Promise.all(eventPromises);
 
-        // 3. Combine all events from all family trees
+        // 3. Combine all events from all family trees and remove duplicates
         const allEventsFromAPI: any[] = [];
+        const seenEventIds = new Set<string>();
+
         eventResponses.forEach((response: any) => {
           const eventsData = (response as any)?.data?.data || (response as any)?.data || [];
           if (Array.isArray(eventsData)) {
-            allEventsFromAPI.push(...eventsData);
+            eventsData.forEach((event: any) => {
+              // Only add event if we haven't seen this ID before
+              if (event.id && !seenEventIds.has(event.id)) {
+                seenEventIds.add(event.id);
+                allEventsFromAPI.push(event);
+              }
+            });
           }
         });
-
-        console.log(eventResponses);
 
         if (allEventsFromAPI.length === 0) {
           setEvents([]);
@@ -318,7 +325,7 @@ const EventStatistics: React.FC = () => {
               {segmentOrder.map((seg, idx) => {
                 // Use real-time countdown state
                 const value = countdown[seg as keyof typeof countdown] || 0;
-                const isCurrent = idx === 1;
+                const isCurrent = idx === 0;
 
                 // Only show current segment, hide others
                 if (!isCurrent) {

@@ -206,6 +206,18 @@ const DayCalendar = ({
             endStr = end.clone().add(1, "day").format("YYYY-MM-DD");
           }
 
+          // DEBUG: Log timezone information
+          console.log('📅 DayCalendar Event Formatting:', {
+            name: event.name,
+            rawStart: eventStartTime,
+            rawEnd: eventEndTime,
+            parsedStart: start.format('YYYY-MM-DD HH:mm:ss Z'),
+            parsedEnd: end.format('YYYY-MM-DD HH:mm:ss Z'),
+            formattedStart: startStr,
+            formattedEnd: endStr,
+            isAllDay,
+          });
+
           return {
             ...event,
             id: event.id,
@@ -396,6 +408,9 @@ const DayCalendar = ({
         dayHeaderContent={renderDayHeaderContent}
         selectable={commonVietnameseCalendarConfig.selectable}
         select={handleSelect}
+        selectConstraint={{
+          start: new Date() // Only allow selecting from current time onwards
+        }}
         nowIndicator={commonVietnameseCalendarConfig.nowIndicator}
         allDaySlot={commonVietnameseCalendarConfig.allDaySlot}
         allDayText={commonVietnameseCalendarConfig.allDayText}

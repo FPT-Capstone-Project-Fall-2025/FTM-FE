@@ -233,15 +233,18 @@ const EventPage: React.FC = () => {
   // Calendar Select Handler
   const handleSelect = useCallback(
     (selectInfo: CalendarSelectInfo) => {
-      const { start, end } = selectInfo;
+      const { start, end, allDay } = selectInfo;
 
-      // Adjust end time by subtracting 1 day for multi-day events
-      const adjustedEndTime = dayjs(end).subtract(1, 'day');
+      // For all-day events in non-day views, adjust end time by subtracting 1 day
+      // This is because FullCalendar's allDay events use exclusive end dates
+      const adjustedEnd = allDay && viewMode !== 'day'
+        ? dayjs(end).subtract(1, 'day').toDate()
+        : end;
 
       const newEvent: Partial<FamilyEvent> = {
         startTime: start,
-        endTime: viewMode !== 'day' ? adjustedEndTime.toDate() : end,
-        isAllDay: viewMode !== 'day',
+        endTime: adjustedEnd,
+        isAllDay: allDay, // Use FullCalendar's determination, not hardcoded
       } as Partial<FamilyEvent>;
 
       setEventSelected(newEvent as FamilyEvent);
@@ -536,18 +539,6 @@ const EventPage: React.FC = () => {
                           <Radio.Button value="year">Năm</Radio.Button>
                         </Radio.Group>
 
-                        {/* Weather Toggle */}
-                        {/* <button
-                            onClick={() => setViewWeather(!viewWeather)}
-                            className={`p-2.5 rounded-lg transition-colors ${viewWeather
-                              ? 'bg-blue-500 text-white border-blue-500'
-                              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                              } border`}
-                            title={viewWeather ? 'Ẩn thời tiết' : 'Hiện thời tiết'}
-                            aria-label="Toggle weather"
-                          >
-                            <CloudSun className="w-4 h-4" />
-                          </button> */}
                       </div>
                     </div>
                   </div>

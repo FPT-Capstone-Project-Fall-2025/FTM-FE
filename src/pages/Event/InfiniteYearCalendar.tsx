@@ -85,10 +85,23 @@ const InfiniteYearCalendar: React.FC<InfiniteYearCalendarProps> = ({
         });
 
         const eventArrays = await Promise.all(eventPromises);
-        const events = eventArrays.flat();
+
+        // Deduplicate events by ID before flattening
+        const allEventsFromAPI: any[] = [];
+        const seenEventIds = new Set<string>();
+
+        eventArrays.forEach((events: any[]) => {
+          events.forEach((event: any) => {
+            // Only add event if we haven't seen this ID before
+            if (event.id && !seenEventIds.has(event.id)) {
+              seenEventIds.add(event.id);
+              allEventsFromAPI.push(event);
+            }
+          });
+        });
 
         // Filter events based on selected family groups (double check)
-        const filteredEvents = events.filter((event: any) => {
+        const filteredEvents = allEventsFromAPI.filter((event: any) => {
           const eventFtId = event.ftId;
           return eventFtId && eventFilters.eventGp!.includes(eventFtId);
         });
