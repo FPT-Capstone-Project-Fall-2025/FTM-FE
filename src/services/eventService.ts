@@ -163,7 +163,7 @@ class EventService {
    */
   async getEventsByMember(ftId: string, memberId: string): Promise<ApiResponse<ApiEventResponse[]>> {
     const response = await apiService.get<ApiResponse<ApiEventResponse[]>>(
-      `/ftfamilyevent/by-member/${memberId}`,
+      `/ftfamilyevent/by-member/${memberId}?pageSize=200`,
       {
         headers: {
           'X-Ftid': ftId,
