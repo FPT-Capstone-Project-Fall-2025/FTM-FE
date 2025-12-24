@@ -61,7 +61,7 @@ const NotificationPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi xử lý lời mời');
+      toast.error(err?.response?.data?.message || 'Quá thời gian phản hồi. Vui lòng thử lại');
     } finally {
       setProcessingNotifications(prev => {
         const next = new Set(prev);
@@ -201,8 +201,8 @@ const NotificationPage: React.FC = () => {
                                 onClick={() => handleRespond(notification.relatedId, true)}
                                 disabled={processingNotifications.has(notification.relatedId)}
                                 className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${processingNotifications.has(notification.relatedId)
-                                    ? 'bg-gray-400 text-white cursor-not-allowed opacity-70'
-                                    : 'bg-black text-white hover:bg-gray-800 cursor-pointer'
+                                  ? 'bg-gray-400 text-white cursor-not-allowed opacity-70'
+                                  : 'bg-black text-white hover:bg-gray-800 cursor-pointer'
                                   }`}
                               >
                                 {processingNotifications.has(notification.relatedId) ? 'Đang xử lý...' : 'Đồng Ý'}
@@ -211,8 +211,8 @@ const NotificationPage: React.FC = () => {
                                 onClick={() => handleRespond(notification.relatedId, false)}
                                 disabled={processingNotifications.has(notification.relatedId)}
                                 className={`px-4 py-1.5 text-sm font-medium rounded-lg border border-gray-300 transition-colors ${processingNotifications.has(notification.relatedId)
-                                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                                    : 'text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                  ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                                  : 'text-gray-700 hover:bg-gray-100 cursor-pointer'
                                   }`}
                               >
                                 Từ Chối
