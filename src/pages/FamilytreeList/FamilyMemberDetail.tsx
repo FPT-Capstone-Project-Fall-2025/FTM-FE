@@ -28,12 +28,14 @@ import { useErrorPopup } from '@/hooks/useErrorPopup';
 interface MemberDetailPageProps {
     ftId: string | undefined;
     memberId: string | undefined;
+    partners?: string[];
     onClose: () => void;
 }
 
 const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
     ftId,
     memberId,
+    partners,
     onClose,
 }) => {
     const [member, setMember] = useState<FamilyNode | null>(null);
@@ -725,12 +727,17 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                                                     <input
                                                         type="checkbox"
                                                         checked={data.isDivorced ?? false}
-                                                        disabled={!isEditing}
+                                                        disabled={!isEditing || ((partners && partners.length > 0) || (data.partners && data.partners.length > 0))}
                                                         onChange={(e) => setField('isDivorced', e.target.checked)}
                                                         className="mr-2"
                                                     />
                                                     Đã ly hôn
                                                 </label>
+                                                {((partners && partners.length > 0) || (data.partners && data.partners.length > 0)) && isEditing && (
+                                                    <p className="text-xs text-blue-600 mt-1 pl-6">
+                                                        *Chỉ có thể thiết lập trạng thái ly hôn ở hồ sơ của (các) vợ/chồng
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1050,7 +1057,7 @@ const MemberDetailPage: React.FC<MemberDetailPageProps> = ({
                         </>
                     )}
                 </div>
-            </div>
+            </div >
             <ExceptionPopup
                 isOpen={errorPopup.isOpen}
                 message={errorPopup.message}

@@ -164,7 +164,8 @@ export interface FamilyNode {
   privacyData: null;
   picture: string | null;
   avatar?: File;
-  ftMemberFiles: FileProps[]
+  ftMemberFiles: FileProps[];
+  partners?: string[];
 }
 
 export interface UpdateFamilyNode {

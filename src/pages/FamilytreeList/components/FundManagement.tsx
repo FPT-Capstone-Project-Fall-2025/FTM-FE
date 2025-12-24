@@ -674,6 +674,12 @@ const FundManagement: React.FC = () => {
 
   const handleCreateFund = useCallback(
     async (form: FundCreateForm) => {
+      // Owner role check
+      if (memberRole !== 'FTOwner') {
+        showException('Chỉ chủ gia tộc mới có quyền tạo quỹ mới');
+        return;
+      }
+
       // Permission check
       if (!permissions.canAdd('FUND')) {
         showException('Bạn không có quyền tạo quỹ mới');
@@ -1876,7 +1882,7 @@ const FundManagement: React.FC = () => {
     activeFund?.lastModifiedOn || activeFund?.createdOn
   );
   const hasAnyFund = funds.length > 0;
-  const canCreateFund = !hasAnyFund && permissions.canAdd('FUND');
+  const canCreateFund = memberRole === 'FTOwner' && permissions.canAdd('FUND');
 
   const currentFundPurpose =
     activeFund?.description?.trim() ||

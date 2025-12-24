@@ -378,6 +378,7 @@ const FamilyTreeContent = () => {
             <MemberDetailPage
               ftId={selectedFamilyTree?.id}
               memberId={selectedMember?.id}
+              partners={selectedMember?.partners || []}
               onClose={handleCloseMemberDetailPage}
             />
           )}
