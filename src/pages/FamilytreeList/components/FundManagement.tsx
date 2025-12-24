@@ -877,16 +877,7 @@ const FundManagement: React.FC = () => {
             // Refresh my pending donations to show the new donation
             await refreshMyPendingDonations();
             // Switch to donations tab to show pending donations section
-            setFundTab('donations');
-            setManagementScope('fund');
             toast.success('Đã ghi nhận khoản đóng góp tiền mặt. Vui lòng upload ảnh xác minh tại tab "Yêu cầu của tôi".');
-            // Scroll to pending donations section after a short delay
-            setTimeout(() => {
-              const pendingSection = document.getElementById('my-pending-donations-section');
-              if (pendingSection) {
-                pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }, 300);
           } else {
             // Cash payment doesn't require manual confirmation (shouldn't happen, but handle it)
             await refreshFundDetails();
@@ -940,8 +931,7 @@ const FundManagement: React.FC = () => {
         await refreshFundDetails();
         await refreshAll();
         // Switch to overview tab
-        setFundTab('overview');
-        setManagementScope('fund');
+
         setRecentDonation(null);
         setIsProofModalOpen(false);
       } catch (error: any) {
@@ -1043,8 +1033,7 @@ const FundManagement: React.FC = () => {
         await refreshFundDetails();
         await refreshPendingExpenses();
         // Switch to approvals tab
-        setFundTab('approvals');
-        setManagementScope('fund');
+
       } catch (error: any) {
         console.error('Create withdrawal failed:', error);
         showException(
