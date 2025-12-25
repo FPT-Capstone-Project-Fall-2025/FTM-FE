@@ -105,7 +105,6 @@ const renderExpenses = (
     );
   }
 
-  console.log(expenses);
 
   return (
     <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
@@ -118,7 +117,7 @@ const renderExpenses = (
           <div className="flex items-center justify-between text-sm">
             <span className="text-red-600 font-semibold">{formatCurrency(expense.expenseAmount ?? 0)}</span>
           </div>
-          {expense.notes && <p className="text-xs text-gray-500 mt-2">{expense.notes}</p>}
+          {expense.expenseDescription && <p className="text-xs text-gray-500 mt-2">{expense.expenseDescription}</p>}
         </div>
       ))}
     </div>
@@ -155,6 +154,9 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
 
   // Early return AFTER all hooks
   if (!isOpen) return null;
+
+  console.log("Fundcampaigndetail", detail);
+
 
   // Compute status by comparing start/end date with current time
   let statusKey: StatusKey = 'active';
@@ -454,7 +456,7 @@ const FundCampaignDetailModal: React.FC<FundCampaignDetailModalProps> = ({
                 <h5 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <TrendingDown className="w-5 h-5 text-red-500" /> Chi tiêu chiến dịch
                 </h5>
-                {renderExpenses(detail.expenses, formatCurrency, formatDate)}
+                {renderExpenses(detail.expenses.filter(e => e.approvalStatus === 'Approved'), formatCurrency, formatDate)}
               </div>
             </div>
 
