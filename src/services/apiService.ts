@@ -10,7 +10,7 @@ import type {
 
 // Environment variables
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
+  import.meta.env.VITE_API_BASE_URL || 'https://api.familytree.io.vn/api';
 const API_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT) || 10000;
 
 // Create axios instance
