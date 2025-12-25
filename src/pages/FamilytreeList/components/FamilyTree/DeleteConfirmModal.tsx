@@ -55,7 +55,7 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-lg text-gray-900">{member.name}</h3>
-              <p className="text-sm text-gray-600">Ngày sinh: {member.birthday || 'Không rõ'}</p>
+              <p className="text-sm text-gray-600">{member.birthday ? new Date(member.birthday).toLocaleDateString('en-GB') : 'Không rõ'}</p>
             </div>
           </div>
 
