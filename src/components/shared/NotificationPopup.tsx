@@ -84,7 +84,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose, 
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi xử lý lời mời');
+      toast.error(err?.response?.data?.message);
     }
   };
 
