@@ -470,6 +470,7 @@ const FundManagement: React.FC = () => {
       const openCampaignDetail = async () => {
         try {
           const detail = await loadCampaignDetail(campaignId);
+          console.log("detail check", detail);
           if (detail) {
             setCampaignDetail(detail);
             setManagementScope('campaign');
@@ -2108,7 +2109,6 @@ const FundManagement: React.FC = () => {
             // Hide tab if it requires owner role and user is not owner AND does not have fund update permission
             if (tab.requiresOwner) {
               if (memberRole === 'FTOwner') return true;
-              if (hasFundUpdatePermission) return true;
               return false;
             }
             return true;
