@@ -5,7 +5,7 @@ import { setConnectionStatus } from "@/stores/slices/connectionSlice";
 
 let connection: HubConnection | null = null;
 let isConnecting = false;
-const HUB_URL = "https://be.dev.familytree.io.vn/hubs/notification";
+const HUB_URL = "https://api.familytree.io.vn/hubs/notification";
 
 export const initNotificationHub = async (token: string, dispatch: AppDispatch) => {
   if (connection && connection.state !== HubConnectionState.Disconnected) {

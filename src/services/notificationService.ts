@@ -4,7 +4,7 @@ import api from "./apiService";
 import type { Notification } from "@/types/notification";
 import { addNotification } from "@/stores/slices/notificationSlice";
 
-const HUB_URL = "https://be.dev.familytree.io.vn/hubs/notification";
+const HUB_URL = "https://api.familytree.io.vn/hubs/notification";
 
 const notificationService = {
     async init(token: string, dispatch: any) {

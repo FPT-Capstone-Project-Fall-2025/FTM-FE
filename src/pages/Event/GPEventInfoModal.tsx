@@ -16,7 +16,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import ExceptionPopup from '@/components/shared/ExceptionPopup';
 
 // API Base URL for images
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://be.dev.familytree.io.vn/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.familytree.io.vn/api';
 const PREFIX_URL = API_BASE_URL.replace('/api', ''); // Remove /api suffix for image paths
 
 /**
